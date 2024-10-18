@@ -308,10 +308,10 @@
 };
 
 <span class="doccomment">/// Map from views to leaves for a single node, allowing multiple leaves for each view (because the node may a priori send us multiple leaves for a given view).
-</span><span class="kw">pub type </span>NodeMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, Vec&lt;Leaf&lt;TYPES&gt;&gt;&gt;;
+</span><span class="kw">pub type </span>NodeMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Vec&lt;Leaf&lt;TYPES&gt;&gt;&gt;;
 
 <span class="doccomment">/// A sanitized map from views to leaves for a single node, with only a single leaf per view.
-</span><span class="kw">pub type </span>NodeMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, Leaf&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>NodeMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Leaf&lt;TYPES&gt;&gt;;
 
 <span class="doccomment">/// Validate that the `NodeMap` only has a single leaf per view.
 </span><span class="kw">fn </span>sanitize_node_map&lt;TYPES: NodeType&gt;(
@@ -352,7 +352,7 @@
         .map(|((a, b), c)| (a, b, c));
 
     <span class="kw">let </span><span class="kw-2">mut </span>decided_upgrade_certificate = <span class="prelude-val">None</span>;
-    <span class="kw">let </span><span class="kw-2">mut </span>view_decided = TYPES::Time::new(<span class="number">0</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>view_decided = TYPES::View::new(<span class="number">0</span>);
 
     <span class="kw">for </span>(grandparent, _parent, child) <span class="kw">in </span>leaf_triples {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = grandparent.upgrade_certificate() {
@@ -428,7 +428,7 @@
     <span class="prelude-val">Ok</span>(result)
 }
 
-<span class="kw">pub type </span>ViewMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, BTreeMap&lt;usize, Leaf&lt;TYPES&gt;&gt;&gt;;
+<span class="kw">pub type </span>ViewMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, BTreeMap&lt;usize, Leaf&lt;TYPES&gt;&gt;&gt;;
 
 <span class="comment">// Invert the network map by interchanging the roles of the node_id and view number.
 //
@@ -455,7 +455,7 @@
 }
 
 <span class="doccomment">/// A view map, sanitized to have exactly one leaf per view.
-</span><span class="kw">pub type </span>ViewMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time, Leaf&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>ViewMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Leaf&lt;TYPES&gt;&gt;;
 
 <span class="kw">fn </span>sanitize_view_map&lt;TYPES: NodeType&gt;(
     view_map: <span class="kw-2">&amp;</span>ViewMap&lt;TYPES&gt;,

@@ -395,7 +395,7 @@
 </span><span class="doccomment">/// Data used for a timeout vote.
 </span><span class="kw">pub struct </span>TimeoutData&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// View the timeout is for
-    </span><span class="kw">pub </span>view: TYPES::Time,
+    </span><span class="kw">pub </span>view: TYPES::View,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a VID vote.
@@ -409,7 +409,7 @@
     <span class="doccomment">/// The relay this vote is intended for
     </span><span class="kw">pub </span>relay: u64,
     <span class="doccomment">/// The view number we are trying to sync on
-    </span><span class="kw">pub </span>round: TYPES::Time,
+    </span><span class="kw">pub </span>round: TYPES::View,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Commit vote.
@@ -417,7 +417,7 @@
     <span class="doccomment">/// The relay this vote is intended for
     </span><span class="kw">pub </span>relay: u64,
     <span class="doccomment">/// The view number we are trying to sync on
-    </span><span class="kw">pub </span>round: TYPES::Time,
+    </span><span class="kw">pub </span>round: TYPES::View,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Finalize vote.
@@ -425,7 +425,7 @@
     <span class="doccomment">/// The relay this vote is intended for
     </span><span class="kw">pub </span>relay: u64,
     <span class="doccomment">/// The view number we are trying to sync on
-    </span><span class="kw">pub </span>round: TYPES::Time,
+    </span><span class="kw">pub </span>round: TYPES::View,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Upgrade vote.
@@ -436,13 +436,13 @@
     </span><span class="kw">pub </span>new_version: Version,
     <span class="doccomment">/// The last view in which we are allowed to reach a decide on this upgrade.
     /// If it is not decided by that view, we discard it.
-    </span><span class="kw">pub </span>decide_by: TYPES::Time,
+    </span><span class="kw">pub </span>decide_by: TYPES::View,
     <span class="doccomment">/// A unique identifier for the specific protocol being voted on.
     </span><span class="kw">pub </span>new_version_hash: Vec&lt;u8&gt;,
     <span class="doccomment">/// The last block for which the old version will be in effect.
-    </span><span class="kw">pub </span>old_version_last_view: TYPES::Time,
+    </span><span class="kw">pub </span>old_version_last_view: TYPES::View,
     <span class="doccomment">/// The first block for which the new version will be in effect.
-    </span><span class="kw">pub </span>new_version_first_view: TYPES::Time,
+    </span><span class="kw">pub </span>new_version_first_view: TYPES::View,
 }
 
 <span class="doccomment">/// Marker trait for data or commitments that can be voted on.
@@ -477,11 +477,11 @@
     <span class="doccomment">/// The leaf commitment being voted on.
     </span><span class="kw">pub </span>data: DATA,
     <span class="doccomment">/// The view this vote was cast for
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable + <span class="lifetime">'static</span>&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>SimpleVote&lt;TYPES, DATA&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES <span class="kw">as </span>NodeType&gt;::View {
         <span class="self">self</span>.view_number
     }
 }
@@ -512,7 +512,7 @@
     /// If we are unable to sign the data
     </span><span class="kw">pub async fn </span>create_signed_vote&lt;V: Versions&gt;(
         data: DATA,
-        view: TYPES::Time,
+        view: TYPES::View,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
@@ -541,7 +541,7 @@
     </span>data: DATA,
 
     <span class="doccomment">/// view number
-    </span>view: TYPES::Time,
+    </span>view: TYPES::View,
 
     <span class="doccomment">/// version applied to the view number
     </span>version: Version,
@@ -558,7 +558,7 @@
     /// Returns an error if `upgrade_lock.version(view)` is unable to return a version we support
     </span><span class="kw">pub async fn </span>new(
         data: DATA,
-        view: TYPES::Time,
+        view: TYPES::View,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>version = upgrade_lock.version(view).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -576,7 +576,7 @@
     /// This function cannot error, but may use an invalid version.
     </span><span class="kw">pub async fn </span>new_infallible(
         data: DATA,
-        view: TYPES::Time,
+        view: TYPES::View,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>version = upgrade_lock.version_infallible(view).<span class="kw">await</span>;
@@ -657,7 +657,7 @@
 
 <span class="doccomment">/// This implements commit for all the types which contain a view and relay public key.
 </span><span class="kw">fn </span>view_and_relay_commit&lt;TYPES: NodeType, T: Committable&gt;(
-    view: TYPES::Time,
+    view: TYPES::View,
     relay: u64,
     tag: <span class="kw-2">&amp;</span>str,
 ) -&gt; Commitment&lt;T&gt; {

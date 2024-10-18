@@ -534,6 +534,23 @@
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -582,10 +599,10 @@
 <span class="doccomment">/// The state for the quorum proposal task.
 </span><span class="kw">pub struct </span>QuorumProposalTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Latest view number that has been proposed for.
-    </span><span class="kw">pub </span>latest_proposed_view: TYPES::Time,
+    </span><span class="kw">pub </span>latest_proposed_view: TYPES::View,
 
     <span class="doccomment">/// Table for the in-progress proposal dependency tasks.
-    </span><span class="kw">pub </span>proposal_dependencies: HashMap&lt;TYPES::Time, JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>proposal_dependencies: HashMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
 
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
@@ -643,7 +660,7 @@
     </span><span class="kw">fn </span>create_event_dependency(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         dependency_type: ProposalDependency,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         EventDependency::new(
@@ -717,7 +734,7 @@
     <span class="doccomment">/// Creates the requisite dependencies for the Quorum Proposal task. It also handles any event forwarding.
     </span><span class="kw">fn </span>create_and_complete_dependencies(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) -&gt; AndDependency&lt;Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt; {
@@ -819,13 +836,14 @@
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view), name = <span class="string">"Create dependency task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">fn </span>create_dependency_task_if_new(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) {
         <span class="comment">// Don't even bother making the task if we are not entitled to propose anyway.
-        </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view_number) != <span class="self">self</span>.public_key {
+        </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view_number, epoch_number) != <span class="self">self</span>.public_key {
             <span class="macro">tracing::trace!</span>(<span class="string">"We are not the leader of the next view"</span>);
             <span class="kw">return</span>;
         }
@@ -869,7 +887,7 @@
 
     <span class="doccomment">/// Update the latest proposed view number.
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view), name = <span class="string">"Update latest proposed view"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">async fn </span>update_latest_proposed_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::Time) -&gt; bool {
+    </span><span class="kw">async fn </span>update_latest_proposed_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::View) -&gt; bool {
         <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view &lt; <span class="kw-2">*</span>new_view {
             <span class="macro">debug!</span>(
                 <span class="string">"Updating latest proposed view from {} to {}"</span>,
@@ -878,7 +896,7 @@
 
             <span class="comment">// Cancel the old dependency tasks.
             </span><span class="kw">for </span>view <span class="kw">in </span>(<span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view + <span class="number">1</span>)..=(<span class="kw-2">*</span>new_view) {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.proposal_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::Time::new(view))
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.proposal_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::View::new(view))
                 {
                     cancel_task(dependency).<span class="kw">await</span>;
                 }
@@ -916,9 +934,11 @@
             HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert.clone() {
                 either::Right(timeout_cert) =&gt; {
                     <span class="kw">let </span>view_number = timeout_cert.view_number + <span class="number">1</span>;
+                    <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                     <span class="self">self</span>.create_dependency_task_if_new(
                         view_number,
+                        epoch_number,
                         event_receiver,
                         event_sender,
                         Arc::clone(<span class="kw-2">&amp;</span>event),
@@ -947,17 +967,24 @@
                 _auction_result,
             ) =&gt; {
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
+                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
+                    epoch_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
+                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="kw">if </span>!certificate
-                    .is_valid_cert(<span class="self">self</span>.quorum_membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .is_valid_cert(
+                        <span class="self">self</span>.quorum_membership.as_ref(),
+                        epoch_number,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                    )
                     .<span class="kw">await
                 </span>{
                     <span class="macro">warn!</span>(
@@ -971,6 +998,7 @@
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
+                    epoch_number,
                     event_receiver,
                     event_sender,
                     event,
@@ -983,9 +1011,11 @@
                 </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view_number).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
                 }
+                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number + <span class="number">1</span>,
+                    epoch_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
@@ -1000,9 +1030,11 @@
             }
             HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>view_number = vid_share.data.view_number();
+                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
+                    epoch_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
@@ -1026,8 +1058,10 @@
             }
             HotShotEvent::HighQcUpdated(qc) =&gt; {
                 <span class="kw">let </span>view_number = qc.view_number() + <span class="number">1</span>;
+                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
+                    epoch_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),

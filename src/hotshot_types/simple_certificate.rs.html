@@ -266,6 +266,9 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -346,7 +349,7 @@
     <span class="doccomment">/// commitment of all the votes this cert should be signed over
     </span>vote_commitment: Commitment&lt;VOTEABLE&gt;,
     <span class="doccomment">/// Which view this QC relates to
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
     <span class="doccomment">/// assembled signature for certificate aggregation
     </span><span class="kw">pub </span>signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType&gt;,
     <span class="doccomment">/// phantom data for `THRESHOLD` and `TYPES`
@@ -360,7 +363,7 @@
     </span><span class="kw">pub fn </span>new(
         data: VOTEABLE,
         vote_commitment: Commitment&lt;VOTEABLE&gt;,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         signatures: <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType&gt;,
         pd: PhantomData&lt;(TYPES, THRESHOLD)&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -401,7 +404,7 @@
         vote_commitment: Commitment&lt;VersionedVoteData&lt;TYPES, VOTEABLE, V&gt;&gt;,
         data: <span class="self">Self</span>::Voteable,
         sig: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType,
-        view: TYPES::Time,
+        view: TYPES::View,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>vote_commitment_bytes: [u8; <span class="number">32</span>] = vote_commitment.into();
 
@@ -416,13 +419,14 @@
     <span class="kw">async fn </span>is_valid_cert&lt;MEMBERSHIP: Membership&lt;TYPES&gt;, V: Versions&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: TYPES::Epoch,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; bool {
-        <span class="kw">if </span><span class="self">self</span>.view_number == TYPES::Time::genesis() {
+        <span class="kw">if </span><span class="self">self</span>.view_number == TYPES::View::genesis() {
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
         <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
-            membership.stake_table(),
+            membership.stake_table(epoch),
             U256::from(<span class="self">Self</span>::threshold(membership)),
         );
         <span class="kw">let </span><span class="prelude-val">Ok</span>(commit) = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await else </span>{
@@ -455,7 +459,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">'static</span>, THRESHOLD: Threshold&lt;TYPES&gt;&gt;
     HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE, THRESHOLD&gt;
 {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
 }
@@ -473,7 +477,7 @@
     /// Returns an error when the certificate is no longer relevant
     </span><span class="kw">pub async fn </span>is_relevant(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>decided_upgrade_certificate_read = decided_upgrade_certificate.read().<span class="kw">await</span>;
@@ -494,11 +498,13 @@
     </span><span class="kw">pub async fn </span>validate&lt;V: Versions&gt;(
         upgrade_certificate: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;,
         quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cert) = upgrade_certificate {
             <span class="macro">ensure!</span>(
-                cert.is_valid_cert(quorum_membership, upgrade_lock).<span class="kw">await</span>,
+                cert.is_valid_cert(quorum_membership, epoch, upgrade_lock)
+                    .<span class="kw">await</span>,
                 <span class="string">"Invalid upgrade certificate."
             </span>);
             <span class="prelude-val">Ok</span>(())
@@ -509,7 +515,7 @@
 
     <span class="doccomment">/// Given an upgrade certificate and a view, tests whether the view is in the period
     /// where we are upgrading, which requires that we propose with null blocks.
-    </span><span class="kw">pub fn </span>upgrading_in(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; bool {
+    </span><span class="kw">pub fn </span>upgrading_in(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View) -&gt; bool {
         view &gt; <span class="self">self</span>.data.old_version_last_view &amp;&amp; view &lt; <span class="self">self</span>.data.new_version_first_view
     }
 }

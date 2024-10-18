@@ -833,6 +833,30 @@
 <a href="#831" id="831">831</a>
 <a href="#832" id="832">832</a>
 <a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -878,7 +902,7 @@
 
 <span class="doccomment">/// A type alias for `BTreeMap&lt;T::Time, HashMap&lt;T::SignatureKey, Proposal&lt;T, VidDisperseShare&lt;T&gt;&gt;&gt;&gt;`
 </span><span class="kw">pub type </span>VidShares&lt;TYPES&gt; = BTreeMap&lt;
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
 
@@ -1107,27 +1131,30 @@
 </span><span class="attr">#[derive(custom_debug::Debug, Clone)]
 </span><span class="kw">pub struct </span>Consensus&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The validated states that are currently loaded in memory.
-    </span>validated_state_map: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+    </span>validated_state_map: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// All the VID shares we've received for current and future views.
     </span>vid_shares: VidShares&lt;TYPES&gt;,
 
     <span class="doccomment">/// All the DA certs we've received for current and future views.
     /// view -&gt; DA cert
-    </span>saved_da_certs: HashMap&lt;TYPES::Time, DaCertificate&lt;TYPES&gt;&gt;,
+    </span>saved_da_certs: HashMap&lt;TYPES::View, DaCertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// View number that is currently on.
-    </span>cur_view: TYPES::Time,
+    </span>cur_view: TYPES::View,
+
+    <span class="doccomment">/// Epoch number that is currently on.
+    </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
-    </span>last_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    </span>last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// last view had a successful decide event
-    </span>last_decided_view: TYPES::Time,
+    </span>last_decided_view: TYPES::View,
 
     <span class="doccomment">/// The `locked_qc` view number
-    </span>locked_view: TYPES::Time,
+    </span>locked_view: TYPES::View,
 
     <span class="doccomment">/// Map of leaf hash -&gt; leaf
     /// - contains undecided leaves
@@ -1137,12 +1164,12 @@
     <span class="doccomment">/// Bundle of views which we performed the most recent action
     /// visibible to the network.  Actions are votes and proposals
     /// for DA and Quorum
-    </span>last_actions: HotShotActionViews&lt;TYPES::Time&gt;,
+    </span>last_actions: HotShotActionViews&lt;TYPES::View&gt;,
 
     <span class="doccomment">/// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    </span>saved_payloads: BTreeMap&lt;TYPES::Time, Arc&lt;[u8]&gt;&gt;,
+    </span>saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
 
     <span class="doccomment">/// the highqc per spec
     </span>high_qc: QuorumCertificate&lt;TYPES&gt;,
@@ -1222,14 +1249,15 @@
     <span class="doccomment">/// Constructor.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>new(
-        validated_state_map: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
-        cur_view: TYPES::Time,
-        locked_view: TYPES::Time,
-        last_decided_view: TYPES::Time,
-        last_actioned_view: TYPES::Time,
-        last_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+        validated_state_map: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
+        cur_view: TYPES::View,
+        cur_epoch: TYPES::Epoch,
+        locked_view: TYPES::View,
+        last_decided_view: TYPES::View,
+        last_actioned_view: TYPES::View,
+        last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         saved_leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
-        saved_payloads: BTreeMap&lt;TYPES::Time, Arc&lt;[u8]&gt;&gt;,
+        saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
         high_qc: QuorumCertificate&lt;TYPES&gt;,
         metrics: Arc&lt;ConsensusMetricsValue&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -1238,6 +1266,7 @@
             vid_shares: BTreeMap::new(),
             saved_da_certs: HashMap::new(),
             cur_view,
+            cur_epoch,
             last_decided_view,
             last_proposals,
             last_actions: HotShotActionViews::from_view(last_actioned_view),
@@ -1250,17 +1279,22 @@
     }
 
     <span class="doccomment">/// Get the current view.
-    </span><span class="kw">pub fn </span>cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    </span><span class="kw">pub fn </span>cur_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.cur_view
     }
 
+    <span class="doccomment">/// Get the current epoch.
+    </span><span class="kw">pub fn </span>cur_epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch {
+        <span class="self">self</span>.cur_epoch
+    }
+
     <span class="doccomment">/// Get the last decided view.
-    </span><span class="kw">pub fn </span>last_decided_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    </span><span class="kw">pub fn </span>last_decided_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.last_decided_view
     }
 
     <span class="doccomment">/// Get the locked view.
-    </span><span class="kw">pub fn </span>locked_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    </span><span class="kw">pub fn </span>locked_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.locked_view
     }
 
@@ -1270,7 +1304,7 @@
     }
 
     <span class="doccomment">/// Get the validated state map.
-    </span><span class="kw">pub fn </span>validated_state_map(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>validated_state_map(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.validated_state_map
     }
 
@@ -1280,7 +1314,7 @@
     }
 
     <span class="doccomment">/// Get the saved payloads.
-    </span><span class="kw">pub fn </span>saved_payloads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::Time, Arc&lt;[u8]&gt;&gt; {
+    </span><span class="kw">pub fn </span>saved_payloads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.saved_payloads
     }
 
@@ -1290,19 +1324,19 @@
     }
 
     <span class="doccomment">/// Get the saved DA certs.
-    </span><span class="kw">pub fn </span>saved_da_certs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;TYPES::Time, DaCertificate&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>saved_da_certs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;TYPES::View, DaCertificate&lt;TYPES&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.saved_da_certs
     }
 
     <span class="doccomment">/// Get the map of our recent proposals
-    </span><span class="kw">pub fn </span>last_proposals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt; {
+    </span><span class="kw">pub fn </span>last_proposals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.last_proposals
     }
 
     <span class="doccomment">/// Update the current view.
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing view number.
-    </span><span class="kw">pub fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             view_number &gt; <span class="self">self</span>.cur_view,
             <span class="string">"New view isn't newer than the current view."
@@ -1311,10 +1345,22 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="doccomment">/// Update the current epoch.
+    /// # Errors
+    /// Can return an error when the new epoch_number is not higher than the existing epoch number.
+    </span><span class="kw">pub fn </span>update_epoch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, epoch_number: TYPES::Epoch) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="macro">ensure!</span>(
+            epoch_number &gt; <span class="self">self</span>.cur_epoch,
+            <span class="string">"New epoch isn't newer than the current epoch."
+        </span>);
+        <span class="self">self</span>.cur_epoch = epoch_number;
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="doccomment">/// Update the last actioned view internally for votes and proposals
     ///
     /// Returns true if the action is for a newer view than the last action of that type
-    </span><span class="kw">pub fn </span>update_action(<span class="kw-2">&amp;mut </span><span class="self">self</span>, action: HotShotAction, view: TYPES::Time) -&gt; bool {
+    </span><span class="kw">pub fn </span>update_action(<span class="kw-2">&amp;mut </span><span class="self">self</span>, action: HotShotAction, view: TYPES::View) -&gt; bool {
         <span class="kw">let </span>old_view = <span class="kw">match </span>action {
             HotShotAction::Vote =&gt; <span class="kw-2">&amp;mut </span><span class="self">self</span>.last_actions.voted,
             HotShotAction::Propose =&gt; <span class="kw-2">&amp;mut </span><span class="self">self</span>.last_actions.proposed,
@@ -1356,7 +1402,7 @@
                 &gt; <span class="self">self
                     </span>.last_proposals
                     .last_key_value()
-                    .map_or(TYPES::Time::genesis(), |(k, <span class="kw">_</span>)| { <span class="kw-2">*</span>k }),
+                    .map_or(TYPES::View::genesis(), |(k, <span class="kw">_</span>)| { <span class="kw-2">*</span>k }),
             <span class="string">"New view isn't newer than the previously proposed view."
         </span>);
         <span class="self">self</span>.last_proposals
@@ -1368,7 +1414,7 @@
     ///
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing decided view number.
-    </span><span class="kw">pub fn </span>update_last_decided_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>update_last_decided_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             view_number &gt; <span class="self">self</span>.last_decided_view,
             <span class="string">"New view isn't newer than the previously decided view."
@@ -1381,7 +1427,7 @@
     ///
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing locked view number.
-    </span><span class="kw">pub fn </span>update_locked_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>update_locked_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             view_number &gt; <span class="self">self</span>.locked_view,
             <span class="string">"New view isn't newer than the previously locked view."
@@ -1397,7 +1443,7 @@
     /// with the same view number.
     </span><span class="kw">pub fn </span>update_validated_state_map(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         new_view: View&lt;TYPES&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(existing_view) = <span class="self">self</span>.validated_state_map().get(<span class="kw-2">&amp;</span>view_number) {
@@ -1442,7 +1488,7 @@
     /// Can return an error when there's an existing payload corresponding to the same view number.
     </span><span class="kw">pub fn </span>update_saved_payloads(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         encoded_transaction: Arc&lt;[u8]&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
@@ -1470,7 +1516,7 @@
     <span class="doccomment">/// Add a new entry to the vid_shares map.
     </span><span class="kw">pub fn </span>update_vid_shares(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         disperse: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     ) {
         <span class="self">self</span>.vid_shares
@@ -1480,7 +1526,7 @@
     }
 
     <span class="doccomment">/// Add a new entry to the da_certs map.
-    </span><span class="kw">pub fn </span>update_saved_da_certs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::Time, cert: DaCertificate&lt;TYPES&gt;) {
+    </span><span class="kw">pub fn </span>update_saved_da_certs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View, cert: DaCertificate&lt;TYPES&gt;) {
         <span class="self">self</span>.saved_da_certs.insert(view_number, cert);
     }
 
@@ -1489,8 +1535,8 @@
     /// If the leaf or its ancestors are not found in storage
     </span><span class="kw">pub fn </span>visit_leaf_ancestors&lt;F&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        start_from: TYPES::Time,
-        terminator: Terminator&lt;TYPES::Time&gt;,
+        start_from: TYPES::View,
+        terminator: Terminator&lt;TYPES::View&gt;,
         ok_when_finished: bool,
         <span class="kw-2">mut </span>f: F,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt;
@@ -1549,7 +1595,7 @@
     /// `saved_payloads` and `validated_state_map` fields of `Consensus`.
     /// # Panics
     /// On inconsistent stored entries
-    </span><span class="kw">pub fn </span>collect_garbage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, old_anchor_view: TYPES::Time, new_anchor_view: TYPES::Time) {
+    </span><span class="kw">pub fn </span>collect_garbage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, old_anchor_view: TYPES::View, new_anchor_view: TYPES::View) {
         <span class="comment">// state check
         </span><span class="kw">let </span>anchor_entry = <span class="self">self
             </span>.validated_state_map
@@ -1593,7 +1639,7 @@
 
     <span class="doccomment">/// Gets the validated state with the given view number, if in the state map.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;TYPES::ValidatedState&gt;&gt; {
+    </span><span class="kw">pub fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;TYPES::ValidatedState&gt;&gt; {
         <span class="kw">match </span><span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>view_number) {
             <span class="prelude-val">Some</span>(view) =&gt; view.state(),
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
@@ -1602,7 +1648,7 @@
 
     <span class="doccomment">/// Gets the validated state and state delta with the given view number, if in the state map.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>state_and_delta(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; StateAndDelta&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>state_and_delta(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::View) -&gt; StateAndDelta&lt;TYPES&gt; {
         <span class="kw">match </span><span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>view_number) {
             <span class="prelude-val">Some</span>(view) =&gt; view.state_and_delta(),
             <span class="prelude-val">None </span>=&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
@@ -1630,14 +1676,16 @@
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"Consensus"</span>, fields(view = <span class="kw-2">*</span>view))]
     </span><span class="kw">pub async fn </span>calculate_and_update_vid(
         consensus: OuterConsensus&lt;TYPES&gt;,
-        view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+        view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
         membership: Arc&lt;TYPES::Membership&gt;,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        epoch: TYPES::Epoch,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
         <span class="kw">let </span>consensus = consensus.upgradable_read().<span class="kw">await</span>;
         <span class="kw">let </span>txns = consensus.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>;
         <span class="kw">let </span>vid =
-            VidDisperse::calculate_vid_disperse(Arc::clone(txns), <span class="kw-2">&amp;</span>membership, view, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+            VidDisperse::calculate_vid_disperse(Arc::clone(txns), <span class="kw-2">&amp;</span>membership, view, epoch, <span class="prelude-val">None</span>)
+                .<span class="kw">await</span>;
         <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid);
         <span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).<span class="kw">await</span>;
         <span class="kw">for </span>share <span class="kw">in </span>shares {
@@ -1662,7 +1710,7 @@
     <span class="doccomment">/// Builder fee data
     </span><span class="kw">pub </span>fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// View number this block is for
-    </span><span class="kw">pub </span>block_view: TYPES::Time,
+    </span><span class="kw">pub </span>block_view: TYPES::View,
     <span class="doccomment">/// auction result that the block was produced from, if any
     </span><span class="kw">pub </span>auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
 }

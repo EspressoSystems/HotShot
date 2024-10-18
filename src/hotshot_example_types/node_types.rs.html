@@ -266,13 +266,22 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>hotshot::traits::{
+</span><span class="kw">use crate</span>::{
+    auction_results_provider_types::{TestAuctionResult, TestAuctionResultsProvider},
+    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
+    state_types::{TestInstanceState, TestValidatedState},
+    storage_types::TestStorage,
+};
+<span class="kw">use </span>hotshot::traits::{
     election::{
         randomized_committee::RandomizedCommittee, static_committee::StaticCommittee,
         static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews,
@@ -280,6 +289,7 @@
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
     NodeImplementation,
 };
+<span class="kw">use </span>hotshot_types::data::EpochNumber;
 <span class="kw">use </span>hotshot_types::{
     data::ViewNumber,
     signature_key::{BLSPubKey, BuilderKey},
@@ -287,13 +297,6 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>vbs::version::StaticVersion;
-
-<span class="kw">use crate</span>::{
-    auction_results_provider_types::{TestAuctionResult, TestAuctionResultsProvider},
-    block_types::{TestBlockHeader, TestBlockPayload, TestTransaction},
-    state_types::{TestInstanceState, TestValidatedState},
-    storage_types::TestStorage,
-};
 
 <span class="attr">#[derive(
     Copy,
@@ -313,7 +316,8 @@
 </span><span class="kw">pub struct </span>TestTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTypes {
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
-    <span class="kw">type </span>Time = ViewNumber;
+    <span class="kw">type </span>View = ViewNumber;
+    <span class="kw">type </span>Epoch = EpochNumber;
     <span class="kw">type </span>BlockHeader = TestBlockHeader;
     <span class="kw">type </span>BlockPayload = TestBlockPayload;
     <span class="kw">type </span>SignatureKey = BLSPubKey;
@@ -342,7 +346,8 @@
 </span><span class="kw">pub struct </span>TestTypesRandomizedLeader;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTypesRandomizedLeader {
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
-    <span class="kw">type </span>Time = ViewNumber;
+    <span class="kw">type </span>View = ViewNumber;
+    <span class="kw">type </span>Epoch = EpochNumber;
     <span class="kw">type </span>BlockHeader = TestBlockHeader;
     <span class="kw">type </span>BlockPayload = TestBlockPayload;
     <span class="kw">type </span>SignatureKey = BLSPubKey;
@@ -371,7 +376,8 @@
 </span><span class="kw">pub struct </span>TestConsecutiveLeaderTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestConsecutiveLeaderTypes {
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
-    <span class="kw">type </span>Time = ViewNumber;
+    <span class="kw">type </span>View = ViewNumber;
+    <span class="kw">type </span>Epoch = EpochNumber;
     <span class="kw">type </span>BlockHeader = TestBlockHeader;
     <span class="kw">type </span>BlockPayload = TestBlockPayload;
     <span class="kw">type </span>SignatureKey = BLSPubKey;
@@ -503,8 +509,8 @@
 
         <span class="kw">let </span>data = TestData { data: <span class="number">10 </span>};
 
-        <span class="kw">let </span>view_0 = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Time::new(<span class="number">0</span>);
-        <span class="kw">let </span>view_1 = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Time::new(<span class="number">1</span>);
+        <span class="kw">let </span>view_0 = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::View::new(<span class="number">0</span>);
+        <span class="kw">let </span>view_1 = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::View::new(<span class="number">1</span>);
 
         <span class="kw">let </span>versioned_data_0 =
             VersionedVoteData::&lt;TestTypes, TestData, MarketplaceTestVersions&gt;::new(

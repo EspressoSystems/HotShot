@@ -341,6 +341,14 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -413,6 +421,7 @@
         </span><span class="kw">return </span><span class="self">Self </span>{
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             cur_view: handle.cur_view().<span class="kw">await</span>,
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             vote_collectors: BTreeMap::default(),
@@ -434,6 +443,7 @@
         </span><span class="kw">return </span><span class="self">Self </span>{
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             cur_view: handle.cur_view().<span class="kw">await</span>,
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             vote_collector: <span class="prelude-val">None</span>.into(),
@@ -461,6 +471,7 @@
         <span class="self">Self </span>{
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             cur_view: handle.cur_view().<span class="kw">await</span>,
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             vote_collector: <span class="prelude-val">None</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
@@ -483,6 +494,7 @@
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             cur_view: handle.cur_view().<span class="kw">await</span>,
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             vote_collectors: BTreeMap::default(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -503,6 +515,7 @@
         <span class="self">Self </span>{
             current_view: cur_view,
             next_view: cur_view,
+            current_epoch: handle.cur_epoch().<span class="kw">await</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
@@ -514,7 +527,7 @@
             finalize_relay_map: HashMap::default().into(),
             view_sync_timeout: handle.hotshot.config.view_sync_timeout,
             id: handle.hotshot.id,
-            last_garbage_collected_view: TYPES::Time::new(<span class="number">0</span>),
+            last_garbage_collected_view: TYPES::View::new(<span class="number">0</span>),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         }
     }
@@ -530,6 +543,7 @@
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             cur_view: handle.cur_view().<span class="kw">await</span>,
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),
@@ -623,6 +637,7 @@
             consensus: OuterConsensus::new(consensus),
             cur_view: handle.cur_view().<span class="kw">await</span>,
             cur_view_time: Utc::now().timestamp(),
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
@@ -660,6 +675,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             cur_view: handle.cur_view().<span class="kw">await</span>,
             cur_view_time: Utc::now().timestamp(),
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             timeout_task: async_spawn(<span class="kw">async </span>{}),
             timeout: handle.hotshot.config.next_view_timeout,

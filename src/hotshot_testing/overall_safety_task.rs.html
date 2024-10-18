@@ -664,12 +664,12 @@
     </span>NotEnoughDecides { got: usize, expected: usize },
 
     <span class="attr">#[error(<span class="string">"Too many view failures: {0:?}"</span>)]
-    </span>TooManyFailures(HashSet&lt;TYPES::Time&gt;),
+    </span>TooManyFailures(HashSet&lt;TYPES::View&gt;),
 
     <span class="attr">#[error(<span class="string">"Inconsistent failed views: expected: {expected_failed_views:?}, actual: {actual_failed_views:?}"</span>)]
     </span>InconsistentFailedViews {
-        expected_failed_views: Vec&lt;TYPES::Time&gt;,
-        actual_failed_views: HashSet&lt;TYPES::Time&gt;,
+        expected_failed_views: Vec&lt;TYPES::View&gt;,
+        actual_failed_views: HashSet&lt;TYPES::View&gt;,
     },
     <span class="attr">#[error(
         <span class="string">"Not enough round results: results_count: {results_count}, views_count: {views_count}"
@@ -700,7 +700,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;, V: Versions&gt;
     OverallSafetyTask&lt;TYPES, I, V&gt;
 {
-    <span class="kw">async fn </span>handle_view_failure(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_failed_views: usize, view_number: TYPES::Time) {
+    <span class="kw">async fn </span>handle_view_failure(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_failed_views: usize, view_number: TYPES::View) {
         <span class="kw">let </span>expected_views_to_fail = <span class="kw-2">&amp;mut </span><span class="self">self</span>.properties.expected_views_to_fail;
 
         <span class="self">self</span>.ctx.failed_views.insert(view_number);
@@ -758,7 +758,7 @@
                 block_size: maybe_block_size,
             } =&gt; {
                 <span class="comment">// Skip the genesis leaf.
-                </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.view_number() == TYPES::Time::genesis() {
+                </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.view_number() == TYPES::View::genesis() {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
                 <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
@@ -967,18 +967,18 @@
 </span><span class="kw">pub struct </span>RoundCtx&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// results from previous rounds
     /// view number -&gt; round result
-    </span><span class="kw">pub </span>round_results: HashMap&lt;TYPES::Time, RoundResult&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>round_results: HashMap&lt;TYPES::View, RoundResult&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// during the run view refactor
-    </span><span class="kw">pub </span>failed_views: HashSet&lt;TYPES::Time&gt;,
+    </span><span class="kw">pub </span>failed_views: HashSet&lt;TYPES::View&gt;,
     <span class="doccomment">/// successful views
-    </span><span class="kw">pub </span>successful_views: HashSet&lt;TYPES::Time&gt;,
+    </span><span class="kw">pub </span>successful_views: HashSet&lt;TYPES::View&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; RoundCtx&lt;TYPES&gt; {
     <span class="doccomment">/// inserts an error into the context
     </span><span class="kw">pub fn </span>insert_error_to_context(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         idx: usize,
         error: Arc&lt;HotShotError&lt;TYPES&gt;&gt;,
     ) {
@@ -1172,7 +1172,7 @@
     /// required to mark view as successful
     </span><span class="kw">pub </span>threshold_calculator: Arc&lt;<span class="kw">dyn </span>Fn(usize, usize) -&gt; usize + Send + Sync&gt;,
     <span class="doccomment">/// pass in the views that we expect to fail
-    </span><span class="kw">pub </span>expected_views_to_fail: HashMap&lt;TYPES::Time, bool&gt;,
+    </span><span class="kw">pub </span>expected_views_to_fail: HashMap&lt;TYPES::View, bool&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; std::fmt::Debug <span class="kw">for </span>OverallSafetyPropertiesDescription&lt;TYPES&gt; {

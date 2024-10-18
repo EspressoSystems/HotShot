@@ -92,7 +92,7 @@
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Record a HotShotAction taken.
-    </span><span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the current high QC in storage.
     </span><span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
@@ -100,7 +100,7 @@
     </span><span class="kw">async fn </span>update_undecided_state(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         leafs: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
-        state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+        state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Upgrade the current decided upgrade certificate in storage.
     </span><span class="kw">async fn </span>update_decided_upgrade_certificate(

@@ -1045,6 +1045,14 @@
 <a href="#1043" id="1043">1043</a>
 <a href="#1044" id="1044">1044</a>
 <a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1170,7 +1178,7 @@
     </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
 
     <span class="doccomment">/// The view to enter when first starting consensus
-    </span>start_view: TYPES::Time,
+    </span>start_view: TYPES::View,
 
     <span class="doccomment">/// Access to the output event stream.
     </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
@@ -1349,9 +1357,17 @@
             saved_payloads.insert(anchored_leaf.view_number(), Arc::clone(<span class="kw-2">&amp;</span>encoded_txns));
         }
 
+        <span class="kw">let </span>anchored_epoch = <span class="kw">if </span>config.epoch_height == <span class="number">0 </span>{
+            TYPES::Epoch::new(<span class="number">0</span>)
+        } <span class="kw">else if </span>anchored_leaf.height() % config.epoch_height == <span class="number">0 </span>{
+            TYPES::Epoch::new(anchored_leaf.height() / config.epoch_height)
+        } <span class="kw">else </span>{
+            TYPES::Epoch::new(anchored_leaf.height() / config.epoch_height + <span class="number">1</span>)
+        };
         <span class="kw">let </span>consensus = Consensus::new(
             validated_state_map,
             anchored_leaf.view_number(),
+            anchored_epoch,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
             initializer.actioned_view,
@@ -1438,7 +1454,7 @@
                 </span><span class="self">self</span>.internal_event_stream
                     .<span class="number">0
                     </span>.broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
-                        TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.start_view),
+                        TYPES::View::new(<span class="kw-2">*</span><span class="self">self</span>.start_view),
                         validated_state.clone(),
                     )))
                     .<span class="kw">await
@@ -1467,7 +1483,7 @@
         {
             <span class="comment">// Some applications seem to expect a leaf decide event for the genesis leaf,
             // which contains only that leaf and nothing else.
-            </span><span class="kw">if </span><span class="self">self</span>.anchored_leaf.view_number() == TYPES::Time::genesis() {
+            </span><span class="kw">if </span><span class="self">self</span>.anchored_leaf.view_number() == TYPES::View::genesis() {
                 <span class="kw">let </span>(validated_state, state_delta) =
                     TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
 
@@ -1605,7 +1621,7 @@
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
-    </span><span class="kw">pub async fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
+    </span><span class="kw">pub async fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt; {
         <span class="self">self</span>.consensus.read().<span class="kw">await</span>.state(view).cloned()
     }
 
@@ -2011,10 +2027,10 @@
     </span>state_delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
 
     <span class="doccomment">/// Starting view number that should be equivelant to the view the node shut down with last.
-    </span>start_view: TYPES::Time,
+    </span>start_view: TYPES::View,
     <span class="doccomment">/// The view we last performed an action in.  An action is Proposing or voting for
     /// Either the quorum or DA.
-    </span>actioned_view: TYPES::Time,
+    </span>actioned_view: TYPES::View,
     <span class="doccomment">/// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
@@ -2025,9 +2041,9 @@
     /// to vote and propose right away if they didn't miss anything while down.
     </span>undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Not yet decided state
-    </span>undecided_state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+    </span>undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
-    </span>saved_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotInitializer&lt;TYPES&gt; {
@@ -2044,8 +2060,8 @@
             inner: Leaf::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
-            start_view: TYPES::Time::new(<span class="number">0</span>),
-            actioned_view: TYPES::Time::new(<span class="number">0</span>),
+            start_view: TYPES::View::new(<span class="number">0</span>),
+            actioned_view: TYPES::View::new(<span class="number">0</span>),
             saved_proposals: BTreeMap::new(),
             high_qc,
             decided_upgrade_certificate: <span class="prelude-val">None</span>,
@@ -2067,13 +2083,13 @@
         anchor_leaf: Leaf&lt;TYPES&gt;,
         instance_state: TYPES::InstanceState,
         validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
-        start_view: TYPES::Time,
-        actioned_view: TYPES::Time,
-        saved_proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+        start_view: TYPES::View,
+        actioned_view: TYPES::View,
+        saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
         high_qc: QuorumCertificate&lt;TYPES&gt;,
         decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
-        undecided_state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+        undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             inner: anchor_leaf,

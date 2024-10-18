@@ -900,6 +900,41 @@
 <a href="#898" id="898">898</a>
 <a href="#899" id="899">899</a>
 <a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -911,15 +946,7 @@
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
-</span><span class="kw">use </span>std::{
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-    sync::Arc,
-};
-
-<span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
+</span><span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -930,6 +957,13 @@
 <span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    marker::PhantomData,
+    sync::Arc,
+};
 <span class="kw">use </span>thiserror::Error;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
@@ -958,6 +992,62 @@
     vote::{Certificate, HasViewNumber},
 };
 
+<span class="doccomment">/// Implements `ConsensusTime`, `Display`, `Add`, `AddAssign`, `Deref` and `Sub`
+/// for the given thing wrapper type around u64.
+</span><span class="macro">macro_rules!</span> impl_u64_wrapper {
+    (<span class="macro-nonterminal">$t</span>:ty) =&gt; {
+        <span class="kw">impl </span>ConsensusTime <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="doccomment">/// Create a genesis number (0)
+            </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self </span>{
+                <span class="self">Self</span>(<span class="number">0</span>)
+            }
+            <span class="doccomment">/// Create a new number with the given value.
+            </span><span class="kw">fn </span>new(n: u64) -&gt; <span class="self">Self </span>{
+                <span class="self">Self</span>(n)
+            }
+            <span class="doccomment">/// Return the u64 format
+            </span><span class="kw">fn </span>u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+                <span class="self">self</span>.<span class="number">0
+            </span>}
+        }
+
+        <span class="kw">impl </span>Display <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+                <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
+            }
+        }
+
+        <span class="kw">impl </span>std::ops::Add&lt;u64&gt; <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="kw">type </span>Output = <span class="macro-nonterminal">$t</span>;
+
+            <span class="kw">fn </span>add(<span class="self">self</span>, rhs: u64) -&gt; <span class="self">Self</span>::Output {
+                <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0 </span>+ rhs)
+            }
+        }
+
+        <span class="kw">impl </span>std::ops::AddAssign&lt;u64&gt; <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="kw">fn </span>add_assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rhs: u64) {
+                <span class="self">self</span>.<span class="number">0 </span>+= rhs;
+            }
+        }
+
+        <span class="kw">impl </span>std::ops::Deref <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="kw">type </span>Target = u64;
+
+            <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+            </span>}
+        }
+
+        <span class="kw">impl </span>std::ops::Sub&lt;u64&gt; <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="kw">type </span>Output = <span class="macro-nonterminal">$t</span>;
+            <span class="kw">fn </span>sub(<span class="self">self</span>, rhs: u64) -&gt; <span class="self">Self</span>::Output {
+                <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0 </span>- rhs)
+            }
+        }
+    };
+}
+
 <span class="doccomment">/// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 </span><span class="attr">#[derive(
     Copy,
@@ -975,27 +1065,6 @@
 )]
 </span><span class="kw">pub struct </span>ViewNumber(u64);
 
-<span class="kw">impl </span>ConsensusTime <span class="kw">for </span>ViewNumber {
-    <span class="doccomment">/// Create a genesis view number (0)
-    </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(<span class="number">0</span>)
-    }
-    <span class="doccomment">/// Create a new `ViewNumber` with the given value.
-    </span><span class="kw">fn </span>new(n: u64) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(n)
-    }
-    <span class="doccomment">/// Returen the u64 format
-    </span><span class="kw">fn </span>u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.<span class="number">0
-    </span>}
-}
-
-<span class="kw">impl </span>Display <span class="kw">for </span>ViewNumber {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
-    }
-}
-
 <span class="kw">impl </span>Committable <span class="kw">for </span>ViewNumber {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>builder = RawCommitmentBuilder::new(<span class="string">"View Number Commitment"</span>);
@@ -1003,34 +1072,33 @@
     }
 }
 
-<span class="kw">impl </span>std::ops::Add&lt;u64&gt; <span class="kw">for </span>ViewNumber {
-    <span class="kw">type </span>Output = ViewNumber;
+<span class="macro">impl_u64_wrapper!</span>(ViewNumber);
 
-    <span class="kw">fn </span>add(<span class="self">self</span>, rhs: u64) -&gt; <span class="self">Self</span>::Output {
-        <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0 </span>+ rhs)
+<span class="doccomment">/// Type-safe wrapper around `u64` so we know the thing we're talking about is a epoch number.
+</span><span class="attr">#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+)]
+</span><span class="kw">pub struct </span>EpochNumber(u64);
+
+<span class="kw">impl </span>Committable <span class="kw">for </span>EpochNumber {
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>builder = RawCommitmentBuilder::new(<span class="string">"Epoch Number Commitment"</span>);
+        builder.u64(<span class="self">self</span>.<span class="number">0</span>).finalize()
     }
 }
 
-<span class="kw">impl </span>std::ops::AddAssign&lt;u64&gt; <span class="kw">for </span>ViewNumber {
-    <span class="kw">fn </span>add_assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rhs: u64) {
-        <span class="self">self</span>.<span class="number">0 </span>+= rhs;
-    }
-}
-
-<span class="kw">impl </span>std::ops::Deref <span class="kw">for </span>ViewNumber {
-    <span class="kw">type </span>Target = u64;
-
-    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-    </span>}
-}
-
-<span class="kw">impl </span>std::ops::Sub&lt;u64&gt; <span class="kw">for </span>ViewNumber {
-    <span class="kw">type </span>Output = ViewNumber;
-    <span class="kw">fn </span>sub(<span class="self">self</span>, rhs: u64) -&gt; <span class="self">Self</span>::Output {
-        <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0 </span>- rhs)
-    }
-}
+<span class="macro">impl_u64_wrapper!</span>(EpochNumber);
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
 </span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -1041,7 +1109,7 @@
     <span class="doccomment">/// Metadata of the block to be applied.
     </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
     <span class="doccomment">/// View this proposal applies to
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
 }
 
 <span class="doccomment">/// A proposal to upgrade the network
@@ -1054,7 +1122,7 @@
     <span class="doccomment">/// The information about which version we are upgrading to.
     </span><span class="kw">pub </span>upgrade_proposal: UpgradeProposalData&lt;TYPES&gt;,
     <span class="doccomment">/// View this proposal applies to
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
 }
 
 <span class="doccomment">/// VID dispersal data
@@ -1065,7 +1133,7 @@
 </span><span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 </span><span class="kw">pub struct </span>VidDisperse&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number for which this VID data is intended
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
     <span class="doccomment">/// Block payload commitment
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
     <span class="doccomment">/// A storage node's key and its corresponding VID share
@@ -1075,16 +1143,17 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperse&lt;TYPES&gt; {
-    <span class="doccomment">/// Create VID dispersal from a specified membership
+    <span class="doccomment">/// Create VID dispersal from a specified membership for a given epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
     </span><span class="kw">pub fn </span>from_membership(
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
-            .committee_members(view_number)
+            .committee_members(view_number, epoch)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(<span class="number">0</span>)))
             .collect();
@@ -1097,7 +1166,7 @@
         }
     }
 
-    <span class="doccomment">/// Calculate the vid disperse information from the payload given a view and membership,
+    <span class="doccomment">/// Calculate the vid disperse information from the payload given a view, epoch and membership,
     /// optionally using precompute data from builder
     ///
     /// # Panics
@@ -1106,10 +1175,11 @@
     </span><span class="kw">pub async fn </span>calculate_vid_disperse(
         txns: Arc&lt;[u8]&gt;,
         membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
-        view: TYPES::Time,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
         precompute_data: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>num_nodes = membership.total_nodes();
+        <span class="kw">let </span>num_nodes = membership.total_nodes(epoch);
 
         <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
             precompute_data
@@ -1124,7 +1194,7 @@
         // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
 
-        <span class="self">Self</span>::from_membership(view, vid_disperse, membership.as_ref())
+        <span class="self">Self</span>::from_membership(view, vid_disperse, membership.as_ref(), epoch)
     }
 }
 
@@ -1141,7 +1211,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewChangeEvidence&lt;TYPES&gt; {
     <span class="doccomment">/// Check that the given ViewChangeEvidence is relevant to the current view.
-    </span><span class="kw">pub fn </span>is_valid_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: <span class="kw-2">&amp;</span>TYPES::Time) -&gt; bool {
+    </span><span class="kw">pub fn </span>is_valid_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: <span class="kw-2">&amp;</span>TYPES::View) -&gt; bool {
         <span class="kw">match </span><span class="self">self </span>{
             ViewChangeEvidence::Timeout(timeout_cert) =&gt; timeout_cert.data().view == <span class="kw-2">*</span>view - <span class="number">1</span>,
             ViewChangeEvidence::ViewSync(view_sync_cert) =&gt; view_sync_cert.view_number == <span class="kw-2">*</span>view,
@@ -1153,7 +1223,7 @@
 </span><span class="doccomment">/// VID share and associated metadata for a single node
 </span><span class="kw">pub struct </span>VidDisperseShare&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number for which this VID data is intended
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
     <span class="doccomment">/// Block payload commitment
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
     <span class="doccomment">/// A storage node's key and its corresponding VID share
@@ -1255,7 +1325,7 @@
     </span><span class="kw">pub </span>block_header: TYPES::BlockHeader,
 
     <span class="doccomment">/// CurView from leader when proposing leaf
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
 
     <span class="doccomment">/// Per spec, justification
     </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES&gt;,
@@ -1271,31 +1341,31 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DaProposal&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperse&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>QuorumProposal&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>UpgradeProposal&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
 }
@@ -1332,7 +1402,7 @@
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>Leaf&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// CurView from leader when proposing leaf
-    </span>view_number: TYPES::Time,
+    </span>view_number: TYPES::View,
 
     <span class="doccomment">/// Per spec, justification
     </span>justify_qc: QuorumCertificate&lt;TYPES&gt;,
@@ -1405,7 +1475,7 @@
         <span class="comment">// since this is genesis, we should never have a decided upgrade certificate.
         </span><span class="kw">let </span>upgrade_lock = UpgradeLock::&lt;TYPES, V&gt;::new();
 
-        <span class="kw">let </span>genesis_view = &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis();
+        <span class="kw">let </span>genesis_view = &lt;TYPES::View <span class="kw">as </span>ConsensusTime&gt;::genesis();
 
         <span class="kw">let </span>data = QuorumData {
             leaf_commit: Leaf::genesis(validated_state, instance_state)
@@ -1465,13 +1535,13 @@
         <span class="kw">let </span>justify_qc = QuorumCertificate::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
+            &lt;TYPES::View <span class="kw">as </span>ConsensusTime&gt;::genesis(),
             <span class="prelude-val">None</span>,
             PhantomData,
         );
 
         <span class="self">Self </span>{
-            view_number: TYPES::Time::genesis(),
+            view_number: TYPES::View::genesis(),
             justify_qc,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: <span class="prelude-val">None</span>,
@@ -1481,7 +1551,7 @@
     }
 
     <span class="doccomment">/// Time when this leaf was created.
-    </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
     <span class="doccomment">/// Height of this leaf in the chain.
@@ -1768,7 +1838,7 @@
     </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
 
     <span class="doccomment">/// The view number that this block is associated with.
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
 
     <span class="doccomment">/// The sequencing fee for submitting bundles.
     </span><span class="kw">pub </span>sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
@@ -1785,7 +1855,7 @@
     </span><span class="kw">pub fn </span>new(
         encoded_transactions: Arc&lt;[u8]&gt;,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
         vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
         auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,

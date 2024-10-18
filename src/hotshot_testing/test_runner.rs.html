@@ -924,10 +924,10 @@
 
         <span class="comment">// add spinning task
         // map spinning to view
-        </span><span class="kw">let </span><span class="kw-2">mut </span>changes: BTreeMap&lt;TYPES::Time, Vec&lt;ChangeNode&gt;&gt; = BTreeMap::new();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>changes: BTreeMap&lt;TYPES::View, Vec&lt;ChangeNode&gt;&gt; = BTreeMap::new();
         <span class="kw">for </span>(view, <span class="kw-2">mut </span>change) <span class="kw">in </span>spinning_changes {
             changes
-                .entry(TYPES::Time::new(view))
+                .entry(TYPES::View::new(view))
                 .or_insert_with(Vec::new)
                 .append(<span class="kw-2">&amp;mut </span>change);
         }

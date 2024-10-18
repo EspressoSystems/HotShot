@@ -795,6 +795,12 @@
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -879,7 +885,10 @@
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// View number this view is executing in.
-    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+    </span><span class="kw">pub </span>cur_view: TYPES::View,
+
+    <span class="doccomment">/// Epoch number this node is executing in.
+    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
@@ -914,7 +923,7 @@
     </span><span class="kw">pub async fn </span>handle_view_change(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        block_view: TYPES::Time,
+        block_view: TYPES::View,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(v) =&gt; v,
@@ -938,7 +947,7 @@
     </span><span class="kw">pub async fn </span>handle_view_change_legacy(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        block_view: TYPES::Time,
+        block_view: TYPES::View,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(v) =&gt; v,
@@ -998,10 +1007,11 @@
                 .number_of_empty_blocks_proposed
                 .add(<span class="number">1</span>);
 
-            <span class="kw">let </span>membership_total_nodes = <span class="self">self</span>.membership.total_nodes();
-            <span class="kw">let </span><span class="prelude-val">Some</span>(null_fee) =
-                null_block::builder_fee::&lt;TYPES, V&gt;(<span class="self">self</span>.membership.total_nodes(), version)
-            <span class="kw">else </span>{
+            <span class="kw">let </span>membership_total_nodes = <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch);
+            <span class="kw">let </span><span class="prelude-val">Some</span>(null_fee) = null_block::builder_fee::&lt;TYPES, V&gt;(
+                <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch),
+                version,
+            ) <span class="kw">else </span>{
                 <span class="macro">error!</span>(<span class="string">"Failed to get null fee"</span>);
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             };
@@ -1036,7 +1046,7 @@
     /// Returns an error if the solver cannot be contacted, or if none of the builders respond.
     </span><span class="kw">async fn </span>produce_block_marketplace(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        block_view: TYPES::Time,
+        block_view: TYPES::View,
         task_start_time: Instant,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
         <span class="macro">ensure!</span>(
@@ -1133,13 +1143,14 @@
     <span class="doccomment">/// Produce a null block
     </span><span class="kw">pub fn </span>null_block(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        block_view: TYPES::Time,
+        block_view: TYPES::View,
         version: Version,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>membership_total_nodes = <span class="self">self</span>.membership.total_nodes();
-        <span class="kw">let </span><span class="prelude-val">Some</span>(null_fee) =
-            null_block::builder_fee::&lt;TYPES, V&gt;(<span class="self">self</span>.membership.total_nodes(), version)
-        <span class="kw">else </span>{
+        <span class="kw">let </span>membership_total_nodes = <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch);
+        <span class="kw">let </span><span class="prelude-val">Some</span>(null_fee) = null_block::builder_fee::&lt;TYPES, V&gt;(
+            <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch),
+            version,
+        ) <span class="kw">else </span>{
             <span class="macro">error!</span>(<span class="string">"Failed to calculate null block fee."</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         };
@@ -1164,7 +1175,7 @@
     </span><span class="kw">pub async fn </span>handle_view_change_marketplace(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        block_view: TYPES::Time,
+        block_view: TYPES::View,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 
@@ -1243,12 +1254,13 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>make_block = <span class="bool-val">false</span>;
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
                     <span class="macro">info!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
-                    make_block = <span class="self">self</span>.membership.leader(view) == <span class="self">self</span>.public_key;
+                    make_block = <span class="self">self</span>.membership.leader(view, <span class="self">self</span>.cur_epoch) == <span class="self">self</span>.public_key;
                 }
                 <span class="self">self</span>.cur_view = view;
 
                 <span class="kw">let </span>next_view = <span class="self">self</span>.cur_view + <span class="number">1</span>;
-                <span class="kw">let </span>next_leader = <span class="self">self</span>.membership.leader(next_view) == <span class="self">self</span>.public_key;
+                <span class="kw">let </span>next_leader =
+                    <span class="self">self</span>.membership.leader(next_view, <span class="self">self</span>.cur_epoch) == <span class="self">self</span>.public_key;
                 <span class="kw">if </span>!make_block &amp;&amp; !next_leader {
                     <span class="macro">debug!</span>(<span class="string">"Not next leader for view {:?}"</span>, <span class="self">self</span>.cur_view);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1275,9 +1287,9 @@
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"TransactionTaskState"</span>, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view))]
     </span><span class="kw">async fn </span>last_vid_commitment_retry(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        block_view: TYPES::Time,
+        block_view: TYPES::View,
         task_start_time: Instant,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(TYPES::Time, VidCommitment)&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(TYPES::View, VidCommitment)&gt; {
         <span class="kw">loop </span>{
             <span class="kw">match </span><span class="self">self</span>.last_vid_commitment(block_view).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>((view, comm)) =&gt; <span class="kw">break </span><span class="prelude-val">Ok</span>((view, comm)),
@@ -1296,10 +1308,10 @@
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"TransactionTaskState"</span>, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view))]
     </span><span class="kw">async fn </span>last_vid_commitment(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        block_view: TYPES::Time,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(TYPES::Time, VidCommitment)&gt; {
+        block_view: TYPES::View,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(TYPES::View, VidCommitment)&gt; {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>target_view = TYPES::Time::new(block_view.saturating_sub(<span class="number">1</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>target_view = TYPES::View::new(block_view.saturating_sub(<span class="number">1</span>));
 
         <span class="kw">loop </span>{
             <span class="kw">let </span>view_data = consensus
@@ -1322,7 +1334,7 @@
                 ViewInner::Failed =&gt; {
                     <span class="comment">// For failed views, backtrack
                     </span>target_view =
-                        TYPES::Time::new(target_view.checked_sub(<span class="number">1</span>).context(<span class="string">"Reached genesis"</span>)<span class="question-mark">?</span>);
+                        TYPES::View::new(target_view.checked_sub(<span class="number">1</span>).context(<span class="string">"Reached genesis"</span>)<span class="question-mark">?</span>);
                     <span class="kw">continue</span>;
                 }
             }
@@ -1330,7 +1342,7 @@
     }
 
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, block_view = <span class="kw-2">*</span>block_view), name = <span class="string">"wait_for_block"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">async fn </span>wait_for_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block_view: TYPES::Time) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponse&lt;TYPES&gt;&gt; {
+    </span><span class="kw">async fn </span>wait_for_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block_view: TYPES::View) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderResponse&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 
         <span class="comment">// Find commitment to the block we want to build upon
@@ -1394,7 +1406,7 @@
     </span><span class="kw">async fn </span>get_available_blocks(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_comm: VidCommitment,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         parent_comm_sig: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; Vec&lt;(AvailableBlockInfo&lt;TYPES&gt;, usize)&gt; {
         <span class="kw">let </span>tasks = <span class="self">self
@@ -1463,7 +1475,7 @@
     </span><span class="kw">async fn </span>block_from_builder(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_comm: VidCommitment,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         parent_comm_sig: <span class="kw-2">&amp;</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; anyhow::Result&lt;BuilderResponse&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>available_blocks = <span class="self">self

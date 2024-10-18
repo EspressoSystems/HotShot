@@ -226,6 +226,9 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -276,7 +279,7 @@
 <span class="doccomment">/// Any type that is associated with a view
 </span><span class="kw">pub trait </span>HasViewNumber&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Returns the view number the type refers to.
-    </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time;
+    </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View;
 }
 
 <span class="doccomment">/**
@@ -296,13 +299,14 @@ The votes all must be over the `Commitment` associated type.
         vote_commitment: Commitment&lt;VersionedVoteData&lt;TYPES, <span class="self">Self</span>::Voteable, V&gt;&gt;,
         data: <span class="self">Self</span>::Voteable,
         sig: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType,
-        view: TYPES::Time,
+        view: TYPES::View,
     ) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Checks if the cert is valid
+    <span class="doccomment">/// Checks if the cert is valid in the given epoch
     </span><span class="kw">fn </span>is_valid_cert&lt;MEMBERSHIP: Membership&lt;TYPES&gt;, V: Versions&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: TYPES::Epoch,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = bool&gt;;
     <span class="doccomment">/// Returns the amount of stake needed to create this certificate
@@ -358,12 +362,14 @@ The votes all must be over the `Commitment` associated type.
         V: Versions,
     &gt; VoteAccumulator&lt;TYPES, VOTE, CERT, V&gt;
 {
-    <span class="doccomment">/// Add a vote to the total accumulated votes.  Returns the accumulator or the certificate if we
+    <span class="doccomment">/// Add a vote to the total accumulated votes for the given epoch.
+    /// Returns the accumulator or the certificate if we
     /// have accumulated enough votes to exceed the threshold for creating a certificate.
     </span><span class="kw">pub async fn </span>accumulate(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vote: <span class="kw-2">&amp;</span>VOTE,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
     ) -&gt; Either&lt;(), CERT&gt; {
         <span class="kw">let </span>key = vote.signing_key();
 
@@ -386,10 +392,10 @@ The votes all must be over the `Commitment` associated type.
             <span class="kw">return </span>Either::Left(());
         }
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = membership.stake(<span class="kw-2">&amp;</span>key) <span class="kw">else </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = membership.stake(<span class="kw-2">&amp;</span>key, epoch) <span class="kw">else </span>{
             <span class="kw">return </span>Either::Left(());
         };
-        <span class="kw">let </span>stake_table = membership.stake_table();
+        <span class="kw">let </span>stake_table = membership.stake_table(epoch);
         <span class="kw">let </span><span class="prelude-val">Some</span>(vote_node_id) = stake_table
             .iter()
             .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
@@ -412,7 +418,7 @@ The votes all must be over the `Commitment` associated type.
         <span class="kw">let </span>(signers, sig_list) = <span class="self">self
             </span>.signers
             .entry(vote_commitment)
-            .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; membership.total_nodes()], Vec::new()));
+            .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; membership.total_nodes(epoch)], Vec::new()));
         <span class="kw">if </span>signers.get(vote_node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
             <span class="macro">error!</span>(<span class="string">"Node id is already in signers list"</span>);
             <span class="kw">return </span>Either::Left(());

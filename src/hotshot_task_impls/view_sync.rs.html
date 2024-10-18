@@ -837,6 +837,38 @@
 <a href="#835" id="835">835</a>
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -901,16 +933,18 @@
 
 <span class="doccomment">/// Type alias for a map from View Number to Relay to Vote Task
 </span><span class="kw">type </span>RelayMap&lt;TYPES, VOTE, CERT, V&gt; = HashMap&lt;
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     BTreeMap&lt;u64, VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;,
 &gt;;
 
 <span class="doccomment">/// Main view sync task state
 </span><span class="kw">pub struct </span>ViewSyncTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// View HotShot is currently in
-    </span><span class="kw">pub </span>current_view: TYPES::Time,
+    </span><span class="kw">pub </span>current_view: TYPES::View,
     <span class="doccomment">/// View HotShot wishes to be in
-    </span><span class="kw">pub </span>next_view: TYPES::Time,
+    </span><span class="kw">pub </span>next_view: TYPES::View,
+    <span class="doccomment">/// Epoch HotShot is currently in
+    </span><span class="kw">pub </span>current_epoch: TYPES::Epoch,
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Membership for the quorum
@@ -926,7 +960,7 @@
     </span><span class="kw">pub </span>num_timeouts_tracked: u64,
 
     <span class="doccomment">/// Map of running replica tasks
-    </span><span class="kw">pub </span>replica_task_map: RwLock&lt;HashMap&lt;TYPES::Time, ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>replica_task_map: RwLock&lt;HashMap&lt;TYPES::View, ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;&gt;&gt;,
 
     <span class="doccomment">/// Map of pre-commit vote accumulates for the relay
     </span><span class="kw">pub </span>pre_commit_relay_map: RwLock&lt;
@@ -944,7 +978,7 @@
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
 
     <span class="doccomment">/// Last view we garbage collected old tasks
-    </span><span class="kw">pub </span>last_garbage_collected_view: TYPES::Time,
+    </span><span class="kw">pub </span>last_garbage_collected_view: TYPES::View,
 
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
@@ -975,9 +1009,11 @@
     <span class="doccomment">/// Timeout for view sync rounds
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
     <span class="doccomment">/// Current round HotShot is in
-    </span><span class="kw">pub </span>current_view: TYPES::Time,
+    </span><span class="kw">pub </span>current_view: TYPES::View,
     <span class="doccomment">/// Round HotShot wishes to be in
-    </span><span class="kw">pub </span>next_view: TYPES::Time,
+    </span><span class="kw">pub </span>next_view: TYPES::View,
+    <span class="doccomment">/// Current epoch HotShot is in
+    </span><span class="kw">pub </span>current_epoch: TYPES::Epoch,
     <span class="doccomment">/// The relay index we are currently on
     </span><span class="kw">pub </span>relay: u64,
     <span class="doccomment">/// Whether we have seen a finalized certificate
@@ -1028,7 +1064,7 @@
     </span><span class="kw">pub async fn </span>send_to_or_create_replica(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-        view: TYPES::Time,
+        view: TYPES::View,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
         <span class="comment">// This certificate is old, we can throw it away
@@ -1060,6 +1096,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, I, V&gt; = ViewSyncReplicaTaskState {
             current_view: view,
             next_view: view,
+            current_epoch: <span class="self">self</span>.current_epoch,
             relay: <span class="number">0</span>,
             finalized: <span class="bool-val">false</span>,
             sent_view_change_event: <span class="bool-val">false</span>,
@@ -1138,7 +1175,11 @@
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(vote_view + relay) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self
+                    </span>.membership
+                    .leader(vote_view + relay, <span class="self">self</span>.current_epoch)
+                    != <span class="self">self</span>.public_key
+                {
                     <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
                     <span class="kw">return</span>;
                 }
@@ -1147,6 +1188,7 @@
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     view: vote_view,
+                    epoch: <span class="self">self</span>.current_epoch,
                     id: <span class="self">self</span>.id,
                 };
                 <span class="kw">let </span>vote_collector =
@@ -1176,7 +1218,11 @@
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(vote_view + relay) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self
+                    </span>.membership
+                    .leader(vote_view + relay, <span class="self">self</span>.current_epoch)
+                    != <span class="self">self</span>.public_key
+                {
                     <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
                     <span class="kw">return</span>;
                 }
@@ -1185,6 +1231,7 @@
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     view: vote_view,
+                    epoch: <span class="self">self</span>.current_epoch,
                     id: <span class="self">self</span>.id,
                 };
                 <span class="kw">let </span>vote_collector =
@@ -1214,7 +1261,11 @@
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self</span>.membership.leader(vote_view + relay) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self
+                    </span>.membership
+                    .leader(vote_view + relay, <span class="self">self</span>.current_epoch)
+                    != <span class="self">self</span>.public_key
+                {
                     <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
                     <span class="kw">return</span>;
                 }
@@ -1223,6 +1274,7 @@
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     view: vote_view,
+                    epoch: <span class="self">self</span>.current_epoch,
                     id: <span class="self">self</span>.id,
                 };
                 <span class="kw">let </span>vote_collector =
@@ -1234,7 +1286,7 @@
             }
 
             <span class="kw-2">&amp;</span>HotShotEvent::ViewChange(new_view) =&gt; {
-                <span class="kw">let </span>new_view = TYPES::Time::new(<span class="kw-2">*</span>new_view);
+                <span class="kw">let </span>new_view = TYPES::View::new(<span class="kw-2">*</span>new_view);
                 <span class="kw">if </span><span class="self">self</span>.current_view &lt; new_view {
                     <span class="macro">debug!</span>(
                         <span class="string">"Change from view {} to view {} in view sync task"</span>,
@@ -1253,19 +1305,19 @@
                         <span class="self">self</span>.replica_task_map
                             .write()
                             .<span class="kw">await
-                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::View::new(i));
                         <span class="self">self</span>.pre_commit_relay_map
                             .write()
                             .<span class="kw">await
-                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::View::new(i));
                         <span class="self">self</span>.commit_relay_map
                             .write()
                             .<span class="kw">await
-                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::View::new(i));
                         <span class="self">self</span>.finalize_relay_map
                             .write()
                             .<span class="kw">await
-                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::Time::new(i));
+                            </span>.remove_entry(<span class="kw-2">&amp;</span>TYPES::View::new(i));
                     }
 
                     <span class="self">self</span>.last_garbage_collected_view = <span class="self">self</span>.current_view - <span class="number">1</span>;
@@ -1273,12 +1325,12 @@
             }
             <span class="kw-2">&amp;</span>HotShotEvent::Timeout(view_number) =&gt; {
                 <span class="comment">// This is an old timeout and we can ignore it
-                </span><span class="kw">if </span>view_number &lt;= TYPES::Time::new(<span class="kw-2">*</span><span class="self">self</span>.current_view) {
+                </span><span class="kw">if </span>view_number &lt;= TYPES::View::new(<span class="kw-2">*</span><span class="self">self</span>.current_view) {
                     <span class="kw">return</span>;
                 }
 
                 <span class="self">self</span>.num_timeouts_tracked += <span class="number">1</span>;
-                <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number);
+                <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.current_epoch);
                 <span class="macro">warn!</span>(
                     %leader,
                     leader_mnemonic = cdn_proto::util::mnemonic(<span class="kw-2">&amp;</span>leader),
@@ -1304,7 +1356,7 @@
                     <span class="comment">// If this is the first timeout we've seen advance to the next view
                     </span><span class="self">self</span>.current_view = view_number;
                     broadcast_event(
-                        Arc::new(HotShotEvent::ViewChange(TYPES::Time::new(
+                        Arc::new(HotShotEvent::ViewChange(TYPES::View::new(
                             <span class="kw-2">*</span><span class="self">self</span>.current_view,
                         ))),
                         <span class="kw-2">&amp;</span>event_stream,
@@ -1341,7 +1393,11 @@
 
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate
-                    .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .is_valid_cert(
+                        <span class="self">self</span>.membership.as_ref(),
+                        <span class="self">self</span>.current_epoch,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                    )
                     .<span class="kw">await
                 </span>{
                     <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
@@ -1400,7 +1456,7 @@
 
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
-                                TYPES::Time::new(<span class="kw-2">*</span>next_view),
+                                TYPES::View::new(<span class="kw-2">*</span>next_view),
                                 relay,
                                 phase,
                             )),
@@ -1423,7 +1479,11 @@
 
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate
-                    .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .is_valid_cert(
+                        <span class="self">self</span>.membership.as_ref(),
+                        <span class="self">self</span>.current_epoch,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                    )
                     .<span class="kw">await
                 </span>{
                     <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
@@ -1494,7 +1554,7 @@
                         );
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
-                                TYPES::Time::new(<span class="kw-2">*</span>next_view),
+                                TYPES::View::new(<span class="kw-2">*</span>next_view),
                                 relay,
                                 phase,
                             )),
@@ -1515,7 +1575,11 @@
 
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate
-                    .is_valid_cert(<span class="self">self</span>.membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .is_valid_cert(
+                        <span class="self">self</span>.membership.as_ref(),
+                        <span class="self">self</span>.current_epoch,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                    )
                     .<span class="kw">await
                 </span>{
                     <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
@@ -1547,7 +1611,7 @@
 
             HotShotEvent::ViewSyncTrigger(view_number) =&gt; {
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
-                <span class="kw">if </span><span class="self">self</span>.next_view != TYPES::Time::new(<span class="kw-2">*</span>view_number) {
+                <span class="kw">if </span><span class="self">self</span>.next_view != TYPES::View::new(<span class="kw-2">*</span>view_number) {
                     <span class="macro">error!</span>(<span class="string">"Unexpected view number to triger view sync"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1587,7 +1651,7 @@
                         <span class="macro">warn!</span>(<span class="string">"Vote sending timed out in ViewSyncTrigger"</span>);
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
-                                TYPES::Time::new(<span class="kw-2">*</span>next_view),
+                                TYPES::View::new(<span class="kw-2">*</span>next_view),
                                 relay,
                                 ViewSyncPhase::None,
                             )),
@@ -1603,7 +1667,7 @@
             HotShotEvent::ViewSyncTimeout(round, relay, last_seen_certificate) =&gt; {
                 <span class="kw">let </span>round = <span class="kw-2">*</span>round;
                 <span class="comment">// Shouldn't ever receive a timeout for a relay higher than ours
-                </span><span class="kw">if </span>TYPES::Time::new(<span class="kw-2">*</span>round) == <span class="self">self</span>.next_view &amp;&amp; <span class="kw-2">*</span>relay == <span class="self">self</span>.relay {
+                </span><span class="kw">if </span>TYPES::View::new(<span class="kw-2">*</span>round) == <span class="self">self</span>.next_view &amp;&amp; <span class="kw-2">*</span>relay == <span class="self">self</span>.relay {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
                         cancel_task(timeout_task).<span class="kw">await</span>;
                     }
@@ -1656,7 +1720,7 @@
                             );
                             broadcast_event(
                                 Arc::new(HotShotEvent::ViewSyncTimeout(
-                                    TYPES::Time::new(<span class="kw-2">*</span>next_view),
+                                    TYPES::View::new(<span class="kw-2">*</span>next_view),
                                     relay,
                                     last_cert,
                                 )),

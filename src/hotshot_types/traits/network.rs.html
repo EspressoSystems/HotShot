@@ -609,6 +609,10 @@
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -737,7 +741,7 @@
 <span class="doccomment">/// a message
 </span><span class="kw">pub trait </span>ViewMessage&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// get the view out of the message
-    </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time;
+    </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View;
     <span class="comment">// TODO move out of this trait.
     </span><span class="doccomment">/// get the purpose of the message
     </span><span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose;
@@ -750,7 +754,7 @@
     <span class="doccomment">/// Request
     </span><span class="kw">pub </span>request: RequestKind&lt;TYPES&gt;,
     <span class="doccomment">/// View this message is for
-    </span><span class="kw">pub </span>view: TYPES::Time,
+    </span><span class="kw">pub </span>view: TYPES::View,
     <span class="doccomment">/// signature of the Sha256 hash of the data so outsiders can't use know
     /// public keys with stake.
     </span><span class="kw">pub </span>signature: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
@@ -760,11 +764,11 @@
 </span><span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub enum </span>RequestKind&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Request VID data by our key and the VID commitment
-    </span>Vid(TYPES::Time, TYPES::SignatureKey),
+    </span>Vid(TYPES::View, TYPES::SignatureKey),
     <span class="doccomment">/// Request a DA proposal for a certain view
-    </span>DaProposal(TYPES::Time),
+    </span>DaProposal(TYPES::View),
     <span class="doccomment">/// Request for quorum proposal for a view
-    </span>Proposal(TYPES::Time),
+    </span>Proposal(TYPES::View),
 }
 
 <span class="doccomment">/// A response for a request.  `SequencingMessage` is the same as other network messages
@@ -882,8 +886,12 @@
 
     <span class="doccomment">/// Update view can be used for any reason, but mostly it's for canceling tasks,
     /// and looking up the address of the leader of a future view.
-    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, _view: u64, _membership: <span class="kw-2">&amp;</span>TYPES::Membership)
-    <span class="kw">where
+    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+        _view: u64,
+        _epoch: u64,
+        _membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+    ) <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,
     {
     }

@@ -810,6 +810,19 @@
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -862,7 +875,7 @@
 </span><span class="attr">#[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_proposal&lt;TYPES: NodeType, V: Versions&gt;(
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
     event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -892,6 +905,7 @@
     .<span class="kw">await</span>;
 
     <span class="kw">let </span>mem = Arc::clone(<span class="kw-2">&amp;</span>quorum_membership);
+    <span class="kw">let </span>current_epoch = consensus.read().<span class="kw">await</span>.cur_epoch();
     <span class="comment">// Make a background task to await the arrival of the event data.
     </span><span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proposal)) =
         <span class="comment">// We want to explicitly timeout here so we aren't waiting around for the data.
@@ -923,7 +937,7 @@
                         hs_event.as_ref()
                     {
                         <span class="comment">// Make sure that the quorum_proposal is valid
-                        </span><span class="kw">if </span>quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem, upgrade_lock).<span class="kw">await</span>.is_ok() {
+                        </span><span class="kw">if </span>quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem, current_epoch, upgrade_lock).<span class="kw">await</span>.is_ok() {
                             proposal = <span class="prelude-val">Some</span>(quorum_proposal.clone());
                         }
 
@@ -942,7 +956,7 @@
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
     <span class="kw">if </span>!justify_qc
-        .is_valid_cert(quorum_membership.as_ref(), upgrade_lock)
+        .is_valid_cert(quorum_membership.as_ref(), current_epoch, upgrade_lock)
         .<span class="kw">await
     </span>{
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
@@ -979,10 +993,10 @@
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>LeafChainTraversalOutcome&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The new locked view obtained from a 2 chain starting from the proposal's parent.
-    </span><span class="kw">pub </span>new_locked_view_number: <span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;,
+    </span><span class="kw">pub </span>new_locked_view_number: <span class="prelude-ty">Option</span>&lt;TYPES::View&gt;,
 
     <span class="doccomment">/// The new decided view obtained from a 3 chain starting from the proposal's parent.
-    </span><span class="kw">pub </span>new_decided_view_number: <span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;,
+    </span><span class="kw">pub </span>new_decided_view_number: <span class="prelude-ty">Option</span>&lt;TYPES::View&gt;,
 
     <span class="doccomment">/// The qc for the decided chain.
     </span><span class="kw">pub </span>new_decide_qc: <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt;,
@@ -1167,7 +1181,7 @@
 </span><span class="attr">#[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType, V: Versions&gt;(
-    next_proposal_view_number: TYPES::Time,
+    next_proposal_view_number: TYPES::View,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -1176,8 +1190,9 @@
     consensus: OuterConsensus&lt;TYPES&gt;,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
+    <span class="kw">let </span>current_epoch = consensus.read().<span class="kw">await</span>.cur_epoch();
     <span class="macro">ensure!</span>(
-        quorum_membership.leader(next_proposal_view_number) == public_key,
+        quorum_membership.leader(next_proposal_view_number, current_epoch) == public_key,
         <span class="string">"Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}"</span>,
     );
     <span class="kw">let </span>parent_view_number = consensus.read().<span class="kw">await</span>.high_qc().view_number();
@@ -1297,18 +1312,20 @@
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_proposed_view(proposal.clone()) {
             <span class="macro">tracing::debug!</span>(<span class="string">"Internal proposal update failed; error = {e:#}"</span>);
         };
-
-        <span class="comment">// Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
-        </span>broadcast_event(
-            Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
-            <span class="kw-2">&amp;</span>event_stream,
-        )
-        .<span class="kw">await</span>;
     }
 
+    <span class="comment">// Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
+    </span>broadcast_event(
+        Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
+        <span class="kw-2">&amp;</span>event_stream,
+    )
+    .<span class="kw">await</span>;
+
+    <span class="kw">let </span>current_epoch = task_state.cur_epoch;
     UpgradeCertificate::validate(
         <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        current_epoch,
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1418,7 +1435,11 @@
 
     <span class="comment">// Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     </span>proposal
-        .validate_signature(<span class="kw-2">&amp;</span>task_state.quorum_membership, <span class="kw-2">&amp;</span>task_state.upgrade_lock)
+        .validate_signature(
+            <span class="kw-2">&amp;</span>task_state.quorum_membership,
+            task_state.cur_epoch,
+            <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+        )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Verify a timeout certificate OR a view sync certificate exists and is valid.
@@ -1440,6 +1461,7 @@
                     timeout_cert
                         .is_valid_cert(
                             task_state.timeout_membership.as_ref(),
+                            task_state.cur_epoch,
                             <span class="kw-2">&amp;</span>task_state.upgrade_lock
                         )
                         .<span class="kw">await</span>,
@@ -1460,6 +1482,7 @@
                     view_sync_cert
                         .is_valid_cert(
                             task_state.quorum_membership.as_ref(),
+                            task_state.cur_epoch,
                             <span class="kw-2">&amp;</span>task_state.upgrade_lock
                         )
                         .<span class="kw">await</span>,
@@ -1474,6 +1497,7 @@
     </span>UpgradeCertificate::validate(
         <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        task_state.cur_epoch,
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1487,7 +1511,7 @@
 /// # Errors
 /// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>update_view&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
-    new_view: TYPES::Time,
+    new_view: TYPES::View,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1496,8 +1520,10 @@
         <span class="string">"New view is not greater than our current view"
     </span>);
 
-    <span class="kw">let </span>is_old_view_leader =
-        task_state.quorum_membership.leader(task_state.cur_view) == task_state.public_key;
+    <span class="kw">let </span>is_old_view_leader = task_state
+        .quorum_membership
+        .leader(task_state.cur_view, task_state.cur_epoch)
+        == task_state.public_key;
     <span class="kw">let </span>old_view = task_state.cur_view;
 
     <span class="macro">debug!</span>(<span class="string">"Updating view from {} to {}"</span>, <span class="kw-2">*</span>old_view, <span class="kw-2">*</span>new_view);
@@ -1534,7 +1560,7 @@
         <span class="kw">async move </span>{
             async_sleep(timeout).<span class="kw">await</span>;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::Time::new(<span class="kw-2">*</span>view_number))),
+                Arc::new(HotShotEvent::Timeout(TYPES::View::new(<span class="kw-2">*</span>view_number))),
                 <span class="kw-2">&amp;</span>stream,
             )
             .<span class="kw">await</span>;

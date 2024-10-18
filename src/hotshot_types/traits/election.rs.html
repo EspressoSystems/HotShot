@@ -62,6 +62,18 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -87,33 +99,45 @@
         committee_topic: Topic,
     ) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Get all participants in the committee (including their stake)
-    </span><span class="kw">fn </span>stake_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
+    <span class="doccomment">/// Get all participants in the committee (including their stake) for a specific epoch
+    </span><span class="kw">fn </span>stake_table(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        epoch: TYPES::Epoch,
+    ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
-    <span class="doccomment">/// Get all participants in the committee for a specific view
-    </span><span class="kw">fn </span>committee_members(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+    <span class="doccomment">/// Get all participants in the committee for a specific view for a specific epoch
+    </span><span class="kw">fn </span>committee_members(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view_number: TYPES::View,
+        epoch: TYPES::Epoch,
+    ) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
-    <span class="doccomment">/// Get all leaders in the committee for a specific view
-    </span><span class="kw">fn </span>committee_leaders(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+    <span class="doccomment">/// Get all leaders in the committee for a specific view for a specific epoch
+    </span><span class="kw">fn </span>committee_leaders(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view_number: TYPES::View,
+        epoch: TYPES::Epoch,
+    ) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Get the stake table entry for a public key, returns `None` if the
-    /// key is not in the table
+    /// key is not in the table for a specific epoch
     </span><span class="kw">fn </span>stake(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+        epoch: TYPES::Epoch,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
-    <span class="doccomment">/// See if a node has stake in the committee
-    </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; bool;
+    <span class="doccomment">/// See if a node has stake in the committee in a specific epoch
+    </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: TYPES::Epoch) -&gt; bool;
 
-    <span class="doccomment">/// The leader of the committee for view `view_number`.
-    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
+    <span class="doccomment">/// The leader of the committee for view `view_number` in an epoch `epoch`.
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::View, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey;
 
     <span class="doccomment">/// Get the network topic for the committee
     </span><span class="kw">fn </span>committee_topic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Topic;
 
-    <span class="doccomment">/// Returns the number of total nodes in the committee
-    </span><span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+    <span class="doccomment">/// Returns the number of total nodes in the committee in an epoch `epoch`
+    </span><span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; usize;
 
     <span class="doccomment">/// Returns the threshold for a specific `Membership` implementation
     </span><span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64;

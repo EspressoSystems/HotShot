@@ -592,6 +592,24 @@
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
 <a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -606,6 +624,9 @@
     task::{Context, Poll},
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 <span class="kw">use </span>futures::{FutureExt, Stream};
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
@@ -613,6 +634,7 @@
     node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
+<span class="kw">use </span>hotshot_types::data::EpochNumber;
 <span class="kw">use </span>hotshot_types::{
     data::{
         DaProposal, Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewChangeEvidence,
@@ -636,16 +658,13 @@
 <span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
 
-<span class="kw">use </span><span class="kw">crate</span>::helpers::{
-    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
-};
-
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestView {
     <span class="kw">pub </span>da_proposal: Proposal&lt;TestTypes, DaProposal&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>quorum_proposal: Proposal&lt;TestTypes, QuorumProposal&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>leaf: Leaf&lt;TestTypes&gt;,
     <span class="kw">pub </span>view_number: ViewNumber,
+    <span class="kw">pub </span>epoch_number: EpochNumber,
     <span class="kw">pub </span>quorum_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     <span class="kw">pub </span>da_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     <span class="kw">pub </span>vid_disperse: Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
@@ -669,6 +688,7 @@
         da_membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>genesis_view = ViewNumber::new(<span class="number">1</span>);
+        <span class="kw">let </span>genesis_epoch = EpochNumber::new(<span class="number">1</span>);
         <span class="kw">let </span>upgrade_lock = UpgradeLock::new();
 
         <span class="kw">let </span>transactions = Vec::new();
@@ -691,12 +711,16 @@
 
         <span class="kw">let </span>leader_public_key = public_key;
 
-        <span class="kw">let </span>payload_commitment =
-            da_payload_commitment::&lt;TestTypes&gt;(quorum_membership, transactions.clone());
+        <span class="kw">let </span>payload_commitment = da_payload_commitment::&lt;TestTypes&gt;(
+            quorum_membership,
+            transactions.clone(),
+            genesis_epoch,
+        );
 
         <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
             genesis_view,
+            genesis_epoch,
             transactions.clone(),
             <span class="kw-2">&amp;</span>private_key,
         );
@@ -705,6 +729,7 @@
             quorum_membership,
             da_membership,
             genesis_view,
+            genesis_epoch,
             transactions.clone(),
             <span class="kw-2">&amp;</span>public_key,
             <span class="kw-2">&amp;</span>private_key,
@@ -774,6 +799,7 @@
             quorum_proposal,
             leaf,
             view_number: genesis_view,
+            epoch_number: genesis_epoch,
             quorum_membership: quorum_membership.clone(),
             da_membership: da_membership.clone(),
             vid_disperse,
@@ -831,12 +857,16 @@
             <span class="kw-2">&amp;</span>metadata,
         );
 
-        <span class="kw">let </span>payload_commitment =
-            da_payload_commitment::&lt;TestTypes&gt;(quorum_membership, transactions.clone());
+        <span class="kw">let </span>payload_commitment = da_payload_commitment::&lt;TestTypes&gt;(
+            quorum_membership,
+            transactions.clone(),
+            <span class="self">self</span>.epoch_number,
+        );
 
         <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
             quorum_membership,
             next_view,
+            <span class="self">self</span>.epoch_number,
             transactions.clone(),
             <span class="kw-2">&amp;</span>private_key,
         );
@@ -845,6 +875,7 @@
             quorum_membership,
             da_membership,
             next_view,
+            <span class="self">self</span>.epoch_number,
             transactions.clone(),
             <span class="kw-2">&amp;</span>public_key,
             <span class="kw-2">&amp;</span>private_key,
@@ -862,6 +893,7 @@
             quorum_data,
             quorum_membership,
             old_view,
+            <span class="self">self</span>.epoch_number,
             <span class="kw-2">&amp;</span>old_public_key,
             <span class="kw-2">&amp;</span>old_private_key,
             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
@@ -879,6 +911,7 @@
                 data.clone(),
                 quorum_membership,
                 next_view,
+                <span class="self">self</span>.epoch_number,
                 <span class="kw-2">&amp;</span>public_key,
                 <span class="kw-2">&amp;</span>private_key,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
@@ -901,6 +934,7 @@
                 data.clone(),
                 quorum_membership,
                 next_view,
+                <span class="self">self</span>.epoch_number,
                 <span class="kw-2">&amp;</span>public_key,
                 <span class="kw-2">&amp;</span>private_key,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
@@ -923,6 +957,7 @@
                 data.clone(),
                 quorum_membership,
                 next_view,
+                <span class="self">self</span>.epoch_number,
                 <span class="kw-2">&amp;</span>public_key,
                 <span class="kw-2">&amp;</span>private_key,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
@@ -1000,6 +1035,7 @@
             quorum_proposal,
             leaf,
             view_number: next_view,
+            epoch_number: <span class="self">self</span>.epoch_number,
             quorum_membership: quorum_membership.clone(),
             da_membership: <span class="self">self</span>.da_membership.clone(),
             vid_disperse,

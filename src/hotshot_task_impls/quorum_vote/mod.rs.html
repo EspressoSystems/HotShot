@@ -683,6 +683,34 @@
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -760,7 +788,9 @@
     <span class="doccomment">/// Reference to the storage.
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
     <span class="doccomment">/// View number to vote on.
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
+    <span class="doccomment">/// Epoch number to vote on.
+    </span><span class="kw">pub </span>epoch_number: TYPES::Epoch,
     <span class="doccomment">/// Event sender.
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Event receiver.
@@ -885,7 +915,8 @@
         vid_share: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
-            <span class="self">self</span>.quorum_membership.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key),
+            <span class="self">self</span>.quorum_membership
+                .has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, <span class="self">self</span>.epoch_number),
             <span class="macro">format!</span>(
                 <span class="string">"We were not chosen for quorum committee on {:?}"</span>,
                 <span class="self">self</span>.view_number
@@ -1058,10 +1089,10 @@
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
 
     <span class="doccomment">/// Latest view number that has been voted for.
-    </span><span class="kw">pub </span>latest_voted_view: TYPES::Time,
+    </span><span class="kw">pub </span>latest_voted_view: TYPES::View,
 
     <span class="doccomment">/// Table for the in-progress dependency tasks.
-    </span><span class="kw">pub </span>vote_dependencies: HashMap&lt;TYPES::Time, JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>vote_dependencies: HashMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
 
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
@@ -1091,7 +1122,7 @@
     </span><span class="kw">fn </span>create_event_dependency(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         dependency_type: VoteDependency,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         EventDependency::new(
@@ -1135,7 +1166,8 @@
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_voted_view = <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view), name = <span class="string">"Quorum vote crete dependency task if new"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">fn </span>create_dependency_task_if_new(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: <span class="prelude-ty">Option</span>&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1178,6 +1210,7 @@
                 quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
                 view_number,
+                epoch_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone(),
                 upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
@@ -1190,7 +1223,7 @@
 
     <span class="doccomment">/// Update the latest voted view number.
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_voted_view = <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view), name = <span class="string">"Quorum vote update latest voted view"</span>, level = <span class="string">"error"</span>)]
-    </span><span class="kw">async fn </span>update_latest_voted_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::Time) -&gt; bool {
+    </span><span class="kw">async fn </span>update_latest_voted_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::View) -&gt; bool {
         <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.latest_voted_view &lt; <span class="kw-2">*</span>new_view {
             <span class="macro">debug!</span>(
                 <span class="string">"Updating next vote view from {} to {} in the quorum vote task"</span>,
@@ -1199,7 +1232,7 @@
 
             <span class="comment">// Cancel the old dependency tasks.
             </span><span class="kw">for </span>view <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.latest_voted_view..(<span class="kw-2">*</span>new_view) {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.vote_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::Time::new(view)) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.vote_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::View::new(view)) {
                     cancel_task(dependency).<span class="kw">await</span>;
                     <span class="macro">debug!</span>(<span class="string">"Vote dependency removed for view {:?}"</span>, view);
                 }
@@ -1220,6 +1253,7 @@
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
+        <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) =&gt; {
                 <span class="macro">trace!</span>(<span class="string">"Received Proposal for view {}"</span>, <span class="kw-2">*</span>proposal.view_number());
@@ -1233,6 +1267,7 @@
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     proposal.view_number,
+                    current_epoch,
                     event_receiver,
                     <span class="kw-2">&amp;</span>event_sender,
                     <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>event)),
@@ -1245,9 +1280,14 @@
                     <span class="kw">return</span>;
                 }
 
+                <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="comment">// Validate the DAC.
                 </span><span class="kw">if </span>!cert
-                    .is_valid_cert(<span class="self">self</span>.da_membership.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                    .is_valid_cert(
+                        <span class="self">self</span>.da_membership.as_ref(),
+                        current_epoch,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                    )
                     .<span class="kw">await
                 </span>{
                     <span class="kw">return</span>;
@@ -1264,7 +1304,13 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    view,
+                    current_epoch,
+                    event_receiver,
+                    <span class="kw-2">&amp;</span>event_sender,
+                    <span class="prelude-val">None</span>,
+                );
             }
             HotShotEvent::VidShareRecv(sender, disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
@@ -1275,10 +1321,14 @@
 
                 <span class="comment">// Validate the VID share.
                 </span><span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
+                <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="comment">// Check sender of VID disperse share is signed by DA committee member
                 </span><span class="kw">let </span>validate_sender = sender
                     .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-                    &amp;&amp; <span class="self">self</span>.da_membership.committee_members(view).contains(sender);
+                    &amp;&amp; <span class="self">self
+                        </span>.da_membership
+                        .committee_members(view, current_epoch)
+                        .contains(sender);
 
                 <span class="comment">// Check whether the data satisfies one of the following.
                 // * From the right leader for this view.
@@ -1288,7 +1338,7 @@
                     .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
                     || <span class="self">self
                         </span>.quorum_membership
-                        .leader(view)
+                        .leader(view, current_epoch)
                         .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref());
                 <span class="kw">if </span>!validate_sender &amp;&amp; !validated {
                     <span class="macro">warn!</span>(<span class="string">"Failed to validated the VID dispersal/share sig."</span>);
@@ -1298,7 +1348,7 @@
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
                 </span><span class="attr">#[allow(clippy::no_effect)]
-                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes()).verify_share(
+                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes(current_epoch)).verify_share(
                     <span class="kw-2">&amp;</span>disperse.data.share,
                     <span class="kw-2">&amp;</span>disperse.data.common,
                     <span class="kw-2">&amp;</span>payload_commitment,
@@ -1326,7 +1376,13 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    view,
+                    current_epoch,
+                    event_receiver,
+                    <span class="kw-2">&amp;</span>event_sender,
+                    <span class="prelude-val">None</span>,
+                );
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) =&gt; {
                 <span class="macro">debug!</span>(<span class="string">"All vote dependencies verified for view {:?}"</span>, view_number);

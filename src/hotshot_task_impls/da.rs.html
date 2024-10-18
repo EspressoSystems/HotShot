@@ -371,6 +371,15 @@
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -422,7 +431,10 @@
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// View number this view is executing in.
-    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+    </span><span class="kw">pub </span>cur_view: TYPES::View,
+
+    <span class="doccomment">/// Epoch number this node is executing in.
+    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
@@ -481,7 +493,7 @@
                 // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
-                </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::Time::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
+                </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::View::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
                     <span class="macro">warn!</span>(<span class="string">"Throwing away DA proposal that is more than one view older"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -500,7 +512,7 @@
                 <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
 
                 <span class="comment">// ED Is this the right leader?
-                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.da_membership.leader(view);
+                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.da_membership.leader(view, <span class="self">self</span>.cur_epoch);
                 <span class="kw">if </span>view_leader_key != sender {
                     <span class="macro">error!</span>(<span class="string">"DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}"</span>, <span class="kw-2">*</span>view, proposal.data.clone());
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -536,7 +548,10 @@
                 )
                 .<span class="kw">await</span>;
 
-                <span class="kw">if </span>!<span class="self">self</span>.da_membership.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key) {
+                <span class="kw">if </span>!<span class="self">self
+                    </span>.da_membership
+                    .has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, <span class="self">self</span>.cur_epoch)
+                {
                     <span class="macro">debug!</span>(
                         <span class="string">"We were not chosen for consensus committee on {:?}"</span>,
                         <span class="self">self</span>.cur_view
@@ -551,7 +566,7 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 <span class="kw">let </span>txns = Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
-                <span class="kw">let </span>num_nodes = <span class="self">self</span>.quorum_membership.total_nodes();
+                <span class="kw">let </span>num_nodes = <span class="self">self</span>.quorum_membership.total_nodes(<span class="self">self</span>.cur_epoch);
                 <span class="kw">let </span>payload_commitment =
                     spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
                 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -602,12 +617,14 @@
                     <span class="kw">let </span>pk = <span class="self">self</span>.private_key.clone();
                     <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
                     <span class="kw">let </span>chan = event_stream.clone();
+                    <span class="kw">let </span>current_epoch = <span class="self">self</span>.cur_epoch;
                     async_spawn(<span class="kw">async move </span>{
                         Consensus::calculate_and_update_vid(
                             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
                             view_number,
                             membership,
                             <span class="kw-2">&amp;</span>pk,
+                            current_epoch,
                         )
                         .<span class="kw">await</span>;
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus
@@ -633,8 +650,8 @@
                 <span class="macro">debug!</span>(<span class="string">"DA vote recv, Main Task {:?}"</span>, vote.view_number());
                 <span class="comment">// Check if we are the leader and the vote is from the sender.
                 </span><span class="kw">let </span>view = vote.view_number();
-                <span class="kw">if </span><span class="self">self</span>.da_membership.leader(view) != <span class="self">self</span>.public_key {
-                    <span class="macro">error!</span>(<span class="string">"We are not the DA committee leader for view {} are we leader for next view? {}"</span>, <span class="kw-2">*</span>view, <span class="self">self</span>.da_membership.leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key);
+                <span class="kw">if </span><span class="self">self</span>.da_membership.leader(view, <span class="self">self</span>.cur_epoch) != <span class="self">self</span>.public_key {
+                    <span class="macro">error!</span>(<span class="string">"We are not the DA committee leader for view {} are we leader for next view? {}"</span>, <span class="kw-2">*</span>view, <span class="self">self</span>.da_membership.leader(view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch) == <span class="self">self</span>.public_key);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -643,6 +660,7 @@
                     vote,
                     <span class="self">self</span>.public_key.clone(),
                     <span class="kw-2">&amp;</span><span class="self">self</span>.da_membership,
+                    <span class="self">self</span>.cur_epoch,
                     <span class="self">self</span>.id,
                     <span class="kw-2">&amp;</span>event,
                     <span class="kw-2">&amp;</span>event_stream,
@@ -662,7 +680,7 @@
                 <span class="self">self</span>.cur_view = view;
 
                 <span class="comment">// If we are not the next leader (DA leader for this view) immediately exit
-                </span><span class="kw">if </span><span class="self">self</span>.da_membership.leader(<span class="self">self</span>.cur_view + <span class="number">1</span>) != <span class="self">self</span>.public_key {
+                </span><span class="kw">if </span><span class="self">self</span>.da_membership.leader(<span class="self">self</span>.cur_view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch) != <span class="self">self</span>.public_key {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 <span class="macro">debug!</span>(<span class="string">"Polling for DA votes for view {}"</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>);

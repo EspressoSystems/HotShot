@@ -171,6 +171,9 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -243,10 +246,13 @@
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 
     <span class="doccomment">/// The view number that this node is currently executing in.
-    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+    </span><span class="kw">pub </span>cur_view: TYPES::View,
 
     <span class="doccomment">/// Timestamp this view starts at.
     </span><span class="kw">pub </span>cur_view_time: i64,
+
+    <span class="doccomment">/// The epoch number that this node is currently executing in.
+    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -261,7 +267,7 @@
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
 
     <span class="doccomment">/// The last decided view
-    </span><span class="kw">pub </span>last_decided_view: TYPES::Time,
+    </span><span class="kw">pub </span>last_decided_view: TYPES::View,
 
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,

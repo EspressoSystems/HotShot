@@ -274,6 +274,22 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -318,7 +334,10 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Are we the leader for this view?
     </span><span class="macro">ensure!</span>(
-        task_state.quorum_membership.leader(vote.view_number() + <span class="number">1</span>) == task_state.public_key,
+        task_state
+            .quorum_membership
+            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)
+            == task_state.public_key,
         <span class="macro">format!</span>(
             <span class="string">"We are not the leader for view {:?}"</span>,
             vote.view_number() + <span class="number">1
@@ -330,6 +349,7 @@
         vote,
         task_state.public_key.clone(),
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        task_state.cur_epoch,
         task_state.id,
         <span class="kw-2">&amp;</span>event,
         sender,
@@ -353,7 +373,10 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Are we the leader for this view?
     </span><span class="macro">ensure!</span>(
-        task_state.timeout_membership.leader(vote.view_number() + <span class="number">1</span>) == task_state.public_key,
+        task_state
+            .timeout_membership
+            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)
+            == task_state.public_key,
         <span class="macro">format!</span>(
             <span class="string">"We are not the leader for view {:?}"</span>,
             vote.view_number() + <span class="number">1
@@ -365,6 +388,7 @@
         vote,
         task_state.public_key.clone(),
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        task_state.cur_epoch,
         task_state.id,
         <span class="kw-2">&amp;</span>event,
         sender,
@@ -382,7 +406,7 @@
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    new_view_number: TYPES::Time,
+    new_view_number: TYPES::View,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -423,7 +447,7 @@
         <span class="kw">async move </span>{
             async_sleep(Duration::from_millis(timeout)).<span class="kw">await</span>;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::Time::new(<span class="kw-2">*</span>view_number))),
+                Arc::new(HotShotEvent::Timeout(TYPES::View::new(<span class="kw-2">*</span>view_number))),
                 <span class="kw-2">&amp;</span>stream,
             )
             .<span class="kw">await</span>;
@@ -443,7 +467,11 @@
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     <span class="kw">let </span>cur_view_time = Utc::now().timestamp();
-    <span class="kw">if </span>task_state.quorum_membership.leader(old_view_number) == task_state.public_key {
+    <span class="kw">if </span>task_state
+        .quorum_membership
+        .leader(old_view_number, task_state.cur_epoch)
+        == task_state.public_key
+    {
         <span class="attr">#[allow(clippy::cast_precision_loss)]
         </span>consensus
             .metrics
@@ -479,7 +507,7 @@
 <span class="doccomment">/// Handle a `Timeout` event.
 </span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_timeout&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -491,7 +519,7 @@
     <span class="macro">ensure!</span>(
         task_state
             .timeout_membership
-            .has_stake(<span class="kw-2">&amp;</span>task_state.public_key),
+            .has_stake(<span class="kw-2">&amp;</span>task_state.public_key, task_state.cur_epoch),
         <span class="macro">format!</span>(<span class="string">"We were not chosen for the consensus committee for view {view_number:?}"</span>)
     );
 
@@ -536,7 +564,11 @@
         </span>.metrics
         .number_of_timeouts
         .add(<span class="number">1</span>);
-    <span class="kw">if </span>task_state.quorum_membership.leader(view_number) == task_state.public_key {
+    <span class="kw">if </span>task_state
+        .quorum_membership
+        .leader(view_number, task_state.cur_epoch)
+        == task_state.public_key
+    {
         task_state
             .consensus
             .read()

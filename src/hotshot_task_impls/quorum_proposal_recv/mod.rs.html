@@ -178,6 +178,9 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -235,10 +238,13 @@
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
 
     <span class="doccomment">/// View number this view is executing in.
-    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+    </span><span class="kw">pub </span>cur_view: TYPES::View,
 
     <span class="doccomment">/// Timestamp this view starts at.
     </span><span class="kw">pub </span>cur_view_time: i64,
+
+    <span class="doccomment">/// Epoch number this node is executing in.
+    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
@@ -269,7 +275,7 @@
 
     <span class="doccomment">/// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
-    </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::Time, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::View, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
 
     <span class="doccomment">/// Immutable instance state
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -285,7 +291,7 @@
     QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;
 {
     <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
-    </span><span class="kw">pub async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::Time) {
+    </span><span class="kw">pub async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::View) {
         <span class="kw">let </span>keep = <span class="self">self</span>.spawned_tasks.split_off(<span class="kw-2">&amp;</span>view);
         <span class="kw">let </span><span class="kw-2">mut </span>cancel = Vec::new();
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, tasks)) = <span class="self">self</span>.spawned_tasks.pop_first() {

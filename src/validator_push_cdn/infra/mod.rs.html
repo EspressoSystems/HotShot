@@ -1577,7 +1577,7 @@
         <span class="kw">let </span>start = Instant::now();
 
         <span class="kw">let </span><span class="kw-2">mut </span>event_stream = context.event_stream();
-        <span class="kw">let </span><span class="kw-2">mut </span>anchor_view: TYPES::Time = &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis();
+        <span class="kw">let </span><span class="kw-2">mut </span>anchor_view: TYPES::View = &lt;TYPES::View <span class="kw">as </span>ConsensusTime&gt;::genesis();
         <span class="kw">let </span><span class="kw-2">mut </span>num_successful_commits = <span class="number">0</span>;
 
         context.hotshot.start_consensus().<span class="kw">await</span>;
@@ -1677,7 +1677,7 @@
             .hotshot
             .memberships
             .quorum_membership
-            .committee_leaders(TYPES::Time::genesis())
+            .committee_leaders(TYPES::View::genesis(), TYPES::Epoch::genesis())
             .len();
         <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         <span class="comment">// `failed_num_views` could include uncommitted views

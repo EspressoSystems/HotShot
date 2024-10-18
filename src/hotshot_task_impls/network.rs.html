@@ -706,6 +706,24 @@
 <a href="#704" id="704">704</a>
 <a href="#705" id="705">705</a>
 <a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -877,7 +895,7 @@
                 <span class="comment">// Send the external message to the external event stream so it can be processed
                 </span>broadcast_event(
                     Event {
-                        view_number: TYPES::Time::new(<span class="number">1</span>),
+                        view_number: TYPES::View::new(<span class="number">1</span>),
                         event: EventType::ExternalMessageReceived { sender, data },
                     },
                     <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream,
@@ -898,7 +916,9 @@
     <span class="doccomment">/// comm network
     </span><span class="kw">pub </span>network: Arc&lt;NET&gt;,
     <span class="doccomment">/// view number
-    </span><span class="kw">pub </span>view: TYPES::Time,
+    </span><span class="kw">pub </span>view: TYPES::View,
+    <span class="doccomment">/// epoch number
+    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
     <span class="doccomment">/// quorum for the network
     </span><span class="kw">pub </span>quorum_membership: TYPES::Membership,
     <span class="doccomment">/// da for the network
@@ -1013,7 +1033,7 @@
         maybe_action: <span class="prelude-ty">Option</span>&lt;HotShotAction&gt;,
         storage: Arc&lt;RwLock&lt;S&gt;&gt;,
         state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
-        view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+        view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(action) = maybe_action {
             <span class="kw">if </span>!state.write().<span class="kw">await</span>.update_action(action, view) {
@@ -1066,7 +1086,10 @@
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone()),
                     )),
-                    TransmitType::Direct(<span class="self">self</span>.quorum_membership.leader(vote.view_number() + <span class="number">1</span>)),
+                    TransmitType::Direct(
+                        <span class="self">self</span>.quorum_membership
+                            .leader(vote.view_number() + <span class="number">1</span>, <span class="self">self</span>.epoch),
+                    ),
                 ))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) =&gt; <span class="prelude-val">Some</span>((
@@ -1104,7 +1127,10 @@
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
                         DaConsensusMessage::DaVote(vote.clone()),
                     )),
-                    TransmitType::Direct(<span class="self">self</span>.quorum_membership.leader(vote.view_number())),
+                    TransmitType::Direct(
+                        <span class="self">self</span>.quorum_membership
+                            .leader(vote.view_number(), <span class="self">self</span>.epoch),
+                    ),
                 ))
             }
             HotShotEvent::DacSend(certificate, sender) =&gt; {
@@ -1124,7 +1150,7 @@
                 )),
                 TransmitType::Direct(
                     <span class="self">self</span>.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay),
+                        .leader(vote.view_number() + vote.date().relay, <span class="self">self</span>.epoch),
                 ),
             )),
             HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; <span class="prelude-val">Some</span>((
@@ -1134,7 +1160,7 @@
                 )),
                 TransmitType::Direct(
                     <span class="self">self</span>.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay),
+                        .leader(vote.view_number() + vote.date().relay, <span class="self">self</span>.epoch),
                 ),
             )),
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; <span class="prelude-val">Some</span>((
@@ -1144,7 +1170,7 @@
                 )),
                 TransmitType::Direct(
                     <span class="self">self</span>.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay),
+                        .leader(vote.view_number() + vote.date().relay, <span class="self">self</span>.epoch),
                 ),
             )),
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
@@ -1175,7 +1201,10 @@
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote(vote.clone()),
                     )),
-                    TransmitType::Direct(<span class="self">self</span>.quorum_membership.leader(vote.view_number() + <span class="number">1</span>)),
+                    TransmitType::Direct(
+                        <span class="self">self</span>.quorum_membership
+                            .leader(vote.view_number() + <span class="number">1</span>, <span class="self">self</span>.epoch),
+                    ),
                 ))
             }
             HotShotEvent::UpgradeProposalSend(proposal, sender) =&gt; <span class="prelude-val">Some</span>((
@@ -1192,13 +1221,20 @@
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::UpgradeVote(vote.clone()),
                     )),
-                    TransmitType::Direct(<span class="self">self</span>.quorum_membership.leader(vote.view_number())),
+                    TransmitType::Direct(
+                        <span class="self">self</span>.quorum_membership
+                            .leader(vote.view_number(), <span class="self">self</span>.epoch),
+                    ),
                 ))
             }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="self">self</span>.view = view;
                 <span class="self">self</span>.network
-                    .update_view::&lt;TYPES&gt;(<span class="self">self</span>.view.u64(), <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership)
+                    .update_view::&lt;TYPES&gt;(
+                        <span class="self">self</span>.view.u64(),
+                        <span class="self">self</span>.epoch.u64(),
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership,
+                    )
                     .<span class="kw">await</span>;
                 <span class="prelude-val">None
             </span>}
@@ -1242,7 +1278,7 @@
         };
         <span class="kw">let </span>view = message.kind.view_number();
         <span class="kw">let </span>committee_topic = <span class="self">self</span>.quorum_membership.committee_topic();
-        <span class="kw">let </span>da_committee = <span class="self">self</span>.da_membership.committee_members(view);
+        <span class="kw">let </span>da_committee = <span class="self">self</span>.da_membership.committee_members(view, <span class="self">self</span>.epoch);
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);

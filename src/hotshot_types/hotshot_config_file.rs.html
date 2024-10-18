@@ -152,6 +152,10 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -219,6 +223,8 @@
     </span><span class="kw">pub </span>builder_urls: Vec1&lt;Url&gt;,
     <span class="doccomment">/// Upgrade config
     </span><span class="kw">pub </span>upgrade: UpgradeConfig,
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; From&lt;HotShotConfigFile&lt;KEY&gt;&gt; <span class="kw">for </span>HotShotConfig&lt;KEY&gt; {
@@ -252,6 +258,7 @@
             stop_proposing_time: val.upgrade.stop_proposing_time,
             start_voting_time: val.upgrade.start_voting_time,
             stop_voting_time: val.upgrade.stop_voting_time,
+            epoch_height: val.epoch_height,
         }
     }
 }
@@ -301,6 +308,7 @@
             data_request_delay: <span class="prelude-val">Some</span>(Duration::from_millis(REQUEST_DATA_DELAY)),
             builder_urls: default_builder_urls(),
             upgrade: UpgradeConfig::default(),
+            epoch_height: <span class="number">0</span>,
         }
     }
 }

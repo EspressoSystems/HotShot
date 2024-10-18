@@ -46,6 +46,6 @@
 </span><span class="kw">pub trait </span>AuctionResultsProvider&lt;TYPES: NodeType&gt;: Send + Sync + Clone {
     <span class="doccomment">/// Fetches the auction result for a view. Does not cache the result,
     /// subsequent calls will invoke additional wasted calls.
-    </span><span class="kw">async fn </span>fetch_auction_result(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::AuctionResult&gt;;
+    </span><span class="kw">async fn </span>fetch_auction_result(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::AuctionResult&gt;;
 }
 </code></pre></div></section></main></body></html>

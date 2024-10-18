@@ -434,6 +434,7 @@
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -552,7 +553,7 @@
     <span class="doccomment">/// How far back to look for a QC
     </span><span class="kw">pub </span>view_look_back: usize,
     <span class="doccomment">/// Shared state of all view numbers we send bad proposal at
-    </span><span class="kw">pub </span>dishonest_proposal_view_numbers: Arc&lt;RwLock&lt;HashSet&lt;TYPES::Time&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>dishonest_proposal_view_numbers: Arc&lt;RwLock&lt;HashSet&lt;TYPES::View&gt;&gt;&gt;,
 }
 
 <span class="doccomment">/// Add method that will handle `QuorumProposalSend` events
@@ -682,7 +683,7 @@
     <span class="doccomment">/// How many views the node will be delayed
     </span><span class="kw">pub </span>number_of_views_to_delay: u64,
     <span class="doccomment">/// A map that is from view number to vector of events
-    </span><span class="kw">pub </span>events_for_view: HashMap&lt;TYPES::Time, Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>events_for_view: HashMap&lt;TYPES::View, Vec&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Specify which view number to stop delaying
     </span><span class="kw">pub </span>stop_view_delay_at_view_number: u64,
 }
@@ -707,7 +708,7 @@
             <span class="kw">if </span>view_diff &gt; <span class="number">0 </span>{
                 <span class="kw">return match </span><span class="self">self
                     </span>.events_for_view
-                    .remove(<span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Time::new(view_diff))
+                    .remove(<span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::View::new(view_diff))
                 {
                     <span class="prelude-val">Some</span>(lookback_events) =&gt; lookback_events.clone(),
                     <span class="comment">// we have already return all received events for this view
@@ -782,7 +783,8 @@
     ) {
         <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, V, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
             network,
-            view: TYPES::Time::genesis(),
+            view: TYPES::View::genesis(),
+            epoch: TYPES::Epoch::genesis(),
             quorum_membership,
             da_membership,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
@@ -811,7 +813,7 @@
     <span class="doccomment">/// Collect all votes the node sends
     </span><span class="kw">pub </span>votes_sent: Vec&lt;QuorumVote&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Shared state with views numbers that leaders were dishonest at
-    </span><span class="kw">pub </span>dishonest_proposal_view_numbers: Arc&lt;RwLock&lt;HashSet&lt;TYPES::Time&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>dishonest_proposal_view_numbers: Arc&lt;RwLock&lt;HashSet&lt;TYPES::View&gt;&gt;&gt;,
 }
 
 <span class="attr">#[async_trait]

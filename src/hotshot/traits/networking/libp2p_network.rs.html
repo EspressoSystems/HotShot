@@ -1119,6 +1119,7 @@
 <a href="#1117" id="1117">1117</a>
 <a href="#1118" id="1118">1118</a>
 <a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2140,12 +2141,13 @@
     /// So the logic with libp2p is to prefetch upcomming leaders libp2p address to
     /// save time when we later need to direct message the leader our vote. Hence the
     /// use of the future view and leader to queue the lookups.
-    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, membership: <span class="kw-2">&amp;</span>TYPES::Membership)
+    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, epoch: u64, membership: <span class="kw-2">&amp;</span>TYPES::Membership)
     <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,
     {
-        <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time::new(view) + LOOK_AHEAD;
-        <span class="kw">let </span>future_leader = membership.leader(future_view);
+        <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::View::new(view) + LOOK_AHEAD;
+        <span class="kw">let </span>epoch = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch::new(epoch);
+        <span class="kw">let </span>future_leader = membership.leader(future_view, epoch);
 
         <span class="kw">let _ </span>= <span class="self">self
             </span>.queue_node_lookup(ViewNumber::new(<span class="kw-2">*</span>future_view), future_leader)

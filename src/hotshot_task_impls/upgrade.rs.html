@@ -337,6 +337,11 @@
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -382,7 +387,10 @@
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// View number this view is executing in.
-    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+    </span><span class="kw">pub </span>cur_view: TYPES::View,
+
+    <span class="doccomment">/// Epoch number this node is executing in.
+    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Membership for Quorum Certs/votes
     </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
@@ -505,7 +513,7 @@
                 // the `UpgradeProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO Come back to this - we probably don't need this, but we should also never receive a UpgradeCertificate where this fails, investigate block ready so it doesn't make one for the genesis block
-                </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::Time::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
+                </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::View::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
                     <span class="macro">warn!</span>(<span class="string">"Discarding old upgrade proposal; the proposal is for view {:?}, but the current view is {:?}."</span>,
                       view,
                       <span class="self">self</span>.cur_view
@@ -514,7 +522,7 @@
                 }
 
                 <span class="comment">// We then validate that the proposal was issued by the leader for the view.
-                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.quorum_membership.leader(view);
+                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.quorum_membership.leader(view, <span class="self">self</span>.cur_epoch);
                 <span class="kw">if </span><span class="kw-2">&amp;</span>view_leader_key != sender {
                     <span class="macro">error!</span>(<span class="string">"Upgrade proposal doesn't have expected leader key for view {} \n Upgrade proposal is: {:?}"</span>, <span class="kw-2">*</span>view, proposal.data.clone());
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -558,11 +566,12 @@
                 <span class="comment">// Check if we are the leader.
                 </span>{
                     <span class="kw">let </span>view = vote.view_number();
-                    <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view) != <span class="self">self</span>.public_key {
+                    <span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view, <span class="self">self</span>.cur_epoch) != <span class="self">self</span>.public_key {
                         <span class="macro">error!</span>(
                             <span class="string">"We are not the leader for view {} are we leader for next view? {}"</span>,
                             <span class="kw-2">*</span>view,
-                            <span class="self">self</span>.quorum_membership.leader(view + <span class="number">1</span>) == <span class="self">self</span>.public_key
+                            <span class="self">self</span>.quorum_membership.leader(view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch)
+                                == <span class="self">self</span>.public_key
                         );
                         <span class="kw">return </span><span class="prelude-val">None</span>;
                     }
@@ -573,6 +582,7 @@
                     vote,
                     <span class="self">self</span>.public_key.clone(),
                     <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership,
+                    <span class="self">self</span>.cur_epoch,
                     <span class="self">self</span>.id,
                     <span class="kw-2">&amp;</span>event,
                     <span class="kw-2">&amp;</span>tx,
@@ -599,23 +609,23 @@
                     &amp;&amp; time &gt;= <span class="self">self</span>.start_proposing_time
                     &amp;&amp; time &lt; <span class="self">self</span>.stop_proposing_time
                     &amp;&amp; !<span class="self">self</span>.upgraded().<span class="kw">await
-                    </span>&amp;&amp; <span class="self">self
-                        </span>.quorum_membership
-                        .leader(TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET))
-                        == <span class="self">self</span>.public_key
+                    </span>&amp;&amp; <span class="self">self</span>.quorum_membership.leader(
+                        TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
+                        <span class="self">self</span>.cur_epoch,
+                    ) == <span class="self">self</span>.public_key
                 {
                     <span class="kw">let </span>upgrade_proposal_data = UpgradeProposalData {
                         old_version: V::Base::VERSION,
                         new_version: V::Upgrade::VERSION,
                         new_version_hash: V::UPGRADE_HASH.to_vec(),
-                        old_version_last_view: TYPES::Time::new(view + UPGRADE_BEGIN_OFFSET),
-                        new_version_first_view: TYPES::Time::new(view + UPGRADE_FINISH_OFFSET),
-                        decide_by: TYPES::Time::new(view + UPGRADE_DECIDE_BY_OFFSET),
+                        old_version_last_view: TYPES::View::new(view + UPGRADE_BEGIN_OFFSET),
+                        new_version_first_view: TYPES::View::new(view + UPGRADE_FINISH_OFFSET),
+                        decide_by: TYPES::View::new(view + UPGRADE_DECIDE_BY_OFFSET),
                     };
 
                     <span class="kw">let </span>upgrade_proposal = UpgradeProposal {
                         upgrade_proposal: upgrade_proposal_data.clone(),
-                        view_number: TYPES::Time::new(view + UPGRADE_PROPOSE_OFFSET),
+                        view_number: TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
                     };
 
                     <span class="kw">let </span>signature = TYPES::SignatureKey::sign(

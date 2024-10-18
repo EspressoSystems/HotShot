@@ -249,6 +249,8 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -483,6 +485,8 @@
     </span><span class="kw">pub </span>start_voting_time: u64,
     <span class="doccomment">/// Unix time in seconds at which we stop voting on an upgrade. To prevent voting on an upgrade, set stop_voting_time &lt;= start_voting_time.
     </span><span class="kw">pub </span>stop_voting_time: u64,
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey&gt; HotShotConfig&lt;KEY&gt; {

@@ -217,6 +217,9 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -295,7 +298,7 @@
                     </span><span class="kw">match </span>event.as_ref() {
                         HotShotEvent::VidRequestRecv(request, sender) =&gt; {
                             <span class="comment">// Verify request is valid
-                            </span><span class="kw">if </span>!<span class="self">self</span>.valid_sender(sender)
+                            </span><span class="kw">if </span>!<span class="self">self</span>.valid_sender(sender, <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch())
                                 || !valid_signature::&lt;TYPES&gt;(request, sender)
                             {
                                 <span class="kw">continue</span>;
@@ -359,7 +362,7 @@
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"NetworkResponseState"</span>, fields(id = <span class="self">self</span>.id))]
     </span><span class="kw">async fn </span>get_or_calc_vid_share(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view: TYPES::Time,
+        view: TYPES::View,
         key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">let </span>contained = <span class="self">self
@@ -370,11 +373,13 @@
             .get(<span class="kw-2">&amp;</span>view)
             .is_some_and(|m| m.contains_key(key));
         <span class="kw">if </span>!contained {
+            <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
             <span class="kw">if </span>Consensus::calculate_and_update_vid(
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)),
                 view,
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                current_epoch,
             )
             .<span class="kw">await
             </span>.is_none()
@@ -386,6 +391,7 @@
                     view,
                     Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                    current_epoch,
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
             }
@@ -407,9 +413,9 @@
             .cloned()
     }
 
-    <span class="doccomment">/// Makes sure the sender is allowed to send a request.
-    </span><span class="kw">fn </span>valid_sender(<span class="kw-2">&amp;</span><span class="self">self</span>, sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; bool {
-        <span class="self">self</span>.quorum.has_stake(sender)
+    <span class="doccomment">/// Makes sure the sender is allowed to send a request in the given epoch.
+    </span><span class="kw">fn </span>valid_sender(<span class="kw-2">&amp;</span><span class="self">self</span>, sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: TYPES::Epoch) -&gt; bool {
+        <span class="self">self</span>.quorum.has_stake(sender, epoch)
     }
 }
 

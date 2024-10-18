@@ -51,7 +51,7 @@
 </span><span class="doccomment">/// A signed request for a proposal.
 </span><span class="kw">pub struct </span>ProposalRequestPayload&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number that we're requesting a proposal for.
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
 
     <span class="doccomment">/// Our public key. The ensures that the receipient can reply to
     /// us directly.

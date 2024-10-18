@@ -514,6 +514,9 @@
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1000,7 +1003,7 @@
         <span class="self">self</span>.secondary().queue_node_lookup(view_number, pk)
     }
 
-    <span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, T&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, membership: <span class="kw-2">&amp;</span>T::Membership)
+    <span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, T&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, epoch: u64, membership: <span class="kw-2">&amp;</span>T::Membership)
     <span class="kw">where
         </span>T: NodeType&lt;SignatureKey = TYPES::SignatureKey&gt; + <span class="lifetime">'a</span>,
     {
@@ -1021,7 +1024,10 @@
             }
         });
         <span class="comment">// Run `update_view` logic for the libp2p network
-        </span><span class="self">self</span>.networks.<span class="number">1</span>.update_view::&lt;T&gt;(view, membership).<span class="kw">await</span>;
+        </span><span class="self">self</span>.networks
+            .<span class="number">1
+            </span>.update_view::&lt;T&gt;(view, epoch, membership)
+            .<span class="kw">await</span>;
     }
 
     <span class="kw">fn </span>is_primary_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {

@@ -374,6 +374,10 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -432,7 +436,7 @@
     /// before sending a request
     </span><span class="kw">pub </span>state: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// Last seen view, we won't request for proposals before older than this view
-    </span><span class="kw">pub </span>view: TYPES::Time,
+    </span><span class="kw">pub </span>view: TYPES::View,
     <span class="doccomment">/// Delay before requesting peers
     </span><span class="kw">pub </span>delay: Duration,
     <span class="doccomment">/// DA Membership
@@ -446,7 +450,7 @@
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
     </span><span class="kw">pub </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
-    </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::Time, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::View, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Drop <span class="kw">for </span>NetworkRequestState&lt;TYPES, I&gt; {
@@ -473,6 +477,7 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>prop_view = proposal.view_number();
+                <span class="kw">let </span>current_epoch = <span class="self">self</span>.state.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="comment">// If we already have the VID shares for the next view, do nothing.
                 </span><span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view
@@ -483,7 +488,7 @@
                         </span>.vid_shares()
                         .contains_key(<span class="kw-2">&amp;</span>prop_view)
                 {
-                    <span class="self">self</span>.spawn_requests(prop_view, sender, receiver);
+                    <span class="self">self</span>.spawn_requests(prop_view, current_epoch, sender, receiver);
                 }
                 <span class="prelude-val">Ok</span>(())
             }
@@ -520,7 +525,8 @@
     <span class="doccomment">/// Creates and signs the payload, then will create a request task
     </span><span class="kw">fn </span>spawn_requests(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view: TYPES::Time,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
@@ -534,6 +540,7 @@
                 sender.clone(),
                 receiver.clone(),
                 view,
+                epoch,
             );
         }
     }
@@ -546,19 +553,20 @@
         signature: Signature&lt;TYPES&gt;,
         sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        view: TYPES::Time,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
     ) {
         <span class="kw">let </span>state = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state.inner_consensus));
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>shutdown_flag = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag);
         <span class="kw">let </span>delay = <span class="self">self</span>.delay;
-        <span class="kw">let </span>da_committee_for_view = <span class="self">self</span>.da_membership.committee_members(view);
+        <span class="kw">let </span>da_committee_for_view = <span class="self">self</span>.da_membership.committee_members(view, epoch);
         <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
 
         <span class="comment">// Get committee members for view
         </span><span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;TYPES::SignatureKey&gt; = <span class="self">self
             </span>.da_membership
-            .committee_members(view)
+            .committee_members(view, epoch)
             .into_iter()
             .collect();
         <span class="comment">// Randomize the recipients so all replicas don't overload the same 1 recipients
@@ -632,7 +640,7 @@
         recipient: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
         da_committee_for_view: <span class="kw-2">&amp;</span>BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
         public_key: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
-        view: TYPES::Time,
+        view: TYPES::View,
     ) -&gt; bool {
         <span class="comment">// First send request to a random DA member for the view
         </span>broadcast_event(
@@ -675,7 +683,7 @@
     </span><span class="kw">async fn </span>handle_event_dependency(
         receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         da_members_for_view: BTreeSet&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
-        view: TYPES::Time,
+        view: TYPES::View,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
         EventDependency::new(
             receiver.clone(),
@@ -702,7 +710,7 @@
         state: <span class="kw-2">&amp;</span>OuterConsensus&lt;TYPES&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         public_key: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
-        view: <span class="kw-2">&amp;</span>TYPES::Time,
+        view: <span class="kw-2">&amp;</span>TYPES::View,
         shutdown_flag: <span class="kw-2">&amp;</span>Arc&lt;AtomicBool&gt;,
     ) -&gt; bool {
         <span class="kw">let </span>state = state.read().<span class="kw">await</span>;

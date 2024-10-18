@@ -174,6 +174,9 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -206,7 +209,9 @@
 <span class="doccomment">/// Tracks state of a VID task
 </span><span class="kw">pub struct </span>VidTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// View number this view is executing in.
-    </span><span class="kw">pub </span>cur_view: TYPES::Time,
+    </span><span class="kw">pub </span>cur_view: TYPES::View,
+    <span class="doccomment">/// Epoch number this node is executing in.
+    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// The underlying network
@@ -218,7 +223,7 @@
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     <span class="doccomment">/// The view and ID of the current vote collection task, if there is one.
-    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::Time, usize, usize)&gt;,
+    </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::View, usize, usize)&gt;,
     <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
 }
@@ -249,6 +254,7 @@
                     Arc::clone(encoded_transactions),
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
+                    <span class="self">self</span>.cur_epoch,
                     vid_precompute.clone(),
                 )
                 .<span class="kw">await</span>;

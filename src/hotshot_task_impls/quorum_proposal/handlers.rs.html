@@ -430,10 +430,10 @@
 <span class="doccomment">/// Handler for the proposal dependency
 </span><span class="kw">pub struct </span>ProposalDependencyHandle&lt;TYPES: NodeType, V: Versions&gt; {
     <span class="doccomment">/// Latest view number that has been proposed for (proxy for cur_view).
-    </span><span class="kw">pub </span>latest_proposed_view: TYPES::Time,
+    </span><span class="kw">pub </span>latest_proposed_view: TYPES::View,
 
     <span class="doccomment">/// The view number to propose for.
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
 
     <span class="doccomment">/// The event sender.
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,

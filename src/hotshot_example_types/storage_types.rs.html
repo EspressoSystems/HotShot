@@ -230,17 +230,17 @@
 <span class="kw">use </span><span class="kw">crate</span>::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay};
 
 <span class="kw">type </span>VidShares&lt;TYPES&gt; = HashMap&lt;
-    &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>TestStorageState&lt;TYPES: NodeType&gt; {
     vids: VidShares&lt;TYPES&gt;,
-    das: HashMap&lt;TYPES::Time, Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;&gt;,
-    proposals: BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    das: HashMap&lt;TYPES::View, Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;&gt;,
+    proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
     high_qc: <span class="prelude-ty">Option</span>&lt;hotshot_types::simple_certificate::QuorumCertificate&lt;TYPES&gt;&gt;,
-    action: TYPES::Time,
+    action: TYPES::View,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Default <span class="kw">for </span>TestStorageState&lt;TYPES&gt; {
@@ -250,7 +250,7 @@
             das: HashMap::new(),
             proposals: BTreeMap::new(),
             high_qc: <span class="prelude-val">None</span>,
-            action: TYPES::Time::genesis(),
+            action: TYPES::View::genesis(),
         }
     }
 }
@@ -288,7 +288,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestStorage&lt;TYPES&gt; {
     <span class="kw">pub async fn </span>proposals_cloned(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; BTreeMap&lt;TYPES::Time, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt; {
+    ) -&gt; BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt; {
         <span class="self">self</span>.inner.read().<span class="kw">await</span>.proposals.clone()
     }
     <span class="kw">pub async fn </span>high_qc_cloned(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt; {
@@ -297,7 +297,7 @@
     <span class="kw">pub async fn </span>decided_upgrade_certificate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.decided_upgrade_certificate.read().<span class="kw">await</span>.clone()
     }
-    <span class="kw">pub async fn </span>last_actioned_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    <span class="kw">pub async fn </span>last_actioned_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.inner.read().<span class="kw">await</span>.action
     }
 }
@@ -346,7 +346,7 @@
 
     <span class="kw">async fn </span>record_action(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Time,
+        view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
         action: hotshot_types::event::HotShotAction,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
@@ -381,7 +381,7 @@
     <span class="kw">async fn </span>update_undecided_state(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _leafs: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
-        _state: BTreeMap&lt;TYPES::Time, View&lt;TYPES&gt;&gt;,
+        _state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
             <span class="macro">bail!</span>(<span class="string">"Failed to update high qc to storage"</span>);

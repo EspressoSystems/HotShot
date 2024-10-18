@@ -228,7 +228,7 @@
 #[serde(bound(deserialize = <span class="string">"TYPES: NodeType"</span>))]
 </span><span class="kw">pub struct </span>Event&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number that this event originates from
-    </span><span class="kw">pub </span>view_number: TYPES::Time,
+    </span><span class="kw">pub </span>view_number: TYPES::View,
     <span class="doccomment">/// The underlying event
     </span><span class="kw">pub </span>event: EventType&lt;TYPES&gt;,
 }
@@ -331,17 +331,17 @@
     <span class="doccomment">/// A replica task was canceled by a timeout interrupt
     </span>ReplicaViewTimeout {
         <span class="doccomment">/// The view that timed out
-        </span>view_number: TYPES::Time,
+        </span>view_number: TYPES::View,
     },
     <span class="doccomment">/// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
     </span>ViewFinished {
         <span class="doccomment">/// The view number that has just finished
-        </span>view_number: TYPES::Time,
+        </span>view_number: TYPES::View,
     },
     <span class="doccomment">/// The view timed out
     </span>ViewTimeout {
         <span class="doccomment">/// The view that timed out
-        </span>view_number: TYPES::Time,
+        </span>view_number: TYPES::View,
     },
     <span class="doccomment">/// New transactions were received from the network
     /// or submitted to the network by us

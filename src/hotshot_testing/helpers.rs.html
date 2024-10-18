@@ -439,6 +439,27 @@
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -591,7 +612,8 @@
 &gt;(
     data: DATAType,
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-    view: TYPES::Time,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
@@ -600,6 +622,7 @@
         <span class="kw-2">&amp;</span>data,
         membership,
         view,
+        epoch,
         upgrade_lock,
     )
     .<span class="kw">await</span>;
@@ -655,10 +678,11 @@
 &gt;(
     data: <span class="kw-2">&amp;</span>DATAType,
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-    view: TYPES::Time,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType {
-    <span class="kw">let </span>stake_table = membership.stake_table();
+    <span class="kw">let </span>stake_table = membership.stake_table(epoch);
     <span class="kw">let </span>real_qc_pp: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table.clone(),
@@ -713,18 +737,23 @@
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>vid_scheme_from_view_number&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
 ) -&gt; VidSchemeType {
-    <span class="kw">let </span>num_storage_nodes = membership.committee_members(view_number).len();
+    <span class="kw">let </span>num_storage_nodes = membership
+        .committee_members(view_number, epoch_number)
+        .len();
     vid_scheme(num_storage_nodes)
 }
 
 <span class="kw">pub fn </span>vid_payload_commitment&lt;TYPES: NodeType&gt;(
     quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec&lt;TestTransaction&gt;,
 ) -&gt; VidCommitment {
-    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(quorum_membership, view_number);
+    <span class="kw">let </span><span class="kw-2">mut </span>vid =
+        vid_scheme_from_view_number::&lt;TYPES&gt;(quorum_membership, view_number, epoch_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
     <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap();
 
@@ -734,19 +763,24 @@
 <span class="kw">pub fn </span>da_payload_commitment&lt;TYPES: NodeType&gt;(
     quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
     transactions: Vec&lt;TestTransaction&gt;,
+    epoch_number: TYPES::Epoch,
 ) -&gt; VidCommitment {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
-    vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, quorum_membership.total_nodes())
+    vid_commitment(
+        <span class="kw-2">&amp;</span>encoded_transactions,
+        quorum_membership.total_nodes(epoch_number),
+    )
 }
 
 <span class="kw">pub fn </span>build_payload_commitment&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
-    view: TYPES::Time,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
 ) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
     <span class="comment">// Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(membership, view);
+    </span><span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(membership, view, epoch);
     <span class="kw">let </span>encoded_transactions = Vec::new();
     vid.commit_only(<span class="kw-2">&amp;</span>encoded_transactions).unwrap()
 }
@@ -754,17 +788,20 @@
 <span class="doccomment">/// TODO: &lt;https://github.com/EspressoSystems/HotShot/issues/2821&gt;
 </span><span class="kw">pub fn </span>build_vid_proposal&lt;TYPES: NodeType&gt;(
     quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec&lt;TestTransaction&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 ) -&gt; VidProposal&lt;TYPES&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(quorum_membership, view_number);
+    <span class="kw">let </span><span class="kw-2">mut </span>vid =
+        vid_scheme_from_view_number::&lt;TYPES&gt;(quorum_membership, view_number, epoch_number);
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
     <span class="kw">let </span>vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap(),
         quorum_membership,
+        epoch_number,
     );
 
     <span class="kw">let </span>signature =
@@ -789,10 +826,12 @@
     )
 }
 
-<span class="kw">pub async fn </span>build_da_certificate&lt;TYPES: NodeType, V: Versions&gt;(
+<span class="attr">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub async fn </span>build_da_certificate&lt;TYPES: NodeType, V: Versions&gt;(
     quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
     da_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec&lt;TestTransaction&gt;,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -800,8 +839,10 @@
 ) -&gt; DaCertificate&lt;TYPES&gt; {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
-    <span class="kw">let </span>da_payload_commitment =
-        vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, quorum_membership.total_nodes());
+    <span class="kw">let </span>da_payload_commitment = vid_commitment(
+        <span class="kw-2">&amp;</span>encoded_transactions,
+        quorum_membership.total_nodes(epoch_number),
+    );
 
     <span class="kw">let </span>da_data = DaData {
         payload_commit: da_payload_commitment,
@@ -811,6 +852,7 @@
         da_data,
         da_membership,
         view_number,
+        epoch_number,
         public_key,
         private_key,
         upgrade_lock,
