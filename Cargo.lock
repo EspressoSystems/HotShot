@@ -3137,6 +3137,7 @@ dependencies = [
  "toml",
  "tracing",
  "url",
+ "utils",
  "vbs",
 ]
 
@@ -3329,6 +3330,7 @@ dependencies = [
  "futures",
  "tokio",
  "tracing",
+ "utils",
 ]
 
 [[package]]
@@ -3467,6 +3469,7 @@ dependencies = [
  "tracing",
  "typenum",
  "url",
+ "utils",
  "vbs",
  "vec1",
 ]

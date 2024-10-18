@@ -593,19 +593,17 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                 ..
             } = existing_view.view_inner
             {
-                match new_view.view_inner {
-                    ViewInner::Leaf {
-                        delta: ref new_delta,
-                        ..
-                    } => {
-                        ensure!(
-                            new_delta.is_some() || existing_delta.is_none(),
-                            "Skipping the state update to not override a `Leaf` view with `Some` state delta."
-                        );
-                    }
-                    _ => {
-                        bail!("Skipping the state update to not override a `Leaf` view with a non-`Leaf` view.");
-                    }
+                if let ViewInner::Leaf {
+                    delta: ref new_delta,
+                    ..
+                } = new_view.view_inner
+                {
+                    ensure!(
+                         new_delta.is_some() || existing_delta.is_none(),
+                         "Skipping the state update to not override a `Leaf` view with `Some` state delta."
+                     );
+                } else {
+                    bail!("Skipping the state update to not override a `Leaf` view with a non-`Leaf` view.");
                 }
             }
         }

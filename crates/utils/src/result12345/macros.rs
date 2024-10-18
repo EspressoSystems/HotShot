@@ -153,6 +153,40 @@ macro_rules! error {
 pub use error;
 
 #[macro_export]
+/// Log a `result12345::Error` at the corresponding level.
+macro_rules! log {
+    ($result:expr) => {
+        if let Err(ref error) = $result {
+            let mut error_level = error.level;
+            if error_level == Level::Unspecified {
+                error_level = DEFAULT_LOG_LEVEL;
+            }
+
+            match error_level {
+                Level::Trace => {
+                    tracing::trace!("{}", error.message);
+                }
+                Level::Debug => {
+                    tracing::debug!("{}", error.message);
+                }
+                Level::Info => {
+                    tracing::info!("{}", error.message);
+                }
+                Level::Warn => {
+                    tracing::warn!("{}", error.message);
+                }
+                Level::Error => {
+                    tracing::error!("{}", error.message);
+                }
+                // impossible
+                Level::Unspecified => {}
+            }
+        }
+    };
+}
+pub use log;
+
+#[macro_export]
 /// Check that the given condition holds, otherwise return an error.
 ///
 /// The argument can be either:
@@ -163,31 +197,47 @@ pub use error;
 macro_rules! ensure {
   ($condition:expr) => {
       if !$condition {
-        return Err(Error {
+        let result = Err(Error {
           level: Level::Unspecified,
           message: format!("{}: condition '{}' failed.", line_info!(), stringify!($condition))
         });
+
+        log!(result);
+
+        return result;
      }
   };
   ($condition:expr, $message:literal) => {
       if !$condition {
-        return Err(Error {
+        let result = Err(Error {
           level: Level::Unspecified,
           message: format!("{}: {}", line_info!(), $message)
         });
+
+        log!(result);
+
+        return result;
       }
   };
   ($condition:expr, $fmt:expr, $($arg:tt)*) => {
       if !$condition {
-        return Err(Error {
+        let result = Err(Error {
           level: Level::Unspecified,
           message: format!("{}: {}", line_info!(), format!($fmt, $($arg)*))
         });
+
+        log!(result);
+
+        return result;
       }
   };
   ($condition:expr, $error:expr) => {
       if !$condition {
-        return Err($error);
+        let result = Err($error);
+
+        log!(result);
+
+        return result;
       }
   };
 }
@@ -203,25 +253,41 @@ pub use ensure;
 ///   - an `Error`, in which case the given error is logged unchanged.
 macro_rules! bail {
   () => {
-      return Err(Error {
+      let result = Err(Error {
         level: Level::Unspecified,
         message: format!("{}: bailed.", line_info!()),
       });
+
+      log!(result);
+
+      return result;
   };
   ($message:literal) => {
-      return Err(Error {
+      let result = Err(Error {
         level: Level::Unspecified,
         message: format!("{}: {}", line_info!(), $message)
       });
+
+      log!(result);
+
+      return result;
   };
   ($fmt:expr, $($arg:tt)*) => {
-      return Err(Error {
+      let result = Err(Error {
         level: Level::Unspecified,
         message: format!("{}: {}", line_info!(), format!($fmt, $($arg)*))
       });
+
+      log!(result);
+
+      return result;
   };
   ($error:expr) => {
-      return Err($error);
+      let result = Err($error);
+
+      log!(result);
+
+      return result;
   };
 }
 pub use bail;

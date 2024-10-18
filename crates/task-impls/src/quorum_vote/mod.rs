@@ -131,7 +131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let consensus_reader = self.consensus.read().await;
 
         let (Some(parent_state), _) = consensus_reader.state_and_delta(parent.view_number()) else {
-            bail!("Parent state not found! Consensus internally inconsistent")
+            bail!("Parent state not found! Consensus internally inconsistent");
         };
 
         drop(consensus_reader);
