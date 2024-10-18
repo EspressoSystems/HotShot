@@ -14,7 +14,7 @@ use async_compatibility_layer::{
     art::async_spawn,
     logging::{setup_backtrace, setup_logging},
 };
-use cdn_broker::Broker;
+use cdn_broker::{reexports::def::hook::NoMessageHook, Broker};
 use cdn_marshal::Marshal;
 use hotshot::{
     traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey},
@@ -84,6 +84,9 @@ async fn main() {
                     public_key: WrappedSignatureKey(broker_public_key),
                     private_key: broker_private_key.clone(),
                 },
+
+                user_message_hook: NoMessageHook,
+                broker_message_hook: NoMessageHook,
 
                 metrics_bind_endpoint: None,
                 ca_cert_path: None,

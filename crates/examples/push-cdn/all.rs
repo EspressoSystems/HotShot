@@ -11,7 +11,10 @@ pub mod types;
 use std::path::Path;
 
 use async_compatibility_layer::art::async_spawn;
-use cdn_broker::{reexports::crypto::signature::KeyPair, Broker};
+use cdn_broker::{
+    reexports::{crypto::signature::KeyPair, def::hook::NoMessageHook},
+    Broker,
+};
 use cdn_marshal::Marshal;
 use hotshot::{
     traits::implementations::{TestingDef, WrappedSignatureKey},
@@ -90,6 +93,9 @@ async fn main() {
                     public_key: WrappedSignatureKey(broker_public_key),
                     private_key: broker_private_key.clone(),
                 },
+
+                user_message_hook: NoMessageHook,
+                broker_message_hook: NoMessageHook,
 
                 metrics_bind_endpoint: None,
                 ca_cert_path: None,

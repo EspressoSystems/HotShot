@@ -1283,18 +1283,18 @@ dependencies = [
 
 [[package]]
 name = "capnp"
-version = "0.19.6"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de71387912cac7dd3cb7c219e09628411620a18061bba58c71453c26ae7bf66a"
+checksum = "c9e0676a27d3cf41fc949b3061cca99c67791a8a3baf1544b30ef712936e7e3b"
 dependencies = [
  "embedded-io",
 ]
 
 [[package]]
 name = "capnpc"
-version = "0.19.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c75ba30e0f08582d53c2f3710cf4bb65ff562614b1ba86906d7391adffe189ec"
+checksum = "8d13cb6e2643fd1f9fb804ba938323636ef52e07d6e495e372d933ad0cb98207"
 dependencies = [
  "capnp",
 ]
@@ -1320,7 +1320,7 @@ dependencies = [
 [[package]]
 name = "cdn-broker"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1344,7 +1344,7 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1360,7 +1360,7 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1374,7 +1374,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -6106,9 +6106,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.26.1"
+version = "0.27.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e902a69d09078829137b4a5d9d082e0490393537badd7c91a3d69d14639e115f"
+checksum = "81cccf17a692ce51b86564334614d72dcae1def0fd5ecebc9f02956da74352b5"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -6122,7 +6122,7 @@ dependencies = [
  "pin-project-lite 0.2.14",
  "ryu",
  "tokio",
- "tokio-retry",
+ "tokio-retry2",
  "tokio-util",
  "url",
 ]
@@ -7900,10 +7900,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-retry"
-version = "0.3.0"
+name = "tokio-retry2"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f57eb36ecbe0fc510036adff84824dd3c24bb781e21bfa67b69d556aa85214f"
+checksum = "903934dba1c4c2f2e9cb460ef10b5695e0b0ecad3bf9ee7c8675e540c5e8b2d1"
 dependencies = [
  "pin-project",
  "rand 0.8.5",
