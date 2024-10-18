@@ -116,10 +116,12 @@ async fn main() {
     }
 
     // Get the port to use for the marshal
-    let marshal_port = 9000;
+    let marshal_endpoint = config
+        .cdn_marshal_address
+        .clone()
+        .expect("CDN marshal address must be specified");
 
     // Configure the marshal
-    let marshal_endpoint = format!("127.0.0.1:{marshal_port}");
     let marshal_config = cdn_marshal::Config {
         bind_endpoint: marshal_endpoint.clone(),
         discovery_endpoint,

@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
     };
 
     // Create new `Broker`
-    // Uses TCP from broker connections and Quic for user connections.
+    // Uses TCP from broker connections and TCP+TLS for user connections.
     let broker = Broker::new(broker_config).await?;
 
     // Start the main loop, consuming it
