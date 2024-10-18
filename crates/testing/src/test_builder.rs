@@ -509,6 +509,7 @@ where
             stop_proposing_time: 0,
             start_voting_time: u64::MAX,
             stop_voting_time: 0,
+            epoch_height: 0,
         };
         let TimingData {
             next_view_timeout,

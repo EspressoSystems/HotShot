@@ -113,7 +113,7 @@ pub struct DishonestLeader<TYPES: NodeType> {
     /// How far back to look for a QC
     pub view_look_back: usize,
     /// Shared state of all view numbers we send bad proposal at
-    pub dishonest_proposal_view_numbers: Arc<RwLock<HashSet<TYPES::Time>>>,
+    pub dishonest_proposal_view_numbers: Arc<RwLock<HashSet<TYPES::View>>>,
 }
 
 /// Add method that will handle `QuorumProposalSend` events
@@ -243,7 +243,7 @@ pub struct ViewDelay<TYPES: NodeType> {
     /// How many views the node will be delayed
     pub number_of_views_to_delay: u64,
     /// A map that is from view number to vector of events
-    pub events_for_view: HashMap<TYPES::Time, Vec<HotShotEvent<TYPES>>>,
+    pub events_for_view: HashMap<TYPES::View, Vec<HotShotEvent<TYPES>>>,
     /// Specify which view number to stop delaying
     pub stop_view_delay_at_view_number: u64,
 }
@@ -268,7 +268,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
             if view_diff > 0 {
                 return match self
                     .events_for_view
-                    .remove(&<TYPES as NodeType>::Time::new(view_diff))
+                    .remove(&<TYPES as NodeType>::View::new(view_diff))
                 {
                     Some(lookback_events) => lookback_events.clone(),
                     // we have already return all received events for this view
@@ -343,7 +343,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
     ) {
         let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
             network,
-            view: TYPES::Time::genesis(),
+            view: TYPES::View::genesis(),
+            epoch: TYPES::Epoch::genesis(),
             quorum_membership,
             da_membership,
             storage: Arc::clone(&handle.storage()),
@@ -372,7 +373,7 @@ pub struct DishonestVoter<TYPES: NodeType> {
     /// Collect all votes the node sends
     pub votes_sent: Vec<QuorumVote<TYPES>>,
     /// Shared state with views numbers that leaders were dishonest at
-    pub dishonest_proposal_view_numbers: Arc<RwLock<HashSet<TYPES::Time>>>,
+    pub dishonest_proposal_view_numbers: Arc<RwLock<HashSet<TYPES::View>>>,
 }
 
 #[async_trait]
