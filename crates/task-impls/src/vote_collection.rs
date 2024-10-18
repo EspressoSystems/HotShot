@@ -105,7 +105,7 @@ impl<
     ) -> Result<Option<CERT>> {
         ensure!(
             vote.leader(&self.membership, self.epoch)? == self.public_key,
-            "Received vote for a view in which we were not the leader."
+            info!("Received vote for a view in which we were not the leader.")
         );
         ensure!(
             vote.view_number() == self.view,

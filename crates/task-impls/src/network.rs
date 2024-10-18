@@ -46,6 +46,9 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
 
     /// Sender to send external events this task generates to the event stream
     pub external_event_stream: Sender<Event<TYPES>>,
+
+    /// This nodes public key
+    pub public_key: TYPES::SignatureKey,
 }
 
 impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
@@ -160,11 +163,14 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
 
             // Handle external messages
             MessageKind::External(data) => {
+                if sender == self.public_key {
+                    return;
+                }
                 // Send the external message to the external event stream so it can be processed
                 broadcast_event(
                     Event {
                         view_number: TYPES::View::new(1),
-                        event: EventType::ExternalMessageReceived(data),
+                        event: EventType::ExternalMessageReceived { sender, data },
                     },
                     &self.external_event_stream,
                 )
@@ -370,28 +376,13 @@ impl<
                     TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::QuorumProposalRequestSend(req, signature) => {
-                let view_number = req.view_number;
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
-
-                Some((
-                    req.key.clone(),
-                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
-                    )),
-                    TransmitType::DaCommitteeAndLeaderBroadcast(leader),
-                ))
-            }
+            HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
+                req.key.clone(),
+                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                    GeneralConsensusMessage::ProposalRequested(req.clone(), signature),
+                )),
+                TransmitType::Broadcast,
+            )),
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
                 sender_key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -678,20 +669,12 @@ impl<
                         .await
                 }
                 TransmitType::DaCommitteeBroadcast => {
-                    net.da_broadcast_message(serialized_message, da_committee, broadcast_delay)
-                        .await
-                }
-                TransmitType::DaCommitteeAndLeaderBroadcast(recipient) => {
-                    if let Err(e) = net
-                        .direct_message(serialized_message.clone(), recipient)
-                        .await
-                    {
-                        tracing::warn!("Failed to send message: {e:?}");
-                    }
-
-                    // Otherwise, send the next message.
-                    net.da_broadcast_message(serialized_message, da_committee, broadcast_delay)
-                        .await
+                    net.da_broadcast_message(
+                        serialized_message,
+                        da_committee.iter().cloned().collect(),
+                        broadcast_delay,
+                    )
+                    .await
                 }
             };
 

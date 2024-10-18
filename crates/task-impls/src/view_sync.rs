@@ -349,7 +349,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     self.membership
                         .leader(vote_view + relay, self.current_epoch)?
                         == self.public_key,
-                    "View sync vote sent to wrong leader"
+                    debug!("View sync vote sent to wrong leader")
                 );
 
                 let info = AccumulatorInfo {
@@ -391,7 +391,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     self.membership
                         .leader(vote_view + relay, self.current_epoch)?
                         == self.public_key,
-                    "View sync vote sent to wrong leader"
+                    debug!("View sync vote sent to wrong leader")
                 );
 
                 let info = AccumulatorInfo {
@@ -452,12 +452,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 // This is an old timeout and we can ignore it
                 ensure!(
                     view_number > self.current_view,
-                    "Discarding old timeout vote."
+                    debug!("Discarding old timeout vote.")
                 );
 
                 self.num_timeouts_tracked += 1;
                 let leader = self.membership.leader(view_number, self.current_epoch)?;
-                tracing::error!(
+                tracing::warn!(
                     %leader,
                     leader_mnemonic = cdn_proto::util::mnemonic(&leader),
                     view_number = *view_number,

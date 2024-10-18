@@ -294,7 +294,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         // Don't even bother making the task if we are not entitled to propose anyway.
         ensure!(
             self.quorum_membership.leader(view_number, epoch_number)? == self.public_key,
-            "We are not the leader of the next view"
+            debug!("We are not the leader of the next view")
         );
 
         // Don't try to propose twice for the same view.
@@ -443,7 +443,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                             &self.upgrade_lock
                         )
                         .await,
-                    error!(
+                    warn!(
                         "View Sync Finalize certificate {:?} was invalid",
                         certificate.data()
                     )

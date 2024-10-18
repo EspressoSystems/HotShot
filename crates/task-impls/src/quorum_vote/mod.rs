@@ -588,7 +588,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                         &self.upgrade_lock
                     )
                     .await,
-                    "Invalid DAC"
+                    warn!("Invalid DAC")
                 );
 
                 // Add to the storage.
