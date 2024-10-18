@@ -171,7 +171,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
             pub_key.clone(),
             TYPES::SignatureKey::sign(private_key, commit.as_ref())
                 .wrap()
-                .context(warn!("Failed to sign vote"))?,
+                .context(error!("Failed to sign vote"))?,
         );
 
         Ok(Self {

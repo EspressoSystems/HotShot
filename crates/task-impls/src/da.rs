@@ -143,7 +143,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 ensure!(
                     view_leader_key.validate(&proposal.signature, &encoded_transactions_hash),
-                    "Could not verify proposal."
+                    warn!("Could not verify proposal.")
                 );
 
                 broadcast_event(
@@ -156,7 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let curr_view = self.consensus.read().await.cur_view();
                 ensure!(
                   curr_view <= proposal.data.view_number() + 1,
-                  info!(
+                  debug!(
                     "Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", 
                     curr_view,
                     proposal.data.view_number()
