@@ -48,7 +48,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> EventTransforme
         _public_key: &TYPES::SignatureKey,
         _private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
         _upgrade_lock: &UpgradeLock<TYPES, V>,
-        consensus: Arc<RwLock<Consensus<TYPES>>>,
+        _consensus: Arc<RwLock<Consensus<TYPES>>>,
     ) -> Vec<HotShotEvent<TYPES>> {
         match event {
             HotShotEvent::QuorumProposalSend(proposal, signature) => {
