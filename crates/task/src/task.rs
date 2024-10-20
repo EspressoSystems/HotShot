@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -15,8 +15,10 @@ use async_trait::async_trait;
 use futures::future::join_all;
 #[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
+use rand::RngCore;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn, JoinHandle};
+use tracing::info;
 
 /// Trait for events that long-running tasks handle
 pub trait TaskEvent: PartialEq {
@@ -31,7 +33,7 @@ pub trait TaskEvent: PartialEq {
 /// Type for mutable task state that can be used as the state for a `Task`
 pub trait TaskState: Send {
     /// Type of event sent and received by the task
-    type Event: TaskEvent + Clone + Send + Sync;
+    type Event: TaskEvent + Clone + Send + Sync + Debug;
 
     /// Joins all subtasks.
     async fn cancel_subtasks(&mut self);
@@ -77,7 +79,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
 
     /// Spawn the task loop, consuming self.  Will continue until
     /// the task reaches some shutdown condition
-    pub fn run(mut self) -> JoinHandle<Box<dyn TaskState<Event = S::Event>>> {
+    pub fn run(mut self, name: String) -> JoinHandle<Box<dyn TaskState<Event = S::Event>>> {
         spawn(async move {
             loop {
                 match self.receiver.recv_direct().await {
@@ -88,10 +90,13 @@ impl<S: TaskState + Send + 'static> Task<S> {
                             break self.boxed_state();
                         }
 
+                        let id = rand::thread_rng().next_u64();
+                        info!(id = id, event = ?input, "Task {} handling event", name);
                         let _ =
                             S::handle_event(&mut self.state, input, &self.sender, &self.receiver)
                                 .await
                                 .inspect_err(|e| tracing::info!("{e}"));
+                        info!(id = id, "Task {} handled event", name);
                     }
                     Err(e) => {
                         tracing::error!("Failed to receive from event stream Error: {}", e);
@@ -109,7 +114,7 @@ pub struct ConsensusTaskRegistry<EVENT> {
     task_handles: Vec<JoinHandle<Box<dyn TaskState<Event = EVENT>>>>,
 }
 
-impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
+impl<EVENT: Send + Sync + Clone + TaskEvent + Debug> ConsensusTaskRegistry<EVENT> {
     #[must_use]
     /// Create a new task registry
     pub fn new() -> Self {
@@ -139,11 +144,11 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
         }
     }
     /// Take a task, run it, and register it
-    pub fn run_task<S>(&mut self, task: Task<S>)
+    pub fn run_task<S>(&mut self, task: Task<S>, name: String)
     where
         S: TaskState<Event = EVENT> + Send + 'static,
     {
-        self.register(task.run());
+        self.register(task.run(name));
     }
 
     /// Wait for the results of all the tasks registered

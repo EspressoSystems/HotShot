@@ -73,14 +73,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     SystemContextHandle<TYPES, I, V>
 {
     /// Adds a hotshot consensus-related task to the `SystemContextHandle`.
-    pub fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(&mut self, task_state: S) {
+    pub fn add_task<S: TaskState<Event = HotShotEvent<TYPES>> + 'static>(
+        &mut self,
+        task_state: S,
+        name: String,
+    ) {
         let task = Task::new(
             task_state,
             self.internal_event_stream.0.clone(),
             self.internal_event_stream.1.activate_cloned(),
         );
 
-        self.consensus_registry.run_task(task);
+        self.consensus_registry.run_task(task, name);
     }
 
     /// obtains a stream to expose to the user

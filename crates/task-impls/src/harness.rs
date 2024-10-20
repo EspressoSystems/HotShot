@@ -52,7 +52,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send
 
     let task = Task::new(state, to_test.clone(), from_test.clone());
 
-    let handle = task.run();
+    let handle = task.run("test harness".into());
     let test_future = async move {
         loop {
             if let Ok(event) = from_task.recv_direct().await {

@@ -256,13 +256,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         let anchored_leaf = initializer.inner;
         let instance_state = initializer.instance_state;
 
-        let (internal_tx, internal_rx) = internal_channel;
+        let (internal_tx, mut internal_rx) = internal_channel;
         let (mut external_tx, mut external_rx) = external_channel;
 
         let upgrade_lock = UpgradeLock::<TYPES, V>::new();
 
         // Allow overflow on the channel, otherwise sending to it may block.
         external_rx.set_overflow(true);
+
+        // Allow overflow on the channel, otherwise sending to it may block.
+        internal_rx.set_overflow(true);
 
         // Get the validated state from the initializer or construct an incomplete one from the
         // block header.

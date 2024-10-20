@@ -777,6 +777,7 @@ pub async fn cancel_task<T>(task: JoinHandle<T>) {
 }
 
 /// Helper function to send events and log errors
+#[tracing::instrument(skip(sender))]
 pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Sender<E>) {
     match sender.broadcast_direct(event).await {
         Ok(None) => (),

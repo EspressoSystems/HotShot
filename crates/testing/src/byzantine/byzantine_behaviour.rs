@@ -348,7 +348,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
             network_event_task_state: network_state,
             modifier: Arc::clone(&self.modifier),
         };
-        handle.add_task(modified_network_state);
+        handle.add_task(modified_network_state, "network event".into());
     }
 }
 

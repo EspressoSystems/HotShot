@@ -187,7 +187,7 @@ pub struct PushCdnNetwork<K: SignatureKey + 'static> {
     // request_receiver_channel: TakeReceiver,
 }
 
-impl<K:SignatureKey + 'static> Debug for PushCdnNetwork<K>{
+impl<K: SignatureKey + 'static> Debug for PushCdnNetwork<K> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "PushCdnNetwork")
     }

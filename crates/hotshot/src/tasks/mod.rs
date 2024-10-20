@@ -74,7 +74,9 @@ pub async fn add_request_network_task<
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
     );
-    handle.consensus_registry.run_task(task);
+    handle
+        .consensus_registry
+        .run_task(task, "request network".into());
 }
 
 /// Add a task which responds to requests on the network.
@@ -199,28 +201,48 @@ pub fn add_network_event_task<
         handle.internal_event_stream.0.clone(),
         handle.internal_event_stream.1.activate_cloned(),
     );
-    handle.consensus_registry.run_task(task);
+    handle
+        .consensus_registry
+        .run_task(task, "network event".into());
 }
 
 /// Adds consensus-related tasks to a `SystemContextHandle`.
 pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
-    handle.add_task(ViewSyncTaskState::<TYPES, I, V>::create_from(handle).await);
-    handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
-    handle.add_task(DaTaskState::<TYPES, I, V>::create_from(handle).await);
-    handle.add_task(TransactionTaskState::<TYPES, I, V>::create_from(handle).await);
+    handle.add_task(
+        ViewSyncTaskState::<TYPES, I, V>::create_from(handle).await,
+        "view sync".into(),
+    );
+    handle.add_task(
+        VidTaskState::<TYPES, I>::create_from(handle).await,
+        "vid".into(),
+    );
+    handle.add_task(
+        DaTaskState::<TYPES, I, V>::create_from(handle).await,
+        "da".into(),
+    );
+    handle.add_task(
+        TransactionTaskState::<TYPES, I, V>::create_from(handle).await,
+        "transaction".into(),
+    );
 
     // only spawn the upgrade task if we are actually configured to perform an upgrade.
     if V::Base::VERSION < V::Upgrade::VERSION {
-        handle.add_task(UpgradeTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(
+            UpgradeTaskState::<TYPES, I, V>::create_from(handle).await,
+            "upgrade".into(),
+        );
     }
 
     {
         #![cfg(not(feature = "dependency-tasks"))]
         use hotshot_task_impls::consensus::ConsensusTaskState;
 
-        handle.add_task(ConsensusTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(
+            ConsensusTaskState::<TYPES, I, V>::create_from(handle).await,
+            "consensus (not dependency task)".into(),
+        );
     }
     {
         #![cfg(feature = "dependency-tasks")]
@@ -229,10 +251,22 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
             quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
         };
 
-        handle.add_task(QuorumProposalTaskState::<TYPES, I, V>::create_from(handle).await);
-        handle.add_task(QuorumVoteTaskState::<TYPES, I, V>::create_from(handle).await);
-        handle.add_task(QuorumProposalRecvTaskState::<TYPES, I, V>::create_from(handle).await);
-        handle.add_task(Consensus2TaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(
+            QuorumProposalTaskState::<TYPES, I, V>::create_from(handle).await,
+            "quorum proposal".into(),
+        );
+        handle.add_task(
+            QuorumVoteTaskState::<TYPES, I, V>::create_from(handle).await,
+            "quorum vote".into(),
+        );
+        handle.add_task(
+            QuorumProposalRecvTaskState::<TYPES, I, V>::create_from(handle).await,
+            "quorum proposal recv".into(),
+        );
+        handle.add_task(
+            Consensus2TaskState::<TYPES, I, V>::create_from(handle).await,
+            "consensus2".into(),
+        );
     }
 
     #[cfg(feature = "rewind")]

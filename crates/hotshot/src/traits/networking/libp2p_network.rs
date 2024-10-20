@@ -76,7 +76,7 @@ use libp2p_networking::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::BroadcastDelay;
 
@@ -881,7 +881,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     fn resume(&self) {
         unimplemented!("Resuming not implemented for the Libp2p network");
     }
-
 
     #[tracing::instrument(skip(self))]
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
