@@ -6,7 +6,7 @@
 
 #[cfg(feature = "hotshot-testing")]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeSet, fmt::Debug, marker::PhantomData, sync::Arc};
 #[cfg(feature = "hotshot-testing")]
 use std::{path::Path, time::Duration};
 
@@ -59,7 +59,7 @@ use tracing::error;
 use super::NetworkError;
 
 /// CDN-specific metrics
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CdnMetricsValue {
     /// The number of failed messages
     pub num_failed_messages: Box<dyn Counter>,
@@ -185,6 +185,12 @@ pub struct PushCdnNetwork<K: SignatureKey + 'static> {
     is_paused: Arc<AtomicBool>,
     // The receiver channel for
     // request_receiver_channel: TakeReceiver,
+}
+
+impl<K:SignatureKey + 'static> Debug for PushCdnNetwork<K>{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PushCdnNetwork")
+    }
 }
 
 /// The enum for the topics we can subscribe to in the Push CDN
@@ -436,6 +442,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 
 #[async_trait]
 impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
+    #[tracing::instrument(skip(self))]
     async fn request_data<TYPES: NodeType>(
         &self,
         _request: Vec<u8>,
@@ -444,29 +451,34 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         Ok(vec![])
     }
 
+    #[tracing::instrument(skip(self))]
     async fn spawn_request_receiver_task(
         &self,
     ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
         None
     }
 
+    #[tracing::instrument(skip(self))]
     /// Pause sending and receiving on the PushCDN network.
     fn pause(&self) {
         #[cfg(feature = "hotshot-testing")]
         self.is_paused.store(true, Ordering::Relaxed);
     }
 
+    #[tracing::instrument(skip(self))]
     /// Resume sending and receiving on the PushCDN network.
     fn resume(&self) {
         #[cfg(feature = "hotshot-testing")]
         self.is_paused.store(false, Ordering::Relaxed);
     }
 
+    #[tracing::instrument(skip(self))]
     /// Wait for the client to initialize the connection
     async fn wait_for_ready(&self) {
         self.client.ensure_initialized().await;
     }
 
+    #[tracing::instrument(skip(self))]
     /// TODO: shut down the networks. Unneeded for testing.
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
@@ -476,6 +488,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         boxed_sync(async move {})
     }
 
+    #[tracing::instrument(skip(self))]
     /// Broadcast a message to all members of the quorum.
     ///
     /// # Errors
@@ -495,6 +508,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             })
     }
 
+    #[tracing::instrument(skip(self))]
     /// Broadcast a message to all members of the DA committee.
     ///
     /// # Errors
@@ -514,6 +528,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             })
     }
 
+    #[tracing::instrument(skip(self))]
     /// Send a direct message to a node with a particular key. Does not retry.
     ///
     /// - If we fail to serialize the message
@@ -540,6 +555,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     /// Receive a message. Is agnostic over `transmit_type`, which has an issue
     /// to be removed anyway.
     ///
@@ -579,6 +595,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         Ok(vec![message])
     }
 
+    #[tracing::instrument(skip(self))]
     /// Do nothing here, as we don't need to look up nodes.
     fn queue_node_lookup(
         &self,

@@ -775,6 +775,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
 
 #[async_trait]
 impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
+    #[tracing::instrument(skip(self))]
     async fn request_data<TYPES: NodeType>(
         &self,
         request: Vec<u8>,
@@ -834,6 +835,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         })?)
     }
 
+    #[tracing::instrument(skip(self))]
     async fn spawn_request_receiver_task(
         &self,
     ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
@@ -864,20 +866,24 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
 
         Some(rx)
     }
-    #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
+
+    #[tracing::instrument(skip(self))]
     async fn wait_for_ready(&self) {
         self.wait_for_ready().await;
     }
 
+    #[tracing::instrument(skip(self))]
     fn pause(&self) {
         unimplemented!("Pausing not implemented for the Libp2p network");
     }
 
+    #[tracing::instrument(skip(self))]
     fn resume(&self) {
         unimplemented!("Resuming not implemented for the Libp2p network");
     }
 
-    #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
+
+    #[tracing::instrument(skip(self))]
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
@@ -891,7 +897,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         boxed_sync(closure)
     }
 
-    #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn broadcast_message(
         &self,
         message: Vec<u8>,
@@ -948,7 +954,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         Ok(())
     }
 
-    #[instrument(name = "Libp2pNetwork::da_broadcast_message", skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn da_broadcast_message(
         &self,
         message: Vec<u8>,
@@ -981,7 +987,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         }
     }
 
-    #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError> {
         // If we're not ready, return an error
         if !self.is_ready() {
@@ -1055,7 +1061,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     ///
     /// # Errors
     /// If there is a network-related failure.
-    #[instrument(name = "Libp2pNetwork::recv_msgs", skip_all)]
+    #[tracing::instrument(skip(self))]
     async fn recv_msgs(&self) -> Result<Vec<Vec<u8>>, NetworkError> {
         let result = self
             .inner
@@ -1067,7 +1073,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
         Ok(result)
     }
 
-    #[instrument(name = "Libp2pNetwork::queue_node_lookup", skip_all)]
+    #[tracing::instrument(skip(self))]
     fn queue_node_lookup(
         &self,
         view_number: ViewNumber,

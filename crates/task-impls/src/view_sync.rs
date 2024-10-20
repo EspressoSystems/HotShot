@@ -485,7 +485,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ViewSyncReplicaTaskState<TYPES, I, V>
 {
-    #[instrument(skip_all, fields(id = self.id, view = *self.current_view), name = "View Sync Replica Task", level = "error")]
+    #[instrument(skip(self))]
     /// Handle incoming events for the view sync replica task
     pub async fn handle(
         &mut self,

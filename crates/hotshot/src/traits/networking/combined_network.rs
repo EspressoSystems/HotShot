@@ -62,7 +62,7 @@ type DelayedTasksChannelsMap = Arc<RwLock<BTreeMap<u64, (Sender<()>, InactiveRec
 
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CombinedNetworks<TYPES: NodeType> {
     /// The two networks we'll use for send/recv
     networks: Arc<UnderlyingCombinedNetworks<TYPES>>,
@@ -248,7 +248,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 /// Wrapper for the tuple of `PushCdnNetwork` and `Libp2pNetwork`
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UnderlyingCombinedNetworks<TYPES: NodeType>(
     pub PushCdnNetwork<TYPES::SignatureKey>,
     pub Libp2pNetwork<TYPES::SignatureKey>,
@@ -334,6 +334,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
 
 #[async_trait]
 impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks<TYPES> {
+    #[tracing::instrument(skip(self))]
     async fn request_data<T: NodeType>(
         &self,
         request: Vec<u8>,
@@ -344,20 +345,24 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
             .await
     }
 
+    #[tracing::instrument(skip(self))]
     async fn spawn_request_receiver_task(
         &self,
     ) -> Option<mpsc::Receiver<(Vec<u8>, NetworkMsgResponseChannel<Vec<u8>>)>> {
         self.secondary().spawn_request_receiver_task().await
     }
 
+    #[tracing::instrument(skip(self))]
     fn pause(&self) {
         self.networks.0.pause();
     }
 
+    #[tracing::instrument(skip(self))]
     fn resume(&self) {
         self.networks.0.resume();
     }
 
+    #[tracing::instrument(skip(self))]
     async fn wait_for_ready(&self) {
         join!(
             self.primary().wait_for_ready(),
@@ -365,6 +370,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         );
     }
 
+    #[tracing::instrument(skip(self))]
     fn shut_down<'a, 'b>(&'a self) -> BoxSyncFuture<'b, ()>
     where
         'a: 'b,
@@ -376,6 +382,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         boxed_sync(closure)
     }
 
+    #[tracing::instrument(skip(self))]
     async fn broadcast_message(
         &self,
         message: Vec<u8>,
@@ -404,6 +411,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         .await
     }
 
+    #[tracing::instrument(skip(self))]
     async fn da_broadcast_message(
         &self,
         message: Vec<u8>,
@@ -432,6 +440,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         .await
     }
 
+    #[tracing::instrument(skip(self))]
     async fn direct_message(
         &self,
         message: Vec<u8>,
@@ -455,6 +464,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         .await
     }
 
+    #[tracing::instrument(skip(self))]
     async fn vid_broadcast_message(
         &self,
         messages: HashMap<TYPES::SignatureKey, Vec<u8>>,
@@ -466,6 +476,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
     ///
     /// # Errors
     /// Does not error
+    #[tracing::instrument(skip(self))]
     async fn recv_msgs(&self) -> Result<Vec<Vec<u8>>, NetworkError> {
         // recv on both networks because nodes may be accessible only on either. discard duplicates
         // TODO: improve this algorithm: https://github.com/EspressoSystems/HotShot/issues/2089
@@ -497,6 +508,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         Ok(filtered_msgs)
     }
 
+    #[tracing::instrument(skip(self))]
     fn queue_node_lookup(
         &self,
         view_number: ViewNumber,
@@ -530,6 +542,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         self.networks.1.update_view::<T>(view, membership).await;
     }
 
+    #[tracing::instrument(skip(self))]
     fn is_primary_down(&self) -> bool {
         self.primary_down.load(Ordering::Relaxed)
     }
