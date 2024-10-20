@@ -75,6 +75,9 @@ pub struct GossipConfig {
 
     /// The maximum gossip message size
     pub max_transmit_size: usize,
+
+    pub max_ihave_length: usize,
+    pub max_ihave_messages: usize,
 }
 
 impl Default for GossipConfig {
@@ -83,8 +86,8 @@ impl Default for GossipConfig {
             heartbeat_interval: Duration::from_secs(1), // Default of Libp2p
 
             // The following are slightly modified defaults of Libp2p
-            history_gossip: 6, // The number of past heartbeats to gossip about
-            history_length: 8, // The number of past heartbeats to remember the full messages for
+            history_gossip: 3, // The number of past heartbeats to gossip about
+            history_length: 5, // The number of past heartbeats to remember the full messages for
 
             // The mesh parameters are borrowed from Ethereum:
             // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
@@ -92,6 +95,9 @@ impl Default for GossipConfig {
             mesh_n_high: 12,      // The maximum number of peers in the mesh
             mesh_n_low: 6,        // The minimum number of peers in the mesh
             mesh_outbound_min: 2, // The minimum number of mesh peers that must be outbound
+
+            max_ihave_length: 2000,
+            max_ihave_messages: 10,
 
             max_transmit_size: MAX_GOSSIP_MSG_SIZE, // The maximum gossip message size
         }

@@ -212,6 +212,8 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 .mesh_n_low(config.gossip_config.mesh_n_low) // Lower limit of mesh peers
                 .mesh_outbound_min(config.gossip_config.mesh_outbound_min) // Minimum number of outbound peers in mesh
                 .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
+                .max_ihave_length(config.gossip_config.max_ihave_length)
+                .max_ihave_messages(config.gossip_config.max_ihave_messages)
                 .build()
                 .map_err(|s| {
                     GossipsubConfigSnafu {
