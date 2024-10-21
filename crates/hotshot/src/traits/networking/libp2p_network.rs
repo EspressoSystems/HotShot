@@ -7,6 +7,7 @@
 //! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
+pub use libp2p_networking::reexport::GossipsubConfig;
 #[cfg(feature = "hotshot-testing")]
 use std::str::FromStr;
 use std::{
@@ -62,7 +63,6 @@ use libp2p_identity::{
     ed25519::{self, SecretKey},
     Keypair, PeerId,
 };
-pub use libp2p_networking::network::GossipConfig;
 use libp2p_networking::{
     network::{
         behaviours::dht::record::{Namespace, RecordKey, RecordValue},
@@ -367,7 +367,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
     /// If we are unable to calculate the replication factor
     pub async fn from_config<TYPES: NodeType>(
         mut config: NetworkConfig<K>,
-        gossip_config: GossipConfig,
+        gossip_config: GossipsubConfig,
         bind_address: SocketAddr,
         pub_key: &K,
         priv_key: &K::PrivateKey,
@@ -395,7 +395,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let mut config_builder = NetworkNodeConfigBuilder::default();
 
         // Set the gossip configuration
-        config_builder.gossip_config(gossip_config.clone());
+        config_builder.gossipsub_config(gossip_config.clone());
 
         // Extrapolate the stake table from the known nodes
         let stake_table: HashSet<K> = config
@@ -443,7 +443,7 @@ impl<K: SignatureKey + 'static> Libp2pNetwork<K> {
         let bootstrap_nodes = libp2p_config
             .bootstrap_nodes
             .into_iter()
-            .choose_multiple(&mut StdRng::from_entropy(), gossip_config.mesh_n);
+            .choose_multiple(&mut StdRng::from_entropy(), gossip_config.mesh_n());
         config_builder.to_connect_addrs(HashSet::from_iter(bootstrap_nodes.clone()));
 
         // Build the node's configuration

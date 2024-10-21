@@ -32,10 +32,7 @@ use hotshot_types::{
 use libp2p::{
     autonat,
     core::transport::ListenerId,
-    gossipsub::{
-        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipEvent,
-        Message as GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
-    },
+    gossipsub::{Behaviour as Gossipsub, Event as GossipEvent, MessageAuthenticity, Topic},
     identify::{
         Behaviour as IdentifyBehaviour, Config as IdentifyConfig, Event as IdentifyEvent,
         Info as IdentifyInfo,
@@ -55,7 +52,7 @@ use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 pub use self::{
     config::{
-        GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
+        NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
         DEFAULT_REPLICATION_FACTOR,
     },
     handle::{
@@ -68,7 +65,7 @@ use super::{
         bootstrap::{self, DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
-    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
+    error::{GossipsubBuildSnafu, NetworkError, TransportSnafu},
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal,
 };
 use crate::network::behaviours::{
@@ -79,7 +76,7 @@ use crate::network::behaviours::{
 };
 
 /// Maximum size of a message
-pub const MAX_GOSSIP_MSG_SIZE: usize = 2_000_000_000;
+pub const MAX_GOSSIP_MSG_SIZE: usize = 1_000_000;
 
 /// Wrapped num of connections
 pub const ESTABLISHED_LIMIT: NonZeroU32 =
@@ -194,32 +191,6 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
 
         // Generate the swarm
         let mut swarm: Swarm<NetworkDef<K>> = {
-            // Use the `Blake3` hash of the message's contents as the ID
-            let message_id_fn = |message: &GossipsubMessage| {
-                let hash = blake3::hash(&message.data);
-                MessageId::from(hash.as_bytes().to_vec())
-            };
-
-            // Derive a `Gossipsub` config from our gossip config
-            let gossipsub_config = GossipsubConfigBuilder::default()
-                .message_id_fn(message_id_fn) // Use the (blake3) hash of a message as its ID
-                .validation_mode(ValidationMode::Strict) // Force all messages to have valid signatures
-                .heartbeat_interval(config.gossip_config.heartbeat_interval) // Time between gossip heartbeats
-                .history_gossip(config.gossip_config.history_gossip) // Number of heartbeats to gossip about
-                .history_length(config.gossip_config.history_length) // Number of heartbeats to remember the full message for
-                .mesh_n(config.gossip_config.mesh_n) // Target number of mesh peers
-                .mesh_n_high(config.gossip_config.mesh_n_high) // Upper limit of mesh peers
-                .mesh_n_low(config.gossip_config.mesh_n_low) // Lower limit of mesh peers
-                .mesh_outbound_min(config.gossip_config.mesh_outbound_min) // Minimum number of outbound peers in mesh
-                .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
-                .build()
-                .map_err(|s| {
-                    GossipsubConfigSnafu {
-                        message: s.to_string(),
-                    }
-                    .build()
-                })?;
-
             // - Build a gossipsub network behavior
             let gossipsub: Gossipsub = Gossipsub::new(
                 // TODO do we even need this?
@@ -227,7 +198,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 // if messages are signed at the the consensus level AND the network
                 // level (noise), this feels redundant.
                 MessageAuthenticity::Signed(keypair.clone()),
-                gossipsub_config,
+                config.gossipsub_config.clone(),
             )
             .map_err(|s| GossipsubBuildSnafu { message: s }.build())?;
 

@@ -19,7 +19,7 @@ pub mod implementations {
     pub use super::networking::{
         combined_network::{CombinedNetworks, UnderlyingCombinedNetworks},
         libp2p_network::{
-            derive_libp2p_keypair, derive_libp2p_peer_id, GossipConfig, Libp2pMetricsValue,
+            derive_libp2p_keypair, derive_libp2p_peer_id, GossipsubConfig, Libp2pMetricsValue,
             Libp2pNetwork, PeerInfoVec,
         },
         memory_network::{MasterMap, MemoryNetwork},
