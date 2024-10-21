@@ -275,7 +275,7 @@ pub struct Consensus<TYPES: NodeType> {
     validated_state_map: BTreeMap<TYPES::Time, View<TYPES>>,
 
     /// All the VID shares we've received for current and future views.
-    vid_shares: VidShares<TYPES>,
+    //vid_shares: VidShares<TYPES>,
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
@@ -400,7 +400,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) -> Self {
         Consensus {
             validated_state_map,
-            vid_shares: BTreeMap::new(),
+            //vid_shares: BTreeMap::new(),
             saved_da_certs: HashMap::new(),
             cur_view,
             last_decided_view,
@@ -450,9 +450,9 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the vid shares.
-    pub fn vid_shares(&self) -> &VidShares<TYPES> {
-        &self.vid_shares
-    }
+    //pub fn vid_shares(&self) -> &VidShares<TYPES> {
+        //&self.vid_shares
+    //}
 
     /// Get the saved DA certs.
     pub fn saved_da_certs(&self) -> &HashMap<TYPES::Time, DaCertificate<TYPES>> {
@@ -633,16 +633,16 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Add a new entry to the vid_shares map.
-    pub fn update_vid_shares(
-        &mut self,
-        view_number: TYPES::Time,
-        disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
-    ) {
-        self.vid_shares
-            .entry(view_number)
-            .or_default()
-            .insert(disperse.data.recipient_key.clone(), disperse);
-    }
+    //pub fn update_vid_shares(
+        //&mut self,
+        //view_number: TYPES::Time,
+        //disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    //) {
+        //self.vid_shares
+            //.entry(view_number)
+            //.or_default()
+            //.insert(disperse.data.recipient_key.clone(), disperse);
+    //}
 
     /// Add a new entry to the da_certs map.
     pub fn update_saved_da_certs(&mut self, view_number: TYPES::Time, cert: DaCertificate<TYPES>) {
@@ -737,7 +737,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             });
         self.validated_state_map = self.validated_state_map.split_off(&new_anchor_view);
         self.saved_payloads = self.saved_payloads.split_off(&new_anchor_view);
-        self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
+        // TODO: Create CollectGarbage event to trigger a GC for the new home for vid_shares
+        //self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
         self.last_proposals = self.last_proposals.split_off(&new_anchor_view);
     }
 
@@ -787,31 +788,31 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .expect("Decided state not found! Consensus internally inconsistent")
     }
 
-    /// Associated helper function:
-    /// Takes `LockedConsensusState` which will be updated; locks it for read and write accordingly.
-    /// Calculates `VidDisperse` based on the view, the txns and the membership,
-    /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
-    /// Returned `Option` indicates whether the update has actually happened or not.
-    #[instrument(skip_all, target = "Consensus", fields(view = *view))]
-    pub async fn calculate_and_update_vid(
-        consensus: OuterConsensus<TYPES>,
-        view: <TYPES as NodeType>::Time,
-        membership: Arc<TYPES::Membership>,
-        private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    ) -> Option<()> {
-        let consensus = consensus.upgradable_read().await;
-        let txns = consensus.saved_payloads().get(&view)?;
-        let vid =
-            VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
-        let shares = VidDisperseShare::from_vid_disperse(vid);
-        let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
-        for share in shares {
-            if let Some(prop) = share.to_proposal(private_key) {
-                consensus.update_vid_shares(view, prop);
-            }
-        }
-        Some(())
-    }
+    // Associated helper function:
+    // Takes `LockedConsensusState` which will be updated; locks it for read and write accordingly.
+    // Calculates `VidDisperse` based on the view, the txns and the membership,
+    // and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
+    // Returned `Option` indicates whether the update has actually happened or not.
+    //#[instrument(skip_all, target = "Consensus", fields(view = *view))]
+    //pub async fn calculate_and_update_vid(
+        //consensus: OuterConsensus<TYPES>,
+        //view: <TYPES as NodeType>::Time,
+        //membership: Arc<TYPES::Membership>,
+        //private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    //) -> Option<()> {
+        //let consensus = consensus.upgradable_read().await;
+        //let txns = consensus.saved_payloads().get(&view)?;
+        //let vid =
+            //VidDisperse::calculate_vid_disperse(Arc::clone(txns), &membership, view, None).await;
+        //let shares = VidDisperseShare::from_vid_disperse(vid);
+        //let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
+        //for share in shares {
+            //if let Some(prop) = share.to_proposal(private_key) {
+                //consensus.update_vid_shares(view, prop);
+            //}
+        //}
+        //Some(())
+    //}
 }
 
 /// Alias for the block payload commitment and the associated metadata. The primary data
