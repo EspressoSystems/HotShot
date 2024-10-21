@@ -31,7 +31,7 @@ use hotshot_types::{
     vote::{HasViewNumber, Vote},
 };
 use tracing::instrument;
-use utils::result12345::*;
+use utils::anytrace::*;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},

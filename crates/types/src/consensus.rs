@@ -16,7 +16,7 @@ use std::{
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use committable::Commitment;
 use tracing::instrument;
-use utils::result12345::*;
+use utils::anytrace::*;
 use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};

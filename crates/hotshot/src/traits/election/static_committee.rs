@@ -16,7 +16,7 @@ use hotshot_types::{
     },
     PeerConfig,
 };
-use utils::result12345::Result;
+use utils::anytrace::Result;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 

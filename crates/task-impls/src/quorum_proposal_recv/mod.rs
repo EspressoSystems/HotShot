@@ -30,7 +30,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
-use utils::result12345::{bail, Result};
+use utils::anytrace::{bail, Result};
 use vbs::version::Version;
 
 use self::handlers::handle_quorum_proposal_recv;

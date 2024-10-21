@@ -20,7 +20,7 @@ use hotshot_types::{
     },
 };
 use tracing::{debug, error, info, instrument};
-use utils::result12345::Result;
+use utils::anytrace::Result;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},

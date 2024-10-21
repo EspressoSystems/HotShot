@@ -28,7 +28,7 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use tracing::instrument;
-use utils::result12345::*;
+use utils::anytrace::*;
 use vbs::version::StaticVersionType;
 
 use crate::{

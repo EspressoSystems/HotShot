@@ -33,7 +33,7 @@ use hotshot_types::{
 };
 use tracing::instrument;
 use url::Url;
-use utils::result12345::*;
+use utils::anytrace::*;
 use vbs::version::{StaticVersionType, Version};
 use vec1::Vec1;
 

@@ -16,7 +16,7 @@ use committable::{Commitment, Committable};
 use either::Either;
 use ethereum_types::U256;
 use tracing::error;
-use utils::result12345::Result;
+use utils::anytrace::Result;
 
 use crate::{
     message::UpgradeLock,

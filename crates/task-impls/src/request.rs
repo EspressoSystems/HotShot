@@ -37,7 +37,7 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
-use utils::result12345::Result;
+use utils::anytrace::Result;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 

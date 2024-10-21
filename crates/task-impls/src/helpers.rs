@@ -39,7 +39,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
-use utils::result12345::*;
+use utils::anytrace::*;
 
 use crate::{
     events::HotShotEvent, quorum_proposal_recv::QuorumProposalRecvTaskState,
@@ -356,7 +356,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
     res
 }
 
-/// Gets the parent leaf and state from the parent of a proposal, returning an [`utils::result12345::Error`] if not.
+/// Gets the parent leaf and state from the parent of a proposal, returning an [`utils::anytrace::Error`] if not.
 #[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
@@ -692,7 +692,7 @@ pub async fn validate_proposal_view_and_certs<
 /// `timeout_task` which are updated during the operation of the function.
 ///
 /// # Errors
-/// Returns an [`utils::result12345::Error`] when the new view is not greater than the current view.
+/// Returns an [`utils::anytrace::Error`] when the new view is not greater than the current view.
 pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     new_view: TYPES::View,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,

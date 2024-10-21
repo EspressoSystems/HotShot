@@ -30,7 +30,7 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
-use utils::result12345::*;
+use utils::anytrace::*;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 

@@ -6,7 +6,7 @@
 
 use std::{sync::Arc, time::Duration};
 
-use utils::result12345::{ensure, Context, Result};
+use utils::anytrace::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use chrono::Utc;

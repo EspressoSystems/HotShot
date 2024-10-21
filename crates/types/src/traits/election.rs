@@ -7,7 +7,7 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 use std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
-use utils::result12345::Result;
+use utils::anytrace::Result;
 
 use super::{network::Topic, node_implementation::NodeType};
 use crate::{traits::signature_key::SignatureKey, PeerConfig};

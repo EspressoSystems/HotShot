@@ -10,7 +10,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use committable::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use utils::result12345::*;
+use utils::anytrace::*;
 use vbs::version::{StaticVersionType, Version};
 
 use crate::{

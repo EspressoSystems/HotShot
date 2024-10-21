@@ -17,7 +17,7 @@ use hotshot_types::{
     PeerConfig,
 };
 use rand::{rngs::StdRng, Rng};
-use utils::result12345::Result;
+use utils::anytrace::Result;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 

@@ -153,7 +153,7 @@ macro_rules! error {
 pub use error;
 
 #[macro_export]
-/// Log a `result12345::Error` at the corresponding level.
+/// Log a `anytrace::Error` at the corresponding level.
 macro_rules! log {
     ($result:expr) => {
         if let Err(ref error) = $result {
