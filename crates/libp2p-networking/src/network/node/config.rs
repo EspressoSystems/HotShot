@@ -117,7 +117,7 @@ impl Default for GossipConfig {
             flood_publish: true,
             duplicate_cache_time: Duration::from_secs(60),
             fanout_ttl: Duration::from_secs(60),
-            heartbeat_initial_delay: Duration::from_secs(1),
+            heartbeat_initial_delay: Duration::from_secs(5),
             gossip_factor: 0.25,
             gossip_lazy: 6,
 
