@@ -78,6 +78,17 @@ pub struct GossipConfig {
 
     pub max_ihave_length: usize,
     pub max_ihave_messages: usize,
+
+    pub published_message_ids_cache_time: Duration,
+    pub iwant_followup_time: Duration,
+    pub max_messages_per_rpc: Option<usize>,
+    pub gossip_retransmission: u32,
+    pub flood_publish: bool,
+    pub duplicate_cache_time: Duration,
+    pub fanout_ttl: Duration,
+    pub heartbeat_initial_delay: Duration,
+    pub gossip_factor: f64,
+    pub gossip_lazy: usize,
 }
 
 impl Default for GossipConfig {
@@ -98,6 +109,17 @@ impl Default for GossipConfig {
 
             max_ihave_length: 2000,
             max_ihave_messages: 10,
+
+            published_message_ids_cache_time: Duration::from_secs(10),
+            iwant_followup_time: Duration::from_secs(3),
+            max_messages_per_rpc: None,
+            gossip_retransmission: 3,
+            flood_publish: true,
+            duplicate_cache_time: Duration::from_secs(60),
+            fanout_ttl: Duration::from_secs(60),
+            heartbeat_initial_delay: Duration::from_secs(1),
+            gossip_factor: 0.25,
+            gossip_lazy: 6,
 
             max_transmit_size: MAX_GOSSIP_MSG_SIZE, // The maximum gossip message size
         }

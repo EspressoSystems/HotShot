@@ -214,6 +214,18 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
                 .max_ihave_length(config.gossip_config.max_ihave_length)
                 .max_ihave_messages(config.gossip_config.max_ihave_messages)
+                .published_message_ids_cache_time(
+                    config.gossip_config.published_message_ids_cache_time,
+                )
+                .iwant_followup_time(config.gossip_config.iwant_followup_time)
+                .max_messages_per_rpc(config.gossip_config.max_messages_per_rpc)
+                .gossip_retransimission(config.gossip_config.gossip_retransmission)
+                .flood_publish(config.gossip_config.flood_publish)
+                .duplicate_cache_time(config.gossip_config.duplicate_cache_time)
+                .fanout_ttl(config.gossip_config.fanout_ttl)
+                .heartbeat_initial_delay(config.gossip_config.heartbeat_initial_delay)
+                .gossip_factor(config.gossip_config.gossip_factor)
+                .gossip_lazy(config.gossip_config.gossip_lazy)
                 .build()
                 .map_err(|s| {
                     GossipsubConfigSnafu {
