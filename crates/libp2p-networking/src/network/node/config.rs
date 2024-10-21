@@ -59,6 +59,7 @@ pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
 
 /// Configuration for Libp2p's Gossipsub
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct GossipConfig {
     /// The heartbeat interval
     pub heartbeat_interval: Duration,
