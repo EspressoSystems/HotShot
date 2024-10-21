@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
@@ -375,7 +375,7 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub latest_voted_view: TYPES::Time,
 
     /// Table for the in-progress dependency tasks.
-    pub vote_dependencies: HashMap<TYPES::Time, JoinHandle<()>>,
+    pub vote_dependencies: BTreeMap<TYPES::Time, JoinHandle<()>>,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -652,6 +652,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     return;
                 }
             }
+            HotShotEvent::Timeout(view) => {
+                // cancel old tasks
+                let current_tasks = self.vote_dependencies.split_off(view);
+                while let Some((_, task)) = self.vote_dependencies.pop_last() {
+                    cancel_task(task).await;
+                }
+                self.vote_dependencies = current_tasks;
+            }
             _ => {}
         }
     }
@@ -675,7 +683,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
     }
 
     async fn cancel_subtasks(&mut self) {
-        for handle in self.vote_dependencies.drain().map(|(_view, handle)| handle) {
+        while let Some((_, handle)) = self.vote_dependencies.pop_last() {
             #[cfg(async_executor_impl = "async-std")]
             handle.cancel().await;
             #[cfg(async_executor_impl = "tokio")]
