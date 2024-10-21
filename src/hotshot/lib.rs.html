@@ -1053,6 +1053,10 @@
 <a href="#1051" id="1051">1051</a>
 <a href="#1052" id="1052">1052</a>
 <a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1307,14 +1311,18 @@
         <span class="kw">let </span>anchored_leaf = initializer.inner;
         <span class="kw">let </span>instance_state = initializer.instance_state;
 
-        <span class="kw">let </span>(internal_tx, internal_rx) = internal_channel;
+        <span class="kw">let </span>(internal_tx, <span class="kw-2">mut </span>internal_rx) = internal_channel;
         <span class="kw">let </span>(<span class="kw-2">mut </span>external_tx, <span class="kw-2">mut </span>external_rx) = external_channel;
 
         <span class="kw">let </span>upgrade_lock =
             UpgradeLock::&lt;TYPES, V&gt;::from_certificate(<span class="kw-2">&amp;</span>initializer.decided_upgrade_certificate);
 
-        <span class="comment">// Allow overflow on the channel, otherwise sending to it may block.
+        <span class="comment">// Allow overflow on the external channel, otherwise sending to it may block.
         </span>external_rx.set_overflow(<span class="bool-val">true</span>);
+
+        <span class="comment">// Allow overflow on the internal channel as well. We don't want to block consensus if we
+        // have a slow receiver
+        </span>internal_rx.set_overflow(<span class="bool-val">true</span>);
 
         <span class="comment">// Get the validated state from the initializer or construct an incomplete one from the
         // block header.

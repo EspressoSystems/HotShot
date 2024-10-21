@@ -584,7 +584,7 @@
             consensus: OuterConsensus::new(consensus),
             instance_state: handle.hotshot.instance_state(),
             latest_voted_view: handle.cur_view().<span class="kw">await</span>,
-            vote_dependencies: HashMap::new(),
+            vote_dependencies: BTreeMap::new(),
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             da_membership: handle.hotshot.memberships.da_membership.clone().into(),

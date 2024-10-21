@@ -103,6 +103,56 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -164,6 +214,7 @@
 
 <span class="doccomment">/// Configuration for Libp2p's Gossipsub
 </span><span class="attr">#[derive(Clone, Debug)]
+#[allow(missing_docs)]
 </span><span class="kw">pub struct </span>GossipConfig {
     <span class="doccomment">/// The heartbeat interval
     </span><span class="kw">pub </span>heartbeat_interval: Duration,
@@ -184,6 +235,42 @@
 
     <span class="doccomment">/// The maximum gossip message size
     </span><span class="kw">pub </span>max_transmit_size: usize,
+
+    <span class="doccomment">/// The maximum number of messages in an IHAVE message
+    </span><span class="kw">pub </span>max_ihave_length: usize,
+
+    <span class="doccomment">/// Maximum number of IHAVE messages to accept from a peer within a heartbeat
+    </span><span class="kw">pub </span>max_ihave_messages: usize,
+
+    <span class="doccomment">/// Cache duration for published message IDs
+    </span><span class="kw">pub </span>published_message_ids_cache_time: Duration,
+
+    <span class="doccomment">/// Time to wait for a message requested through IWANT following an IHAVE advertisement
+    </span><span class="kw">pub </span>iwant_followup_time: Duration,
+
+    <span class="doccomment">/// The maximum number of messages we will process in a given RPC
+    </span><span class="kw">pub </span>max_messages_per_rpc: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+
+    <span class="doccomment">/// Controls how many times we will allow a peer to request the same message id through IWANT gossip before we start ignoring them.
+    </span><span class="kw">pub </span>gossip_retransmission: u32,
+
+    <span class="doccomment">/// If enabled newly created messages will always be sent to all peers that are subscribed to the topic and have a good enough score.
+    </span><span class="kw">pub </span>flood_publish: bool,
+
+    <span class="doccomment">/// The time period that messages are stored in the cache
+    </span><span class="kw">pub </span>duplicate_cache_time: Duration,
+
+    <span class="doccomment">/// Time to live for fanout peers
+    </span><span class="kw">pub </span>fanout_ttl: Duration,
+
+    <span class="doccomment">/// Initial delay in each heartbeat
+    </span><span class="kw">pub </span>heartbeat_initial_delay: Duration,
+
+    <span class="doccomment">/// Affects how many peers we will emit gossip to at each heartbeat
+    </span><span class="kw">pub </span>gossip_factor: f64,
+
+    <span class="doccomment">/// Minimum number of peers to emit gossip to during a heartbeat
+    </span><span class="kw">pub </span>gossip_lazy: usize,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>GossipConfig {
@@ -202,7 +289,20 @@
             </span>mesh_n_low: <span class="number">6</span>,        <span class="comment">// The minimum number of peers in the mesh
             </span>mesh_outbound_min: <span class="number">2</span>, <span class="comment">// The minimum number of mesh peers that must be outbound
 
-            </span>max_transmit_size: MAX_GOSSIP_MSG_SIZE, <span class="comment">// The maximum gossip message size
+            </span>max_ihave_length: <span class="number">5000</span>,
+            max_ihave_messages: <span class="number">10</span>,
+            published_message_ids_cache_time: Duration::from_secs(<span class="number">60 </span>* <span class="number">20</span>), <span class="comment">// 20 minutes
+            </span>iwant_followup_time: Duration::from_secs(<span class="number">3</span>),
+            max_messages_per_rpc: <span class="prelude-val">None</span>,
+            gossip_retransmission: <span class="number">3</span>,
+            flood_publish: <span class="bool-val">true</span>,
+            duplicate_cache_time: Duration::from_secs(<span class="number">60</span>),
+            fanout_ttl: Duration::from_secs(<span class="number">60</span>),
+            heartbeat_initial_delay: Duration::from_secs(<span class="number">5</span>),
+            gossip_factor: <span class="number">0.25</span>,
+            gossip_lazy: <span class="number">6</span>,
+
+            max_transmit_size: MAX_GOSSIP_MSG_SIZE, <span class="comment">// The maximum gossip message size
         </span>}
     }
 }

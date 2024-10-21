@@ -857,6 +857,10 @@
 <a href="#855" id="855">855</a>
 <a href="#856" id="856">856</a>
 <a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1207,6 +1211,8 @@
     </span><span class="kw">pub </span>number_of_timeouts_as_leader: Box&lt;<span class="kw">dyn </span>Counter&gt;,
     <span class="doccomment">/// The number of empty blocks that have been proposed
     </span><span class="kw">pub </span>number_of_empty_blocks_proposed: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+    <span class="doccomment">/// Number of events in the hotshot event queue
+    </span><span class="kw">pub </span>internal_event_queue_len: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
 }
 
 <span class="kw">impl </span>ConsensusMetricsValue {
@@ -1235,6 +1241,8 @@
                 .create_counter(String::from(<span class="string">"number_of_timeouts_as_leader"</span>), <span class="prelude-val">None</span>),
             number_of_empty_blocks_proposed: metrics
                 .create_counter(String::from(<span class="string">"number_of_empty_blocks_proposed"</span>), <span class="prelude-val">None</span>),
+            internal_event_queue_len: metrics
+                .create_gauge(String::from(<span class="string">"internal_event_queue_len"</span>), <span class="prelude-val">None</span>),
         }
     }
 }

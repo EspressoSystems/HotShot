@@ -711,16 +711,33 @@
 <a href="#709" id="709">709</a>
 <a href="#710" id="710">710</a>
 <a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+</span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::JoinHandle;
@@ -794,7 +811,7 @@
     <span class="doccomment">/// Event sender.
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Event receiver.
-    </span><span class="kw">pub </span>receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>receiver: InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     <span class="doccomment">/// The node's id
@@ -826,7 +843,7 @@
             <span class="prelude-val">None </span>=&gt; fetch_proposal(
                 justify_qc.view_number(),
                 <span class="self">self</span>.sender.clone(),
-                <span class="self">self</span>.receiver.clone(),
+                <span class="self">self</span>.receiver.activate_cloned(),
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
                 <span class="self">self</span>.public_key.clone(),
@@ -972,7 +989,7 @@
         {
             <span class="comment">// Block on receiving the event from the event stream.
             </span>EventDependency::new(
-                <span class="self">self</span>.receiver.clone(),
+                <span class="self">self</span>.receiver.activate_cloned(),
                 Box::new(<span class="kw">move </span>|event| {
                     <span class="kw">let </span>event = event.as_ref();
                     <span class="kw">if let </span>HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) = event {
@@ -1092,7 +1109,7 @@
     </span><span class="kw">pub </span>latest_voted_view: TYPES::View,
 
     <span class="doccomment">/// Table for the in-progress dependency tasks.
-    </span><span class="kw">pub </span>vote_dependencies: HashMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>vote_dependencies: BTreeMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
 
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
@@ -1212,7 +1229,7 @@
                 view_number,
                 epoch_number,
                 sender: event_sender.clone(),
-                receiver: event_receiver.clone(),
+                receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
                 id: <span class="self">self</span>.id,
             },
@@ -1391,6 +1408,23 @@
                     <span class="kw">return</span>;
                 }
             }
+            HotShotEvent::Timeout(view) =&gt; {
+                <span class="comment">// cancel old tasks
+                </span><span class="kw">let </span>current_tasks = <span class="self">self</span>.vote_dependencies.split_off(view);
+                <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, task)) = <span class="self">self</span>.vote_dependencies.pop_last() {
+                    cancel_task(task).<span class="kw">await</span>;
+                }
+                <span class="self">self</span>.vote_dependencies = current_tasks;
+            }
+            HotShotEvent::ViewChange(<span class="kw-2">mut </span>view) =&gt; {
+                view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
+                <span class="comment">// cancel old tasks
+                </span><span class="kw">let </span>current_tasks = <span class="self">self</span>.vote_dependencies.split_off(<span class="kw-2">&amp;</span>view);
+                <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, task)) = <span class="self">self</span>.vote_dependencies.pop_last() {
+                    cancel_task(task).<span class="kw">await</span>;
+                }
+                <span class="self">self</span>.vote_dependencies = current_tasks;
+            }
             <span class="kw">_ </span>=&gt; {}
         }
     }
@@ -1414,7 +1448,7 @@
     }
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">for </span>handle <span class="kw">in </span><span class="self">self</span>.vote_dependencies.drain().map(|(_view, handle)| handle) {
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handle)) = <span class="self">self</span>.vote_dependencies.pop_last() {
             <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
             </span>handle.cancel().<span class="kw">await</span>;
             <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]

@@ -752,6 +752,20 @@
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -959,6 +973,20 @@
                 </span>.mesh_n_low(config.gossip_config.mesh_n_low) <span class="comment">// Lower limit of mesh peers
                 </span>.mesh_outbound_min(config.gossip_config.mesh_outbound_min) <span class="comment">// Minimum number of outbound peers in mesh
                 </span>.max_transmit_size(config.gossip_config.max_transmit_size) <span class="comment">// Maximum size of a message
+                </span>.max_ihave_length(config.gossip_config.max_ihave_length) <span class="comment">// Maximum number of messages to include in an IHAVE message
+                </span>.max_ihave_messages(config.gossip_config.max_ihave_messages) <span class="comment">// Maximum number of IHAVE messages to accept from a peer within a heartbeat
+                </span>.published_message_ids_cache_time(
+                    config.gossip_config.published_message_ids_cache_time,
+                ) <span class="comment">// Cache duration for published message IDs
+                </span>.iwant_followup_time(config.gossip_config.iwant_followup_time) <span class="comment">// Time to wait for a message requested through IWANT following an IHAVE advertisement
+                </span>.max_messages_per_rpc(config.gossip_config.max_messages_per_rpc) <span class="comment">// The maximum number of messages we will process in a given RPC
+                </span>.gossip_retransimission(config.gossip_config.gossip_retransmission) <span class="comment">// Controls how many times we will allow a peer to request the same message id through IWANT gossip before we start ignoring them.
+                </span>.flood_publish(config.gossip_config.flood_publish) <span class="comment">// If enabled newly created messages will always be sent to all peers that are subscribed to the topic and have a good enough score.
+                </span>.duplicate_cache_time(config.gossip_config.duplicate_cache_time) <span class="comment">// The time period that messages are stored in the cache
+                </span>.fanout_ttl(config.gossip_config.fanout_ttl) <span class="comment">// Time to live for fanout peers
+                </span>.heartbeat_initial_delay(config.gossip_config.heartbeat_initial_delay) <span class="comment">// Initial delay in each heartbeat
+                </span>.gossip_factor(config.gossip_config.gossip_factor) <span class="comment">// Affects how many peers we will emit gossip to at each heartbeat
+                </span>.gossip_lazy(config.gossip_config.gossip_lazy) <span class="comment">// Minimum number of peers to emit gossip to during a heartbeat
                 </span>.build()
                 .map_err(|err| {
                     NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"error building gossipsub config: {err:?}"</span>))
