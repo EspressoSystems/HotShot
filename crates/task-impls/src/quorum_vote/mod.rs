@@ -658,6 +658,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 }
                 self.vote_dependencies = current_tasks;
             }
+            HotShotEvent::ViewChange(mut view) => {
+                view = TYPES::Time::new(view.saturating_sub(1));
+                // cancel old tasks
+                let current_tasks = self.vote_dependencies.split_off(&view);
+                while let Some((_, task)) = self.vote_dependencies.pop_last() {
+                    cancel_task(task).await;
+                }
+                self.vote_dependencies = current_tasks;
+            }
             _ => {}
         }
     }

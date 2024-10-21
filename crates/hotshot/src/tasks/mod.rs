@@ -256,7 +256,7 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
         handle.add_task(QuorumProposalRecvTaskState::<TYPES, I, V>::create_from(handle).await);
         handle.add_task(Consensus2TaskState::<TYPES, I, V>::create_from(handle).await);
     }
-
+    add_queue_len_task(handle);
     #[cfg(feature = "rewind")]
     handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
 }
