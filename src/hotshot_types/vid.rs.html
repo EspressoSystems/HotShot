@@ -339,6 +339,10 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -355,6 +359,7 @@
 //! This crate and all downstream crates should talk to the VID scheme only
 //! via the traits exposed here.
 
+</span><span class="attr">#![allow(missing_docs)]
 </span><span class="kw">use </span>std::{fmt::Debug, ops::Range};
 
 <span class="kw">use </span>ark_bn254::Bn254;
@@ -400,6 +405,7 @@
 /// # Panics
 /// When the construction fails for the underlying VID scheme.
 </span><span class="attr">#[must_use]
+#[memoize::memoize(SharedCache, Capacity: <span class="number">10</span>)]
 </span><span class="kw">pub fn </span>vid_scheme(num_storage_nodes: usize) -&gt; VidSchemeType {
     <span class="comment">// recovery_threshold is currently num_storage_nodes rounded down to a power of two
     // TODO recovery_threshold should be a function of the desired erasure code rate
@@ -426,6 +432,7 @@
 
 <span class="doccomment">/// Similar to [`vid_scheme()`], but with `KZG_SRS_TEST` for testing purpose only.
 </span><span class="attr">#[cfg(feature = <span class="string">"test-srs"</span>)]
+#[memoize::memoize(SharedCache, Capacity: <span class="number">10</span>)]
 </span><span class="kw">pub fn </span>vid_scheme_for_test(num_storage_nodes: usize) -&gt; VidSchemeType {
     <span class="kw">let </span>recovery_threshold = <span class="number">1 </span>&lt;&lt; num_storage_nodes.ilog2();
     <span class="attr">#[allow(clippy::panic)]
@@ -464,6 +471,7 @@
 
 <span class="doccomment">/// Newtype wrapper for a VID scheme type that impls
 /// [`VidScheme`], [`PayloadProver`], [`Precomputable`].
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>VidSchemeType(Advz);
 
 <span class="doccomment">/// Newtype wrapper for a large payload range proof.
