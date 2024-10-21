@@ -98,6 +98,29 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     ));
 }
 
+/// Add a task which updates our queue lenght metric at a set interval
+pub fn add_queue_len_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
+) {
+    let consensus = handle.hotshot.consensus();
+    let rx = handle.internal_event_stream.1.clone();
+    let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+    let task_handle = async_spawn(async move {
+        futures::pin_mut!(shutdown_signal);
+        loop {
+            futures::select! {
+                () = shutdown_signal => {
+                    return;
+                },
+                () = async_sleep(Duration::from_millis(500)).fuse() => {
+                    consensus.read().await.metrics.internal_event_queue_len.set(rx.len());
+                }
+            }
+        }
+    });
+    handle.network_registry.register(task_handle);
+}
+
 /// Add the network task to handle messages and publish events.
 pub fn add_network_message_task<
     TYPES: NodeType,

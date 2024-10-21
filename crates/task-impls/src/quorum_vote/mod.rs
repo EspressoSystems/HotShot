@@ -7,7 +7,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{bail, ensure, Context, Result};
-use async_broadcast::{Receiver, Sender};
+use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -80,7 +80,7 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     /// Event sender.
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
-    pub receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+    pub receiver: InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// The node's id
@@ -112,7 +112,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             None => fetch_proposal(
                 justify_qc.view_number(),
                 self.sender.clone(),
-                self.receiver.clone(),
+                self.receiver.activate_cloned(),
                 Arc::clone(&self.quorum_membership),
                 OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 self.public_key.clone(),
@@ -255,7 +255,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
         {
             // Block on receiving the event from the event stream.
             EventDependency::new(
-                self.receiver.clone(),
+                self.receiver.activate_cloned(),
                 Box::new(move |event| {
                     let event = event.as_ref();
                     if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
@@ -493,7 +493,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 storage: Arc::clone(&self.storage),
                 view_number,
                 sender: event_sender.clone(),
-                receiver: event_receiver.clone(),
+                receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
             },
