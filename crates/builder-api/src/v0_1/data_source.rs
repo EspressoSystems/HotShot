@@ -60,3 +60,8 @@ where
         txns: Vec<<I as NodeType>::Transaction>,
     ) -> Result<Vec<Commitment<<I as NodeType>::Transaction>>, BuildError>;
 }
+
+
+pub trait BuilderTransaction {
+    fn minimum_block_size(&self) -> u64;
+}

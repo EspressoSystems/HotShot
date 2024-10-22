@@ -3,7 +3,7 @@ use hotshot_types::{bundle::Bundle, traits::node_implementation::NodeType, vid::
 
 use super::builder::BuildError;
 /// No changes to these types
-pub use crate::v0_1::data_source::AcceptsTxnSubmits;
+pub use crate::v0_1::data_source::;
 
 #[async_trait]
 pub trait BuilderDataSource<TYPES: NodeType> {
