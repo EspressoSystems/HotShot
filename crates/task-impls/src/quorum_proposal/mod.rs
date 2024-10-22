@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -13,6 +13,7 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use either::Either;
+use futures::future::join_all;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::DependencyTask,
@@ -49,7 +50,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub latest_proposed_view: TYPES::View,
 
     /// Table for the in-progress proposal dependency tasks.
-    pub proposal_dependencies: HashMap<TYPES::View, JoinHandle<()>>,
+    pub proposal_dependencies: BTreeMap<TYPES::View, JoinHandle<()>>,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -316,7 +317,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 latest_proposed_view: self.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                receiver: event_receiver,
+                receiver: event_receiver.deactivate(),
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
@@ -514,8 +515,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 );
             }
+            HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) => {
+                self.cancel_tasks(*view).await;
+            }
             _ => {}
         }
+    }
+    /// Cancel all tasks the consensus tasks has spawned before the given view
+    pub async fn cancel_tasks(&mut self, view: TYPES::View) {
+        let keep = self.proposal_dependencies.split_off(&view);
+        let mut cancel = Vec::new();
+        while let Some((_, task)) = self.proposal_dependencies.pop_first() {
+            cancel.push(cancel_task(task));
+        }
+        self.proposal_dependencies = keep;
+        join_all(cancel).await;
     }
 }
 
@@ -537,11 +551,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
     }
 
     async fn cancel_subtasks(&mut self) {
-        for handle in self
-            .proposal_dependencies
-            .drain()
-            .map(|(_view, handle)| handle)
-        {
+        while let Some((_, handle)) = self.proposal_dependencies.pop_first() {
             #[cfg(async_executor_impl = "async-std")]
             handle.cancel().await;
             #[cfg(async_executor_impl = "tokio")]
