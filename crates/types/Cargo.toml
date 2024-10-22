@@ -60,6 +60,7 @@ clap = { workspace = true }
 [features]
 gpu-vid = ["jf-vid/gpu-vid"]
 test-srs = ["jf-vid/test-srs"]
+vid-dummy = []
 
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
