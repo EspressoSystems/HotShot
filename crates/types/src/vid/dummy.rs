@@ -33,15 +33,6 @@ pub fn vid_scheme_for_test(num_storage_nodes: usize) -> VidSchemeType {
     VidSchemeType { num_storage_nodes }
 }
 
-/// VID commitment type
-pub type VidCommitment = <VidSchemeType as VidScheme>::Commit;
-/// VID common type
-pub type VidCommon = <VidSchemeType as VidScheme>::Common;
-/// VID share type
-pub type VidShare = <VidSchemeType as VidScheme>::Share;
-/// VID PrecomputeData type
-pub type VidPrecomputeData = <VidSchemeType as Precomputable>::PrecomputeData;
-
 #[derive(CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq, Clone, Hash, Debug, Copy)]
 #[tagged("Dummy")]
 /// Dummy type for test and benchmark only.
@@ -49,6 +40,7 @@ pub struct DummyType;
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq, Clone, Hash, Debug)]
 #[tagged("Dummy")]
+/// Dummy type for test and benchmark only.
 pub struct DummyShare(Vec<u8>);
 
 impl AsRef<[u8; 32]> for DummyType {
