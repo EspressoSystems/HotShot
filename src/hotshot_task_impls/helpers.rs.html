@@ -806,23 +806,6 @@
 <a href="#804" id="804">804</a>
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
-<a href="#810" id="810">810</a>
-<a href="#811" id="811">811</a>
-<a href="#812" id="812">812</a>
-<a href="#813" id="813">813</a>
-<a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
-<a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1240,24 +1223,7 @@
         .get(<span class="kw-2">&amp;</span>leaf_commitment)
         .context(<span class="string">"Failed to find high QC of parent"</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>reached_decided = leaf.view_number() == consensus_reader.last_decided_view();
-    <span class="kw">let </span>parent_leaf = leaf.clone();
-    <span class="kw">let </span>original_parent_hash = parent_leaf.commit(upgrade_lock).<span class="kw">await</span>;
-    <span class="kw">let </span><span class="kw-2">mut </span>next_parent_hash = original_parent_hash;
-
-    <span class="comment">// Walk back until we find a decide
-    </span><span class="kw">if </span>!reached_decided {
-        <span class="macro">debug!</span>(<span class="string">"We have not reached decide"</span>);
-        <span class="kw">while let </span><span class="prelude-val">Some</span>(next_parent_leaf) = consensus_reader.saved_leaves().get(<span class="kw-2">&amp;</span>next_parent_hash) {
-            <span class="kw">if </span>next_parent_leaf.view_number() &lt;= consensus_reader.last_decided_view() {
-                <span class="kw">break</span>;
-            }
-            next_parent_hash = next_parent_leaf.parent_commitment();
-        }
-        <span class="comment">// TODO do some sort of sanity check on the view number that it matches decided
-    </span>}
-
-    <span class="prelude-val">Ok</span>((parent_leaf, Arc::clone(state)))
+    <span class="prelude-val">Ok</span>((leaf.clone(), Arc::clone(state)))
 }
 
 <span class="doccomment">/// Validate the state and safety and liveness of a proposal then emit
