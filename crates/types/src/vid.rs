@@ -102,8 +102,6 @@ pub fn vid_scheme_for_test(num_storage_nodes: usize) -> VidSchemeType {
     )
 }
 
-/// VID PrecomputeData type
-pub type VidPrecomputeData = <VidSchemeType as Precomputable>::PrecomputeData;
 /// VID proposal type
 pub type VidProposal<TYPES> = (
     Proposal<TYPES, HotShotVidDisperse<TYPES>>,
@@ -133,6 +131,10 @@ pub struct VidCommon(<Advz as VidScheme>::Common);
 /// Newtype wrapper for assoc type [`VidScheme::Share`].
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
 pub struct VidShare(<Advz as VidScheme>::Share);
+
+/// Newtype wrapper for assoc type [`Precomputable::PrecomputeData`].
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
+pub struct VidPrecomputeData(<Advz as Precomputable>::PrecomputeData);
 
 /// Newtype wrapper for a large payload range proof.
 ///
@@ -315,7 +317,7 @@ impl PayloadProver<SmallRangeProofType> for VidSchemeType {
 }
 
 impl Precomputable for VidSchemeType {
-    type PrecomputeData = <Advz as Precomputable>::PrecomputeData;
+    type PrecomputeData = VidPrecomputeData;
 
     fn commit_only_precompute<B>(
         &self,
@@ -326,7 +328,7 @@ impl Precomputable for VidSchemeType {
     {
         self.0
             .commit_only_precompute(payload)
-            .map(|r| (VidCommitment(r.0), r.1))
+            .map(|r| (VidCommitment(r.0), VidPrecomputeData(r.1)))
     }
 
     fn disperse_precompute<B>(
@@ -338,7 +340,7 @@ impl Precomputable for VidSchemeType {
         B: AsRef<[u8]>,
     {
         self.0
-            .disperse_precompute(payload, data)
+            .disperse_precompute(payload, &data.0)
             .map(vid_disperse_conversion)
     }
 }
