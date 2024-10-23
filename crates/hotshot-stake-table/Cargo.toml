@@ -13,7 +13,7 @@ ark-ff = "0.4"
 ark-serialize = { workspace = true }
 ark-std = { workspace = true }
 digest = { workspace = true }
-ethereum-types = { workspace = true }
+primitive-types = { workspace = true }
 hotshot-types = { path = "../types" }
 jf-crhf = { workspace = true }
 jf-signature = { workspace = true, features = ["bls", "schnorr"] }

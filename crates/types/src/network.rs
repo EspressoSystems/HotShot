@@ -7,7 +7,8 @@
 use std::{fs, ops::Range, path::Path, time::Duration, vec};
 
 use clap::ValueEnum;
-use libp2p::{Multiaddr, PeerId};
+use libp2p_identity::PeerId;
+use multiaddr::Multiaddr;
 use serde_inline_default::serde_inline_default;
 use thiserror::Error;
 use tracing::error;
@@ -107,7 +108,7 @@ impl Default for RandomBuilderConfig {
 }
 
 /// a network configuration
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, derive_more::Debug)]
 #[serde(bound(deserialize = ""))]
 pub struct NetworkConfig<KEY: SignatureKey> {
     /// number of views to run

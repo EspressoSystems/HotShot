@@ -38,7 +38,6 @@ use hotshot_types::{
     },
     BoxSyncFuture,
 };
-use rand::Rng;
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 use super::{NetworkError, NetworkReliability};
@@ -47,7 +46,7 @@ use super::{NetworkError, NetworkReliability};
 ///
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
-#[derive(custom_debug::Debug)]
+#[derive(derive_more::Debug)]
 pub struct MasterMap<K: SignatureKey> {
     /// The list of `MemoryNetwork`s
     #[debug(skip)]
@@ -55,9 +54,6 @@ pub struct MasterMap<K: SignatureKey> {
 
     /// The list of `MemoryNetwork`s aggregated by topic
     subscribed_map: DashMap<Topic, Vec<(K, MemoryNetwork<K>)>>,
-
-    /// The id of this `MemoryNetwork` cluster
-    id: u64,
 }
 
 impl<K: SignatureKey> MasterMap<K> {
@@ -67,7 +63,6 @@ impl<K: SignatureKey> MasterMap<K> {
         Arc::new(MasterMap {
             map: DashMap::new(),
             subscribed_map: DashMap::new(),
-            id: rand::thread_rng().gen(),
         })
     }
 }

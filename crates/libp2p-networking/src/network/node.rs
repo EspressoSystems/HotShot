@@ -59,7 +59,7 @@ pub use self::{
 };
 use super::{
     behaviours::dht::{
-        bootstrap::{self, DHTBootstrapTask, InputEvent},
+        bootstrap::{DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
@@ -81,17 +81,13 @@ pub const ESTABLISHED_LIMIT: NonZeroU32 =
 pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
-#[derive(custom_debug::Debug)]
+#[derive(derive_more::Debug)]
 pub struct NetworkNode<K: SignatureKey + 'static> {
-    /// The keypair for the node
-    keypair: Keypair,
     /// peer id of network node
     peer_id: PeerId,
     /// the swarm of networkbehaviours
     #[debug(skip)]
     swarm: Swarm<NetworkDef<K>>,
-    /// the configuration parameters of the netework
-    config: NetworkNodeConfig<K>,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
     /// Handler for direct messages
@@ -100,8 +96,6 @@ pub struct NetworkNode<K: SignatureKey + 'static> {
     dht_handler: DHTBehaviour<K>,
     /// Channel to resend requests, set to Some when we call `spawn_listeners`
     resend_tx: Option<UnboundedSender<ClientRequest>>,
-    /// Send to the bootstrap task to tell it to start a bootstrap
-    bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
 
     /// Phantom data to hold the key type
     pd: PhantomData<K>,
@@ -315,10 +309,8 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         }
 
         Ok(Self {
-            keypair,
             peer_id,
             swarm,
-            config: config.clone(),
             listener_id: None,
             direct_message_state: DMBehaviour::default(),
             dht_handler: DHTBehaviour::new(
@@ -328,7 +320,6 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                     .unwrap_or(NonZeroUsize::new(4).unwrap()),
             ),
             resend_tx: None,
-            bootstrap_tx: None,
             pd: PhantomData,
         })
     }

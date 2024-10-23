@@ -459,7 +459,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 let leader = self.membership.leader(view_number, self.current_epoch)?;
                 tracing::warn!(
                     %leader,
-                    leader_mnemonic = cdn_proto::util::mnemonic(&leader),
+                    leader_mnemonic = hotshot_types::utils::mnemonic(&leader),
                     view_number = *view_number,
                     num_timeouts_tracked = self.num_timeouts_tracked,
                     "view timed out",
