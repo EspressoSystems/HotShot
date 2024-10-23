@@ -121,7 +121,6 @@ pub(crate) async fn handle_quorum_proposal_recv<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     quorum_proposal_sender_key: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
@@ -155,7 +154,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     .await;
 
     // Get the parent leaf and state.
-    let mut parent_leaf = task_state
+    let parent_leaf = task_state
         .consensus
         .read()
         .await
@@ -163,24 +162,6 @@ pub(crate) async fn handle_quorum_proposal_recv<
         .get(&justify_qc.data.leaf_commit)
         .cloned();
 
-    parent_leaf = match parent_leaf {
-        Some(p) => Some(p),
-        None => fetch_proposal(
-            justify_qc.view_number(),
-            event_sender.clone(),
-            event_receiver.clone(),
-            Arc::clone(&task_state.quorum_membership),
-            OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-            // Note that we explicitly use the node key here instead of the provided key in the signature.
-            // This is because the key that we receive is for the prior leader, so the payload would be routed
-            // incorrectly.
-            task_state.public_key.clone(),
-            task_state.private_key.clone(),
-            &task_state.upgrade_lock,
-        )
-        .await
-        .ok(),
-    };
     let consensus_read = task_state.consensus.read().await;
 
     let parent = match parent_leaf {
