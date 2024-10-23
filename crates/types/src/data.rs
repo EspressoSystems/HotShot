@@ -17,8 +17,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{ensure, Result};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
@@ -32,6 +30,7 @@ use thiserror::Error;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::error;
+use utils::anytrace::*;
 use vec1::Vec1;
 
 use crate::{
@@ -113,20 +112,7 @@ macro_rules! impl_u64_wrapper {
 }
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ViewNumber(u64);
 
 impl Committable for ViewNumber {
@@ -139,20 +125,7 @@ impl Committable for ViewNumber {
 impl_u64_wrapper!(ViewNumber);
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a epoch number.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct EpochNumber(u64);
 
 impl Committable for EpochNumber {
@@ -657,7 +630,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
-    ) -> Result<(), BlockError> {
+    ) -> std::result::Result<(), BlockError> {
         let encoded_txns = block_payload.encode();
         let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
         if commitment != self.block_header.payload_commitment() {
