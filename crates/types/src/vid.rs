@@ -4,15 +4,12 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-//! This module provides:
-//! - an opaque constructor [`vid_scheme`] that returns a new instance of a
-//!   VID scheme.
-//! - type aliases [`VidCommitment`], [`VidCommon`], [`VidShare`]
-//!   for [`VidScheme`] assoc types.
+//! This module provides an opaque constructor [`vid_scheme`] that returns a new
+//! instance of a VID scheme.
 //!
-//! Purpose: the specific choice of VID scheme is an implementation detail.
-//! This crate and all downstream crates should talk to the VID scheme only
-//! via the traits exposed here.
+//! Purpose: the specific choice of VID scheme is an implementation detail. This
+//! crate and all downstream crates should talk to the VID scheme only via the
+//! traits exposed here.
 
 #![allow(missing_docs)]
 use std::{fmt::Debug, ops::Range};
@@ -105,8 +102,6 @@ pub fn vid_scheme_for_test(num_storage_nodes: usize) -> VidSchemeType {
     )
 }
 
-/// VID common type
-pub type VidCommon = <VidSchemeType as VidScheme>::Common;
 /// VID share type
 pub type VidShare = <VidSchemeType as VidScheme>::Share;
 /// VID PrecomputeData type
@@ -129,8 +124,13 @@ type Advz = advz::AdvzGPU<'static, E, H>;
 #[derive(Clone)]
 pub struct VidSchemeType(Advz);
 
+/// Newtype wrapper for assoc type [`VidScheme::Commit`].
 #[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Hash, Serialize)]
 pub struct VidCommitment(<Advz as VidScheme>::Commit);
+
+/// Newtype wrapper for assoc type [`VidScheme::Commom`].
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
+pub struct VidCommon(<Advz as VidScheme>::Common);
 
 /// Newtype wrapper for a large payload range proof.
 ///
@@ -203,7 +203,7 @@ type H = Sha256;
 impl VidScheme for VidSchemeType {
     type Commit = VidCommitment;
     type Share = <Advz as VidScheme>::Share;
-    type Common = <Advz as VidScheme>::Common;
+    type Common = VidCommon;
 
     fn commit_only<B>(&mut self, payload: B) -> VidResult<Self::Commit>
     where
@@ -225,27 +225,27 @@ impl VidScheme for VidSchemeType {
         common: &Self::Common,
         commit: &Self::Commit,
     ) -> VidResult<Result<(), ()>> {
-        self.0.verify_share(share, common, &commit.0)
+        self.0.verify_share(share, &common.0, &commit.0)
     }
 
     fn recover_payload(&self, shares: &[Self::Share], common: &Self::Common) -> VidResult<Vec<u8>> {
-        self.0.recover_payload(shares, common)
+        self.0.recover_payload(shares, &common.0)
     }
 
     fn is_consistent(commit: &Self::Commit, common: &Self::Common) -> VidResult<()> {
-        <Advz as VidScheme>::is_consistent(&commit.0, common)
+        <Advz as VidScheme>::is_consistent(&commit.0, &common.0)
     }
 
     fn get_payload_byte_len(common: &Self::Common) -> u32 {
-        <Advz as VidScheme>::get_payload_byte_len(common)
+        <Advz as VidScheme>::get_payload_byte_len(&common.0)
     }
 
     fn get_num_storage_nodes(common: &Self::Common) -> u32 {
-        <Advz as VidScheme>::get_num_storage_nodes(common)
+        <Advz as VidScheme>::get_num_storage_nodes(&common.0)
     }
 
     fn get_multiplicity(common: &Self::Common) -> u32 {
-        <Advz as VidScheme>::get_multiplicity(common)
+        <Advz as VidScheme>::get_multiplicity(&common.0)
     }
 
     /// Helper function for testing only
@@ -346,7 +346,7 @@ impl Precomputable for VidSchemeType {
 fn vid_disperse_conversion(vid_disperse: VidDisperse<Advz>) -> VidDisperse<VidSchemeType> {
     VidDisperse {
         shares: vid_disperse.shares,
-        common: vid_disperse.common,
+        common: VidCommon(vid_disperse.common),
         commit: VidCommitment(vid_disperse.commit),
     }
 }
@@ -357,6 +357,6 @@ fn stmt_conversion(stmt: Statement<'_, VidSchemeType>) -> Statement<'_, Advz> {
         payload_subslice: stmt.payload_subslice,
         range: stmt.range,
         commit: &stmt.commit.0,
-        common: stmt.common,
+        common: &stmt.common.0,
     }
 }
