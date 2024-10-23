@@ -31,7 +31,6 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
-        storage::Storage,
         BlockPayload, ValidatedState,
     },
     utils::{Terminator, View, ViewInner},
@@ -552,15 +551,6 @@ pub async fn validate_proposal_safety_and_liveness<
         });
     }
 
-    // Update our persistent storage of the proposal. If we cannot store the proposal reutrn
-    // and error so we don't vote
-    task_state
-        .storage
-        .write()
-        .await
-        .append_proposal(&proposal)
-        .await?;
-
     // We accept the proposal, notify the application layer
     broadcast_event(
         Event {
@@ -577,7 +567,7 @@ pub async fn validate_proposal_safety_and_liveness<
     // Notify other tasks
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalValidated(
-            proposal.data.clone(),
+            proposal.clone(),
             parent_leaf,
         )),
         &event_stream,
