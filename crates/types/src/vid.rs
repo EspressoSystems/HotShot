@@ -102,8 +102,6 @@ pub fn vid_scheme_for_test(num_storage_nodes: usize) -> VidSchemeType {
     )
 }
 
-/// VID share type
-pub type VidShare = <VidSchemeType as VidScheme>::Share;
 /// VID PrecomputeData type
 pub type VidPrecomputeData = <VidSchemeType as Precomputable>::PrecomputeData;
 /// VID proposal type
@@ -128,9 +126,13 @@ pub struct VidSchemeType(Advz);
 #[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Hash, Serialize)]
 pub struct VidCommitment(<Advz as VidScheme>::Commit);
 
-/// Newtype wrapper for assoc type [`VidScheme::Commom`].
+/// Newtype wrapper for assoc type [`VidScheme::Common`].
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
 pub struct VidCommon(<Advz as VidScheme>::Common);
+
+/// Newtype wrapper for assoc type [`VidScheme::Share`].
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
+pub struct VidShare(<Advz as VidScheme>::Share);
 
 /// Newtype wrapper for a large payload range proof.
 ///
@@ -202,7 +204,7 @@ type H = Sha256;
 // [rfcs/text/2515-type_alias_impl_trait.md at master · rust-lang/rfcs](https://github.com/rust-lang/rfcs/blob/master/text/2515-type_alias_impl_trait.md)
 impl VidScheme for VidSchemeType {
     type Commit = VidCommitment;
-    type Share = <Advz as VidScheme>::Share;
+    type Share = VidShare;
     type Common = VidCommon;
 
     fn commit_only<B>(&mut self, payload: B) -> VidResult<Self::Commit>
@@ -225,11 +227,16 @@ impl VidScheme for VidSchemeType {
         common: &Self::Common,
         commit: &Self::Commit,
     ) -> VidResult<Result<(), ()>> {
-        self.0.verify_share(share, &common.0, &commit.0)
+        self.0.verify_share(&share.0, &common.0, &commit.0)
     }
 
     fn recover_payload(&self, shares: &[Self::Share], common: &Self::Common) -> VidResult<Vec<u8>> {
-        self.0.recover_payload(shares, &common.0)
+        // TODO costly Vec copy. Is the compiler smart enough to optimize away
+        // this Vec, or shall we use unsafe code to cast `shares`?
+        // It's only `recover_payload` so who cares?
+        let shares: Vec<_> = shares.into_iter().map(|s| s.0.clone()).collect();
+
+        self.0.recover_payload(&shares, &common.0)
     }
 
     fn is_consistent(commit: &Self::Commit, common: &Self::Common) -> VidResult<()> {
@@ -344,8 +351,12 @@ impl Precomputable for VidSchemeType {
 /// and similarly for `Statement`.
 /// Thus, we accomplish type conversion via functions.
 fn vid_disperse_conversion(vid_disperse: VidDisperse<Advz>) -> VidDisperse<VidSchemeType> {
+    // TODO costly Vec copy. Is the compiler smart enough to optimize away
+    // this Vec, or shall we use unsafe code to cast `shares`?
+    let shares = vid_disperse.shares.into_iter().map(VidShare).collect();
+
     VidDisperse {
-        shares: vid_disperse.shares,
+        shares,
         common: VidCommon(vid_disperse.common),
         commit: VidCommitment(vid_disperse.commit),
     }
