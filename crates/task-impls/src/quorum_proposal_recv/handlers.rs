@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use async_broadcast::{broadcast, Receiver, Sender};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
 use hotshot_types::{
@@ -20,6 +21,7 @@ use hotshot_types::{
     traits::{
         election::Membership,
         node_implementation::{NodeImplementation, NodeType},
+        signature_key::SignatureKey,
         storage::Storage,
         ValidatedState,
     },
@@ -104,6 +106,35 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     Ok(())
 }
 
+/// Spawn a task which will fire a request to get a proposal, and store it.
+#[allow(clippy::too_many_arguments)]
+fn spawn_fetch_proposal<TYPES: NodeType, V: Versions>(
+    view: TYPES::View,
+    event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
+    event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+    membership: Arc<TYPES::Membership>,
+    consensus: OuterConsensus<TYPES>,
+    sender_public_key: TYPES::SignatureKey,
+    sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    upgrade_lock: UpgradeLock<TYPES, V>,
+) {
+    async_spawn(async move {
+        let lock = upgrade_lock;
+
+        let _ = fetch_proposal(
+            view,
+            event_sender,
+            event_receiver,
+            membership,
+            consensus,
+            sender_public_key,
+            sender_private_key,
+            &lock,
+        )
+        .await;
+    });
+}
+
 /// Handles the `QuorumProposalRecv` event by first validating the cert itself for the view, and then
 /// updating the states, which runs when the proposal cannot be found in the internal state map.
 ///
@@ -121,6 +152,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     quorum_proposal_sender_key: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+    event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
@@ -162,6 +194,21 @@ pub(crate) async fn handle_quorum_proposal_recv<
         .get(&justify_qc.data.leaf_commit)
         .cloned();
 
+    if parent_leaf.is_none() {
+        spawn_fetch_proposal(
+            justify_qc.view_number(),
+            event_sender.clone(),
+            event_receiver.clone(),
+            Arc::clone(&task_state.quorum_membership),
+            OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+            // Note that we explicitly use the node key here instead of the provided key in the signature.
+            // This is because the key that we receive is for the prior leader, so the payload would be routed
+            // incorrectly.
+            task_state.public_key.clone(),
+            task_state.private_key.clone(),
+            task_state.upgrade_lock.clone(),
+        );
+    }
     let consensus_read = task_state.consensus.read().await;
 
     let parent = match parent_leaf {
