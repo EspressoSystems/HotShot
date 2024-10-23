@@ -24,7 +24,7 @@ use tracing::{debug, instrument};
 use super::QuorumVoteTaskState;
 use crate::{
     events::HotShotEvent,
-    helpers::{broadcast_event, decide_from_proposal, LeafChainTraversalOutcome},
+    helpers::{broadcast_event, decide_from_high_qc, LeafChainTraversalOutcome},
     quorum_vote::Versions,
 };
 
@@ -47,8 +47,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaves_decided,
         included_txns,
         decided_upgrade_cert,
-    } = decide_from_proposal(
-        proposal,
+    } = decide_from_high_qc(
         OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
         Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
         &task_state.public_key,

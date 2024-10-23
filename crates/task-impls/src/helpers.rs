@@ -234,21 +234,35 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 ///
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
-pub async fn decide_from_proposal<TYPES: NodeType>(
-    proposal: &QuorumProposal<TYPES>,
+pub async fn decide_from_high_qc<TYPES: NodeType>(
     consensus: OuterConsensus<TYPES>,
     existing_upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     public_key: &TYPES::SignatureKey,
 ) -> LeafChainTraversalOutcome<TYPES> {
+    let mut res = LeafChainTraversalOutcome::default();
     let consensus_reader = consensus.read().await;
     let existing_upgrade_cert_reader = existing_upgrade_cert.read().await;
-    let view_number = proposal.view_number();
-    let parent_view_number = proposal.justify_qc.view_number();
+    let high_qc = consensus_reader.high_qc();
+    let view_number = high_qc.view_number();
+    let Some(high_qc_leaf) = consensus_reader
+        .saved_leaves()
+        .get(&high_qc.data().leaf_commit)
+    else {
+        debug!("Leaf ascension failed; No leaf corresponding to high QC found");
+        return res;
+    };
+    let Some(parent_leaf) = consensus_reader
+        .saved_leaves()
+        .get(&high_qc_leaf.parent_commitment())
+    else {
+        debug!("Leaf ascension failed; No leaf corresponding to high QC's parent found");
+        return res;
+    };
+    let parent_view_number = parent_leaf.view_number();
     let old_anchor_view = consensus_reader.last_decided_view();
 
     let mut last_view_number_visited = view_number;
-    let mut current_chain_length = 0usize;
-    let mut res = LeafChainTraversalOutcome::default();
+    let mut current_chain_length = 1usize;
 
     if let Err(e) = consensus_reader.visit_leaf_ancestors(
         parent_view_number,
