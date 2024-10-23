@@ -38,7 +38,7 @@ tracing = { workspace = true }
 typenum = { workspace = true }
 jf-vid = { workspace = true }
 jf-pcs = { workspace = true }
-jf-signature = { workspace = true, features = ["schnorr"] }
+jf-signature = { workspace = true, features = ["schnorr", "bls"] }
 jf-utils = { workspace = true }
 rand_chacha = { workspace = true }
 serde = { workspace = true }
