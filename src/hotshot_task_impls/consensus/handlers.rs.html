@@ -290,6 +290,7 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -298,7 +299,6 @@
 
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
-<span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>chrono::Utc;
@@ -311,7 +311,8 @@
     },
     vote::HasViewNumber,
 };
-<span class="kw">use </span>tracing::{debug, error, instrument};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
 <span class="kw">use crate</span>::{
@@ -336,9 +337,9 @@
     </span><span class="macro">ensure!</span>(
         task_state
             .quorum_membership
-            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)
-            == task_state.public_key,
-        <span class="macro">format!</span>(
+            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
+            </span>== task_state.public_key,
+        <span class="macro">info!</span>(
             <span class="string">"We are not the leader for view {:?}"</span>,
             vote.view_number() + <span class="number">1
         </span>)
@@ -355,7 +356,7 @@
         sender,
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
-    .<span class="kw">await</span>;
+    .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
@@ -375,9 +376,9 @@
     </span><span class="macro">ensure!</span>(
         task_state
             .timeout_membership
-            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)
-            == task_state.public_key,
-        <span class="macro">format!</span>(
+            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
+            </span>== task_state.public_key,
+        <span class="macro">info!</span>(
             <span class="string">"We are not the leader for view {:?}"</span>,
             vote.view_number() + <span class="number">1
         </span>)
@@ -394,7 +395,7 @@
         sender,
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
-    .<span class="kw">await</span>;
+    .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
@@ -416,7 +417,7 @@
     </span>);
 
     <span class="kw">let </span>old_view_number = task_state.cur_view;
-    <span class="macro">debug!</span>(<span class="string">"Updating view from {old_view_number:?} to {new_view_number:?}"</span>);
+    <span class="macro">tracing::debug!</span>(<span class="string">"Updating view from {old_view_number:?} to {new_view_number:?}"</span>);
 
     <span class="comment">// Move this node to the next view
     </span>task_state.cur_view = new_view_number;
@@ -430,7 +431,7 @@
         </span>.clone();
     <span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = decided_upgrade_certificate_read {
         <span class="kw">if </span>new_view_number == cert.data.new_version_first_view {
-            <span class="macro">error!</span>(
+            <span class="macro">tracing::error!</span>(
                 <span class="string">"Version upgraded based on a decided upgrade cert: {:?}"</span>,
                 cert
             );
@@ -469,8 +470,8 @@
     <span class="kw">let </span>cur_view_time = Utc::now().timestamp();
     <span class="kw">if </span>task_state
         .quorum_membership
-        .leader(old_view_number, task_state.cur_epoch)
-        == task_state.public_key
+        .leader(old_view_number, task_state.cur_epoch)<span class="question-mark">?
+        </span>== task_state.public_key
     {
         <span class="attr">#[allow(clippy::cast_precision_loss)]
         </span>consensus
@@ -520,7 +521,7 @@
         task_state
             .timeout_membership
             .has_stake(<span class="kw-2">&amp;</span>task_state.public_key, task_state.cur_epoch),
-        <span class="macro">format!</span>(<span class="string">"We were not chosen for the consensus committee for view {view_number:?}"</span>)
+        <span class="macro">debug!</span>(<span class="string">"We were not chosen for the consensus committee for view {view_number:?}"</span>)
     );
 
     <span class="kw">let </span>vote = TimeoutVote::create_signed_vote(
@@ -531,7 +532,8 @@
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
     .<span class="kw">await
-    </span>.context(<span class="string">"Failed to sign TimeoutData"</span>)<span class="question-mark">?</span>;
+    </span>.wrap()
+    .context(<span class="macro">error!</span>(<span class="string">"Failed to sign TimeoutData"</span>))<span class="question-mark">?</span>;
 
     broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), sender).<span class="kw">await</span>;
     broadcast_event(
@@ -543,7 +545,7 @@
     )
     .<span class="kw">await</span>;
 
-    <span class="macro">debug!</span>(
+    <span class="macro">tracing::debug!</span>(
         <span class="string">"We did not receive evidence for view {} in time, sending timeout vote for that view!"</span>,
         <span class="kw-2">*</span>view_number
     );
@@ -566,8 +568,8 @@
         .add(<span class="number">1</span>);
     <span class="kw">if </span>task_state
         .quorum_membership
-        .leader(view_number, task_state.cur_epoch)
-        == task_state.public_key
+        .leader(view_number, task_state.cur_epoch)<span class="question-mark">?
+        </span>== task_state.public_key
     {
         task_state
             .consensus

@@ -74,6 +74,11 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -82,6 +87,8 @@
 
 </span><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 </span><span class="kw">use </span>std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
+
+<span class="kw">use </span>utils::anytrace::Result;
 
 <span class="kw">use super</span>::{network::Topic, node_implementation::NodeType};
 <span class="kw">use crate</span>::{traits::signature_key::SignatureKey, PeerConfig};
@@ -130,8 +137,11 @@
     <span class="doccomment">/// See if a node has stake in the committee in a specific epoch
     </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: TYPES::Epoch) -&gt; bool;
 
-    <span class="doccomment">/// The leader of the committee for view `view_number` in an epoch `epoch`.
-    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::View, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey;
+    <span class="doccomment">/// The leader of the committee for view `view_number` in `epoch`.
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated
+    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View, epoch: TYPES::Epoch) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Get the network topic for the committee
     </span><span class="kw">fn </span>committee_topic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Topic;

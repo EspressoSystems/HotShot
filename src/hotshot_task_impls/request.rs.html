@@ -393,7 +393,6 @@
     time::Duration,
 };
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -418,6 +417,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::Result;
 
 <span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 

@@ -728,6 +728,7 @@
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -736,7 +737,6 @@
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
-<span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -768,7 +768,8 @@
 <span class="kw">use </span>jf_vid::VidScheme;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, instrument, trace, warn};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
     events::HotShotEvent,
@@ -853,7 +854,7 @@
             .<span class="kw">await
             </span>.ok(),
         };
-        <span class="kw">let </span>parent = maybe_parent.context(<span class="macro">format!</span>(
+        <span class="kw">let </span>parent = maybe_parent.context(<span class="macro">info!</span>(
             <span class="string">"Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}"</span>,
             justify_qc.data().leaf_commit,
             proposed_leaf.view_number(),
@@ -861,7 +862,7 @@
         <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
 
         <span class="kw">let </span>(<span class="prelude-val">Some</span>(parent_state), <span class="kw">_</span>) = consensus_reader.state_and_delta(parent.view_number()) <span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>)
+            <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
         };
 
         drop(consensus_reader);
@@ -877,7 +878,8 @@
                 version,
             )
             .<span class="kw">await
-            </span>.context(<span class="string">"Block header doesn't extend the proposal!"</span>)<span class="question-mark">?</span>;
+            </span>.wrap()
+            .context(<span class="macro">warn!</span>(<span class="string">"Block header doesn't extend the proposal!"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>state = Arc::new(validated_state);
         <span class="kw">let </span>delta = Arc::new(state_delta);
@@ -919,7 +921,9 @@
             .write()
             .<span class="kw">await
             </span>.update_undecided_state(new_leaves, new_state)
-            .<span class="kw">await</span><span class="question-mark">?</span>;
+            .<span class="kw">await
+            </span>.wrap()
+            .context(<span class="macro">error!</span>(<span class="string">"Failed to update undecided state"</span>))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -934,10 +938,10 @@
         <span class="macro">ensure!</span>(
             <span class="self">self</span>.quorum_membership
                 .has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, <span class="self">self</span>.epoch_number),
-            <span class="macro">format!</span>(
+            <span class="macro">info!</span>(
                 <span class="string">"We were not chosen for quorum committee on {:?}"</span>,
                 <span class="self">self</span>.view_number
-            ),
+            )
         );
 
         <span class="comment">// Create and send the vote.
@@ -951,8 +955,9 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
         )
         .<span class="kw">await
-        </span>.context(<span class="string">"Failed to sign vote"</span>)<span class="question-mark">?</span>;
-        <span class="macro">debug!</span>(
+        </span>.wrap()
+        .context(<span class="macro">error!</span>(<span class="string">"Failed to sign vote. This should never happen."</span>))<span class="question-mark">?</span>;
+        <span class="macro">tracing::debug!</span>(
             <span class="string">"sending vote to next quorum leader {:?}"</span>,
             vote.view_number() + <span class="number">1
         </span>);
@@ -962,7 +967,8 @@
             .<span class="kw">await
             </span>.append_vid(<span class="kw-2">&amp;</span>vid_share)
             .<span class="kw">await
-            </span>.context(<span class="string">"Failed to store VID share"</span>)<span class="question-mark">?</span>;
+            </span>.wrap()
+            .context(<span class="macro">error!</span>(<span class="string">"Failed to store VID share"</span>))<span class="question-mark">?</span>;
         broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), <span class="kw-2">&amp;</span><span class="self">self</span>.sender).<span class="kw">await</span>;
 
         <span class="prelude-val">Ok</span>(())
@@ -1013,7 +1019,7 @@
                     <span class="kw">let </span>proposal_payload_comm = proposal.block_header.payload_commitment();
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>proposal_payload_comm != comm {
-                            <span class="macro">error!</span>(<span class="string">"Quorum proposal has inconsistent payload commitment with DAC or VID."</span>);
+                            <span class="macro">tracing::error!</span>(<span class="string">"Quorum proposal has inconsistent payload commitment with DAC or VID."</span>);
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
@@ -1022,7 +1028,7 @@
                     <span class="kw">let </span>parent_commitment = parent_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>;
                     <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
                     <span class="kw">if </span>proposed_leaf.parent_commitment() != parent_commitment {
-                        <span class="macro">warn!</span>(<span class="string">"Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote."</span>);
+                        <span class="macro">tracing::warn!</span>(<span class="string">"Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote."</span>);
                         <span class="kw">return</span>;
                     }
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
@@ -1031,7 +1037,7 @@
                     <span class="kw">let </span>cert_payload_comm = cert.data().payload_commit;
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>cert_payload_comm != comm {
-                            <span class="macro">error!</span>(<span class="string">"DAC has inconsistent payload commitment with quorum proposal or VID."</span>);
+                            <span class="macro">tracing::error!</span>(<span class="string">"DAC has inconsistent payload commitment with quorum proposal or VID."</span>);
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
@@ -1043,7 +1049,7 @@
                     vid_share = <span class="prelude-val">Some</span>(share.clone());
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
                         <span class="kw">if </span>vid_payload_commitment != comm {
-                            <span class="macro">error!</span>(<span class="string">"VID has inconsistent payload commitment with quorum proposal or DAC."</span>);
+                            <span class="macro">tracing::error!</span>(<span class="string">"VID has inconsistent payload commitment with quorum proposal or DAC."</span>);
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
@@ -1062,7 +1068,7 @@
         .<span class="kw">await</span>;
 
         <span class="kw">let </span><span class="prelude-val">Some</span>(vid_share) = vid_share <span class="kw">else </span>{
-            <span class="macro">error!</span>(
+            <span class="macro">tracing::error!</span>(
                 <span class="string">"We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed."</span>,
                 <span class="self">self</span>.view_number
             );
@@ -1070,7 +1076,7 @@
         };
 
         <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = leaf <span class="kw">else </span>{
-            <span class="macro">error!</span>(
+            <span class="macro">tracing::error!</span>(
                 <span class="string">"We don't have the leaf for this view {:?}, but we should, because the vote dependencies have completed."</span>,
                 <span class="self">self</span>.view_number
             );
@@ -1079,12 +1085,12 @@
 
         <span class="comment">// Update internal state
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.update_shared_state(<span class="kw-2">&amp;</span>leaf, <span class="kw-2">&amp;</span>vid_share).<span class="kw">await </span>{
-            <span class="macro">error!</span>(<span class="string">"Failed to update shared consensus state; error = {e:#}"</span>);
+            <span class="macro">tracing::error!</span>(<span class="string">"Failed to update shared consensus state; error = {e:#}"</span>);
             <span class="kw">return</span>;
         }
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.submit_vote(leaf, vid_share).<span class="kw">await </span>{
-            <span class="macro">debug!</span>(<span class="string">"Failed to vote; error = {e:#}"</span>);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Failed to vote; error = {e:#}"</span>);
         }
     }
 }
@@ -1170,7 +1176,7 @@
                     }
                 };
                 <span class="kw">if </span>event_view == view_number {
-                    <span class="macro">trace!</span>(<span class="string">"Vote dependency {:?} completed"</span>, dependency_type);
+                    <span class="macro">tracing::trace!</span>(<span class="string">"Vote dependency {:?} completed"</span>, dependency_type);
                     <span class="kw">return </span><span class="bool-val">true</span>;
                 }
                 <span class="bool-val">false
@@ -1242,16 +1248,17 @@
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_voted_view = <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view), name = <span class="string">"Quorum vote update latest voted view"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">async fn </span>update_latest_voted_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::View) -&gt; bool {
         <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.latest_voted_view &lt; <span class="kw-2">*</span>new_view {
-            <span class="macro">debug!</span>(
+            <span class="macro">tracing::debug!</span>(
                 <span class="string">"Updating next vote view from {} to {} in the quorum vote task"</span>,
-                <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view, <span class="kw-2">*</span>new_view
+                <span class="kw-2">*</span><span class="self">self</span>.latest_voted_view,
+                <span class="kw-2">*</span>new_view
             );
 
             <span class="comment">// Cancel the old dependency tasks.
             </span><span class="kw">for </span>view <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.latest_voted_view..(<span class="kw-2">*</span>new_view) {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.vote_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::View::new(view)) {
                     cancel_task(dependency).<span class="kw">await</span>;
-                    <span class="macro">debug!</span>(<span class="string">"Vote dependency removed for view {:?}"</span>, view);
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Vote dependency removed for view {:?}"</span>, view);
                 }
             }
 
@@ -1269,17 +1276,20 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) =&gt; {
-                <span class="macro">trace!</span>(<span class="string">"Received Proposal for view {}"</span>, <span class="kw-2">*</span>proposal.view_number());
+                <span class="macro">tracing::trace!</span>(<span class="string">"Received Proposal for view {}"</span>, <span class="kw-2">*</span>proposal.view_number());
 
                 <span class="comment">// Handle the event before creating the dependency task.
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                     handle_quorum_proposal_validated(proposal, <span class="kw-2">&amp;</span>event_sender, <span class="self">self</span>).<span class="kw">await
                 </span>{
-                    <span class="macro">debug!</span>(<span class="string">"Failed to handle QuorumProposalValidated event; error = {e:#}"</span>);
+                    <span class="macro">tracing::debug!</span>(
+                        <span class="string">"Failed to handle QuorumProposalValidated event; error = {e:#}"
+                    </span>);
                 }
 
                 <span class="self">self</span>.create_dependency_task_if_new(
@@ -1292,23 +1302,25 @@
             }
             HotShotEvent::DaCertificateRecv(cert) =&gt; {
                 <span class="kw">let </span>view = cert.view_number;
-                <span class="macro">trace!</span>(<span class="string">"Received DAC for view {}"</span>, <span class="kw-2">*</span>view);
-                <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
-                    <span class="kw">return</span>;
-                }
+
+                <span class="macro">tracing::trace!</span>(<span class="string">"Received DAC for view {}"</span>, <span class="kw-2">*</span>view);
+                <span class="comment">// Do nothing if the DAC is old
+                </span><span class="macro">ensure!</span>(
+                    view &gt; <span class="self">self</span>.latest_voted_view,
+                    <span class="string">"Received DAC for an older view."
+                </span>);
 
                 <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="comment">// Validate the DAC.
-                </span><span class="kw">if </span>!cert
-                    .is_valid_cert(
+                </span><span class="macro">ensure!</span>(
+                    cert.is_valid_cert(
                         <span class="self">self</span>.da_membership.as_ref(),
                         current_epoch,
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                     )
-                    .<span class="kw">await
-                </span>{
-                    <span class="kw">return</span>;
-                }
+                    .<span class="kw">await</span>,
+                    <span class="macro">warn!</span>(<span class="string">"Invalid DAC"</span>)
+                );
 
                 <span class="comment">// Add to the storage.
                 </span><span class="self">self</span>.consensus
@@ -1331,51 +1343,43 @@
             }
             HotShotEvent::VidShareRecv(sender, disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
-                <span class="macro">trace!</span>(<span class="string">"Received VID share for view {}"</span>, <span class="kw-2">*</span>view);
-                <span class="kw">if </span>view &lt;= <span class="self">self</span>.latest_voted_view {
-                    <span class="kw">return</span>;
-                }
+                <span class="comment">// Do nothing if the VID share is old
+                </span><span class="macro">tracing::trace!</span>(<span class="string">"Received VID share for view {}"</span>, <span class="kw-2">*</span>view);
+                <span class="macro">ensure!</span>(
+                    view &gt; <span class="self">self</span>.latest_voted_view,
+                    <span class="string">"Received VID share for an older view."
+                </span>);
 
                 <span class="comment">// Validate the VID share.
                 </span><span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
                 <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
-                <span class="comment">// Check sender of VID disperse share is signed by DA committee member
-                </span><span class="kw">let </span>validate_sender = sender
-                    .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-                    &amp;&amp; <span class="self">self
-                        </span>.da_membership
-                        .committee_members(view, current_epoch)
-                        .contains(sender);
 
-                <span class="comment">// Check whether the data satisfies one of the following.
-                // * From the right leader for this view.
-                // * Calculated and signed by the current node.
-                </span><span class="kw">let </span>validated = <span class="self">self
-                    </span>.public_key
-                    .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref())
-                    || <span class="self">self
-                        </span>.quorum_membership
-                        .leader(view, current_epoch)
-                        .validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref());
-                <span class="kw">if </span>!validate_sender &amp;&amp; !validated {
-                    <span class="macro">warn!</span>(<span class="string">"Failed to validated the VID dispersal/share sig."</span>);
-                    <span class="kw">return</span>;
-                }
+                <span class="comment">// Check that the signature is valid
+                </span><span class="macro">ensure!</span>(
+                    sender.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()),
+                    <span class="string">"VID share signature is invalid"
+                </span>);
+
+                <span class="comment">// ensure that the VID share was sent by a DA member OR the view leader
+                </span><span class="macro">ensure!</span>(
+                    <span class="self">self</span>.da_membership
+                        .committee_members(view, current_epoch)
+                        .contains(sender)
+                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.quorum_membership.leader(view, current_epoch)<span class="question-mark">?</span>,
+                    <span class="string">"VID share was not sent by a DA member or the view leader."
+                </span>);
 
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                </span><span class="attr">#[allow(clippy::no_effect)]
                 </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes(current_epoch)).verify_share(
                     <span class="kw-2">&amp;</span>disperse.data.share,
                     <span class="kw-2">&amp;</span>disperse.data.common,
                     <span class="kw-2">&amp;</span>payload_commitment,
                 ) {
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(())) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">return</span>;
+                        <span class="macro">bail!</span>(<span class="string">"Failed to verify VID share"</span>);
                     }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; {
-                        ();
-                    }
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; {}
                 }
 
                 <span class="self">self</span>.consensus
@@ -1383,10 +1387,10 @@
                     .<span class="kw">await
                     </span>.update_vid_shares(view, disperse.clone());
 
-                <span class="kw">if </span>disperse.data.recipient_key != <span class="self">self</span>.public_key {
-                    <span class="macro">debug!</span>(<span class="string">"Got a Valid VID share but it's not for our key"</span>);
-                    <span class="kw">return</span>;
-                }
+                <span class="macro">ensure!</span>(
+                    disperse.data.recipient_key == <span class="self">self</span>.public_key,
+                    <span class="string">"Got a Valid VID share but it's not for our key"
+                </span>);
 
                 broadcast_event(
                     Arc::new(HotShotEvent::VidShareValidated(disperse.clone())),
@@ -1402,10 +1406,9 @@
                 );
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"All vote dependencies verified for view {:?}"</span>, view_number);
+                <span class="macro">tracing::debug!</span>(<span class="string">"All vote dependencies verified for view {:?}"</span>, view_number);
                 <span class="kw">if </span>!<span class="self">self</span>.update_latest_voted_view(<span class="kw-2">*</span>view_number).<span class="kw">await </span>{
-                    <span class="macro">debug!</span>(<span class="string">"view not updated"</span>);
-                    <span class="kw">return</span>;
+                    <span class="macro">tracing::debug!</span>(<span class="string">"view not updated"</span>);
                 }
             }
             HotShotEvent::Timeout(view) =&gt; {
@@ -1427,6 +1430,7 @@
             }
             <span class="kw">_ </span>=&gt; {}
         }
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -1442,10 +1446,8 @@
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
         receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.handle(event, receiver.clone(), sender.clone()).<span class="kw">await</span>;
-
-        <span class="prelude-val">Ok</span>(())
-    }
+        <span class="self">self</span>.handle(event, receiver.clone(), sender.clone()).<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handle)) = <span class="self">self</span>.vote_dependencies.pop_last() {

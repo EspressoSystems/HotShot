@@ -551,6 +551,24 @@
 <a href="#549" id="549">549</a>
 <a href="#550" id="550">550</a>
 <a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -559,7 +577,6 @@
 
 </span><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -586,7 +603,8 @@
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, instrument, warn};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="self">self</span>::handlers::{ProposalDependency, ProposalDependencyHandle};
 <span class="kw">use crate</span>::{
@@ -724,7 +742,9 @@
                 };
                 <span class="kw">let </span>valid = event_view == view_number;
                 <span class="kw">if </span>valid {
-                    <span class="macro">debug!</span>(<span class="string">"Dependency {dependency_type:?} is complete for view {event_view:?}!"</span>,);
+                    <span class="macro">tracing::debug!</span>(
+                        <span class="string">"Dependency {dependency_type:?} is complete for view {event_view:?}!"</span>,
+                    );
                 }
                 valid
             }),
@@ -841,24 +861,27 @@
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
-    ) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="comment">// Don't even bother making the task if we are not entitled to propose anyway.
-        </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(view_number, epoch_number) != <span class="self">self</span>.public_key {
-            <span class="macro">tracing::trace!</span>(<span class="string">"We are not the leader of the next view"</span>);
-            <span class="kw">return</span>;
-        }
+        </span><span class="macro">ensure!</span>(
+            <span class="self">self</span>.quorum_membership.leader(view_number, epoch_number)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+            <span class="macro">debug!</span>(<span class="string">"We are not the leader of the next view"</span>)
+        );
 
         <span class="comment">// Don't try to propose twice for the same view.
-        </span><span class="kw">if </span>view_number &lt;= <span class="self">self</span>.latest_proposed_view {
-            <span class="macro">tracing::trace!</span>(<span class="string">"We have already proposed for this view"</span>);
-            <span class="kw">return</span>;
-        }
+        </span><span class="macro">ensure!</span>(
+            view_number &gt; <span class="self">self</span>.latest_proposed_view,
+            <span class="string">"We have already proposed for this view"
+        </span>);
 
-        <span class="macro">debug!</span>(<span class="string">"Attempting to make dependency task for view {view_number:?} and event {event:?}"</span>);
-        <span class="kw">if </span><span class="self">self</span>.proposal_dependencies.contains_key(<span class="kw-2">&amp;</span>view_number) {
-            <span class="macro">debug!</span>(<span class="string">"Task already exists"</span>);
-            <span class="kw">return</span>;
-        }
+        <span class="macro">tracing::debug!</span>(
+            <span class="string">"Attempting to make dependency task for view {view_number:?} and event {event:?}"
+        </span>);
+
+        <span class="macro">ensure!</span>(
+            !<span class="self">self</span>.proposal_dependencies.contains_key(<span class="kw-2">&amp;</span>view_number),
+            <span class="string">"Task already exists"
+        </span>);
 
         <span class="kw">let </span>dependency_chain =
             <span class="self">self</span>.create_and_complete_dependencies(view_number, <span class="kw-2">&amp;</span>event_receiver, event);
@@ -883,15 +906,18 @@
         );
         <span class="self">self</span>.proposal_dependencies
             .insert(view_number, dependency_task.run());
+
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Update the latest proposed view number.
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view), name = <span class="string">"Update latest proposed view"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">async fn </span>update_latest_proposed_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: TYPES::View) -&gt; bool {
         <span class="kw">if </span><span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view &lt; <span class="kw-2">*</span>new_view {
-            <span class="macro">debug!</span>(
+            <span class="macro">tracing::debug!</span>(
                 <span class="string">"Updating latest proposed view from {} to {}"</span>,
-                <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view, <span class="kw-2">*</span>new_view
+                <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view,
+                <span class="kw-2">*</span>new_view
             );
 
             <span class="comment">// Cancel the old dependency tasks.
@@ -916,17 +942,17 @@
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) =&gt; {
-                <span class="macro">debug!</span>(
+                <span class="macro">tracing::debug!</span>(
                     <span class="string">"Upgrade certificate received for view {}!"</span>,
                     <span class="kw-2">*</span>cert.view_number
                 );
 
                 <span class="comment">// Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 </span><span class="kw">if </span>cert.data.decide_by &gt;= <span class="self">self</span>.latest_proposed_view + <span class="number">3 </span>{
-                    <span class="macro">debug!</span>(<span class="string">"Updating current formed_upgrade_certificate"</span>);
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Updating current formed_upgrade_certificate"</span>);
 
                     <span class="self">self</span>.formed_upgrade_certificate = <span class="prelude-val">Some</span>(cert.clone());
                 }
@@ -942,7 +968,7 @@
                         event_receiver,
                         event_sender,
                         Arc::clone(<span class="kw-2">&amp;</span>event),
-                    );
+                    )<span class="question-mark">?</span>;
                 }
                 either::Left(qc) =&gt; {
                     <span class="comment">// Only update if the qc is from a newer view
@@ -975,24 +1001,24 @@
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
-                );
+                )<span class="question-mark">?</span>;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
                 <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
-                <span class="kw">if </span>!certificate
-                    .is_valid_cert(
-                        <span class="self">self</span>.quorum_membership.as_ref(),
-                        epoch_number,
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
-                    )
-                    .<span class="kw">await
-                </span>{
+
+                <span class="macro">ensure!</span>(
+                    certificate
+                        .is_valid_cert(
+                            <span class="self">self</span>.quorum_membership.as_ref(),
+                            epoch_number,
+                            <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
+                        )
+                        .<span class="kw">await</span>,
                     <span class="macro">warn!</span>(
                         <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
                         certificate.data()
-                    );
-                    <span class="kw">return</span>;
-                }
+                    )
+                );
 
                 <span class="kw">let </span>view_number = certificate.view_number;
 
@@ -1002,7 +1028,7 @@
                     event_receiver,
                     event_sender,
                     event,
-                );
+                )<span class="question-mark">?</span>;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) =&gt; {
                 <span class="kw">let </span>view_number = proposal.data.view_number();
@@ -1019,14 +1045,15 @@
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
-                );
+                )<span class="question-mark">?</span>;
             }
             HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>view = proposal.data.view_number();
-                <span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view).<span class="kw">await </span>{
-                    <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
-                    <span class="kw">return</span>;
-                }
+
+                <span class="macro">ensure!</span>(
+                    <span class="self">self</span>.update_latest_proposed_view(view).<span class="kw">await</span>,
+                    <span class="string">"Failed to update latest proposed view"
+                </span>);
             }
             HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>view_number = vid_share.data.view_number();
@@ -1038,17 +1065,27 @@
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
-                );
+                )<span class="question-mark">?</span>;
             }
             HotShotEvent::UpdateHighQc(qc) =&gt; {
-                <span class="comment">// First, update the high QC.
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.consensus.write().<span class="kw">await</span>.update_high_qc(qc.clone()) {
-                    <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update high qc; error = {e}"</span>);
-                }
+                <span class="comment">// First update the high QC internally
+                </span><span class="self">self</span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.update_high_qc(qc.clone())
+                    .wrap()
+                    .context(<span class="macro">error!</span>(
+                        <span class="string">"Failed to update high QC in internal consensus state!"
+                    </span>))<span class="question-mark">?</span>;
 
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.update_high_qc(qc.clone()).<span class="kw">await </span>{
-                    <span class="macro">warn!</span>(<span class="string">"Failed to store High QC of QC we formed; error = {:?}"</span>, e);
-                }
+                <span class="comment">// Then update the high QC in storage
+                </span><span class="self">self</span>.storage
+                    .write()
+                    .<span class="kw">await
+                    </span>.update_high_qc(qc.clone())
+                    .<span class="kw">await
+                    </span>.wrap()
+                    .context(<span class="macro">error!</span>(<span class="string">"Failed to update high QC in storage!"</span>))<span class="question-mark">?</span>;
 
                 broadcast_event(
                     HotShotEvent::HighQcUpdated(qc.clone()).into(),
@@ -1065,10 +1102,11 @@
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
-                );
+                )<span class="question-mark">?</span>;
             }
             <span class="kw">_ </span>=&gt; {}
         }
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -1084,10 +1122,8 @@
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
         receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.handle(event, receiver.clone(), sender.clone()).<span class="kw">await</span>;
-
-        <span class="prelude-val">Ok</span>(())
-    }
+        <span class="self">self</span>.handle(event, receiver.clone(), sender.clone()).<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">for </span>handle <span class="kw">in </span><span class="self">self

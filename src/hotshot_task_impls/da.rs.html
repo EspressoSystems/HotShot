@@ -380,6 +380,10 @@
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -388,7 +392,6 @@
 
 </span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
@@ -417,10 +420,11 @@
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
+    events::HotShotEvent,
     helpers::broadcast_event,
     vote_collection::{handle_vote, VoteCollectorsMap},
 };
@@ -476,11 +480,11 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::DaProposalRecv(proposal, sender) =&gt; {
                 <span class="kw">let </span>sender = sender.clone();
-                <span class="macro">debug!</span>(
+                <span class="macro">tracing::debug!</span>(
                     <span class="string">"DA proposal received for view: {:?}"</span>,
                     proposal.data.view_number()
                 );
@@ -493,35 +497,40 @@
                 // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
-                </span><span class="kw">if </span><span class="self">self</span>.cur_view != TYPES::View::genesis() &amp;&amp; view &lt; <span class="self">self</span>.cur_view - <span class="number">1 </span>{
-                    <span class="macro">warn!</span>(<span class="string">"Throwing away DA proposal that is more than one view older"</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+                </span><span class="macro">ensure!</span>(
+                    <span class="self">self</span>.cur_view == TYPES::View::genesis() || view &gt;= <span class="self">self</span>.cur_view - <span class="number">1</span>,
+                    <span class="string">"Throwing away DA proposal that is more than one view older"
+                </span>);
 
-                <span class="kw">if </span><span class="self">self
-                    </span>.consensus
-                    .read()
-                    .<span class="kw">await
-                    </span>.saved_payloads()
-                    .contains_key(<span class="kw-2">&amp;</span>view)
-                {
-                    <span class="macro">warn!</span>(<span class="string">"Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away"</span>, view);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+                <span class="macro">ensure!</span>(
+                    !<span class="self">self
+                      </span>.consensus
+                      .read()
+                      .<span class="kw">await
+                      </span>.saved_payloads()
+                      .contains_key(<span class="kw-2">&amp;</span>view),
+                    <span class="macro">info!</span>(
+                      <span class="string">"Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away"</span>,
+                      view
+                    )
+                );
 
                 <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
 
-                <span class="comment">// ED Is this the right leader?
-                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.da_membership.leader(view, <span class="self">self</span>.cur_epoch);
-                <span class="kw">if </span>view_leader_key != sender {
-                    <span class="macro">error!</span>(<span class="string">"DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}"</span>, <span class="kw-2">*</span>view, proposal.data.clone());
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+                <span class="kw">let </span>view_leader_key = <span class="self">self</span>.da_membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">?</span>;
+                <span class="macro">ensure!</span>(
+                    view_leader_key == sender,
+                    <span class="macro">warn!</span>(
+                      <span class="string">"DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}"</span>,
+                      <span class="kw-2">*</span>view,
+                      proposal.data.clone()
+                    )
+                );
 
-                <span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, <span class="kw-2">&amp;</span>encoded_transactions_hash) {
-                    <span class="macro">error!</span>(<span class="string">"Could not verify proposal."</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+                <span class="macro">ensure!</span>(
+                    view_leader_key.validate(<span class="kw-2">&amp;</span>proposal.signature, <span class="kw-2">&amp;</span>encoded_transactions_hash),
+                    <span class="macro">warn!</span>(<span class="string">"Could not verify proposal."</span>)
+                );
 
                 broadcast_event(
                     Arc::new(HotShotEvent::DaProposalValidated(proposal.clone(), sender)),
@@ -531,10 +540,15 @@
             }
             HotShotEvent::DaProposalValidated(proposal, sender) =&gt; {
                 <span class="kw">let </span>curr_view = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_view();
-                <span class="kw">if </span>curr_view &gt; proposal.data.view_number() + <span class="number">1 </span>{
-                    <span class="macro">tracing::debug!</span>(<span class="string">"Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}"</span>, curr_view, proposal.data.view_number());
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+                <span class="macro">ensure!</span>(
+                  curr_view &lt;= proposal.data.view_number() + <span class="number">1</span>,
+                  <span class="macro">debug!</span>(
+                    <span class="string">"Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}"</span>, 
+                    curr_view,
+                    proposal.data.view_number()
+                  )
+                );
+
                 <span class="comment">// Proposal is fresh and valid, notify the application layer
                 </span>broadcast_event(
                     Event {
@@ -548,23 +562,23 @@
                 )
                 .<span class="kw">await</span>;
 
-                <span class="kw">if </span>!<span class="self">self
-                    </span>.da_membership
-                    .has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, <span class="self">self</span>.cur_epoch)
-                {
+                <span class="macro">ensure!</span>(
+                    <span class="self">self</span>.da_membership
+                        .has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, <span class="self">self</span>.cur_epoch),
                     <span class="macro">debug!</span>(
                         <span class="string">"We were not chosen for consensus committee on {:?}"</span>,
                         <span class="self">self</span>.cur_view
-                    );
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_da(proposal).<span class="kw">await </span>{
-                    <span class="macro">error!</span>(
-                        <span class="string">"Failed to store DA Proposal with error {:?}, aborting vote"</span>,
-                        e
-                    );
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+                    )
+                );
+
+                <span class="self">self</span>.storage
+                    .write()
+                    .<span class="kw">await
+                    </span>.append_da(proposal)
+                    .<span class="kw">await
+                    </span>.wrap()
+                    .context(<span class="macro">error!</span>(<span class="string">"Failed to append DA proposal to storage"</span>))<span class="question-mark">?</span>;
+
                 <span class="kw">let </span>txns = Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
                 <span class="kw">let </span>num_nodes = <span class="self">self</span>.quorum_membership.total_nodes(<span class="self">self</span>.cur_epoch);
                 <span class="kw">let </span>payload_commitment =
@@ -574,7 +588,7 @@
 
                 <span class="kw">let </span>view_number = proposal.data.view_number();
                 <span class="comment">// Generate and send vote
-                </span><span class="kw">let </span><span class="prelude-val">Ok</span>(vote) = DaVote::create_signed_vote(
+                </span><span class="kw">let </span>vote = DaVote::create_signed_vote(
                     DaData {
                         payload_commit: payload_commitment,
                     },
@@ -583,13 +597,9 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                 )
-                .<span class="kw">await
-                else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to sign DA Vote!"</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                };
+                .<span class="kw">await</span><span class="question-mark">?</span>;
 
-                <span class="macro">debug!</span>(<span class="string">"Sending vote to the DA leader {:?}"</span>, vote.view_number());
+                <span class="macro">tracing::debug!</span>(<span class="string">"Sending vote to the DA leader {:?}"</span>, vote.view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), <span class="kw-2">&amp;</span>event_stream).<span class="kw">await</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
@@ -647,13 +657,18 @@
                 }
             }
             HotShotEvent::DaVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"DA vote recv, Main Task {:?}"</span>, vote.view_number());
+                <span class="macro">tracing::debug!</span>(<span class="string">"DA vote recv, Main Task {:?}"</span>, vote.view_number());
                 <span class="comment">// Check if we are the leader and the vote is from the sender.
                 </span><span class="kw">let </span>view = vote.view_number();
-                <span class="kw">if </span><span class="self">self</span>.da_membership.leader(view, <span class="self">self</span>.cur_epoch) != <span class="self">self</span>.public_key {
-                    <span class="macro">error!</span>(<span class="string">"We are not the DA committee leader for view {} are we leader for next view? {}"</span>, <span class="kw-2">*</span>view, <span class="self">self</span>.da_membership.leader(view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch) == <span class="self">self</span>.public_key);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+
+                <span class="macro">ensure!</span>(
+                    <span class="self">self</span>.da_membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                    <span class="macro">debug!</span>(
+                      <span class="string">"We are not the DA committee leader for view {} are we leader for next view? {}"</span>,
+                      <span class="kw-2">*</span>view,
+                      <span class="self">self</span>.da_membership.leader(view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key
+                    )
+                );
 
                 handle_vote(
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.vote_collectors,
@@ -666,26 +681,29 @@
                     <span class="kw-2">&amp;</span>event_stream,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                 )
-                .<span class="kw">await</span>;
+                .<span class="kw">await</span><span class="question-mark">?</span>;
             }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
-                <span class="kw">if </span>(<span class="kw-2">*</span>view != <span class="number">0 </span>|| <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">0</span>) &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
+
+                <span class="macro">ensure!</span>(
+                    <span class="kw-2">*</span><span class="self">self</span>.cur_view &lt; <span class="kw-2">*</span>view,
+                    <span class="macro">info!</span>(<span class="string">"Received a view change to an older view."</span>)
+                );
 
                 <span class="kw">if </span><span class="kw-2">*</span>view - <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">1 </span>{
-                    <span class="macro">info!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
+                    <span class="macro">tracing::info!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
 
                 <span class="comment">// If we are not the next leader (DA leader for this view) immediately exit
-                </span><span class="kw">if </span><span class="self">self</span>.da_membership.leader(<span class="self">self</span>.cur_view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch) != <span class="self">self</span>.public_key {
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-                <span class="macro">debug!</span>(<span class="string">"Polling for DA votes for view {}"</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>);
+                </span><span class="macro">ensure!</span>(
+                    <span class="self">self</span>.da_membership
+                        .leader(<span class="self">self</span>.cur_view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch)<span class="question-mark">?
+                        </span>== <span class="self">self</span>.public_key
+                );
 
-                <span class="kw">return </span><span class="prelude-val">None</span>;
+                <span class="macro">tracing::debug!</span>(<span class="string">"Polling for DA votes for view {}"</span>, <span class="kw-2">*</span><span class="self">self</span>.cur_view + <span class="number">1</span>);
             }
             HotShotEvent::BlockRecv(packed_bundle) =&gt; {
                 <span class="kw">let </span>PackedBundle::&lt;TYPES&gt; {
@@ -700,12 +718,9 @@
                 </span><span class="kw">let </span>encoded_transactions_hash = Sha256::digest(encoded_transactions);
 
                 <span class="comment">// sign the encoded transactions as opposed to the VID commitment
-                </span><span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
+                </span><span class="kw">let </span>signature =
                     TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
-                <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to sign block payload!"</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                };
+                        .wrap()<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>data: DaProposal&lt;TYPES&gt; = DaProposal {
                     encoded_transactions: Arc::clone(encoded_transactions),
@@ -729,15 +744,10 @@
                 )
                 .<span class="kw">await</span>;
             }
-
-            HotShotEvent::Shutdown =&gt; {
-                <span class="macro">error!</span>(<span class="string">"Shutting down because of shutdown signal!"</span>);
-                <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
-            }
             <span class="kw">_ </span>=&gt; {}
         }
-        <span class="prelude-val">None
-    </span>}
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="attr">#[async_trait]
@@ -753,10 +763,8 @@
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
         _receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await</span>;
-
-        <span class="prelude-val">Ok</span>(())
-    }
+        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }

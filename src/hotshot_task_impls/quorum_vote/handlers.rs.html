@@ -154,7 +154,6 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>hotshot_types::{
@@ -167,7 +166,8 @@
     },
     vote::HasViewNumber,
 };
-<span class="kw">use </span>tracing::{debug, instrument};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">super</span>::QuorumVoteTaskState;
 <span class="kw">use crate</span>::{
@@ -263,7 +263,7 @@
             .number_of_views_per_decide_event
             .add_point(cur_number_of_views_per_decide_event <span class="kw">as </span>f64);
 
-        <span class="macro">debug!</span>(
+        <span class="macro">tracing::debug!</span>(
             <span class="string">"Sending Decide for view {:?}"</span>,
             consensus_writer.last_decided_view()
         );
@@ -287,7 +287,7 @@
         .<span class="kw">await</span>;
 
         broadcast_event(Arc::new(HotShotEvent::LeafDecided(leaves_decided)), sender).<span class="kw">await</span>;
-        <span class="macro">debug!</span>(<span class="string">"Successfully sent decide event"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Successfully sent decide event"</span>);
     }
 
     <span class="prelude-val">Ok</span>(())

@@ -859,8 +859,6 @@
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -876,10 +874,10 @@
     sync::Arc,
 };
 
-<span class="kw">use </span>anyhow::{bail, ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>committable::Commitment;
-<span class="kw">use </span>tracing::{debug, error, instrument, trace};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
@@ -931,31 +929,31 @@
     <span class="doccomment">/// Locks inner consensus for reading and leaves debug traces
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"OuterConsensus"</span>)]
     </span><span class="kw">pub async fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusReadLockGuard&lt;<span class="lifetime">'_</span>, TYPES&gt; {
-        <span class="macro">trace!</span>(<span class="string">"Trying to acquire read lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Trying to acquire read lock on consensus"</span>);
         <span class="kw">let </span>ret = <span class="self">self</span>.inner_consensus.read().<span class="kw">await</span>;
-        <span class="macro">trace!</span>(<span class="string">"Acquired read lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Acquired read lock on consensus"</span>);
         ConsensusReadLockGuard::new(ret)
     }
 
     <span class="doccomment">/// Locks inner consensus for writing and leaves debug traces
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"OuterConsensus"</span>)]
     </span><span class="kw">pub async fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusWriteLockGuard&lt;<span class="lifetime">'_</span>, TYPES&gt; {
-        <span class="macro">trace!</span>(<span class="string">"Trying to acquire write lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Trying to acquire write lock on consensus"</span>);
         <span class="kw">let </span>ret = <span class="self">self</span>.inner_consensus.write().<span class="kw">await</span>;
-        <span class="macro">trace!</span>(<span class="string">"Acquired write lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Acquired write lock on consensus"</span>);
         ConsensusWriteLockGuard::new(ret)
     }
 
     <span class="doccomment">/// Tries to acquire write lock on inner consensus and leaves debug traces
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"OuterConsensus"</span>)]
     </span><span class="kw">pub fn </span>try_write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ConsensusWriteLockGuard&lt;<span class="lifetime">'_</span>, TYPES&gt;&gt; {
-        <span class="macro">trace!</span>(<span class="string">"Trying to acquire write lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Trying to acquire write lock on consensus"</span>);
         <span class="kw">let </span>ret = <span class="self">self</span>.inner_consensus.try_write();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = ret {
-            <span class="macro">trace!</span>(<span class="string">"Acquired write lock on consensus"</span>);
+            <span class="macro">tracing::trace!</span>(<span class="string">"Acquired write lock on consensus"</span>);
             <span class="prelude-val">Some</span>(ConsensusWriteLockGuard::new(guard))
         } <span class="kw">else </span>{
-            <span class="macro">trace!</span>(<span class="string">"Failed to acquire write lock"</span>);
+            <span class="macro">tracing::trace!</span>(<span class="string">"Failed to acquire write lock"</span>);
             <span class="prelude-val">None
         </span>}
     }
@@ -963,22 +961,22 @@
     <span class="doccomment">/// Acquires upgradable read lock on inner consensus and leaves debug traces
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"OuterConsensus"</span>)]
     </span><span class="kw">pub async fn </span>upgradable_read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ConsensusUpgradableReadLockGuard&lt;<span class="lifetime">'_</span>, TYPES&gt; {
-        <span class="macro">trace!</span>(<span class="string">"Trying to acquire upgradable read lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Trying to acquire upgradable read lock on consensus"</span>);
         <span class="kw">let </span>ret = <span class="self">self</span>.inner_consensus.upgradable_read().<span class="kw">await</span>;
-        <span class="macro">trace!</span>(<span class="string">"Acquired upgradable read lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Acquired upgradable read lock on consensus"</span>);
         ConsensusUpgradableReadLockGuard::new(ret)
     }
 
     <span class="doccomment">/// Tries to acquire read lock on inner consensus and leaves debug traces
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"OuterConsensus"</span>)]
     </span><span class="kw">pub fn </span>try_read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ConsensusReadLockGuard&lt;<span class="lifetime">'_</span>, TYPES&gt;&gt; {
-        <span class="macro">trace!</span>(<span class="string">"Trying to acquire read lock on consensus"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Trying to acquire read lock on consensus"</span>);
         <span class="kw">let </span>ret = <span class="self">self</span>.inner_consensus.try_read();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = ret {
-            <span class="macro">trace!</span>(<span class="string">"Acquired read lock on consensus"</span>);
+            <span class="macro">tracing::trace!</span>(<span class="string">"Acquired read lock on consensus"</span>);
             <span class="prelude-val">Some</span>(ConsensusReadLockGuard::new(guard))
         } <span class="kw">else </span>{
-            <span class="macro">trace!</span>(<span class="string">"Failed to acquire read lock"</span>);
+            <span class="macro">tracing::trace!</span>(<span class="string">"Failed to acquire read lock"</span>);
             <span class="prelude-val">None
         </span>}
     }
@@ -1008,7 +1006,7 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, TYPES: NodeType&gt; Drop <span class="kw">for </span>ConsensusReadLockGuard&lt;<span class="lifetime">'a</span>, TYPES&gt; {
     <span class="attr">#[instrument(skip_all, target = <span class="string">"ConsensusReadLockGuard"</span>)]
     </span><span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="macro">trace!</span>(<span class="string">"Read lock on consensus dropped"</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Read lock on consensus dropped"</span>);
     }
 }
 
@@ -1042,7 +1040,7 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, TYPES: NodeType&gt; Drop <span class="kw">for </span>ConsensusWriteLockGuard&lt;<span class="lifetime">'a</span>, TYPES&gt; {
     <span class="attr">#[instrument(skip_all, target = <span class="string">"ConsensusWriteLockGuard"</span>)]
     </span><span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="macro">debug!</span>(<span class="string">"Write lock on consensus dropped"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Write lock on consensus dropped"</span>);
     }
 }
 
@@ -1069,9 +1067,9 @@
     </span><span class="kw">pub async fn </span>upgrade(<span class="kw-2">mut </span>guard: <span class="self">Self</span>) -&gt; ConsensusWriteLockGuard&lt;<span class="lifetime">'a</span>, TYPES&gt; {
         <span class="kw">let </span>inner_guard = <span class="kw">unsafe </span>{ ManuallyDrop::take(<span class="kw-2">&amp;mut </span>guard.lock_guard) };
         guard.taken = <span class="bool-val">true</span>;
-        <span class="macro">debug!</span>(<span class="string">"Trying to upgrade upgradable read lock on consensus"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Trying to upgrade upgradable read lock on consensus"</span>);
         <span class="kw">let </span>ret = RwLockUpgradableReadGuard::upgrade(inner_guard).<span class="kw">await</span>;
-        <span class="macro">debug!</span>(<span class="string">"Upgraded upgradable read lock on consensus"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Upgraded upgradable read lock on consensus"</span>);
         ConsensusWriteLockGuard::new(ret)
     }
 }
@@ -1089,7 +1087,7 @@
     </span><span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">if </span>!<span class="self">self</span>.taken {
             <span class="kw">unsafe </span>{ ManuallyDrop::drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>.lock_guard) }
-            <span class="macro">debug!</span>(<span class="string">"Upgradable read lock on consensus dropped"</span>);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Upgradable read lock on consensus dropped"</span>);
         }
     }
 }
@@ -1460,19 +1458,17 @@
                 ..
             } = existing_view.view_inner
             {
-                <span class="kw">match </span>new_view.view_inner {
-                    ViewInner::Leaf {
-                        delta: <span class="kw-2">ref </span>new_delta,
-                        ..
-                    } =&gt; {
-                        <span class="macro">ensure!</span>(
-                            new_delta.is_some() || existing_delta.is_none(),
-                            <span class="string">"Skipping the state update to not override a `Leaf` view with `Some` state delta."
-                        </span>);
-                    }
-                    <span class="kw">_ </span>=&gt; {
-                        <span class="macro">bail!</span>(<span class="string">"Skipping the state update to not override a `Leaf` view with a non-`Leaf` view."</span>);
-                    }
+                <span class="kw">if let </span>ViewInner::Leaf {
+                    delta: <span class="kw-2">ref </span>new_delta,
+                    ..
+                } = new_view.view_inner
+                {
+                    <span class="macro">ensure!</span>(
+                         new_delta.is_some() || existing_delta.is_none(),
+                         <span class="string">"Skipping the state update to not override a `Leaf` view with `Some` state delta."
+                     </span>);
+                } <span class="kw">else </span>{
+                    <span class="macro">bail!</span>(<span class="string">"Skipping the state update to not override a `Leaf` view with a non-`Leaf` view."</span>);
                 }
             }
         }
@@ -1512,10 +1508,10 @@
     /// Can return an error when the provided high_qc is not newer than the existing entry.
     </span><span class="kw">pub fn </span>update_high_qc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
-            high_qc.view_number &gt; <span class="self">self</span>.high_qc.view_number,
+            high_qc.view_number &gt; <span class="self">self</span>.high_qc.view_number || high_qc == <span class="self">self</span>.high_qc,
             <span class="string">"High QC with an equal or higher view exists."
         </span>);
-        <span class="macro">debug!</span>(<span class="string">"Updating high QC"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Updating high QC"</span>);
         <span class="self">self</span>.high_qc = high_qc;
 
         <span class="prelude-val">Ok</span>(())
@@ -1547,7 +1543,7 @@
         terminator: Terminator&lt;TYPES::View&gt;,
         ok_when_finished: bool,
         <span class="kw-2">mut </span>f: F,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt;
+    ) -&gt; std::result::Result&lt;(), HotShotError&lt;TYPES&gt;&gt;
     <span class="kw">where
         </span>F: FnMut(
             <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
@@ -1611,7 +1607,7 @@
             .next()
             .expect(<span class="string">"INCONSISTENT STATE: anchor leaf not in state map!"</span>);
         <span class="kw">if </span><span class="kw-2">*</span>anchor_entry.<span class="number">0 </span>!= old_anchor_view {
-            <span class="macro">error!</span>(
+            <span class="macro">tracing::error!</span>(
                 <span class="string">"Something about GC has failed. Older leaf exists than the previous anchor leaf."
             </span>);
         }

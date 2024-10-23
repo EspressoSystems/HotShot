@@ -867,15 +867,12 @@
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="attr">#![allow(clippy::module_name_repetitions)]
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -883,7 +880,6 @@
     time::Duration,
 };
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
@@ -909,7 +905,8 @@
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -996,10 +993,8 @@
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
         _receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await</span>;
-
-        <span class="prelude-val">Ok</span>(())
-    }
+        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
@@ -1070,7 +1065,7 @@
         <span class="comment">// This certificate is old, we can throw it away
         // If next view = cert round, then that means we should already have a task running for it
         </span><span class="kw">if </span><span class="self">self</span>.current_view &gt; view {
-            <span class="macro">debug!</span>(<span class="string">"Already in a higher view than the view sync message"</span>);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Already in a higher view than the view sync message"</span>);
             <span class="kw">return</span>;
         }
 
@@ -1078,7 +1073,7 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(replica_task) = task_map.get_mut(<span class="kw-2">&amp;</span>view) {
             <span class="comment">// Forward event then return
-            </span><span class="macro">debug!</span>(<span class="string">"Forwarding message"</span>);
+            </span><span class="macro">tracing::debug!</span>(<span class="string">"Forwarding message"</span>);
             <span class="kw">let </span>result = replica_task
                 .handle(Arc::clone(<span class="kw-2">&amp;</span>event), sender.clone())
                 .<span class="kw">await</span>;
@@ -1129,28 +1124,28 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
+                <span class="macro">tracing::debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
                 <span class="kw">let </span>view = certificate.view_number();
                 <span class="self">self</span>.send_to_or_create_replica(event, view, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
             }
             HotShotEvent::ViewSyncCommitCertificate2Recv(certificate) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
+                <span class="macro">tracing::debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
                 <span class="kw">let </span>view = certificate.view_number();
                 <span class="self">self</span>.send_to_or_create_replica(event, view, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
+                <span class="macro">tracing::debug!</span>(<span class="string">"Received view sync cert for phase {:?}"</span>, certificate);
                 <span class="kw">let </span>view = certificate.view_number();
                 <span class="self">self</span>.send_to_or_create_replica(event, view, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
             }
             HotShotEvent::ViewSyncTimeout(view, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"view sync timeout in main task {:?}"</span>, view);
+                <span class="macro">tracing::debug!</span>(<span class="string">"view sync timeout in main task {:?}"</span>, view);
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="self">self</span>.send_to_or_create_replica(event, view, <span class="kw-2">&amp;</span>event_stream)
                     .<span class="kw">await</span>;
@@ -1162,27 +1157,27 @@
                 <span class="kw">let </span>relay = vote.date().relay;
                 <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.get_mut(<span class="kw-2">&amp;</span>relay) {
-                    <span class="macro">debug!</span>(<span class="string">"Forwarding message"</span>);
-                    <span class="kw">let </span>result = relay_task
-                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await</span>;
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Forwarding message"</span>);
 
-                    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-                        <span class="comment">// The protocol has finished
-                        </span>map.remove(<span class="kw-2">&amp;</span>vote_view);
+                    <span class="comment">// Handle the vote and check if the accumulator has returned successfully
+                    </span><span class="kw">if </span>relay_task
+                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await</span><span class="question-mark">?
+                        </span>.is_some()
+                    {
+                        map.remove(<span class="kw-2">&amp;</span>vote_view);
                     }
-                    <span class="kw">return</span>;
+
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self
-                    </span>.membership
-                    .leader(vote_view + relay, <span class="self">self</span>.current_epoch)
-                    != <span class="self">self</span>.public_key
-                {
-                    <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
-                    <span class="kw">return</span>;
-                }
+                </span><span class="macro">ensure!</span>(
+                    <span class="self">self</span>.membership
+                        .leader(vote_view + relay, <span class="self">self</span>.current_epoch)<span class="question-mark">?
+                        </span>== <span class="self">self</span>.public_key,
+                    <span class="string">"View sync vote sent to wrong leader"
+                </span>);
 
                 <span class="kw">let </span>info = AccumulatorInfo {
                     public_key: <span class="self">self</span>.public_key.clone(),
@@ -1193,10 +1188,9 @@
                 };
                 <span class="kw">let </span>vote_collector =
                     create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream, <span class="self">self</span>.upgrade_lock.clone())
-                        .<span class="kw">await</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
-                    relay_map.insert(relay, vote_task);
-                }
+                        .<span class="kw">await</span><span class="question-mark">?</span>;
+
+                relay_map.insert(relay, vote_collector);
             }
 
             HotShotEvent::ViewSyncCommitVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
@@ -1205,27 +1199,27 @@
                 <span class="kw">let </span>relay = vote.date().relay;
                 <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.get_mut(<span class="kw-2">&amp;</span>relay) {
-                    <span class="macro">debug!</span>(<span class="string">"Forwarding message"</span>);
-                    <span class="kw">let </span>result = relay_task
-                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await</span>;
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Forwarding message"</span>);
 
-                    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-                        <span class="comment">// The protocol has finished
-                        </span>map.remove(<span class="kw-2">&amp;</span>vote_view);
+                    <span class="comment">// Handle the vote and check if the accumulator has returned successfully
+                    </span><span class="kw">if </span>relay_task
+                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await</span><span class="question-mark">?
+                        </span>.is_some()
+                    {
+                        map.remove(<span class="kw-2">&amp;</span>vote_view);
                     }
-                    <span class="kw">return</span>;
+
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self
-                    </span>.membership
-                    .leader(vote_view + relay, <span class="self">self</span>.current_epoch)
-                    != <span class="self">self</span>.public_key
-                {
-                    <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
-                    <span class="kw">return</span>;
-                }
+                </span><span class="macro">ensure!</span>(
+                    <span class="self">self</span>.membership
+                        .leader(vote_view + relay, <span class="self">self</span>.current_epoch)<span class="question-mark">?
+                        </span>== <span class="self">self</span>.public_key,
+                    <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>)
+                );
 
                 <span class="kw">let </span>info = AccumulatorInfo {
                     public_key: <span class="self">self</span>.public_key.clone(),
@@ -1234,12 +1228,11 @@
                     epoch: <span class="self">self</span>.current_epoch,
                     id: <span class="self">self</span>.id,
                 };
+
                 <span class="kw">let </span>vote_collector =
                     create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream, <span class="self">self</span>.upgrade_lock.clone())
-                        .<span class="kw">await</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
-                    relay_map.insert(relay, vote_task);
-                }
+                        .<span class="kw">await</span><span class="question-mark">?</span>;
+                relay_map.insert(relay, vote_collector);
             }
 
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) =&gt; {
@@ -1248,27 +1241,27 @@
                 <span class="kw">let </span>relay = vote.date().relay;
                 <span class="kw">let </span>relay_map = map.entry(vote_view).or_insert(BTreeMap::new());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(relay_task) = relay_map.get_mut(<span class="kw-2">&amp;</span>relay) {
-                    <span class="macro">debug!</span>(<span class="string">"Forwarding message"</span>);
-                    <span class="kw">let </span>result = relay_task
-                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
-                        .<span class="kw">await</span>;
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Forwarding message"</span>);
 
-                    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-                        <span class="comment">// The protocol has finished
-                        </span>map.remove(<span class="kw-2">&amp;</span>vote_view);
+                    <span class="comment">// Handle the vote and check if the accumulator has returned successfully
+                    </span><span class="kw">if </span>relay_task
+                        .handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), <span class="kw-2">&amp;</span>event_stream)
+                        .<span class="kw">await</span><span class="question-mark">?
+                        </span>.is_some()
+                    {
+                        map.remove(<span class="kw-2">&amp;</span>vote_view);
                     }
-                    <span class="kw">return</span>;
+
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
 
                 <span class="comment">// We do not have a relay task already running, so start one
-                </span><span class="kw">if </span><span class="self">self
-                    </span>.membership
-                    .leader(vote_view + relay, <span class="self">self</span>.current_epoch)
-                    != <span class="self">self</span>.public_key
-                {
-                    <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>);
-                    <span class="kw">return</span>;
-                }
+                </span><span class="macro">ensure!</span>(
+                    <span class="self">self</span>.membership
+                        .leader(vote_view + relay, <span class="self">self</span>.current_epoch)<span class="question-mark">?
+                        </span>== <span class="self">self</span>.public_key,
+                    <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>)
+                );
 
                 <span class="kw">let </span>info = AccumulatorInfo {
                     public_key: <span class="self">self</span>.public_key.clone(),
@@ -1280,7 +1273,7 @@
                 <span class="kw">let </span>vote_collector =
                     create_vote_accumulator(<span class="kw-2">&amp;</span>info, event, <span class="kw-2">&amp;</span>event_stream, <span class="self">self</span>.upgrade_lock.clone())
                         .<span class="kw">await</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_task) = vote_collector {
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
             }
@@ -1288,9 +1281,10 @@
             <span class="kw-2">&amp;</span>HotShotEvent::ViewChange(new_view) =&gt; {
                 <span class="kw">let </span>new_view = TYPES::View::new(<span class="kw-2">*</span>new_view);
                 <span class="kw">if </span><span class="self">self</span>.current_view &lt; new_view {
-                    <span class="macro">debug!</span>(
+                    <span class="macro">tracing::debug!</span>(
                         <span class="string">"Change from view {} to view {} in view sync task"</span>,
-                        <span class="kw-2">*</span><span class="self">self</span>.current_view, <span class="kw-2">*</span>new_view
+                        <span class="kw-2">*</span><span class="self">self</span>.current_view,
+                        <span class="kw-2">*</span>new_view
                     );
 
                     <span class="self">self</span>.current_view = new_view;
@@ -1325,13 +1319,14 @@
             }
             <span class="kw-2">&amp;</span>HotShotEvent::Timeout(view_number) =&gt; {
                 <span class="comment">// This is an old timeout and we can ignore it
-                </span><span class="kw">if </span>view_number &lt;= TYPES::View::new(<span class="kw-2">*</span><span class="self">self</span>.current_view) {
-                    <span class="kw">return</span>;
-                }
+                </span><span class="macro">ensure!</span>(
+                    view_number &gt; <span class="self">self</span>.current_view,
+                    <span class="macro">debug!</span>(<span class="string">"Discarding old timeout vote."</span>)
+                );
 
                 <span class="self">self</span>.num_timeouts_tracked += <span class="number">1</span>;
-                <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.current_epoch);
-                <span class="macro">warn!</span>(
+                <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.current_epoch)<span class="question-mark">?</span>;
+                <span class="macro">tracing::warn!</span>(
                     %leader,
                     leader_mnemonic = cdn_proto::util::mnemonic(<span class="kw-2">&amp;</span>leader),
                     view_number = <span class="kw-2">*</span>view_number,
@@ -1340,11 +1335,11 @@
                 );
 
                 <span class="kw">if </span><span class="self">self</span>.num_timeouts_tracked &gt;= <span class="number">3 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Too many consecutive timeouts!  This shouldn't happen"</span>);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Too many consecutive timeouts!  This shouldn't happen"</span>);
                 }
 
                 <span class="kw">if </span><span class="self">self</span>.num_timeouts_tracked &gt;= <span class="number">2 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Starting view sync protocol for view {}"</span>, <span class="kw-2">*</span>view_number + <span class="number">1</span>);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Starting view sync protocol for view {}"</span>, <span class="kw-2">*</span>view_number + <span class="number">1</span>);
 
                     <span class="self">self</span>.send_to_or_create_replica(
                         Arc::new(HotShotEvent::ViewSyncTrigger(view_number + <span class="number">1</span>)),
@@ -1367,6 +1362,7 @@
 
             <span class="kw">_ </span>=&gt; {}
         }
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -1386,7 +1382,7 @@
 
                 <span class="comment">// Ignore certificate if it is for an older round
                 </span><span class="kw">if </span>certificate.view_number() &lt; <span class="self">self</span>.next_view {
-                    <span class="macro">warn!</span>(<span class="string">"We're already in a higher round"</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"We're already in a higher round"</span>);
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1400,7 +1396,7 @@
                     )
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
+                    <span class="macro">tracing::error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1427,7 +1423,7 @@
                 )
                 .<span class="kw">await
                 else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to sign ViewSyncCommitData!"</span>);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Failed to sign ViewSyncCommitData!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 <span class="kw">let </span>message = GeneralConsensusMessage::&lt;TYPES&gt;::ViewSyncCommitVote(vote);
@@ -1452,7 +1448,7 @@
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
                         async_sleep(timeout).<span class="kw">await</span>;
-                        <span class="macro">warn!</span>(<span class="string">"Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}"</span>, relay);
+                        <span class="macro">tracing::warn!</span>(<span class="string">"Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}"</span>, relay);
 
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
@@ -1472,7 +1468,7 @@
 
                 <span class="comment">// Ignore certificate if it is for an older round
                 </span><span class="kw">if </span>certificate.view_number() &lt; <span class="self">self</span>.next_view {
-                    <span class="macro">warn!</span>(<span class="string">"We're already in a higher round"</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"We're already in a higher round"</span>);
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1486,7 +1482,7 @@
                     )
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
+                    <span class="macro">tracing::error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1513,7 +1509,7 @@
                 )
                 .<span class="kw">await
                 else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to sign view sync finalized vote!"</span>);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Failed to sign view sync finalized vote!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 <span class="kw">let </span>message = GeneralConsensusMessage::&lt;TYPES&gt;::ViewSyncFinalizeVote(vote);
@@ -1526,7 +1522,7 @@
                     .<span class="kw">await</span>;
                 }
 
-                <span class="macro">info!</span>(
+                <span class="macro">tracing::info!</span>(
                     <span class="string">"View sync protocol has received view sync evidence to update the view to {}"</span>,
                     <span class="kw-2">*</span><span class="self">self</span>.next_view
                 );
@@ -1548,7 +1544,7 @@
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
                         async_sleep(timeout).<span class="kw">await</span>;
-                        <span class="macro">warn!</span>(
+                        <span class="macro">tracing::warn!</span>(
                             <span class="string">"Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}"</span>,
                             relay
                         );
@@ -1568,7 +1564,7 @@
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
                 <span class="comment">// Ignore certificate if it is for an older round
                 </span><span class="kw">if </span>certificate.view_number() &lt; <span class="self">self</span>.next_view {
-                    <span class="macro">warn!</span>(<span class="string">"We're already in a higher round"</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"We're already in a higher round"</span>);
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1582,7 +1578,7 @@
                     )
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
+                    <span class="macro">tracing::error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1612,7 +1608,7 @@
             HotShotEvent::ViewSyncTrigger(view_number) =&gt; {
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
                 <span class="kw">if </span><span class="self">self</span>.next_view != TYPES::View::new(<span class="kw-2">*</span>view_number) {
-                    <span class="macro">error!</span>(<span class="string">"Unexpected view number to triger view sync"</span>);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Unexpected view number to triger view sync"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
@@ -1628,7 +1624,7 @@
                 )
                 .<span class="kw">await
                 else </span>{
-                    <span class="macro">error!</span>(<span class="string">"Failed to sign pre commit vote!"</span>);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Failed to sign pre commit vote!"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 <span class="kw">let </span>message = GeneralConsensusMessage::&lt;TYPES&gt;::ViewSyncPreCommitVote(vote);
@@ -1648,7 +1644,7 @@
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
                         async_sleep(timeout).<span class="kw">await</span>;
-                        <span class="macro">warn!</span>(<span class="string">"Vote sending timed out in ViewSyncTrigger"</span>);
+                        <span class="macro">tracing::warn!</span>(<span class="string">"Vote sending timed out in ViewSyncTrigger"</span>);
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
                                 TYPES::View::new(<span class="kw-2">*</span>next_view),
@@ -1686,7 +1682,7 @@
                             )
                             .<span class="kw">await
                             else </span>{
-                                <span class="macro">error!</span>(<span class="string">"Failed to sign ViewSyncPreCommitData!"</span>);
+                                <span class="macro">tracing::error!</span>(<span class="string">"Failed to sign ViewSyncPreCommitData!"</span>);
                                 <span class="kw">return </span><span class="prelude-val">None</span>;
                             };
                             <span class="kw">let </span>message =
@@ -1714,7 +1710,7 @@
                         <span class="kw">let </span>last_cert = last_seen_certificate.clone();
                         <span class="kw">async move </span>{
                             async_sleep(timeout).<span class="kw">await</span>;
-                            <span class="macro">warn!</span>(
+                            <span class="macro">tracing::warn!</span>(
                                 <span class="string">"Vote sending timed out in ViewSyncTimeout relay = {}"</span>,
                                 relay
                             );

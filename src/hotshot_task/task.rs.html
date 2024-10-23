@@ -210,7 +210,6 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, RecvError, Sender};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
@@ -221,6 +220,7 @@
 </span><span class="kw">use </span>futures::future::try_join_all;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::{spawn, JoinHandle};
+<span class="kw">use </span>utils::anytrace::Result;
 
 <span class="doccomment">/// Trait for events that long-running tasks handle
 </span><span class="kw">pub trait </span>TaskEvent: PartialEq {

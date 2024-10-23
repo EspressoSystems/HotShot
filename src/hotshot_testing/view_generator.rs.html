@@ -624,9 +624,6 @@
     task::{Context, Poll},
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::helpers::{
-    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
-};
 <span class="kw">use </span>futures::{FutureExt, Stream};
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
@@ -634,11 +631,10 @@
     node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
-<span class="kw">use </span>hotshot_types::data::EpochNumber;
 <span class="kw">use </span>hotshot_types::{
     data::{
-        DaProposal, Leaf, QuorumProposal, VidDisperse, VidDisperseShare, ViewChangeEvidence,
-        ViewNumber,
+        DaProposal, EpochNumber, Leaf, QuorumProposal, VidDisperse, VidDisperseShare,
+        ViewChangeEvidence, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -657,6 +653,10 @@
 };
 <span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
+
+<span class="kw">use </span><span class="kw">crate</span>::helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestView {

@@ -370,6 +370,10 @@
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -380,7 +384,7 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>anyhow::{anyhow, <span class="prelude-val">Ok</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{anyhow, Context, <span class="prelude-val">Ok</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>committable::{Commitment, Committable};
@@ -687,16 +691,20 @@
     }
 
     <span class="doccomment">/// Wrapper for `HotShotConsensusApi`'s `leader` function
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated
     </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
     </span><span class="kw">pub async fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::View,
         epoch_number: TYPES::Epoch,
-    ) -&gt; TYPES::SignatureKey {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.hotshot
             .memberships
             .quorum_membership
             .leader(view_number, epoch_number)
+            .context(<span class="string">"Failed to lookup leader"</span>)
     }
 
     <span class="comment">// Below is for testing only:

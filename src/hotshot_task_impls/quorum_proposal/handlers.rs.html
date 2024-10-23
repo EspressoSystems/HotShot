@@ -368,6 +368,9 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -379,7 +382,6 @@
 
 </span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
-<span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
@@ -396,7 +398,8 @@
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
-<span class="kw">use </span>tracing::{debug, error, instrument};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
@@ -552,7 +555,8 @@
                 version,
             )
             .<span class="kw">await
-            </span>.context(<span class="string">"Failed to construct legacy block header"</span>)<span class="question-mark">?
+            </span>.wrap()
+            .context(<span class="macro">warn!</span>(<span class="string">"Failed to construct legacy block header"</span>))<span class="question-mark">?
         </span>} <span class="kw">else </span>{
             TYPES::BlockHeader::new_marketplace(
                 state.as_ref(),
@@ -567,7 +571,8 @@
                 version,
             )
             .<span class="kw">await
-            </span>.context(<span class="string">"Failed to construct marketplace block header"</span>)<span class="question-mark">?
+            </span>.wrap()
+            .context(<span class="macro">warn!</span>(<span class="string">"Failed to construct marketplace block header"</span>))<span class="question-mark">?
         </span>};
 
         <span class="kw">let </span>proposal = QuorumProposal {
@@ -588,14 +593,15 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
             proposed_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>.as_ref(),
         )
-        .context(<span class="string">"Failed to compute proposed_leaf.commit()"</span>)<span class="question-mark">?</span>;
+        .wrap()
+        .context(<span class="macro">error!</span>(<span class="string">"Failed to compute proposed_leaf.commit()"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>message = Proposal {
             data: proposal,
             signature,
             _pd: PhantomData,
         };
-        <span class="macro">debug!</span>(
+        <span class="macro">tracing::debug!</span>(
             <span class="string">"Sending proposal for view {:?}"</span>,
             proposed_leaf.view_number(),
         );
@@ -705,14 +711,14 @@
         }
 
         <span class="kw">if </span>commit_and_metadata.is_none() {
-            <span class="macro">error!</span>(
+            <span class="macro">tracing::error!</span>(
                 <span class="string">"Somehow completed the proposal dependency task without a commitment and metadata"
             </span>);
             <span class="kw">return</span>;
         }
 
         <span class="kw">if </span>vid_share.is_none() {
-            <span class="macro">error!</span>(<span class="string">"Somehow completed the proposal dependency task without a VID share"</span>);
+            <span class="macro">tracing::error!</span>(<span class="string">"Somehow completed the proposal dependency task without a VID share"</span>);
             <span class="kw">return</span>;
         }
 
@@ -732,7 +738,7 @@
             )
             .<span class="kw">await
         </span>{
-            <span class="macro">error!</span>(<span class="string">"Failed to publish proposal; error = {e:#}"</span>);
+            <span class="macro">tracing::error!</span>(<span class="string">"Failed to publish proposal; error = {e:#}"</span>);
         }
     }
 }

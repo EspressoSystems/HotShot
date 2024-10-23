@@ -182,7 +182,6 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -203,6 +202,7 @@
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::Result;
 
 <span class="kw">use </span><span class="self">self</span>::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
@@ -282,7 +282,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumVoteRecv(<span class="kw-2">ref </span>vote) =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
@@ -325,6 +325,8 @@
             }
             <span class="kw">_ </span>=&gt; {}
         }
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -340,10 +342,8 @@
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
         _receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;<span class="self">Self</span>::Event&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await</span>;
-
-        <span class="prelude-val">Ok</span>(())
-    }
+        <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// Joins all subtasks.
     </span><span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}

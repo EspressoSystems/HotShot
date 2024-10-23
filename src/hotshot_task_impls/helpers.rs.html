@@ -802,10 +802,6 @@
 <a href="#800" id="800">800</a>
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -818,7 +814,6 @@
     sync::Arc,
 };
 
-<span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, SendError, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="kw">use </span>async_lock::RwLock;
@@ -847,7 +842,8 @@
 };
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::JoinHandle;
-<span class="kw">use </span>tracing::{debug, info, instrument, warn};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
     events::HotShotEvent, quorum_proposal_recv::QuorumProposalRecvTaskState,
@@ -878,7 +874,9 @@
     </span><span class="kw">let </span>signature = TYPES::SignatureKey::sign(
         <span class="kw-2">&amp;</span>sender_private_key,
         signed_proposal_request.commit().as_ref(),
-    )<span class="question-mark">?</span>;
+    )
+    .wrap()
+    .context(<span class="macro">error!</span>(<span class="string">"Failed to sign proposal. This should never happen."</span>))<span class="question-mark">?</span>;
 
     <span class="comment">// First, broadcast that we need a proposal to the current leader
     </span>broadcast_event(
@@ -1106,9 +1104,11 @@
                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = leaf.upgrade_certificate() {
                     <span class="kw">if </span>leaf.upgrade_certificate() != <span class="kw-2">*</span>existing_upgrade_cert_reader {
                         <span class="kw">if </span>cert.data.decide_by &lt; view_number {
-                            <span class="macro">warn!</span>(<span class="string">"Failed to decide an upgrade certificate in time. Ignoring."</span>);
+                            <span class="macro">tracing::warn!</span>(
+                                <span class="string">"Failed to decide an upgrade certificate in time. Ignoring."
+                            </span>);
                         } <span class="kw">else </span>{
-                            <span class="macro">info!</span>(<span class="string">"Reached decide on upgrade certificate: {:?}"</span>, cert);
+                            <span class="macro">tracing::info!</span>(<span class="string">"Reached decide on upgrade certificate: {:?}"</span>, cert);
                             res.decided_upgrade_cert = <span class="prelude-val">Some</span>(cert.clone());
                         }
                     }
@@ -1154,13 +1154,13 @@
             <span class="bool-val">true
         </span>},
     ) {
-        <span class="macro">debug!</span>(<span class="string">"Leaf ascension failed; error={e}"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Leaf ascension failed; error={e}"</span>);
     }
 
     res
 }
 
-<span class="doccomment">/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
+<span class="doccomment">/// Gets the parent leaf and state from the parent of a proposal, returning an [`utils::anytrace::Error`] if not.
 </span><span class="attr">#[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType, V: Versions&gt;(
@@ -1175,8 +1175,11 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
     <span class="kw">let </span>current_epoch = consensus.read().<span class="kw">await</span>.cur_epoch();
     <span class="macro">ensure!</span>(
-        quorum_membership.leader(next_proposal_view_number, current_epoch) == public_key,
-        <span class="string">"Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}"</span>,
+        quorum_membership.leader(next_proposal_view_number, current_epoch)<span class="question-mark">? </span>== public_key,
+        <span class="macro">info!</span>(
+            <span class="string">"Somehow we formed a QC but are not the leader for the next view {:?}"</span>,
+            next_proposal_view_number
+        )
     );
     <span class="kw">let </span>parent_view_number = consensus.read().<span class="kw">await</span>.high_qc().view_number();
     <span class="kw">if </span>!consensus
@@ -1196,22 +1199,21 @@
             upgrade_lock,
         )
         .<span class="kw">await
-        </span>.context(<span class="string">"Failed to fetch proposal"</span>)<span class="question-mark">?</span>;
+        </span>.context(<span class="macro">info!</span>(<span class="string">"Failed to fetch proposal"</span>))<span class="question-mark">?</span>;
     }
     <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span>parent_view_number = consensus_reader.high_qc().view_number();
     <span class="kw">let </span>parent_view = consensus_reader.validated_state_map().get(<span class="kw-2">&amp;</span>parent_view_number).context(
-        <span class="macro">format!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}"</span>, <span class="kw-2">*</span>parent_view_number)
+        <span class="macro">debug!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}"</span>, <span class="kw-2">*</span>parent_view_number)
     )<span class="question-mark">?</span>;
 
-    <span class="comment">// Leaf hash in view inner does not match high qc hash - Why?
-    </span><span class="kw">let </span>(leaf_commitment, state) = parent_view.leaf_and_state().context(
-        <span class="macro">format!</span>(<span class="string">"Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}"</span>)
+    <span class="kw">let </span>(leaf_commitment, state) = parent_view.leaf_and_state().context(
+        <span class="macro">info!</span>(<span class="string">"Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}"</span>)
     )<span class="question-mark">?</span>;
 
     <span class="kw">if </span>leaf_commitment != consensus_reader.high_qc().data().leaf_commit {
         <span class="comment">// NOTE: This happens on the genesis block
-        </span><span class="macro">debug!</span>(
+        </span><span class="macro">tracing::debug!</span>(
             <span class="string">"They don't equal: {:?}   {:?}"</span>,
             leaf_commitment,
             consensus_reader.high_qc().data().leaf_commit
@@ -1221,7 +1223,7 @@
     <span class="kw">let </span>leaf = consensus_reader
         .saved_leaves()
         .get(<span class="kw-2">&amp;</span>leaf_commitment)
-        .context(<span class="string">"Failed to find high QC of parent"</span>)<span class="question-mark">?</span>;
+        .context(<span class="macro">info!</span>(<span class="string">"Failed to find high QC of parent"</span>))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>((leaf.clone(), Arc::clone(state)))
 }
@@ -1339,7 +1341,7 @@
                 .<span class="kw">await</span>;
             }
 
-            <span class="macro">format!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
+            <span class="macro">error!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
         });
     }
 
@@ -1350,7 +1352,9 @@
         .write()
         .<span class="kw">await
         </span>.append_proposal(<span class="kw-2">&amp;</span>proposal)
-        .<span class="kw">await</span><span class="question-mark">?</span>;
+        .<span class="kw">await
+        </span>.wrap()
+        .context(<span class="macro">error!</span>(<span class="string">"Failed to append proposal in storage!"</span>))<span class="question-mark">?</span>;
 
     <span class="comment">// We accept the proposal, notify the application layer
     </span>broadcast_event(
@@ -1411,7 +1415,7 @@
     <span class="comment">// Verify a timeout certificate OR a view sync certificate exists and is valid.
     </span><span class="kw">if </span>proposal.data.justify_qc.view_number() != view - <span class="number">1 </span>{
         <span class="kw">let </span>received_proposal_cert =
-            proposal.data.proposal_certificate.clone().context(<span class="macro">format!</span>(
+            proposal.data.proposal_certificate.clone().context(<span class="macro">debug!</span>(
                 <span class="string">"Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one"</span>,
                 <span class="kw-2">*</span>view
         ))<span class="question-mark">?</span>;
@@ -1475,7 +1479,7 @@
 /// `timeout_task` which are updated during the operation of the function.
 ///
 /// # Errors
-/// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
+/// Returns an [`utils::anytrace::Error`] when the new view is not greater than the current view.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>update_view&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     new_view: TYPES::View,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1488,14 +1492,14 @@
 
     <span class="kw">let </span>is_old_view_leader = task_state
         .quorum_membership
-        .leader(task_state.cur_view, task_state.cur_epoch)
-        == task_state.public_key;
+        .leader(task_state.cur_view, task_state.cur_epoch)<span class="question-mark">?
+        </span>== task_state.public_key;
     <span class="kw">let </span>old_view = task_state.cur_view;
 
-    <span class="macro">debug!</span>(<span class="string">"Updating view from {} to {}"</span>, <span class="kw-2">*</span>old_view, <span class="kw-2">*</span>new_view);
+    <span class="macro">tracing::debug!</span>(<span class="string">"Updating view from {} to {}"</span>, <span class="kw-2">*</span>old_view, <span class="kw-2">*</span>new_view);
 
     <span class="kw">if </span><span class="kw-2">*</span>old_view / <span class="number">100 </span>!= <span class="kw-2">*</span>new_view / <span class="number">100 </span>{
-        <span class="macro">info!</span>(<span class="string">"Progress: entered view {:&gt;6}"</span>, <span class="kw-2">*</span>new_view);
+        <span class="macro">tracing::info!</span>(<span class="string">"Progress: entered view {:&gt;6}"</span>, <span class="kw-2">*</span>new_view);
     }
 
     task_state.cur_view = new_view;
@@ -1598,18 +1602,6 @@
                 e
             );
         }
-    }
-}
-
-<span class="doccomment">/// Utilities to print anyhow logs.
-</span><span class="kw">pub trait </span>AnyhowTracing {
-    <span class="doccomment">/// Print logs as debug
-    </span><span class="kw">fn </span>err_as_debug(<span class="self">self</span>);
-}
-
-<span class="kw">impl</span>&lt;T&gt; AnyhowTracing <span class="kw">for </span>anyhow::Result&lt;T&gt; {
-    <span class="kw">fn </span>err_as_debug(<span class="self">self</span>) {
-        <span class="kw">let _ </span>= <span class="self">self</span>.inspect_err(|e| <span class="macro">tracing::debug!</span>(<span class="string">"{}"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)));
     }
 }
 </code></pre></div></section></main></body></html>

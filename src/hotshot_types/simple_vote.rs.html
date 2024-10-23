@@ -346,6 +346,8 @@
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -356,9 +358,9 @@
 
 </span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{
@@ -517,7 +519,9 @@
 
         <span class="kw">let </span>signature = (
             pub_key.clone(),
-            TYPES::SignatureKey::sign(private_key, commit.as_ref())<span class="question-mark">?</span>,
+            TYPES::SignatureKey::sign(private_key, commit.as_ref())
+                .wrap()
+                .context(<span class="macro">error!</span>(<span class="string">"Failed to sign vote"</span>))<span class="question-mark">?</span>,
         );
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{

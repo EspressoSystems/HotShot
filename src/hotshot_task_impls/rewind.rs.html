@@ -81,11 +81,11 @@
 
 </span><span class="kw">use </span>std::{fs::OpenOptions, io::Write, sync::Arc};
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>utils::anytrace::Result;
 
 <span class="kw">use </span><span class="kw">crate</span>::events::HotShotEvent;
 

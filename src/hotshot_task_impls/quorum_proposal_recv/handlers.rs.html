@@ -256,7 +256,6 @@
 
 </span><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
 <span class="kw">use </span>committable::Committable;
@@ -274,7 +273,8 @@
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>tracing::{debug, error, instrument, warn};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">super</span>::QuorumProposalRecvTaskState;
 <span class="kw">use crate</span>::{
@@ -326,7 +326,7 @@
         )
         .<span class="kw">await
     </span>{
-        <span class="macro">warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
+        <span class="macro">tracing::warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
     }
 
     <span class="kw">let </span>liveness_check =
@@ -342,7 +342,7 @@
     .<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES, I, V&gt;(view_number, event_sender, task_state).<span class="kw">await </span>{
-        <span class="macro">debug!</span>(<span class="string">"Liveness Branch - Failed to update view; error = {e:#}"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Liveness Branch - Failed to update view; error = {e:#}"</span>);
     }
 
     <span class="kw">if </span>!liveness_check {
@@ -376,7 +376,7 @@
 
     validate_proposal_view_and_certs(proposal, task_state)
         .<span class="kw">await
-        </span>.context(<span class="string">"Failed to validate proposal view or attached certs"</span>)<span class="question-mark">?</span>;
+        </span>.context(<span class="macro">warn!</span>(<span class="string">"Failed to validate proposal view or attached certs"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>view_number = proposal.data.view_number();
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
@@ -468,7 +468,7 @@
     .<span class="kw">await</span>;
 
     <span class="kw">let </span><span class="prelude-val">Some</span>((parent_leaf, _parent_state)) = parent <span class="kw">else </span>{
-        <span class="macro">warn!</span>(
+        <span class="macro">tracing::warn!</span>(
             <span class="string">"Proposal's parent missing from storage with commitment: {:?}"</span>,
             justify_qc.data.leaf_commit
         );
@@ -487,7 +487,7 @@
 
     <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
     </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES, I, V&gt;(view_number, event_sender, task_state).<span class="kw">await </span>{
-        <span class="macro">debug!</span>(<span class="string">"Full Branch - Failed to update view; error = {e:#}"</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Full Branch - Failed to update view; error = {e:#}"</span>);
     }
 
     <span class="prelude-val">Ok</span>(())

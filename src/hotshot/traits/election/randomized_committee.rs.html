@@ -180,6 +180,7 @@
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -199,6 +200,7 @@
     PeerConfig,
 };
 <span class="kw">use </span>rand::{rngs::StdRng, Rng};
+<span class="kw">use </span>utils::anytrace::Result;
 
 <span class="attr">#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
@@ -324,7 +326,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::View,
         _epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
-    ) -&gt; TYPES::SignatureKey {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>rng: StdRng = rand::SeedableRng::seed_from_u64(<span class="kw-2">*</span>view_number);
 
         <span class="kw">let </span>randomized_view_number: u64 = rng.gen_range(<span class="number">0</span>..=u64::MAX);
@@ -333,7 +335,7 @@
 
         <span class="kw">let </span>res = <span class="self">self</span>.eligible_leaders[index].clone();
 
-        TYPES::SignatureKey::public_key(<span class="kw-2">&amp;</span>res)
+        <span class="prelude-val">Ok</span>(TYPES::SignatureKey::public_key(<span class="kw-2">&amp;</span>res))
     }
 
     <span class="doccomment">/// Get the total number of nodes in the committee

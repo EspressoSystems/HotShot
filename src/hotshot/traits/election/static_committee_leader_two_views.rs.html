@@ -169,6 +169,8 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -187,6 +189,7 @@
     },
     PeerConfig,
 };
+<span class="kw">use </span>utils::anytrace::Result;
 
 <span class="attr">#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
@@ -311,11 +314,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::View,
         _epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
-    ) -&gt; TYPES::SignatureKey {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         <span class="kw">let </span>index =
             usize::try_from((<span class="kw-2">*</span>view_number / <span class="number">2</span>) % <span class="self">self</span>.eligible_leaders.len() <span class="kw">as </span>u64).unwrap();
         <span class="kw">let </span>res = <span class="self">self</span>.eligible_leaders[index].clone();
-        TYPES::SignatureKey::public_key(<span class="kw-2">&amp;</span>res)
+
+        <span class="prelude-val">Ok</span>(TYPES::SignatureKey::public_key(<span class="kw-2">&amp;</span>res))
     }
 
     <span class="doccomment">/// Get the total number of nodes in the committee

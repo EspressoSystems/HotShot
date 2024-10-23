@@ -909,32 +909,6 @@
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
-<a href="#910" id="910">910</a>
-<a href="#911" id="911">911</a>
-<a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -946,8 +920,14 @@
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
-</span><span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+</span><span class="kw">use </span>std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    marker::PhantomData,
+    sync::Arc,
+};
+
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>async_std::task::spawn_blocking;
@@ -957,17 +937,11 @@
 <span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-    sync::Arc,
-};
 <span class="kw">use </span>thiserror::Error;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
 </span><span class="kw">use </span>tokio::task::spawn_blocking;
 <span class="kw">use </span>tracing::error;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use crate</span>::{
@@ -1049,20 +1023,7 @@
 }
 
 <span class="doccomment">/// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
-</span><span class="attr">#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
+</span><span class="attr">#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>ViewNumber(u64);
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>ViewNumber {
@@ -1075,20 +1036,7 @@
 <span class="macro">impl_u64_wrapper!</span>(ViewNumber);
 
 <span class="doccomment">/// Type-safe wrapper around `u64` so we know the thing we're talking about is a epoch number.
-</span><span class="attr">#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
+</span><span class="attr">#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>EpochNumber(u64);
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>EpochNumber {
@@ -1591,7 +1539,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), BlockError&gt; {
+    ) -&gt; std::result::Result&lt;(), BlockError&gt; {
         <span class="kw">let </span>encoded_txns = block_payload.encode();
         <span class="kw">let </span>commitment = vid_commitment(<span class="kw-2">&amp;</span>encoded_txns, num_storage_nodes);
         <span class="kw">if </span>commitment != <span class="self">self</span>.block_header.payload_commitment() {

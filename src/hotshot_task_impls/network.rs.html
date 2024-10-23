@@ -724,6 +724,80 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -732,7 +806,6 @@
 
 </span><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
-<span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
@@ -757,7 +830,8 @@
     },
     vote::{HasViewNumber, Vote},
 };
-<span class="kw">use </span>tracing::{error, instrument, warn};
+<span class="kw">use </span>tracing::instrument;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -830,7 +904,7 @@
                             HotShotEvent::UpgradeProposalRecv(message, sender)
                         }
                         GeneralConsensusMessage::UpgradeVote(message) =&gt; {
-                            <span class="macro">error!</span>(<span class="string">"Received upgrade vote!"</span>);
+                            <span class="macro">tracing::error!</span>(<span class="string">"Received upgrade vote!"</span>);
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
                     },
@@ -996,7 +1070,7 @@
             <span class="kw">let </span>serialized_message = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.serialize(<span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">error!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
                     <span class="kw">continue</span>;
                 }
             };
@@ -1021,7 +1095,7 @@
             }
             <span class="kw">match </span>net.vid_broadcast_message(messages).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(()) =&gt; {}
-                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">warn!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">tracing::warn!</span>(<span class="string">"Failed to send message from network task: {:?}"</span>, e),
             }
         });
 
@@ -1034,16 +1108,16 @@
         storage: Arc&lt;RwLock&lt;S&gt;&gt;,
         state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+    ) -&gt; std::result::Result&lt;(), ()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(action) = maybe_action {
             <span class="kw">if </span>!state.write().<span class="kw">await</span>.update_action(action, view) {
-                <span class="macro">warn!</span>(<span class="string">"Already actioned {:?} in view {:?}"</span>, action, view);
+                <span class="macro">tracing::warn!</span>(<span class="string">"Already actioned {:?} in view {:?}"</span>, action, view);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(());
             }
             <span class="kw">match </span>storage.write().<span class="kw">await</span>.record_action(view, action).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">"Not Sending {:?} because of storage error: {:?}"</span>, action, e);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"Not Sending {:?} because of storage error: {:?}"</span>, action, e);
                     <span class="prelude-val">Err</span>(())
                 }
             }
@@ -1081,15 +1155,25 @@
             <span class="comment">// ED Each network task is subscribed to all these message types.  Need filters per network task
             </span>HotShotEvent::QuorumVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
+                <span class="kw">let </span>view_number = vote.view_number() + <span class="number">1</span>;
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                    <span class="prelude-val">Ok</span>(l) =&gt; l,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">"Failed to calculate leader for view number {:?}. Error: {:?}"</span>,
+                            view_number,
+                            e
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
+
                 <span class="prelude-val">Some</span>((
                     vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        <span class="self">self</span>.quorum_membership
-                            .leader(vote.view_number() + <span class="number">1</span>, <span class="self">self</span>.epoch),
-                    ),
+                    TransmitType::Direct(leader),
                 ))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) =&gt; <span class="prelude-val">Some</span>((
@@ -1122,15 +1206,25 @@
             }
             HotShotEvent::DaVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaVote);
+                <span class="kw">let </span>view_number = vote.view_number();
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                    <span class="prelude-val">Ok</span>(l) =&gt; l,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">"Failed to calculate leader for view number {:?}. Error: {:?}"</span>,
+                            view_number,
+                            e
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
+
                 <span class="prelude-val">Some</span>((
                     vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
                         DaConsensusMessage::DaVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        <span class="self">self</span>.quorum_membership
-                            .leader(vote.view_number(), <span class="self">self</span>.epoch),
-                    ),
+                    TransmitType::Direct(leader),
                 ))
             }
             HotShotEvent::DacSend(certificate, sender) =&gt; {
@@ -1143,36 +1237,72 @@
                     TransmitType::Broadcast,
                 ))
             }
-            HotShotEvent::ViewSyncPreCommitVoteSend(vote) =&gt; <span class="prelude-val">Some</span>((
-                vote.signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
-                )),
-                TransmitType::Direct(
-                    <span class="self">self</span>.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay, <span class="self">self</span>.epoch),
-                ),
-            )),
-            HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; <span class="prelude-val">Some</span>((
-                vote.signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
-                )),
-                TransmitType::Direct(
-                    <span class="self">self</span>.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay, <span class="self">self</span>.epoch),
-                ),
-            )),
-            HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; <span class="prelude-val">Some</span>((
-                vote.signing_key(),
-                MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
-                )),
-                TransmitType::Direct(
-                    <span class="self">self</span>.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay, <span class="self">self</span>.epoch),
-                ),
-            )),
+            HotShotEvent::ViewSyncPreCommitVoteSend(vote) =&gt; {
+                <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                    <span class="prelude-val">Ok</span>(l) =&gt; l,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">"Failed to calculate leader for view number {:?}. Error: {:?}"</span>,
+                            view_number,
+                            e
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
+
+                <span class="prelude-val">Some</span>((
+                    vote.signing_key(),
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncPreCommitVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; {
+                <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                    <span class="prelude-val">Ok</span>(l) =&gt; l,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">"Failed to calculate leader for view number {:?}. Error: {:?}"</span>,
+                            view_number,
+                            e
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
+
+                <span class="prelude-val">Some</span>((
+                    vote.signing_key(),
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; {
+                <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                    <span class="prelude-val">Ok</span>(l) =&gt; l,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">"Failed to calculate leader for view number {:?}. Error: {:?}"</span>,
+                            view_number,
+                            e
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
+
+                <span class="prelude-val">Some</span>((
+                    vote.signing_key(),
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(leader),
+                ))
+            }
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
                 sender,
                 MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
@@ -1196,15 +1326,24 @@
             )),
             HotShotEvent::TimeoutVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
+                <span class="kw">let </span>view_number = vote.view_number() + <span class="number">1</span>;
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                    <span class="prelude-val">Ok</span>(l) =&gt; l,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">"Failed to calculate leader for view number {:?}. Error: {:?}"</span>,
+                            view_number,
+                            e
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
                 <span class="prelude-val">Some</span>((
                     vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        <span class="self">self</span>.quorum_membership
-                            .leader(vote.view_number() + <span class="number">1</span>, <span class="self">self</span>.epoch),
-                    ),
+                    TransmitType::Direct(leader),
                 ))
             }
             HotShotEvent::UpgradeProposalSend(proposal, sender) =&gt; <span class="prelude-val">Some</span>((
@@ -1215,16 +1354,25 @@
                 TransmitType::Broadcast,
             )),
             HotShotEvent::UpgradeVoteSend(vote) =&gt; {
-                <span class="macro">error!</span>(<span class="string">"Sending upgrade vote!"</span>);
+                <span class="macro">tracing::error!</span>(<span class="string">"Sending upgrade vote!"</span>);
+                <span class="kw">let </span>view_number = vote.view_number();
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                    <span class="prelude-val">Ok</span>(l) =&gt; l,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">"Failed to calculate leader for view number {:?}. Error: {:?}"</span>,
+                            view_number,
+                            e
+                        );
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
                 <span class="prelude-val">Some</span>((
                     vote.signing_key(),
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::UpgradeVote(vote.clone()),
                     )),
-                    TransmitType::Direct(
-                        <span class="self">self</span>.quorum_membership
-                            .leader(vote.view_number(), <span class="self">self</span>.epoch),
-                    ),
+                    TransmitType::Direct(leader),
                 ))
             }
             HotShotEvent::ViewChange(view) =&gt; {
@@ -1307,7 +1455,7 @@
             <span class="kw">let </span>serialized_message = <span class="kw">match </span>upgrade_lock.serialize(<span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">error!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Failed to serialize message: {}"</span>, e);
                     <span class="kw">return</span>;
                 }
             };
@@ -1332,7 +1480,7 @@
 
             <span class="kw">match </span>transmit_result {
                 <span class="prelude-val">Ok</span>(()) =&gt; {}
-                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">warn!</span>(<span class="string">"Failed to send message task: {:?}"</span>, e),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">tracing::warn!</span>(<span class="string">"Failed to send message task: {:?}"</span>, e),
             }
         });
     }

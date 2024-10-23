@@ -21,6 +21,7 @@ var srcIndex = new Map(JSON.parse('[\
 ["multi_validator_push_cdn",["",[["infra",[],["mod.rs"]]],["multi-validator.rs","types.rs"]]],\
 ["orchestrator",["",[["infra",[],["mod.rs"]]],["orchestrator.rs"]]],\
 ["orchestrator_combined",["",[["infra",[],["mod.rs"]]],["orchestrator.rs","types.rs"]]],\
+["utils",["",[["anytrace",[],["macros.rs"]]],["anytrace.rs","lib.rs"]]],\
 ["validator_combined",["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]]],\
 ["validator_libp2p",["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]]],\
 ["validator_push_cdn",["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]]],\

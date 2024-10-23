@@ -284,11 +284,11 @@
     sync::Arc,
 };
 
-<span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
     data::serialize_signature2,

@@ -1120,6 +1120,14 @@
 <a href="#1118" id="1118">1118</a>
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2147,7 +2155,15 @@
     {
         <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::View::new(view) + LOOK_AHEAD;
         <span class="kw">let </span>epoch = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch::new(epoch);
-        <span class="kw">let </span>future_leader = membership.leader(future_view, epoch);
+        <span class="kw">let </span>future_leader = <span class="kw">match </span>membership.leader(future_view, epoch) {
+            <span class="prelude-val">Ok</span>(l) =&gt; l,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="kw">return </span><span class="macro">tracing::info!</span>(
+                    <span class="string">"Failed to calculate leader for view {:?}: {e}"</span>,
+                    future_view
+                );
+            }
+        };
 
         <span class="kw">let _ </span>= <span class="self">self
             </span>.queue_node_lookup(ViewNumber::new(<span class="kw-2">*</span>future_view), future_leader)

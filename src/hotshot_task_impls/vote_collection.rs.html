@@ -547,6 +547,52 @@
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -579,12 +625,9 @@
     },
     vote::{Certificate, HasViewNumber, Vote, VoteAccumulator},
 };
-<span class="kw">use </span>tracing::{debug, error};
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
 <span class="doccomment">/// Alias for a map of Vote Collectors
 </span><span class="kw">pub type </span>VoteCollectorsMap&lt;TYPES, VOTE, CERT, V&gt; =
@@ -623,8 +666,15 @@
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
 &gt;
 {
-    <span class="doccomment">/// return the leader for this votes in the given epoch
-    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey;
+    <span class="doccomment">/// return the leader for this votes
+    ///
+    /// # Errors
+    /// if the leader cannot be calculated
+    </span><span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// return the Hotshot event for the completion of this CERT
     </span><span class="kw">fn </span>make_cert_event(certificate: CERT, key: <span class="kw-2">&amp;</span>TYPES::SignatureKey) -&gt; HotShotEvent&lt;TYPES&gt;;
@@ -633,48 +683,54 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         VOTE: Vote&lt;TYPES&gt; + AggregatableVote&lt;TYPES, VOTE, CERT&gt;,
-        CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Debug,
+        CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Clone + Debug,
         V: Versions,
     &gt; VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;
 {
     <span class="doccomment">/// Take one vote and accumulate it. Returns either the cert or the updated state
     /// after the vote is accumulated
+    ///
+    /// # Errors
+    /// If are unable to accumulate the vote
     </span><span class="attr">#[allow(clippy::question_mark)]
     </span><span class="kw">pub async fn </span>accumulate_vote(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vote: <span class="kw-2">&amp;</span>VOTE,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">if </span>vote.leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership, <span class="self">self</span>.epoch) != <span class="self">self</span>.public_key {
-            <span class="macro">error!</span>(<span class="string">"Received vote for a view in which we were not the leader."</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        }
-
-        <span class="kw">if </span>vote.view_number() != <span class="self">self</span>.view {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;CERT&gt;&gt; {
+        <span class="macro">ensure!</span>(
+            vote.leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership, <span class="self">self</span>.epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+            <span class="macro">info!</span>(<span class="string">"Received vote for a view in which we were not the leader."</span>)
+        );
+        <span class="macro">ensure!</span>(
+            vote.view_number() == <span class="self">self</span>.view,
             <span class="macro">error!</span>(
-                <span class="string">"Vote view does not match! vote view is {} current view is {}"</span>,
+                <span class="string">"Vote view does not match! vote view is {} current view is {}. This vote should not have been passed to this accumulator."</span>,
                 <span class="kw-2">*</span>vote.view_number(),
                 <span class="kw-2">*</span><span class="self">self</span>.view
-            );
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        }
+            )
+        );
 
-        <span class="kw">let </span>accumulator = <span class="self">self</span>.accumulator.as_mut()<span class="question-mark">?</span>;
+        <span class="kw">let </span>accumulator = <span class="self">self</span>.accumulator.as_mut().context(<span class="macro">warn!</span>(
+            <span class="string">"No accumulator to handle vote with. This shouldn't happen."
+        </span>))<span class="question-mark">?</span>;
+
         <span class="kw">match </span>accumulator
             .accumulate(vote, <span class="kw-2">&amp;</span><span class="self">self</span>.membership, <span class="self">self</span>.epoch)
             .<span class="kw">await
         </span>{
-            Either::Left(()) =&gt; <span class="prelude-val">None</span>,
+            Either::Left(()) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
             Either::Right(cert) =&gt; {
-                <span class="macro">debug!</span>(<span class="string">"Certificate Formed! {:?}"</span>, cert);
+                <span class="macro">tracing::debug!</span>(<span class="string">"Certificate Formed! {:?}"</span>, cert);
 
                 broadcast_event(
-                    Arc::new(VOTE::make_cert_event(cert, <span class="kw-2">&amp;</span><span class="self">self</span>.public_key)),
+                    Arc::new(VOTE::make_cert_event(cert.clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.public_key)),
                     event_stream,
                 )
                 .<span class="kw">await</span>;
                 <span class="self">self</span>.accumulator = <span class="prelude-val">None</span>;
-                <span class="prelude-val">Some</span>(HotShotTaskCompleted)
+
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cert))
             }
         }
     }
@@ -689,11 +745,14 @@
     CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Debug,
 {
     <span class="doccomment">/// Handle a vote event
+    ///
+    /// # Errors
+    /// Returns an error if we fail to handle the vote
     </span><span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;CERT&gt;&gt;;
 
     <span class="doccomment">/// Event filter to use for this event
     </span><span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool;
@@ -714,6 +773,10 @@
 }
 
 <span class="doccomment">/// Generic function for spawning a vote task.  Returns the event stream id of the spawned task if created
+///
+/// # Errors
+/// If we faile to create the accumulator
+///
 /// # Panics
 /// Calls unwrap but should never panic.
 </span><span class="kw">pub async fn </span>create_vote_accumulator&lt;TYPES, VOTE, CERT, V&gt;(
@@ -721,7 +784,7 @@
     event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
-) -&gt; <span class="prelude-ty">Option</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
     VOTE: Vote&lt;TYPES&gt;
@@ -753,17 +816,15 @@
         id: info.id,
     };
 
-    <span class="kw">let </span>result = state.handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender).<span class="kw">await</span>;
+    state.handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-        <span class="comment">// The protocol has finished
-        </span><span class="kw">return </span><span class="prelude-val">None</span>;
-    }
-
-    <span class="prelude-val">Some</span>(state)
+    <span class="prelude-val">Ok</span>(state)
 }
 
 <span class="doccomment">/// A helper function that handles a vote regardless whether it's the first vote in the view or not.
+///
+/// # Errors
+/// If we fail to handle the vote
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub async fn </span>handle_vote&lt;
     TYPES: NodeType,
@@ -780,12 +841,13 @@
     event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
-) <span class="kw">where
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
+<span class="kw">where
     </span>VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;: HandleVoteEvent&lt;TYPES, VOTE, CERT&gt;,
 {
     <span class="kw">match </span>collectors.entry(vote.view_number()) {
         Entry::Vacant(entry) =&gt; {
-            <span class="macro">debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.view_number());
+            <span class="macro">tracing::debug!</span>(<span class="string">"Starting vote handle for view {:?}"</span>, vote.view_number());
             <span class="kw">let </span>info = AccumulatorInfo {
                 public_key,
                 membership: Arc::clone(membership),
@@ -793,29 +855,31 @@
                 epoch,
                 id,
             };
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(collector) = create_vote_accumulator(
+            <span class="kw">let </span>collector = create_vote_accumulator(
                 <span class="kw-2">&amp;</span>info,
                 Arc::clone(event),
                 event_stream,
                 upgrade_lock.clone(),
             )
-            .<span class="kw">await
-            </span>{
-                entry.insert(collector);
-            };
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+
+            entry.insert(collector);
+
+            <span class="prelude-val">Ok</span>(())
         }
         Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; {
-            <span class="kw">let </span>result = entry
+            <span class="comment">// handle the vote, and garbage collect if the vote collector is finished
+            </span><span class="kw">if </span>entry
                 .get_mut()
                 .handle_vote_event(Arc::clone(event), event_stream)
-                .<span class="kw">await</span>;
-
-            <span class="kw">if </span>result == <span class="prelude-val">Some</span>(HotShotTaskCompleted) {
-                <span class="comment">// garbage collect vote collectors for old views (including the one just finished)
-                </span>entry.remove();
+                .<span class="kw">await</span><span class="question-mark">?
+                </span>.is_some()
+            {
+                entry.remove();
                 <span class="kw-2">*</span>collectors = collectors.split_off(<span class="kw-2">&amp;</span>vote.view_number());
-                <span class="comment">// The protocol has finished
-            </span>}
+            }
+
+            <span class="prelude-val">Ok</span>(())
         }
     }
 }
@@ -852,7 +916,11 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>QuorumVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey {
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>, epoch)
     }
     <span class="kw">fn </span>make_cert_event(
@@ -866,7 +934,11 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>UpgradeVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey {
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number(), epoch)
     }
     <span class="kw">fn </span>make_cert_event(
@@ -880,7 +952,11 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>DaVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey {
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number(), epoch)
     }
     <span class="kw">fn </span>make_cert_event(
@@ -894,7 +970,11 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;
     <span class="kw">for </span>TimeoutVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey {
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>, epoch)
     }
     <span class="kw">fn </span>make_cert_event(
@@ -909,7 +989,11 @@
     AggregatableVote&lt;TYPES, ViewSyncCommitVote&lt;TYPES&gt;, ViewSyncCommitCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncCommitVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey {
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay, epoch)
     }
     <span class="kw">fn </span>make_cert_event(
@@ -924,7 +1008,11 @@
     AggregatableVote&lt;TYPES, ViewSyncPreCommitVote&lt;TYPES&gt;, ViewSyncPreCommitCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncPreCommitVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey {
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay, epoch)
     }
     <span class="kw">fn </span>make_cert_event(
@@ -939,7 +1027,11 @@
     AggregatableVote&lt;TYPES, ViewSyncFinalizeVote&lt;TYPES&gt;, ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>ViewSyncFinalizeVote&lt;TYPES&gt;
 {
-    <span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, membership: <span class="kw-2">&amp;</span>TYPES::Membership, epoch: TYPES::Epoch) -&gt; TYPES::SignatureKey {
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay, epoch)
     }
     <span class="kw">fn </span>make_cert_event(
@@ -960,10 +1052,10 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }
     <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
@@ -981,10 +1073,10 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::UpgradeVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }
     <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
@@ -1000,10 +1092,10 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DaCertificate&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::DaVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }
     <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
@@ -1020,10 +1112,10 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TimeoutCertificate&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::TimeoutVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }
     <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
@@ -1040,12 +1132,12 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ViewSyncPreCommitCertificate2&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote) =&gt; {
                 <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await
             </span>}
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }
     <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
@@ -1062,10 +1154,10 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ViewSyncCommitCertificate2&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::ViewSyncCommitVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }
     <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
@@ -1082,12 +1174,12 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ViewSyncFinalizeCertificate2&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) =&gt; {
                 <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await
             </span>}
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }
     <span class="kw">fn </span>filter(event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;) -&gt; bool {
