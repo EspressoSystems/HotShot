@@ -22,6 +22,7 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
+    temporal_state::TemporalStateReader,
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
@@ -89,6 +90,9 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
 
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
+
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -125,6 +129,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             self.public_key.clone(),
             self.private_key.clone(),
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+            self.temporal_state.clone(),
             &self.upgrade_lock,
         )
         .await?;
@@ -263,6 +268,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             let sender_public_key = self.public_key.clone();
             let sender_private_key = self.private_key.clone();
             let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
+            let temporal_state = self.temporal_state.clone();
             let upgrade_lock = self.upgrade_lock.clone();
             async_spawn(async move {
                 fetch_proposal(
@@ -271,6 +277,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                     event_receiver,
                     membership,
                     consensus,
+                    temporal_state,
                     sender_public_key,
                     sender_private_key,
                     &upgrade_lock,

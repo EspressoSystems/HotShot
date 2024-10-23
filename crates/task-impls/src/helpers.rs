@@ -26,6 +26,7 @@ use hotshot_types::{
     message::{Proposal, UpgradeLock},
     request_response::ProposalRequestPayload,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    temporal_state::TemporalStateReader,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -55,6 +56,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     consensus: OuterConsensus<TYPES>,
+    temporal_state: TemporalStateReader<TYPES>,
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
@@ -80,7 +82,8 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     .await;
 
     let mem = Arc::clone(&quorum_membership);
-    let current_epoch = consensus.read().await.cur_epoch();
+    let cur_epoch = temporal_state.cur_epoch();
+    //let current_epoch = consensus.read().await.cur_epoch();
     // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
@@ -112,7 +115,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                         hs_event.as_ref()
                     {
                         // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, current_epoch, upgrade_lock).await.is_ok() {
+                        if quorum_proposal.validate_signature(&mem, cur_epoch, upgrade_lock).await.is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -131,7 +134,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     let justify_qc = proposal.data.justify_qc.clone();
 
     if !justify_qc
-        .is_valid_cert(quorum_membership.as_ref(), current_epoch, upgrade_lock)
+        .is_valid_cert(quorum_membership.as_ref(), cur_epoch, upgrade_lock)
         .await
     {
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
@@ -363,11 +366,13 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     consensus: OuterConsensus<TYPES>,
+    temporal_state: TemporalStateReader<TYPES>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
-    let current_epoch = consensus.read().await.cur_epoch();
+    let cur_epoch = temporal_state.cur_epoch();
+    //let current_epoch = consensus.read().await.cur_epoch();
     ensure!(
-        quorum_membership.leader(next_proposal_view_number, current_epoch) == public_key,
+        quorum_membership.leader(next_proposal_view_number, cur_epoch) == public_key,
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
     let parent_view_number = consensus.read().await.high_qc().view_number();
@@ -383,6 +388,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
             event_receiver.clone(),
             quorum_membership,
             consensus.clone(),
+            temporal_state.clone(),
             public_key.clone(),
             private_key.clone(),
             upgrade_lock,
@@ -479,11 +485,11 @@ pub async fn validate_proposal_safety_and_liveness<
     )
     .await;
 
-    let current_epoch = task_state.cur_epoch;
+    let cur_epoch = task_state.temporal_state.cur_epoch();
     UpgradeCertificate::validate(
         &proposal.data.upgrade_certificate,
         &task_state.quorum_membership,
-        current_epoch,
+        cur_epoch,
         &task_state.upgrade_lock,
     )
     .await?;
@@ -584,9 +590,11 @@ pub async fn validate_proposal_view_and_certs<
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    let cur_view = task_state.temporal_state.cur_view();
+    let cur_epoch = task_state.temporal_state.cur_epoch();
     let view = proposal.data.view_number();
     ensure!(
-        view >= task_state.cur_view,
+        view >= cur_view,
         "Proposal is from an older view {:?}",
         proposal.data.clone()
     );
@@ -595,7 +603,7 @@ pub async fn validate_proposal_view_and_certs<
     proposal
         .validate_signature(
             &task_state.quorum_membership,
-            task_state.cur_epoch,
+            cur_epoch,
             &task_state.upgrade_lock,
         )
         .await?;
@@ -619,7 +627,7 @@ pub async fn validate_proposal_view_and_certs<
                     timeout_cert
                         .is_valid_cert(
                             task_state.timeout_membership.as_ref(),
-                            task_state.cur_epoch,
+                            cur_epoch,
                             &task_state.upgrade_lock
                         )
                         .await,
@@ -640,7 +648,7 @@ pub async fn validate_proposal_view_and_certs<
                     view_sync_cert
                         .is_valid_cert(
                             task_state.quorum_membership.as_ref(),
-                            task_state.cur_epoch,
+                            cur_epoch,
                             &task_state.upgrade_lock
                         )
                         .await,
@@ -655,7 +663,7 @@ pub async fn validate_proposal_view_and_certs<
     UpgradeCertificate::validate(
         &proposal.data.upgrade_certificate,
         &task_state.quorum_membership,
-        task_state.cur_epoch,
+        cur_epoch,
         &task_state.upgrade_lock,
     )
     .await?;
@@ -673,16 +681,15 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    let old_view = task_state.temporal_state.cur_view();
+    let cur_epoch = task_state.temporal_state.cur_epoch();
     ensure!(
-        new_view > task_state.cur_view,
+        new_view > old_view,
         "New view is not greater than our current view"
     );
 
-    let is_old_view_leader = task_state
-        .quorum_membership
-        .leader(task_state.cur_view, task_state.cur_epoch)
-        == task_state.public_key;
-    let old_view = task_state.cur_view;
+    let is_old_view_leader =
+        task_state.quorum_membership.leader(old_view, cur_epoch) == task_state.public_key;
 
     debug!("Updating view from {} to {}", *old_view, *new_view);
 
@@ -690,10 +697,11 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
         info!("Progress: entered view {:>6}", *new_view);
     }
 
-    task_state.cur_view = new_view;
+    // Don't write cur view here, ConsensusTaskState does this!
+    //task_state.cur_view = new_view;
 
     // The next view is just the current view + 1
-    let next_view = task_state.cur_view + 1;
+    let next_view = old_view + 1;
 
     futures::join! {
         broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
@@ -709,7 +717,7 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     };
 
     // Spawn a timeout task if we did actually update view
-    let new_timeout_task = async_spawn({
+    /*let new_timeout_task = async_spawn({
         let stream = event_stream.clone();
         // Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
@@ -723,20 +731,21 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
             )
             .await;
         }
-    });
+    });*/
 
+    // REMOVE timeout_task
     // cancel the old timeout task
-    cancel_task(std::mem::replace(
-        &mut task_state.timeout_task,
-        new_timeout_task,
-    ))
-    .await;
+    //cancel_task(std::mem::replace(
+    //&mut task_state.timeout_task,
+    //new_timeout_task,
+    //))
+    //.await;
 
     let consensus = task_state.consensus.upgradable_read().await;
     consensus
         .metrics
         .current_view
-        .set(usize::try_from(task_state.cur_view.u64()).unwrap());
+        .set(usize::try_from(new_view.u64()).unwrap());
     let new_view_time = Utc::now().timestamp();
     if is_old_view_leader {
         #[allow(clippy::cast_precision_loss)]
@@ -749,18 +758,19 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-    if usize::try_from(task_state.cur_view.u64()).unwrap()
+    if usize::try_from(new_view.u64()).unwrap()
         > usize::try_from(consensus.last_decided_view().u64()).unwrap()
     {
         consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.u64()).unwrap()
+            usize::try_from(new_view.u64()).unwrap()
                 - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
         );
     }
-    let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
-    if let Err(e) = consensus.update_view(new_view) {
-        tracing::trace!("{e:?}");
-    }
+    // REVIEW: update_view is no longer needed here because temporal_state updates from ConsensusTask
+    //let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
+    //if let Err(e) = consensus.update_view(new_view) {
+    //tracing::trace!("{e:?}");
+    //}
     tracing::trace!("View updated successfully");
 
     Ok(())

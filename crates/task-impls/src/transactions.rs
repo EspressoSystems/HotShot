@@ -21,6 +21,7 @@ use hotshot_types::{
     data::{null_block, PackedBundle},
     event::{Event, EventType},
     message::UpgradeLock,
+    temporal_state::TemporalStateReader,
     traits::{
         auction_results_provider::AuctionResultsProvider,
         block_contents::{precompute_vid_commitment, BuilderFee, EncodeBytes},
@@ -81,14 +82,16 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
-    /// View number this view is executing in.
-    pub cur_view: TYPES::View,
+    // View number this view is executing in.
+    //pub cur_view: TYPES::View,
 
-    /// Epoch number this node is executing in.
-    pub cur_epoch: TYPES::Epoch,
-
+    // Epoch number this node is executing in.
+    //pub cur_epoch: TYPES::Epoch,
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: OuterConsensus<TYPES>,
+
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -101,16 +104,22 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
+
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
     /// InstanceState
     pub instance_state: Arc<TYPES::InstanceState>,
+
     /// This state's ID
     pub id: u64,
+
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+
     /// auction results provider
     pub auction_results_provider: Arc<I::AuctionResultsProvider>,
+
     /// fallback builder url
     pub fallback_builder_url: Url,
 }
@@ -140,7 +149,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// legacy view change handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.temporal_state.cur_view()), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle_view_change_legacy(
         &mut self,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -196,6 +205,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 block_view
             );
 
+            let cur_epoch = self.temporal_state.cur_epoch();
+
             // Increment the metric for number of empty blocks proposed
             self.consensus
                 .write()
@@ -204,9 +215,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .number_of_empty_blocks_proposed
                 .add(1);
 
-            let membership_total_nodes = self.membership.total_nodes(self.cur_epoch);
+            let membership_total_nodes = self.membership.total_nodes(cur_epoch);
             let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
-                self.membership.total_nodes(self.cur_epoch),
+                self.membership.total_nodes(cur_epoch),
                 version,
             ) else {
                 error!("Failed to get null fee");
@@ -343,11 +354,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         block_view: TYPES::View,
         version: Version,
     ) -> Option<PackedBundle<TYPES>> {
-        let membership_total_nodes = self.membership.total_nodes(self.cur_epoch);
-        let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
-            self.membership.total_nodes(self.cur_epoch),
-            version,
-        ) else {
+        let cur_epoch = self.temporal_state.cur_epoch();
+        let membership_total_nodes = self.membership.total_nodes(cur_epoch);
+        let Some(null_fee) =
+            null_block::builder_fee::<TYPES, V>(self.membership.total_nodes(cur_epoch), version)
+        else {
             error!("Failed to calculate null block fee.");
             return None;
         };
@@ -420,7 +431,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.temporal_state.cur_view()), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -428,9 +439,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::TransactionsRecv(transactions) => {
+                let cur_view = self.temporal_state.cur_view();
                 broadcast_event(
                     Event {
-                        view_number: self.cur_view,
+                        view_number: cur_view,
                         event: EventType::Transactions {
                             transactions: transactions.clone(),
                         },
@@ -442,29 +454,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 return None;
             }
             HotShotEvent::ViewChange(view) => {
+                let cur_view = self.temporal_state.cur_view();
+                let cur_epoch = self.temporal_state.cur_epoch();
                 let view = *view;
                 debug!("view change in transactions to view {:?}", view);
-                if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
+                if (*view != 0 || *cur_view > 0) && *cur_view >= *view {
                     return None;
                 }
 
                 let mut make_block = false;
-                if *view - *self.cur_view > 1 {
+                if *view - *cur_view > 1 {
                     info!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.leader(view, self.cur_epoch) == self.public_key;
+                    make_block = self.membership.leader(view, cur_epoch) == self.public_key;
                 }
-                self.cur_view = view;
+                // self.cur_view = view; // TODO: Is this okay? This seems to introduce a race
 
-                let next_view = self.cur_view + 1;
-                let next_leader =
-                    self.membership.leader(next_view, self.cur_epoch) == self.public_key;
+                let next_view = cur_view + 1;
+                let next_leader = self.membership.leader(next_view, cur_epoch) == self.public_key;
                 if !make_block && !next_leader {
-                    debug!("Not next leader for view {:?}", self.cur_view);
+                    debug!("Not next leader for view {:?}", cur_view);
                     return None;
                 }
 
                 if make_block {
-                    self.handle_view_change(&event_stream, self.cur_view).await;
+                    self.handle_view_change(&event_stream, cur_view).await;
                 }
 
                 if next_leader {
@@ -481,7 +494,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
     /// Get VID commitment for the last successful view before `block_view`.
     /// Returns None if we don't have said commitment recorded.
-    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view))]
+    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, cur_view = *self.temporal_state.cur_view(), block_view = *block_view))]
     async fn last_vid_commitment_retry(
         &self,
         block_view: TYPES::View,
@@ -502,16 +515,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
     /// Get VID commitment for the last successful view before `block_view`.
     /// Returns None if we don't have said commitment recorded.
-    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view))]
+    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, cur_view = *self.temporal_state.cur_view(), block_view = *block_view))]
     async fn last_vid_commitment(
         &self,
         block_view: TYPES::View,
     ) -> Result<(TYPES::View, VidCommitment)> {
-        let consensus = self.consensus.read().await;
+        let consensus_reader = self.consensus.read().await;
         let mut target_view = TYPES::View::new(block_view.saturating_sub(1));
 
         loop {
-            let view_data = consensus
+            let view_data = consensus_reader
                 .validated_state_map()
                 .get(&target_view)
                 .context("Missing record for view {?target_view} in validated state")?;
@@ -524,7 +537,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     leaf: leaf_commitment,
                     ..
                 } => {
-                    let leaf = consensus.saved_leaves().get(&leaf_commitment).context
+                    let leaf = consensus_reader.saved_leaves().get(&leaf_commitment).context
                         ("Missing leaf with commitment {leaf_commitment} for view {target_view} in saved_leaves")?;
                     return Ok((target_view, leaf.payload_commitment()));
                 }
@@ -538,7 +551,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         }
     }
 
-    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view), name = "wait_for_block", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, cur_view = *self.temporal_state.cur_view(), block_view = *block_view), name = "wait_for_block", level = "error")]
     async fn wait_for_block(&self, block_view: TYPES::View) -> Option<BuilderResponse<TYPES>> {
         let task_start_time = Instant::now();
 
@@ -668,7 +681,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     /// # Errors
     /// If none of the builder reports any available blocks or claiming block fails for all of the
     /// builders.
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "block_from_builder", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.temporal_state.cur_view()), name = "block_from_builder", level = "error")]
     async fn block_from_builder(
         &self,
         parent_comm: VidCommitment,

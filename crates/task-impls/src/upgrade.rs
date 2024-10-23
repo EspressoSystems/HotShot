@@ -21,6 +21,7 @@ use hotshot_types::{
     message::{Proposal, UpgradeLock},
     simple_certificate::UpgradeCertificate,
     simple_vote::{UpgradeProposalData, UpgradeVote},
+    temporal_state::TemporalStateReader,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -43,13 +44,17 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ve
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// View number this view is executing in.
-    pub cur_view: TYPES::View,
+    //pub cur_view: TYPES::View,
 
     /// Epoch number this node is executing in.
-    pub cur_epoch: TYPES::Epoch,
+    //pub cur_epoch: TYPES::Epoch,
+
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
+
     /// The underlying network
     pub network: Arc<I::Network>,
 
@@ -104,7 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
     }
 
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Upgrade Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.temporal_state.cur_view()), name = "Upgrade Task", level = "error")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -112,6 +117,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::UpgradeProposalRecv(proposal, sender) => {
+                let cur_view = self.temporal_state.cur_view();
+                let cur_epoch = self.temporal_state.cur_epoch();
                 info!("Received upgrade proposal: {:?}", proposal);
 
                 let view = *proposal.data.view_number();
@@ -152,6 +159,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     proposal.data.view_number()
                 );
 
+                // TODO: Don't shadow like this
                 let view = proposal.data.view_number();
 
                 // At this point, we could choose to validate
@@ -165,20 +173,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
 
                 // Allow an upgrade proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
-                // `self.cur_view` should be at least 1 since there is a view change before getting
+                // `cur_view` should be at least 1 since there is a view change before getting
                 // the `UpgradeProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO Come back to this - we probably don't need this, but we should also never receive a UpgradeCertificate where this fails, investigate block ready so it doesn't make one for the genesis block
-                if self.cur_view != TYPES::View::genesis() && view < self.cur_view - 1 {
+                if cur_view != TYPES::View::genesis() && view < cur_view - 1 {
                     warn!("Discarding old upgrade proposal; the proposal is for view {:?}, but the current view is {:?}.",
                       view,
-                      self.cur_view
+                      cur_view
                     );
                     return None;
                 }
 
                 // We then validate that the proposal was issued by the leader for the view.
-                let view_leader_key = self.quorum_membership.leader(view, self.cur_epoch);
+                let view_leader_key = self.quorum_membership.leader(view, cur_epoch);
                 if &view_leader_key != sender {
                     error!("Upgrade proposal doesn't have expected leader key for view {} \n Upgrade proposal is: {:?}", *view, proposal.data.clone());
                     return None;
@@ -190,7 +198,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 // so we notify the application layer
                 broadcast_event(
                     Event {
-                        view_number: self.cur_view,
+                        view_number: cur_view,
                         event: EventType::UpgradeProposal {
                             proposal: proposal.clone(),
                             sender: sender.clone(),
@@ -217,17 +225,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 broadcast_event(Arc::new(HotShotEvent::UpgradeVoteSend(vote)), &tx).await;
             }
             HotShotEvent::UpgradeVoteRecv(ref vote) => {
+                let cur_epoch = self.temporal_state.cur_epoch();
                 debug!("Upgrade vote recv, Main Task {:?}", vote.view_number());
 
                 // Check if we are the leader.
                 {
                     let view = vote.view_number();
-                    if self.quorum_membership.leader(view, self.cur_epoch) != self.public_key {
+                    if self.quorum_membership.leader(view, cur_epoch) != self.public_key {
                         error!(
                             "We are not the leader for view {} are we leader for next view? {}",
                             *view,
-                            self.quorum_membership.leader(view + 1, self.cur_epoch)
-                                == self.public_key
+                            self.quorum_membership.leader(view + 1, cur_epoch) == self.public_key
                         );
                         return None;
                     }
@@ -238,7 +246,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     vote,
                     self.public_key.clone(),
                     &self.quorum_membership,
-                    self.cur_epoch,
+                    cur_epoch,
                     self.id,
                     &event,
                     &tx,
@@ -247,13 +255,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 .await;
             }
             HotShotEvent::ViewChange(new_view) => {
-                if self.cur_view >= *new_view {
-                    return None;
-                }
+                // TODO: Figure out what to do about the below branch
+                //if self.cur_view >= *new_view {
+                //  return None;
+                //}
 
-                self.cur_view = *new_view;
+                //self.cur_view = *new_view;
 
-                let view: u64 = *self.cur_view;
+                //let view: u64 = *self.cur_view;
+                let view = new_view.u64(); // < Not sure about this
+                let cur_epoch = self.temporal_state.cur_epoch();
+
                 let time = SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .ok()?
@@ -265,10 +277,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     && time >= self.start_proposing_time
                     && time < self.stop_proposing_time
                     && !self.upgraded().await
-                    && self.quorum_membership.leader(
-                        TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
-                        self.cur_epoch,
-                    ) == self.public_key
+                    && self
+                        .quorum_membership
+                        .leader(TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET), cur_epoch)
+                        == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {
                         old_version: V::Base::VERSION,

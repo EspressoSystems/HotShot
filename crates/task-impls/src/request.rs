@@ -25,6 +25,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
+    temporal_state::TemporalStateReader,
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},
@@ -52,25 +53,47 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
     /// The underlying network
     pub network: Arc<I::Network>,
+
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
-    pub state: OuterConsensus<TYPES>,
+    pub consensus: OuterConsensus<TYPES>,
+
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
+
     /// Last seen view, we won't request for proposals before older than this view
-    pub view: TYPES::View,
+    //pub view: TYPES::View,
+
     /// Delay before requesting peers
     pub delay: Duration,
+
     /// DA Membership
     pub da_membership: TYPES::Membership,
+
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,
+
     /// This nodes private/signing key, used to sign requests.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
     /// The node's id
     pub id: u64,
+
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
+
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub spawned_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
+}
+
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
+    fn cur_view(&self) -> TYPES::View {
+        self.temporal_state.cur_view()
+    }
+
+    fn cur_epoch(&self) -> TYPES::Epoch {
+        self.temporal_state.cur_epoch()
+    }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Drop for NetworkRequestState<TYPES, I> {
@@ -96,29 +119,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
+                let cur_view = self.cur_view();
+                let cur_epoch = self.cur_epoch();
                 let prop_view = proposal.view_number();
-                let current_epoch = self.state.read().await.cur_epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
-                if prop_view >= self.view
+                if prop_view >= cur_view
                     && !self
-                        .state
+                        .consensus
                         .read()
                         .await
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, current_epoch, sender, receiver);
+                    self.spawn_requests(prop_view, cur_epoch, sender, receiver);
                 }
                 Ok(())
             }
-            HotShotEvent::ViewChange(view) => {
-                let view = *view;
-                if view > self.view {
-                    self.view = view;
-                }
-                Ok(())
-            }
+            // NOTE: This seems OBE due to the centralization of temporal_state. Review.
+            //HotShotEvent::ViewChange(view) => {
+            //  let cur_view = self.cur_view();
+            //let view = *view;
+            //if view > cur_view {
+            //self.view = view;
+            //}
+            //Ok(())
+            //}
             _ => Ok(()),
         }
     }
@@ -176,7 +202,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         view: TYPES::View,
         epoch: TYPES::Epoch,
     ) {
-        let state = OuterConsensus::new(Arc::clone(&self.state.inner_consensus));
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
+        let temporal_state = self.temporal_state.clone();
         let network = Arc::clone(&self.network);
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
         let delay = self.delay;
@@ -208,7 +235,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             let mut recipients_it = recipients.iter().cycle();
             // First check if we got the data before continuing
             while !Self::cancel_vid_request_task(
-                &state,
+                &consensus,
+                &temporal_state,
                 &sender,
                 &public_key,
                 &view,
@@ -327,19 +355,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
     /// Returns true if we got the data we wanted, a shutdown even was received, or the view has moved on.
     async fn cancel_vid_request_task(
-        state: &OuterConsensus<TYPES>,
+        consensus: &OuterConsensus<TYPES>,
+        temporal_state: &TemporalStateReader<TYPES>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         public_key: &<TYPES as NodeType>::SignatureKey,
         view: &TYPES::View,
         shutdown_flag: &Arc<AtomicBool>,
     ) -> bool {
-        let state = state.read().await;
+        let cur_view = temporal_state.cur_view();
+        let consensus_reader = consensus.read().await;
 
         let cancel = shutdown_flag.load(Ordering::Relaxed)
-            || state.vid_shares().contains_key(view)
-            || state.cur_view() > *view;
+            || consensus_reader.vid_shares().contains_key(view)
+            || cur_view > *view;
         if cancel {
-            if let Some(Some(vid_share)) = state
+            if let Some(Some(vid_share)) = consensus_reader
                 .vid_shares()
                 .get(view)
                 .map(|shares| shares.get(public_key).cloned())
@@ -356,7 +386,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             tracing::debug!(
                 "Canceling vid request for view {:?}, cur view is {:?}",
                 view,
-                state.cur_view()
+                cur_view
             );
         }
         cancel

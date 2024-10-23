@@ -36,6 +36,7 @@ pub mod signature_key;
 pub mod simple_certificate;
 pub mod simple_vote;
 pub mod stake_table;
+pub mod temporal_state;
 pub mod traits;
 
 /// Holds the upgrade configuration specification for HotShot nodes.

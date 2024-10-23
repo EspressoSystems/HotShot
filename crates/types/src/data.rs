@@ -9,6 +9,14 @@
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    marker::PhantomData,
+    sync::Arc,
+};
+
 use anyhow::{ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use async_lock::RwLock;
@@ -20,13 +28,6 @@ use derivative::Derivative;
 use jf_vid::{precomputable::Precomputable, VidDisperse as JfVidDisperse, VidScheme};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-    sync::Arc,
-};
 use thiserror::Error;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;

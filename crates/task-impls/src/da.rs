@@ -21,6 +21,7 @@ use hotshot_types::{
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
     simple_vote::{DaData, DaVote},
+    temporal_state::TemporalStateReader,
     traits::{
         block_contents::vid_commitment,
         election::Membership,
@@ -48,14 +49,16 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
-    /// View number this view is executing in.
-    pub cur_view: TYPES::View,
+    // View number this view is executing in.
+    //pub cur_view: TYPES::View,
 
-    /// Epoch number this node is executing in.
-    pub cur_epoch: TYPES::Epoch,
-
+    // Epoch number this node is executing in.
+    //pub cur_epoch: TYPES::Epoch,
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: OuterConsensus<TYPES>,
+
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
 
     /// Membership for the DA committee
     pub da_membership: Arc<TYPES::Membership>,
@@ -89,7 +92,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYPES, I, V> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Main Task", level = "error", target = "DaTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.temporal_state.cur_view()), name = "DA Main Task", level = "error", target = "DaTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -97,6 +100,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
             HotShotEvent::DaProposalRecv(proposal, sender) => {
+                let cur_view = self.temporal_state.cur_view();
+                let cur_epoch = self.temporal_state.cur_epoch();
                 let sender = sender.clone();
                 debug!(
                     "DA proposal received for view: {:?}",
@@ -111,7 +116,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
                 // cause an overflow error.
                 // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
-                if self.cur_view != TYPES::View::genesis() && view < self.cur_view - 1 {
+                if cur_view != TYPES::View::genesis() && view < cur_view - 1 {
                     warn!("Throwing away DA proposal that is more than one view older");
                     return None;
                 }
@@ -130,7 +135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
                 // ED Is this the right leader?
-                let view_leader_key = self.da_membership.leader(view, self.cur_epoch);
+                let view_leader_key = self.da_membership.leader(view, cur_epoch);
                 if view_leader_key != sender {
                     error!("DA proposal doesn't have expected leader key for view {} \n DA proposal is: {:?}", *view, proposal.data.clone());
                     return None;
@@ -148,15 +153,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 .await;
             }
             HotShotEvent::DaProposalValidated(proposal, sender) => {
-                let curr_view = self.consensus.read().await.cur_view();
-                if curr_view > proposal.data.view_number() + 1 {
-                    tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", curr_view, proposal.data.view_number());
+                let cur_view = self.temporal_state.cur_view();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let curr_view = self.consensus.read().await.cur_view();
+                if cur_view > proposal.data.view_number() + 1 {
+                    tracing::debug!("Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}", cur_view, proposal.data.view_number());
                     return None;
                 }
                 // Proposal is fresh and valid, notify the application layer
                 broadcast_event(
                     Event {
-                        view_number: self.cur_view,
+                        view_number: cur_view,
                         event: EventType::DaProposal {
                             proposal: proposal.clone(),
                             sender: sender.clone(),
@@ -166,13 +173,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 )
                 .await;
 
-                if !self
-                    .da_membership
-                    .has_stake(&self.public_key, self.cur_epoch)
-                {
+                if !self.da_membership.has_stake(&self.public_key, cur_epoch) {
                     debug!(
                         "We were not chosen for consensus committee on {:?}",
-                        self.cur_view
+                        cur_view
                     );
                     return None;
                 }
@@ -184,7 +188,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     return None;
                 }
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
-                let num_nodes = self.quorum_membership.total_nodes(self.cur_epoch);
+                let num_nodes = self.quorum_membership.total_nodes(cur_epoch);
                 let payload_commitment =
                     spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
                 #[cfg(async_executor_impl = "tokio")]
@@ -210,18 +214,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 debug!("Sending vote to the DA leader {:?}", vote.view_number());
 
                 broadcast_event(Arc::new(HotShotEvent::DaVoteSend(vote)), &event_stream).await;
-                let mut consensus = self.consensus.write().await;
+                let mut consensus_writer = self.consensus.write().await;
 
                 // Ensure this view is in the view map for garbage collection.
                 let view = View {
                     view_inner: ViewInner::Da { payload_commitment },
                 };
-                if let Err(e) = consensus.update_validated_state_map(view_number, view.clone()) {
+                if let Err(e) =
+                    consensus_writer.update_validated_state_map(view_number, view.clone())
+                {
                     tracing::trace!("{e:?}");
                 }
 
                 // Record the payload we have promised to make available.
-                if let Err(e) = consensus.update_saved_payloads(
+                if let Err(e) = consensus_writer.update_saved_payloads(
                     view_number,
                     Arc::clone(&proposal.data.encoded_transactions),
                 ) {
@@ -235,14 +241,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     let pk = self.private_key.clone();
                     let public_key = self.public_key.clone();
                     let chan = event_stream.clone();
-                    let current_epoch = self.cur_epoch;
+                    //let current_epoch = self.cur_epoch; // TODO: do we need to re-retrieve cur_epoch?
                     async_spawn(async move {
                         Consensus::calculate_and_update_vid(
                             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
                             membership,
                             &pk,
-                            current_epoch,
+                            cur_epoch,
                         )
                         .await;
                         if let Some(Some(vid_share)) = consensus
@@ -265,11 +271,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
+                let cur_epoch = self.temporal_state.cur_epoch();
                 debug!("DA vote recv, Main Task {:?}", vote.view_number());
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.view_number();
-                if self.da_membership.leader(view, self.cur_epoch) != self.public_key {
-                    error!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.leader(view + 1, self.cur_epoch) == self.public_key);
+                if self.da_membership.leader(view, cur_epoch) != self.public_key {
+                    error!("We are not the DA committee leader for view {} are we leader for next view? {}", *view, self.da_membership.leader(view + 1, cur_epoch) == self.public_key);
                     return None;
                 }
 
@@ -278,7 +285,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     vote,
                     self.public_key.clone(),
                     &self.da_membership,
-                    self.cur_epoch,
+                    cur_epoch,
                     self.id,
                     &event,
                     &event_stream,
@@ -286,25 +293,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 )
                 .await;
             }
-            HotShotEvent::ViewChange(view) => {
-                let view = *view;
-                if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
-                    return None;
-                }
-
-                if *view - *self.cur_view > 1 {
-                    info!("View changed by more than 1 going to view {:?}", view);
-                }
-                self.cur_view = view;
-
-                // If we are not the next leader (DA leader for this view) immediately exit
-                if self.da_membership.leader(self.cur_view + 1, self.cur_epoch) != self.public_key {
-                    return None;
-                }
-                debug!("Polling for DA votes for view {}", *self.cur_view + 1);
-
-                return None;
-            }
+            //TODO: DA seems to actually have its own concept of cur_view. Investigate.
+            //HotShotEvent::ViewChange(view) => {
+            //    let view = *view;
+            //    if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
+            //        return None;
+            //    }
+            //
+            //    if *view - *self.cur_view > 1 {
+            //        info!("View changed by more than 1 going to view {:?}", view);
+            //    }
+            //    self.cur_view = view;
+            //
+            //    // If we are not the next leader (DA leader for this view) immediately exit
+            //    if self.da_membership.leader(self.cur_view + 1, self.cur_epoch) != self.public_key {
+            //        return None;
+            //    }
+            //    debug!("Polling for DA votes for view {}", *self.cur_view + 1);
+            //
+            //    return None;
+            //}
             HotShotEvent::BlockRecv(packed_bundle) => {
                 let PackedBundle::<TYPES> {
                     encoded_transactions,

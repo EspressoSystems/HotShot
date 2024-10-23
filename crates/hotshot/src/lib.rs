@@ -14,6 +14,7 @@ pub mod documentation;
 use futures::future::{select, Either};
 use hotshot_types::{
     message::UpgradeLock,
+    temporal_state::OuterTemporalState,
     traits::{network::BroadcastDelay, node_implementation::Versions},
 };
 use rand::Rng;
@@ -119,6 +120,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     /// The hotstuff implementation
     consensus: OuterConsensus<TYPES>,
 
+    /// Temporal state
+    pub temporal_state: OuterTemporalState<TYPES>,
+
     /// Immutable instance state
     instance_state: Arc<TYPES::InstanceState>,
 
@@ -166,6 +170,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Clone
             memberships: Arc::clone(&self.memberships),
             metrics: Arc::clone(&self.metrics),
             consensus: self.consensus.clone(),
+            temporal_state: self.temporal_state.clone(),
             instance_state: Arc::clone(&self.instance_state),
             start_view: self.start_view,
             output_event_stream: self.output_event_stream.clone(),
@@ -315,8 +320,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         };
         let consensus = Consensus::new(
             validated_state_map,
-            anchored_leaf.view_number(),
-            anchored_epoch,
+            //anchored_leaf.view_number(),
+            //anchored_epoch,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
             initializer.actioned_view,
@@ -336,6 +341,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         let inner: Arc<SystemContext<TYPES, I, V>> = Arc::new(SystemContext {
             id: nonce,
             consensus: OuterConsensus::new(consensus),
+            temporal_state: OuterTemporalState::new(anchored_leaf.view_number(), anchored_epoch),
             instance_state: Arc::new(instance_state),
             public_key,
             private_key,
@@ -481,7 +487,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         trace!("Adding transaction to our own queue");
 
         let api = self.clone();
-        let view_number = api.consensus.read().await.cur_view();
+        let view_number = api.temporal_state.cur_view();
+        //let view_number = api.consensus.read().await.cur_view();
 
         // Wrap up a message
         let message_kind: DataMessage<TYPES> =

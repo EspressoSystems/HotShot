@@ -132,11 +132,12 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
     let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
+    let cur_epoch = task_state.temporal_state.cur_epoch();
 
     if !justify_qc
         .is_valid_cert(
             task_state.quorum_membership.as_ref(),
-            task_state.cur_epoch,
+            cur_epoch,
             &task_state.upgrade_lock,
         )
         .await
@@ -171,6 +172,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             event_receiver.clone(),
             Arc::clone(&task_state.quorum_membership),
             OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+            task_state.temporal_state.clone(),
             // Note that we explicitly use the node key here instead of the provided key in the signature.
             // This is because the key that we receive is for the prior leader, so the payload would be routed
             // incorrectly.
@@ -181,11 +183,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
         .await
         .ok(),
     };
-    let consensus_read = task_state.consensus.read().await;
+    let consensus_reader = task_state.consensus.read().await;
 
     let parent = match parent_leaf {
         Some(leaf) => {
-            if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
+            if let (Some(state), _) = consensus_reader.state_and_delta(leaf.view_number()) {
                 Some((leaf, Arc::clone(&state)))
             } else {
                 bail!("Parent state not found! Consensus internally inconsistent");
@@ -194,7 +196,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
         None => None,
     };
 
-    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+    if justify_qc.view_number() > consensus_reader.high_qc().view_number {
         if let Err(e) = task_state
             .storage
             .write()
@@ -205,13 +207,13 @@ pub(crate) async fn handle_quorum_proposal_recv<
             bail!("Failed to store High QC, not voting; error = {:?}", e);
         }
     }
-    drop(consensus_read);
+    drop(consensus_reader);
 
-    let mut consensus_write = task_state.consensus.write().await;
-    if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+    let mut consensus_writer = task_state.consensus.write().await;
+    if let Err(e) = consensus_writer.update_high_qc(justify_qc.clone()) {
         tracing::trace!("{e:?}");
     }
-    drop(consensus_write);
+    drop(consensus_writer);
 
     broadcast_event(
         HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),

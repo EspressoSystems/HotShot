@@ -22,6 +22,7 @@ use hotshot_types::{
     event::Event,
     message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
+    temporal_state::TemporalStateReader,
     traits::{
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -54,14 +55,17 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: OuterConsensus<TYPES>,
 
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
+
     /// View number this view is executing in.
-    pub cur_view: TYPES::View,
+    //pub cur_view: TYPES::View,
 
     /// Timestamp this view starts at.
     pub cur_view_time: i64,
 
     /// Epoch number this node is executing in.
-    pub cur_epoch: TYPES::Epoch,
+    //pub cur_epoch: TYPES::Epoch,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -120,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     }
 
     /// Handles all consensus events relating to propose and vote-enabling events.
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.temporal_state.cur_view()), name = "Consensus replica task", level = "error")]
     #[allow(unused_variables)]
     pub async fn handle(
         &mut self,

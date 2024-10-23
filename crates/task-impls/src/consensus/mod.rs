@@ -19,6 +19,7 @@ use hotshot_types::{
     message::UpgradeLock,
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
+    temporal_state::TemporalStateWriter,
     traits::{
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -70,25 +71,28 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     pub storage: Arc<RwLock<I::Storage>>,
 
     /// The view number that this node is currently executing in.
-    pub cur_view: TYPES::View,
+    //pub cur_view: TYPES::View,
 
     /// Timestamp this view starts at.
     pub cur_view_time: i64,
 
     /// The epoch number that this node is currently executing in.
-    pub cur_epoch: TYPES::Epoch,
+    //pub cur_epoch: TYPES::Epoch,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// Timeout task handle
-    pub timeout_task: JoinHandle<()>,
+    //pub timeout_task: JoinHandle<()>,
 
     /// View timeout from config.
     pub timeout: u64,
 
     /// A reference to the metrics trait.
     pub consensus: OuterConsensus<TYPES>,
+
+    /// Temporal state writer
+    pub temporal_state: TemporalStateWriter<TYPES>,
 
     /// The last decided view
     pub last_decided_view: TYPES::View,
@@ -99,9 +103,10 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
+
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskState<TYPES, I, V> {
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, last_decided_view = *self.last_decided_view), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]
+    #[instrument(skip_all, fields(id = self.id, cur_view = *self.temporal_state.cur_view(), last_decided_view = *self.last_decided_view), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

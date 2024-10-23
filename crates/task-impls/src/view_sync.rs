@@ -70,18 +70,25 @@ type RelayMap<TYPES, VOTE, CERT, V> = HashMap<
 pub struct ViewSyncTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// View HotShot is currently in
     pub current_view: TYPES::View,
+
     /// View HotShot wishes to be in
     pub next_view: TYPES::View,
+
     /// Epoch HotShot is currently in
     pub current_epoch: TYPES::Epoch,
+
     /// The underlying network
     pub network: Arc<I::Network>,
+
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
+
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
+
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    
     /// Our node id; for logging
     pub id: u64,
 

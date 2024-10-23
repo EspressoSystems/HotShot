@@ -23,6 +23,7 @@ use hotshot_types::{
     event::Event,
     message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
+    temporal_state::TemporalStateReader,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -83,6 +84,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
+
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
 
     /// The node's id
     pub id: u64,
@@ -323,6 +327,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                temporal_state: self.temporal_state.clone(),
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
@@ -381,11 +386,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::QcFormed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
                     let view_number = timeout_cert.view_number + 1;
-                    let epoch_number = self.consensus.read().await.cur_epoch();
+                    let cur_epoch = self.temporal_state.cur_epoch();
+                    //let epoch_number = self.consensus.read().await.cur_epoch();
 
                     self.create_dependency_task_if_new(
                         view_number,
-                        epoch_number,
+                        cur_epoch,
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
@@ -414,22 +420,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 _auction_result,
             ) => {
                 let view_number = *view_number;
-                let epoch_number = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let epoch_number = self.consensus.read().await.cur_epoch();
 
                 self.create_dependency_task_if_new(
                     view_number,
-                    epoch_number,
+                    cur_epoch,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
                 );
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
-                let epoch_number = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let epoch_number = self.consensus.read().await.cur_epoch();
                 if !certificate
                     .is_valid_cert(
                         self.quorum_membership.as_ref(),
-                        epoch_number,
+                        cur_epoch,
                         &self.upgrade_lock,
                     )
                     .await
@@ -445,7 +453,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
                 self.create_dependency_task_if_new(
                     view_number,
-                    epoch_number,
+                    cur_epoch,
                     event_receiver,
                     event_sender,
                     event,
@@ -458,11 +466,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
                 }
-                let epoch_number = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let epoch_number = self.consensus.read().await.cur_epoch();
 
                 self.create_dependency_task_if_new(
                     view_number + 1,
-                    epoch_number,
+                    cur_epoch,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
@@ -477,11 +486,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::VidDisperseSend(vid_share, _) => {
                 let view_number = vid_share.data.view_number();
-                let epoch_number = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let epoch_number = self.consensus.read().await.cur_epoch();
 
                 self.create_dependency_task_if_new(
                     view_number,
-                    epoch_number,
+                    cur_epoch,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
@@ -505,10 +515,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::HighQcUpdated(qc) => {
                 let view_number = qc.view_number() + 1;
-                let epoch_number = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let epoch_number = self.consensus.read().await.cur_epoch();
                 self.create_dependency_task_if_new(
                     view_number,
-                    epoch_number,
+                    cur_epoch,
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),

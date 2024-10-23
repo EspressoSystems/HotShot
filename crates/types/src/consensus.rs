@@ -282,10 +282,10 @@ pub struct Consensus<TYPES: NodeType> {
     saved_da_certs: HashMap<TYPES::View, DaCertificate<TYPES>>,
 
     /// View number that is currently on.
-    cur_view: TYPES::View,
+    //cur_view: TYPES::View,
 
     /// Epoch number that is currently on.
-    cur_epoch: TYPES::Epoch,
+    //cur_epoch: TYPES::Epoch,
 
     /// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
@@ -395,8 +395,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         validated_state_map: BTreeMap<TYPES::View, View<TYPES>>,
-        cur_view: TYPES::View,
-        cur_epoch: TYPES::Epoch,
+        //cur_view: TYPES::View,
+        //cur_epoch: TYPES::Epoch,
         locked_view: TYPES::View,
         last_decided_view: TYPES::View,
         last_actioned_view: TYPES::View,
@@ -410,8 +410,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             validated_state_map,
             vid_shares: BTreeMap::new(),
             saved_da_certs: HashMap::new(),
-            cur_view,
-            cur_epoch,
+            //cur_view,
+            //cur_epoch,
             last_decided_view,
             last_proposals,
             last_actions: HotShotActionViews::from_view(last_actioned_view),
@@ -424,14 +424,14 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the current view.
-    pub fn cur_view(&self) -> TYPES::View {
-        self.cur_view
-    }
+    //pub fn cur_view(&self) -> TYPES::View {
+    //self.cur_view
+    //}
 
     /// Get the current epoch.
-    pub fn cur_epoch(&self) -> TYPES::Epoch {
-        self.cur_epoch
-    }
+    //pub fn cur_epoch(&self) -> TYPES::Epoch {
+    //  self.cur_epoch
+    //}
 
     /// Get the last decided view.
     pub fn last_decided_view(&self) -> TYPES::View {
@@ -481,26 +481,26 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Update the current view.
     /// # Errors
     /// Can return an error when the new view_number is not higher than the existing view number.
-    pub fn update_view(&mut self, view_number: TYPES::View) -> Result<()> {
-        ensure!(
-            view_number > self.cur_view,
-            "New view isn't newer than the current view."
-        );
-        self.cur_view = view_number;
-        Ok(())
-    }
+    //pub fn update_view(&mut self, view_number: TYPES::View) -> Result<()> {
+    //    ensure!(
+    //        view_number > self.cur_view,
+    //        "New view isn't newer than the current view."
+    //    );
+    //    self.cur_view = view_number;
+    //    Ok(())
+    //}
 
     /// Update the current epoch.
     /// # Errors
     /// Can return an error when the new epoch_number is not higher than the existing epoch number.
-    pub fn update_epoch(&mut self, epoch_number: TYPES::Epoch) -> Result<()> {
-        ensure!(
-            epoch_number > self.cur_epoch,
-            "New epoch isn't newer than the current epoch."
-        );
-        self.cur_epoch = epoch_number;
-        Ok(())
-    }
+    //pub fn update_epoch(&mut self, epoch_number: TYPES::Epoch) -> Result<()> {
+    //    ensure!(
+    //        epoch_number > self.cur_epoch,
+    //        "New epoch isn't newer than the current epoch."
+    //    );
+    //    self.cur_epoch = epoch_number;
+    //    Ok(())
+    //}
 
     /// Update the last actioned view internally for votes and proposals
     ///

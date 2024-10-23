@@ -15,6 +15,7 @@ use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
     message::Proposal,
+    temporal_state::TemporalStateReader,
     traits::{
         election::Membership, network::DataRequest, node_implementation::NodeType,
         signature_key::SignatureKey,
@@ -35,12 +36,19 @@ const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
 pub struct NetworkResponseState<TYPES: NodeType> {
     /// Locked consensus state
     consensus: LockedConsensusState<TYPES>,
+
+    /// Temporal state reader
+    temporal_state: TemporalStateReader<TYPES>,
+
     /// Quorum membership for checking if requesters have state
     quorum: Arc<TYPES::Membership>,
+
     /// This replicas public key
     pub_key: TYPES::SignatureKey,
+
     /// This replicas private key
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
     /// The node's id
     id: u64,
 }
@@ -49,6 +57,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Create the network request state with the info it needs
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
+        temporal_state: TemporalStateReader<TYPES>,
         quorum: Arc<TYPES::Membership>,
         pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -56,6 +65,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     ) -> Self {
         Self {
             consensus,
+            temporal_state,
             quorum,
             pub_key,
             private_key,
@@ -76,7 +86,8 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     match event.as_ref() {
                         HotShotEvent::VidRequestRecv(request, sender) => {
                             // Verify request is valid
-                            if !self.valid_sender(sender, self.consensus.read().await.cur_epoch())
+                            let cur_epoch = self.temporal_state.cur_epoch();
+                            if !self.valid_sender(sender, cur_epoch)
                                 || !valid_signature::<TYPES>(request, sender)
                             {
                                 continue;
@@ -151,13 +162,14 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             .get(&view)
             .is_some_and(|m| m.contains_key(key));
         if !contained {
-            let current_epoch = self.consensus.read().await.cur_epoch();
+            let cur_epoch = self.temporal_state.cur_epoch();
+            //let current_epoch = self.consensus.read().await.cur_epoch();
             if Consensus::calculate_and_update_vid(
                 OuterConsensus::new(Arc::clone(&self.consensus)),
                 view,
                 Arc::clone(&self.quorum),
                 &self.private_key,
-                current_epoch,
+                cur_epoch,
             )
             .await
             .is_none()
@@ -169,7 +181,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     view,
                     Arc::clone(&self.quorum),
                     &self.private_key,
-                    current_epoch,
+                    cur_epoch,
                 )
                 .await?;
             }

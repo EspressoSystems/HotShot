@@ -23,6 +23,7 @@ use hotshot_types::{
     event::Event,
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData, QuorumVote},
+    temporal_state::TemporalStateReader,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -64,26 +65,40 @@ enum VoteDependency {
 pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Public key.
     pub public_key: TYPES::SignatureKey,
+
     /// Private Key.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: OuterConsensus<TYPES>,
+
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
+
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
+
     /// Membership for Quorum certs/votes.
     pub quorum_membership: Arc<TYPES::Membership>,
+
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
+
     /// View number to vote on.
     pub view_number: TYPES::View,
+
     /// Epoch number to vote on.
     pub epoch_number: TYPES::Epoch,
+
     /// Event sender.
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
+
     /// Event receiver.
     pub receiver: InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
+
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+
     /// The node's id
     pub id: u64,
 }
@@ -116,6 +131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 self.receiver.activate_cloned(),
                 Arc::clone(&self.quorum_membership),
                 OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                self.temporal_state.clone(),
                 self.public_key.clone(),
                 self.private_key.clone(),
                 &self.upgrade_lock,
@@ -372,6 +388,9 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     /// Reference to consensus. The replica will require a write lock on this.
     pub consensus: OuterConsensus<TYPES>,
 
+    /// Temporal state reader
+    pub temporal_state: TemporalStateReader<TYPES>,
+
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
 
@@ -493,6 +512,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                temporal_state: self.temporal_state.clone(),
                 instance_state: Arc::clone(&self.instance_state),
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 storage: Arc::clone(&self.storage),
@@ -540,9 +560,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
-        let current_epoch = self.consensus.read().await.cur_epoch();
+        // why current_epoch redundantly here??
+        //let current_epoch = self.consensus.read().await.cur_epoch();
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
+                let cur_epoch = self.temporal_state.cur_epoch();
                 trace!("Received Proposal for view {}", *proposal.view_number());
 
                 // Handle the event before creating the dependency task.
@@ -554,7 +576,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 self.create_dependency_task_if_new(
                     proposal.view_number,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     &event_sender,
                     Some(Arc::clone(&event)),
@@ -567,14 +589,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     return;
                 }
 
-                let current_epoch = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let current_epoch = self.consensus.read().await.cur_epoch();
                 // Validate the DAC.
                 if !cert
-                    .is_valid_cert(
-                        self.da_membership.as_ref(),
-                        current_epoch,
-                        &self.upgrade_lock,
-                    )
+                    .is_valid_cert(self.da_membership.as_ref(), cur_epoch, &self.upgrade_lock)
                     .await
                 {
                     return;
@@ -593,28 +612,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 .await;
                 self.create_dependency_task_if_new(
                     view,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     &event_sender,
                     None,
                 );
             }
             HotShotEvent::VidShareRecv(sender, disperse) => {
-                let view = disperse.data.view_number();
-                trace!("Received VID share for view {}", *view);
-                if view <= self.latest_voted_view {
+                let view_number = disperse.data.view_number();
+                trace!("Received VID share for view {}", *view_number);
+                if view_number <= self.latest_voted_view {
                     return;
                 }
 
                 // Validate the VID share.
                 let payload_commitment = disperse.data.payload_commitment;
-                let current_epoch = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.temporal_state.cur_epoch();
+                //let current_epoch = self.consensus.read().await.cur_epoch();
                 // Check sender of VID disperse share is signed by DA committee member
                 let validate_sender = sender
                     .validate(&disperse.signature, payload_commitment.as_ref())
                     && self
                         .da_membership
-                        .committee_members(view, current_epoch)
+                        .committee_members(view_number, cur_epoch)
                         .contains(sender);
 
                 // Check whether the data satisfies one of the following.
@@ -625,7 +645,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     .validate(&disperse.signature, payload_commitment.as_ref())
                     || self
                         .quorum_membership
-                        .leader(view, current_epoch)
+                        .leader(view_number, cur_epoch)
                         .validate(&disperse.signature, payload_commitment.as_ref());
                 if !validate_sender && !validated {
                     warn!("Failed to validated the VID dispersal/share sig.");
@@ -635,7 +655,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
                 #[allow(clippy::no_effect)]
-                match vid_scheme(self.quorum_membership.total_nodes(current_epoch)).verify_share(
+                match vid_scheme(self.quorum_membership.total_nodes(cur_epoch)).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     &payload_commitment,
@@ -651,7 +671,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 self.consensus
                     .write()
                     .await
-                    .update_vid_shares(view, disperse.clone());
+                    .update_vid_shares(view_number, disperse.clone());
 
                 if disperse.data.recipient_key != self.public_key {
                     debug!("Got a Valid VID share but it's not for our key");
@@ -664,8 +684,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 )
                 .await;
                 self.create_dependency_task_if_new(
-                    view,
-                    current_epoch,
+                    view_number,
+                    cur_epoch,
                     event_receiver,
                     &event_sender,
                     None,
