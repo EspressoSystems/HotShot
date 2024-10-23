@@ -28,7 +28,7 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument};
 use vbs::version::StaticVersionType;
-
+use hotshot_types::vote::Certificate;
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
@@ -169,7 +169,17 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         let version = self.upgrade_lock.version(self.view_number).await?;
 
-        let block_header = if version < V::Marketplace::VERSION {
+        let high_qc = self.consensus.read().await.high_qc().clone();
+        let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
+        let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
+
+        let block_header = if is_high_qc_for_last_block && !is_high_qc_extended {
+            if let Some(leaf) = self.consensus.read().await.saved_leaves().get(&high_qc.data().leaf_commit) {
+                leaf.block_header().clone()
+            } else {
+                return Err(anyhow::anyhow!("There is no leaf for the high QC"));
+            }
+        } else if version < V::Marketplace::VERSION {
             TYPES::BlockHeader::new_legacy(
                 state.as_ref(),
                 self.instance_state.as_ref(),
@@ -203,7 +213,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,
-            justify_qc: self.consensus.read().await.high_qc().clone(),
+            justify_qc: high_qc,
             upgrade_certificate,
             proposal_certificate,
         };

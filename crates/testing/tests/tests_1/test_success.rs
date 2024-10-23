@@ -132,3 +132,23 @@ cross_tests!(
         metadata
     }
 );
+
+cross_tests!(
+    TestName: test_epoch_end,
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTypes, TestTypesRandomizedLeader],
+    Versions: [TestVersions],
+    Ignore: false,
+    Metadata: {
+        TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            epoch_height: 10,
+            ..TestDescription::default()
+        }
+    },
+);

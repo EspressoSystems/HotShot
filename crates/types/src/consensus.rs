@@ -37,6 +37,7 @@ use crate::{
     vid::VidCommitment,
     vote::HasViewNumber,
 };
+use crate::vote::Certificate;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -317,6 +318,9 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -401,6 +405,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
         high_qc: QuorumCertificate<TYPES>,
         metrics: Arc<ConsensusMetricsValue>,
+        epoch_height: u64,
     ) -> Self {
         Consensus {
             validated_state_map,
@@ -416,6 +421,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             saved_payloads,
             high_qc,
             metrics,
+            epoch_height,
         }
     }
 
@@ -835,6 +841,37 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             }
         }
         Some(())
+    }
+
+    /// Returns true if the current high qc is for the last block in the epoch
+    pub fn is_high_qc_for_last_block(&self) -> bool {
+        let high_qc = self.high_qc();
+        let Some(leaf) = self.saved_leaves.get(&high_qc.data().leaf_commit) else {
+            return false;
+        };
+        let block_height = leaf.height();
+        if block_height == 0 {
+            false
+        } else if block_height % self.epoch_height == 0 {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the current high qc is an extended Quorum Certificate
+    pub fn is_high_qc_extended(&self) -> bool {
+        if !self.is_high_qc_for_last_block() {
+            return false;
+        }
+        let high_qc_view = self.high_qc().view_number();
+        if high_qc_view - 1 != self.locked_view {
+            return false;
+        }
+        if self.locked_view - 1 != self.last_decided_view {
+            return false;
+        }
+        true
     }
 }
 
