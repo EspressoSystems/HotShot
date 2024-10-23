@@ -129,15 +129,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) {
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
-            match handle_quorum_proposal_recv(
-                proposal,
-                sender,
-                &event_sender,
-                &event_receiver,
-                self,
-            )
-            .await
-            {
+            match handle_quorum_proposal_recv(proposal, sender, &event_sender, self).await {
                 Ok(()) => {
                     self.cancel_tasks(proposal.data.view_number()).await;
                 }
