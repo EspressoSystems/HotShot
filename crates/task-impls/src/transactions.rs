@@ -536,7 +536,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     leaf: leaf_commitment,
                     ..
                 } => {
-                    let leaf = consensus.saved_leaves().get(&leaf_commitment).context
+                    let leaf = consensus.saved_leaves().get(leaf_commitment).context
                         (info!("Missing leaf with commitment {leaf_commitment} for view {target_view} in saved_leaves"))?;
                     return Ok((target_view, leaf.payload_commitment()));
                 }

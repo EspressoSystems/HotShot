@@ -236,7 +236,7 @@ impl VidScheme for VidSchemeType {
         // TODO costly Vec copy. Is the compiler smart enough to optimize away
         // this Vec, or shall we use unsafe code to cast `shares`?
         // It's only `recover_payload` so who cares?
-        let shares: Vec<_> = shares.into_iter().map(|s| s.0.clone()).collect();
+        let shares: Vec<_> = shares.iter().map(|s| s.0.clone()).collect();
 
         self.0.recover_payload(&shares, &common.0)
     }

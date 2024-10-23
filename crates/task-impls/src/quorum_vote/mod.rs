@@ -288,7 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     if let Some(ref comm) = payload_commitment {
                         if proposal_payload_comm != *comm {
-                            error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
+                            tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
                             return;
                         }
                     } else {
@@ -647,7 +647,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 match vid_scheme(self.quorum_membership.total_nodes(current_epoch)).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
-                    &payload_commitment,
+                    payload_commitment,
                 ) {
                     Ok(Err(())) | Err(_) => {
                         bail!("Failed to verify VID share");
