@@ -370,25 +370,6 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
         "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
     );
     let parent_view_number = consensus.read().await.high_qc().view_number();
-    if !consensus
-        .read()
-        .await
-        .validated_state_map()
-        .contains_key(&parent_view_number)
-    {
-        let _ = fetch_proposal(
-            parent_view_number,
-            event_sender.clone(),
-            event_receiver.clone(),
-            quorum_membership,
-            consensus.clone(),
-            public_key.clone(),
-            private_key.clone(),
-            upgrade_lock,
-        )
-        .await
-        .context("Failed to fetch proposal")?;
-    }
     let consensus_reader = consensus.read().await;
     let parent_view_number = consensus_reader.high_qc().view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
