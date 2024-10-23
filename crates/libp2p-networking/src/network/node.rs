@@ -81,7 +81,7 @@ pub const ESTABLISHED_LIMIT: NonZeroU32 =
 pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
-#[derive(custom_debug::Debug)]
+#[derive(derive_more::Debug)]
 pub struct NetworkNode<K: SignatureKey + 'static> {
     /// The keypair for the node
     keypair: Keypair,

@@ -8,7 +8,6 @@
 use std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
 use bincode::Options;
-use derivative::Derivative;
 use displaydoc::Display;
 use light_client::StateVerKey;
 use tracing::error;
@@ -76,15 +75,14 @@ pub enum ExecutionType {
     Incremental,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Derivative, Display)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Display, derive_more::Debug)]
 #[serde(bound(deserialize = ""))]
-#[derivative(Debug(bound = ""))]
 /// config for validator, including public key, private key, stake value
 pub struct ValidatorConfig<KEY: SignatureKey> {
     /// The validator's public key and stake value
     pub public_key: KEY,
     /// The validator's private key, should be in the mempool, not public
-    #[derivative(Debug = "ignore")]
+    #[debug(ignore)]
     pub private_key: KEY::PrivateKey,
     /// The validator's stake
     pub stake_value: u64,
@@ -175,7 +173,7 @@ impl<KEY: SignatureKey> Default for PeerConfig<KEY> {
 }
 
 /// Holds configuration for a `HotShot`
-#[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, derive_more::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 pub struct HotShotConfig<KEY: SignatureKey> {
     /// Whether to run one view or continuous views

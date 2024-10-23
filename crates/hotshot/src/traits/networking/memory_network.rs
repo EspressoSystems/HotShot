@@ -47,7 +47,7 @@ use super::{NetworkError, NetworkReliability};
 ///
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
-#[derive(custom_debug::Debug)]
+#[derive(derive_more::Debug)]
 pub struct MasterMap<K: SignatureKey> {
     /// The list of `MemoryNetwork`s
     #[debug(skip)]

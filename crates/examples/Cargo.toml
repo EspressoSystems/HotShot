@@ -88,7 +88,6 @@ async-trait = { workspace = true }
 bimap = "0.6"
 clap = { workspace = true, optional = true }
 committable = { workspace = true }
-custom_debug = { workspace = true }
 dashmap = "6"
 either = { workspace = true }
 futures = { workspace = true }
@@ -128,12 +127,12 @@ cdn-marshal = { workspace = true }
 async-std = { workspace = true }
 cdn-client = { workspace = true, features = ["runtime-async-std"] }
 cdn-broker = { workspace = true, features = [
-  "runtime-async-std",
-  "global-permits",
+    "runtime-async-std",
+    "global-permits",
 ] }
 cdn-marshal = { workspace = true, features = [
-  "runtime-async-std",
-  "global-permits",
+    "runtime-async-std",
+    "global-permits",
 ] }
 
 [dev-dependencies]

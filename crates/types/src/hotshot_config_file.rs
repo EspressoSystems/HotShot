@@ -6,7 +6,7 @@
 
 use std::{num::NonZeroUsize, time::Duration, vec};
 
-use surf_disco::Url;
+use url::Url;
 use vec1::Vec1;
 
 use crate::{
@@ -20,7 +20,7 @@ fn default_builder_urls() -> Vec1<Url> {
 }
 
 /// Holds configuration for a `HotShot`
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(derive_more::Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 pub struct HotShotConfigFile<KEY: SignatureKey> {
     /// The proportion of nodes required before the orchestrator issues the ready signal,

@@ -17,8 +17,6 @@ use std::{
 
 use anyhow::{bail, ensure, Context, Result};
 use async_lock::RwLock;
-use cdn_proto::util::mnemonic;
-use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vbs::{
     version::{StaticVersionType, Version},
@@ -46,7 +44,7 @@ use crate::{
 };
 
 /// Incoming message
-#[derive(Serialize, Deserialize, Clone, Derivative, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub struct Message<TYPES: NodeType> {
     /// The sender of this message
@@ -59,7 +57,7 @@ pub struct Message<TYPES: NodeType> {
 impl<TYPES: NodeType> fmt::Debug for Message<TYPES> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Message")
-            .field("sender", &mnemonic(&self.sender))
+            .field("sender", &crate::utils::mnemonic(&self.sender))
             .field("kind", &self.kind)
             .finish()
     }
@@ -333,7 +331,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
     }
 }
 
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 #[allow(clippy::large_enum_variant)]
 /// TODO: Put `DataResponse` content in a `Box` to make enum smaller

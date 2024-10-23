@@ -31,7 +31,7 @@ sha2 = { workspace = true }
 time = { workspace = true }
 async-lock = { workspace = true }
 bitvec = { workspace = true }
-ethereum-types = { workspace = true }
+primitive-types = { workspace = true }
 hotshot-task = { path = "../task" }
 vbs = { workspace = true }
 url = { workspace = true }

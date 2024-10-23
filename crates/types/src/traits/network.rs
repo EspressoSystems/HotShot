@@ -9,7 +9,6 @@
 //! Contains types and traits used by `HotShot` to abstract over network access
 
 use async_compatibility_layer::art::async_sleep;
-use derivative::Derivative;
 use dyn_clone::DynClone;
 use futures::Future;
 use thiserror::Error;
@@ -133,7 +132,7 @@ pub trait ViewMessage<TYPES: NodeType> {
 }
 
 /// A request for some data that the consensus layer is asking for.
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct DataRequest<TYPES: NodeType> {
     /// Request
@@ -146,7 +145,7 @@ pub struct DataRequest<TYPES: NodeType> {
 }
 
 /// Underlying data request
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RequestKind<TYPES: NodeType> {
     /// Request VID data by our key and the VID commitment
     Vid(TYPES::View, TYPES::SignatureKey),
@@ -158,7 +157,7 @@ pub enum RequestKind<TYPES: NodeType> {
 
 /// A response for a request.  `SequencingMessage` is the same as other network messages
 /// The kind of message `M` is is determined by what we requested
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 #[allow(clippy::large_enum_variant)]
 /// TODO: Put `Found` content in a `Box` to make enum smaller

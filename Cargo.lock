@@ -1245,6 +1245,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
+name = "byte-slice-cast"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3ac9f8b63eca6fd385229b3675f6cc0dc5c8a5c8a54a59d4f52ffd670d87b0c"
+
+[[package]]
 name = "bytecheck"
 version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1949,26 +1955,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "custom_debug"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e89e0ae2c2a42be29595d05c50e3ce6096c0698a97e021c3289790f0750cc8e2"
-dependencies = [
- "custom_debug_derive",
-]
-
-[[package]]
-name = "custom_debug_derive"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08a9f3941234c9f62ceaa2782974827749de9b0a8a6487275a278da068e1baf7"
-dependencies = [
- "proc-macro2",
- "syn 1.0.109",
- "synstructure 0.12.6",
-]
-
-[[package]]
 name = "darling"
 version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2187,6 +2173,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.82",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -2389,11 +2376,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "espresso-systems-common"
-version = "0.4.1"
-source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.4.1#2e889e878866c2a5cce1daaab947f7c93d5811ae"
-
-[[package]]
 name = "etcetera"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2402,31 +2384,6 @@ dependencies = [
  "cfg-if",
  "home",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "ethbloom"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c22d4b5885b6aa2fe5e8b9329fb8d232bf739e434e6b87347c63bdd00c120f60"
-dependencies = [
- "crunchy",
- "fixed-hash",
- "impl-serde",
- "tiny-keccak",
-]
-
-[[package]]
-name = "ethereum-types"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d215cbf040552efcbe99a38372fe80ab9d00268e20012b79fcd0f073edd8ee"
-dependencies = [
- "ethbloom",
- "fixed-hash",
- "impl-serde",
- "primitive-types",
- "uint",
 ]
 
 [[package]]
@@ -2505,6 +2462,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
 dependencies = [
  "byteorder",
+ "rand 0.8.5",
  "rustc-hex",
  "static_assertions",
 ]
@@ -3111,11 +3069,9 @@ dependencies = [
  "chrono",
  "clap",
  "committable",
- "custom_debug",
  "dashmap",
  "derive_more 1.0.0",
  "either",
- "ethereum-types",
  "futures",
  "hotshot-task",
  "hotshot-task-impls",
@@ -3127,6 +3083,7 @@ dependencies = [
  "num_enum",
  "parking_lot",
  "portpicker",
+ "primitive-types",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
@@ -3171,12 +3128,12 @@ dependencies = [
  "bitvec",
  "committable",
  "either",
- "ethereum-types",
  "futures",
  "hotshot",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
+ "primitive-types",
  "rand 0.8.5",
  "reqwest",
  "serde",
@@ -3208,7 +3165,6 @@ dependencies = [
  "chrono",
  "clap",
  "committable",
- "custom_debug",
  "dashmap",
  "derive_more 1.0.0",
  "either",
@@ -3307,12 +3263,12 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "digest 0.10.7",
- "ethereum-types",
  "hotshot-types",
  "jf-crhf",
  "jf-rescue",
  "jf-signature",
  "jf-utils",
+ "primitive-types",
  "rand_chacha 0.3.1",
  "serde",
  "tagged-base64",
@@ -3344,7 +3300,6 @@ dependencies = [
  "async-trait",
  "bincode",
  "bitvec",
- "cdn-proto",
  "chrono",
  "committable",
  "either",
@@ -3382,7 +3337,6 @@ dependencies = [
  "bitvec",
  "committable",
  "either",
- "ethereum-types",
  "futures",
  "hotshot",
  "hotshot-builder-api",
@@ -3398,6 +3352,7 @@ dependencies = [
  "jf-vid",
  "lru 0.12.5",
  "portpicker",
+ "primitive-types",
  "rand 0.8.5",
  "reqwest",
  "serde",
@@ -3431,34 +3386,30 @@ dependencies = [
  "bincode",
  "bitvec",
  "blake3",
- "cdn-proto",
  "clap",
  "committable",
- "custom_debug",
- "derivative",
+ "derive_more 1.0.0",
  "digest 0.10.7",
  "displaydoc",
  "dyn-clone 1.0.17 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.17)",
  "either",
- "espresso-systems-common",
- "ethereum-types",
  "futures",
  "jf-pcs",
  "jf-signature",
  "jf-utils",
  "jf-vid",
  "lazy_static",
- "libp2p",
+ "libp2p-identity",
  "memoize",
+ "mnemonic",
+ "multiaddr",
+ "primitive-types",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "reqwest",
  "serde",
  "serde-inline-default",
- "serde_bytes",
  "serde_json",
  "sha2 0.10.8",
- "surf-disco",
  "tagged-base64",
  "thiserror",
  "time 0.3.36",
@@ -3820,12 +3771,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "impl-serde"
-version = "0.4.0"
+name = "impl-codec"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebc88fc67028ae3db0c853baa36269d398d5f45b6982f95549ff5def78c935cd"
+checksum = "b67aa010c1e3da95bf151bd8b4c059b2ed7e75387cdb969b4f8f2723a43f9941"
+dependencies = [
+ "parity-scale-codec",
+]
+
+[[package]]
+name = "impl-serde"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a143eada6a1ec4aefa5049037a26a6d597bfd64f8c026d07b77133e02b7dd0b"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "impl-trait-for-tuples"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11d7a9f6330b71fea57921c9b61c47ee6e84f72d394754eff6163ae67e7395eb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -4487,7 +4458,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tracing",
- "uint",
+ "uint 0.9.5",
  "void",
 ]
 
@@ -4543,9 +4514,9 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "custom_debug",
  "delegate",
  "derive_builder",
+ "derive_more 1.0.0",
  "either",
  "futures",
  "hotshot-types",
@@ -5414,6 +5385,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
+name = "parity-scale-codec"
+version = "3.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "306800abfa29c7f16596b5970a588435e3d5b3149683d00c12b699cc19f895ee"
+dependencies = [
+ "arrayvec",
+ "bitvec",
+ "byte-slice-cast",
+ "impl-trait-for-tuples",
+ "parity-scale-codec-derive",
+ "serde",
+]
+
+[[package]]
+name = "parity-scale-codec-derive"
+version = "3.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d830939c76d294956402033aee57a6da7b438f2294eb94864c37b0569053a42c"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5681,13 +5678,14 @@ dependencies = [
 
 [[package]]
 name = "primitive-types"
-version = "0.12.2"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b34d9fd68ae0b74a41b21c03c2f62847aa0ffea044eee893b4c140b37e244e2"
+checksum = "d15600a7d856470b7d278b3fe0e311fe28c2526348549f8ef2ff7db3299c87f5"
 dependencies = [
  "fixed-hash",
+ "impl-codec",
  "impl-serde",
- "uint",
+ "uint 0.10.0",
 ]
 
 [[package]]
@@ -8250,6 +8248,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "uint"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "909988d098b2f738727b161a106cfc7cab00c539c2687a8836f8e565976fb53e"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "hex",
+ "static_assertions",
+]
+
+[[package]]
 name = "unicase"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8432,15 +8442,14 @@ dependencies = [
 
 [[package]]
 name = "vbs"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a9d83afb293d109ae418271619046cd9d87d63ba83e473e25a5e36101edc453"
+checksum = "9cf4ed425fa4976d51e35f5882764612c5f735457118d6ef7b6c684b7d34a74d"
 dependencies = [
  "anyhow",
  "bincode",
  "derive_more 0.99.18",
  "serde",
- "serde_with",
 ]
 
 [[package]]

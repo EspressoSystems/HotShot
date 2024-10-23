@@ -23,7 +23,7 @@ async-trait = { workspace = true }
 bitvec = { workspace = true }
 committable = { workspace = true }
 either = { workspace = true }
-ethereum-types = { workspace = true }
+primitive-types = { workspace = true }
 futures = { workspace = true }
 hotshot = { path = "../hotshot", features = ["hotshot-testing"] }
 hotshot-example-types = { path = "../example-types" }

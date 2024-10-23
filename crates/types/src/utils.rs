@@ -6,7 +6,11 @@
 
 //! Utility functions, type aliases, helper structs and enum definitions.
 
-use std::{ops::Deref, sync::Arc};
+use std::{
+    hash::{Hash, Hasher},
+    ops::Deref,
+    sync::Arc,
+};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use bincode::{
@@ -209,4 +213,12 @@ pub fn bincode_opts() -> WithOtherTrailing<
         .with_little_endian()
         .with_fixint_encoding()
         .reject_trailing_bytes()
+}
+
+/// A function for generating a cute little user mnemonic from a hash
+#[must_use]
+pub fn mnemonic<H: Hash>(bytes: H) -> String {
+    let mut state = std::collections::hash_map::DefaultHasher::new();
+    bytes.hash(&mut state);
+    mnemonic::to_string(state.finish().to_le_bytes())
 }
