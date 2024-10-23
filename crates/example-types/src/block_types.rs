@@ -370,7 +370,7 @@ impl<
     }
 
     fn payload_commitment(&self) -> VidCommitment {
-        self.payload_commitment
+        self.payload_commitment.clone()
     }
 
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata {
@@ -394,10 +394,11 @@ impl Committable for TestBlockHeader {
                 <TestBlockHeader as BlockHeader<TestTypes>>::block_number(self),
             )
             .constant_str("payload commitment")
-            .fixed_size_bytes(
-                <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self)
-                    .as_ref()
-                    .as_ref(),
+            .var_size_bytes(
+                &bincode::serialize(
+                    &<TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self),
+                )
+                .expect("serialization of payload commitment should succeed"),
             )
             .finalize()
     }

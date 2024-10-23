@@ -2187,6 +2187,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.82",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -3145,6 +3146,7 @@ name = "hotshot-builder-api"
 version = "0.1.7"
 dependencies = [
  "async-trait",
+ "bincode",
  "clap",
  "committable",
  "derive_more 1.0.0",
@@ -3168,6 +3170,7 @@ dependencies = [
  "async-lock 2.8.0",
  "async-std",
  "async-trait",
+ "bincode",
  "bitvec",
  "committable",
  "either",
@@ -3379,6 +3382,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "automod",
+ "bincode",
  "bitvec",
  "committable",
  "either",
@@ -3436,6 +3440,7 @@ dependencies = [
  "committable",
  "custom_debug",
  "derivative",
+ "derive_more 1.0.0",
  "digest 0.10.7",
  "displaydoc",
  "dyn-clone 1.0.17 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.17)",

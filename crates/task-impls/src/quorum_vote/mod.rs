@@ -281,8 +281,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                 #[allow(unused_assignments)]
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
-                    if let Some(comm) = payload_commitment {
-                        if proposal_payload_comm != comm {
+                    if let Some(ref comm) = payload_commitment {
+                        if proposal_payload_comm != *comm {
                             error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
                             return;
                         }
@@ -298,26 +298,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     leaf = Some(proposed_leaf);
                 }
                 HotShotEvent::DaCertificateValidated(cert) => {
-                    let cert_payload_comm = cert.data().payload_commit;
-                    if let Some(comm) = payload_commitment {
+                    let cert_payload_comm = &cert.data().payload_commit;
+                    if let Some(ref comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
                             return;
                         }
                     } else {
-                        payload_commitment = Some(cert_payload_comm);
+                        payload_commitment = Some(cert_payload_comm.clone());
                     }
                 }
                 HotShotEvent::VidShareValidated(share) => {
-                    let vid_payload_commitment = share.data.payload_commitment;
+                    let vid_payload_commitment = &share.data.payload_commitment;
                     vid_share = Some(share.clone());
-                    if let Some(comm) = payload_commitment {
+                    if let Some(ref comm) = payload_commitment {
                         if vid_payload_commitment != comm {
                             error!("VID has inconsistent payload commitment with quorum proposal or DAC.");
                             return;
                         }
                     } else {
-                        payload_commitment = Some(vid_payload_commitment);
+                        payload_commitment = Some(vid_payload_commitment.clone());
                     }
                 }
                 _ => {}
@@ -607,26 +607,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 }
 
                 // Validate the VID share.
-                let payload_commitment = disperse.data.payload_commitment;
+                let payload_commitment = &disperse.data.payload_commitment;
                 let current_epoch = self.consensus.read().await.cur_epoch();
                 // Check sender of VID disperse share is signed by DA committee member
-                let validate_sender = sender
-                    .validate(&disperse.signature, payload_commitment.as_ref())
-                    && self
-                        .da_membership
-                        .committee_members(view, current_epoch)
-                        .contains(sender);
+                let validate_sender = sender.validate(
+                    &disperse.signature,
+                    &bincode::serialize(&payload_commitment)
+                        .expect("serialization of payload commitment should succeed"),
+                ) && self
+                    .da_membership
+                    .committee_members(view, current_epoch)
+                    .contains(sender);
 
                 // Check whether the data satisfies one of the following.
                 // * From the right leader for this view.
                 // * Calculated and signed by the current node.
-                let validated = self
-                    .public_key
-                    .validate(&disperse.signature, payload_commitment.as_ref())
-                    || self
-                        .quorum_membership
-                        .leader(view, current_epoch)
-                        .validate(&disperse.signature, payload_commitment.as_ref());
+                let validated = self.public_key.validate(
+                    &disperse.signature,
+                    &bincode::serialize(&payload_commitment)
+                        .expect("serialization of payload commitment should succeed"),
+                ) || self.quorum_membership.leader(view, current_epoch).validate(
+                    &disperse.signature,
+                    &bincode::serialize(&payload_commitment)
+                        .expect("serialization of payload commitment should succeed"),
+                );
                 if !validate_sender && !validated {
                     warn!("Failed to validated the VID dispersal/share sig.");
                     return;

@@ -9,6 +9,14 @@
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+    marker::PhantomData,
+    sync::Arc,
+};
+
 use anyhow::{ensure, Result};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use async_lock::RwLock;
@@ -20,13 +28,6 @@ use derivative::Derivative;
 use jf_vid::{precomputable::Precomputable, VidDisperse as JfVidDisperse, VidScheme};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    marker::PhantomData,
-    sync::Arc,
-};
 use thiserror::Error;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
@@ -308,7 +309,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                 recipient_key,
                 view_number: vid_disperse.view_number,
                 common: vid_disperse.common.clone(),
-                payload_commitment: vid_disperse.payload_commitment,
+                payload_commitment: vid_disperse.payload_commitment.clone(),
             })
             .collect()
     }
@@ -318,9 +319,11 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         self,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Option<Proposal<TYPES, Self>> {
-        let Ok(signature) =
-            TYPES::SignatureKey::sign(private_key, self.payload_commitment.as_ref())
-        else {
+        let Ok(signature) = TYPES::SignatureKey::sign(
+            private_key,
+            &bincode::serialize(&self.payload_commitment)
+                .expect("serialization of payload commitment should succeed"),
+        ) else {
             error!("VID: failed to sign dispersal share payload");
             return None;
         };
@@ -371,7 +374,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                     recipient_key,
                     view_number: vid_disperse_proposal.data.view_number,
                     common: vid_disperse_proposal.data.common.clone(),
-                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
+                    payload_commitment: vid_disperse_proposal.data.payload_commitment.clone(),
                 },
                 signature: vid_disperse_proposal.signature.clone(),
                 _pd: vid_disperse_proposal._pd,

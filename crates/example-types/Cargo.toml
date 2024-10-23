@@ -16,6 +16,7 @@ async-broadcast = { workspace = true }
 async-compatibility-layer = { workspace = true }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
+bincode = { workspace = true }
 sha3 = "^0.10"
 committable = { workspace = true }
 either = { workspace = true }

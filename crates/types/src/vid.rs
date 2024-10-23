@@ -18,6 +18,7 @@
 use std::{fmt::Debug, ops::Range};
 
 use ark_bn254::Bn254;
+use derive_more::Display;
 use jf_pcs::{
     prelude::{UnivariateKzgPCS, UnivariateUniversalParams},
     PolynomialCommitmentScheme,
@@ -34,6 +35,7 @@ use jf_vid::{
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use tagged_base64::TaggedBase64;
 
 use crate::{
     constants::SRS_DEGREE,
@@ -103,8 +105,6 @@ pub fn vid_scheme_for_test(num_storage_nodes: usize) -> VidSchemeType {
     )
 }
 
-/// VID commitment type
-pub type VidCommitment = <VidSchemeType as VidScheme>::Commit;
 /// VID common type
 pub type VidCommon = <VidSchemeType as VidScheme>::Common;
 /// VID share type
@@ -128,6 +128,9 @@ type Advz = advz::AdvzGPU<'static, E, H>;
 /// [`VidScheme`], [`PayloadProver`], [`Precomputable`].
 #[derive(Clone)]
 pub struct VidSchemeType(Advz);
+
+#[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Hash, Serialize)]
+pub struct VidCommitment(<Advz as VidScheme>::Commit);
 
 /// Newtype wrapper for a large payload range proof.
 ///
@@ -198,7 +201,7 @@ type H = Sha256;
 // type alias impl trait (TAIT):
 // [rfcs/text/2515-type_alias_impl_trait.md at master · rust-lang/rfcs](https://github.com/rust-lang/rfcs/blob/master/text/2515-type_alias_impl_trait.md)
 impl VidScheme for VidSchemeType {
-    type Commit = <Advz as VidScheme>::Commit;
+    type Commit = VidCommitment;
     type Share = <Advz as VidScheme>::Share;
     type Common = <Advz as VidScheme>::Common;
 
@@ -206,7 +209,7 @@ impl VidScheme for VidSchemeType {
     where
         B: AsRef<[u8]>,
     {
-        self.0.commit_only(payload)
+        self.0.commit_only(payload).map(VidCommitment)
     }
 
     fn disperse<B>(&mut self, payload: B) -> VidResult<VidDisperse<Self>>
@@ -222,7 +225,7 @@ impl VidScheme for VidSchemeType {
         common: &Self::Common,
         commit: &Self::Commit,
     ) -> VidResult<Result<(), ()>> {
-        self.0.verify_share(share, common, commit)
+        self.0.verify_share(share, common, &commit.0)
     }
 
     fn recover_payload(&self, shares: &[Self::Share], common: &Self::Common) -> VidResult<Vec<u8>> {
@@ -230,7 +233,7 @@ impl VidScheme for VidSchemeType {
     }
 
     fn is_consistent(commit: &Self::Commit, common: &Self::Common) -> VidResult<()> {
-        <Advz as VidScheme>::is_consistent(commit, common)
+        <Advz as VidScheme>::is_consistent(&commit.0, common)
     }
 
     fn get_payload_byte_len(common: &Self::Common) -> u32 {
@@ -249,6 +252,20 @@ impl VidScheme for VidSchemeType {
     #[cfg(feature = "test-srs")]
     fn corrupt_share_index(&self, share: Self::Share) -> Self::Share {
         self.0.corrupt_share_index(share)
+    }
+}
+
+impl From<VidCommitment> for TaggedBase64 {
+    fn from(value: VidCommitment) -> Self {
+        TaggedBase64::from(value.0)
+    }
+}
+
+impl<'a> TryFrom<&'a TaggedBase64> for VidCommitment {
+    type Error = <<Advz as VidScheme>::Commit as TryFrom<&'a TaggedBase64>>::Error;
+
+    fn try_from(value: &'a TaggedBase64) -> Result<Self, Self::Error> {
+        <Advz as VidScheme>::Commit::try_from(value).map(Self)
     }
 }
 
@@ -300,7 +317,9 @@ impl Precomputable for VidSchemeType {
     where
         B: AsRef<[u8]>,
     {
-        self.0.commit_only_precompute(payload)
+        self.0
+            .commit_only_precompute(payload)
+            .map(|r| (VidCommitment(r.0), r.1))
     }
 
     fn disperse_precompute<B>(
@@ -328,7 +347,7 @@ fn vid_disperse_conversion(vid_disperse: VidDisperse<Advz>) -> VidDisperse<VidSc
     VidDisperse {
         shares: vid_disperse.shares,
         common: vid_disperse.common,
-        commit: vid_disperse.commit,
+        commit: VidCommitment(vid_disperse.commit),
     }
 }
 
@@ -337,7 +356,7 @@ fn stmt_conversion(stmt: Statement<'_, VidSchemeType>) -> Statement<'_, Advz> {
     Statement {
         payload_subslice: stmt.payload_subslice,
         range: stmt.range,
-        commit: stmt.commit,
+        commit: &stmt.commit.0,
         common: stmt.common,
     }
 }

@@ -286,7 +286,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 self.builder_timeout.saturating_sub(start.elapsed()),
                 async {
                     let client = BuilderClientMarketplace::new(url);
-                    client.bundle(*parent_view, parent_hash, *block_view).await
+                    client
+                        .bundle(*parent_view, parent_hash.clone(), *block_view)
+                        .await
                 },
             ));
         }
@@ -516,9 +518,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .get(&target_view)
                 .context("Missing record for view {?target_view} in validated state")?;
 
-            match view_data.view_inner {
+            match &view_data.view_inner {
                 ViewInner::Da { payload_commitment } => {
-                    return Ok((target_view, payload_commitment))
+                    return Ok((target_view, payload_commitment.clone()))
                 }
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
@@ -556,7 +558,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
         let parent_comm_sig = match <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
             &self.private_key,
-            parent_comm.as_ref(),
+            &bincode::serialize(&parent_comm)
+                .expect("serialization of payload commitment should succeed"),
         ) {
             Ok(sig) => sig,
             Err(err) => {
@@ -569,7 +572,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             match async_timeout(
                 self.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                self.block_from_builder(parent_comm, parent_view, &parent_comm_sig),
+                self.block_from_builder(parent_comm.clone(), parent_view, &parent_comm_sig),
             )
             .await
             {
@@ -610,20 +613,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .builder_clients
             .iter()
             .enumerate()
-            .map(|(builder_idx, client)| async move {
-                client
-                    .available_blocks(
-                        parent_comm,
-                        view_number.u64(),
-                        self.public_key.clone(),
-                        parent_comm_sig,
-                    )
-                    .await
-                    .map(move |blocks| {
-                        blocks
-                            .into_iter()
-                            .map(move |block_info| (block_info, builder_idx))
-                    })
+            .map(|(builder_idx, client)| {
+                let parent_comm = parent_comm.clone();
+                async move {
+                    client
+                        .available_blocks(
+                            parent_comm,
+                            view_number.u64(),
+                            self.public_key.clone(),
+                            parent_comm_sig,
+                        )
+                        .await
+                        .map(move |blocks| {
+                            blocks
+                                .into_iter()
+                                .map(move |block_info| (block_info, builder_idx))
+                        })
+                }
             })
             .collect::<FuturesUnordered<_>>();
         let mut results = Vec::with_capacity(self.builder_clients.len());
