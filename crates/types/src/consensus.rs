@@ -825,9 +825,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         epoch: TYPES::Epoch,
     ) -> Option<()> {
         let txns = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
-        let vid =
-            VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None)
-                .await;
+        let vid = VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None).await;
         let shares = VidDisperseShare::from_vid_disperse(vid);
         let mut consensus = consensus.write().await;
         for share in shares {
