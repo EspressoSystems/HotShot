@@ -84,7 +84,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-/// all the info we need to validate a proposal.  This makes it easy to spawn an effemeral task to 
+/// all the info we need to validate a proposal.  This makes it easy to spawn an effemeral task to
 /// do all the proposal validation without blocking the long running one
 pub(crate) struct ValidationInfo<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// The node's id
