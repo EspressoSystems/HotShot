@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
@@ -39,6 +39,33 @@ pub(crate) async fn handle_quorum_proposal_validated<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    let consensus_read = task_state.consensus.read().await;
+    let justify_qc = proposal.justify_qc.clone();
+    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+        if let Err(e) = task_state
+            .storage
+            .write()
+            .await
+            .update_high_qc(justify_qc.clone())
+            .await
+        {
+            bail!("Failed to store High QC, not voting; error = {:?}", e);
+        }
+    }
+    drop(consensus_read);
+
+    let mut consensus_write = task_state.consensus.write().await;
+    if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+        tracing::trace!("{e:?}");
+    }
+    drop(consensus_write);
+
+    broadcast_event(
+        HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
+        sender,
+    )
+    .await;
+
     let LeafChainTraversalOutcome {
         new_locked_view_number,
         new_decided_view_number,
