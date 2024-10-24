@@ -337,7 +337,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
         let cancel = shutdown_flag.load(Ordering::Relaxed)
             || state.vid_shares().contains_key(view)
-            || state.cur_view() > *view;
+            || state.cur_view() > *view + 1;
         if cancel {
             if let Some(Some(vid_share)) = state
                 .vid_shares()
