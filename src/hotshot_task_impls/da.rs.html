@@ -382,8 +382,6 @@
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -410,7 +408,7 @@
         block_contents::vid_commitment,
         election::Membership,
         network::ConnectedNetwork,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -493,12 +491,10 @@
 
                 <span class="comment">// Allow a DA proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
-                // `self.cur_view` should be at least 1 since there is a view change before getting
-                // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
-                // cause an overflow error.
-                // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
+                //
+                // Anything older is discarded because it is no longer relevant.
                 </span><span class="macro">ensure!</span>(
-                    <span class="self">self</span>.cur_view == TYPES::View::genesis() || view &gt;= <span class="self">self</span>.cur_view - <span class="number">1</span>,
+                    <span class="self">self</span>.cur_view &lt;= view + <span class="number">1</span>,
                     <span class="string">"Throwing away DA proposal that is more than one view older"
                 </span>);
 
