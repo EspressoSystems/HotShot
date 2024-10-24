@@ -39,10 +39,7 @@ use hotshot_types::{
 use tokio::task::JoinHandle;
 use tracing::{debug, info, instrument, warn};
 
-use crate::{
-    events::HotShotEvent, quorum_proposal_recv::QuorumProposalRecvTaskState,
-    request::REQUEST_TIMEOUT,
-};
+use crate::{events::HotShotEvent, quorum_proposal_recv::ValidationInfo, request::REQUEST_TIMEOUT};
 
 /// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 #[instrument(skip_all)]
@@ -431,7 +428,7 @@ pub async fn validate_proposal_safety_and_liveness<
 >(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
+    task_state: &ValidationInfo<TYPES, I, V>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
 ) -> Result<()> {
@@ -574,20 +571,15 @@ pub async fn validate_proposal_safety_and_liveness<
 ///
 /// # Errors
 /// If any validation or view number check fails.
-pub async fn validate_proposal_view_and_certs<
+pub(crate) async fn validate_proposal_view_and_certs<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
+    task_state: &ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
     let view = proposal.data.view_number();
-    ensure!(
-        view >= task_state.cur_view,
-        "Proposal is from an older view {:?}",
-        proposal.data.clone()
-    );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     proposal

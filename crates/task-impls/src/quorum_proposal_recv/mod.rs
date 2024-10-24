@@ -77,14 +77,34 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// they are stale
     pub spawned_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
 
-    /// Immutable instance state
-    pub instance_state: Arc<TYPES::InstanceState>,
-
     /// The node's id
     pub id: u64,
 
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+}
+
+/// all the info we need to validate a proposal.  This makes it easy to spawn an effemeral task to 
+/// do all the proposal validation without blocking the long running one
+pub(crate) struct ValidationInfo<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
+    /// The node's id
+    pub id: u64,
+    /// Our public key
+    pub(crate) public_key: TYPES::SignatureKey,
+    /// Our Private Key
+    pub(crate) private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// Epoch number this node is executing in.
+    pub cur_epoch: TYPES::Epoch,
+    /// Reference to consensus. The replica will require a write lock on this.
+    pub(crate) consensus: OuterConsensus<TYPES>,
+    /// Membership for Quorum Certs/votes
+    pub quorum_membership: Arc<TYPES::Membership>,
+    /// Output events to application
+    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
+    /// This node's storage ref
+    pub(crate) storage: Arc<RwLock<I::Storage>>,
+    /// Lock for a decided upgrade
+    pub(crate) upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
@@ -118,12 +138,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 {
                     return;
                 }
+                let validation_info = ValidationInfo::<TYPES, I, V> {
+                    id: self.id,
+                    public_key: self.public_key.clone(),
+                    private_key: self.private_key.clone(),
+                    cur_epoch: self.cur_epoch,
+                    consensus: self.consensus.clone(),
+                    quorum_membership: Arc::clone(&self.quorum_membership),
+                    output_event_stream: self.output_event_stream.clone(),
+                    storage: Arc::clone(&self.storage),
+                    upgrade_lock: self.upgrade_lock.clone(),
+                };
                 match handle_quorum_proposal_recv(
                     proposal,
                     sender,
                     &event_sender,
                     &event_receiver,
-                    self,
+                    validation_info,
                 )
                 .await
                 {

@@ -28,7 +28,7 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument, warn};
 
-use super::QuorumProposalRecvTaskState;
+use super::{QuorumProposalRecvTaskState, ValidationInfo};
 use crate::{
     events::HotShotEvent,
     helpers::{
@@ -43,7 +43,7 @@ use crate::{
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
+    task_state: &ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();
     let mut consensus_write = task_state.consensus.write().await;
@@ -118,11 +118,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
     quorum_proposal_sender_key: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
+    task_state: ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
     let quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
 
-    validate_proposal_view_and_certs(proposal, task_state)
+    validate_proposal_view_and_certs(proposal, &task_state)
         .await
         .context("Failed to validate proposal view or attached certs")?;
 
@@ -141,6 +141,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
         consensus.metrics.invalid_qc.update(1);
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
+    broadcast_event(
+        Arc::new(HotShotEvent::ViewChange(view_number + 1)),
+        event_sender,
+    )
+    .await;
 
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalPreliminarilyValidated(
@@ -220,12 +225,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
-        validate_proposal_liveness(proposal, event_sender, task_state).await?;
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(view_number + 1)),
-            event_sender,
-        )
-        .await;
+        validate_proposal_liveness(proposal, event_sender, &task_state).await?;
         return Ok(());
     };
 
@@ -233,16 +233,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
     validate_proposal_safety_and_liveness::<TYPES, I, V>(
         proposal.clone(),
         parent_leaf,
-        task_state,
+        &task_state,
         event_sender.clone(),
         quorum_proposal_sender_key,
     )
     .await?;
 
-    broadcast_event(
-        Arc::new(HotShotEvent::ViewChange(view_number + 1)),
-        event_sender,
-    )
-    .await;
     Ok(())
 }

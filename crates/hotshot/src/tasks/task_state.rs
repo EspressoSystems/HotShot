@@ -291,7 +291,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             storage: Arc::clone(&handle.storage),
             spawned_tasks: BTreeMap::new(),
-            instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         }
