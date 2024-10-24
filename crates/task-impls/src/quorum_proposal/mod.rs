@@ -545,11 +545,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 .await;
             }
             HotShotEvent::HighQcUpdated(qc) => {
-                if qc.view_number() < global_view {
+                let view_number = qc.view_number() + 1;
+                if view_number < global_view {
                     tracing::trace!("We are already beyond this view");
                     return Ok(());
                 }
-                let view_number = qc.view_number() + 1;
                 let epoch_number = self.consensus.read().await.cur_epoch();
                 self.create_dependency_task_if_new(
                     view_number,

@@ -548,7 +548,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     ) -> Result<()> {
         let current_epoch = self.consensus.read().await.cur_epoch();
         let global_view = self.consensus.read().await.cur_view();
-        if event.view_number().is_some_and(|view| view < global_view) {
+        if event.view_number().is_some_and(|view| view + 1 < global_view) {
             tracing::trace!("We are already beyond this view");
             return Ok(());
         }
