@@ -23,7 +23,7 @@ use hotshot_types::{
     traits::{
         block_contents::vid_commitment,
         election::Membership,
-        node_implementation::{ConsensusTime,NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },

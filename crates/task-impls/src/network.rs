@@ -427,26 +427,34 @@ impl<
                         .leader(vote.view_number() + vote.date().relay, self.epoch),
                 ),
             )),
-            HotShotEvent::ViewSyncCommitVoteSend(vote) => Some((
-                vote.signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
-                )),
-                TransmitType::Direct(
-                    self.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay, self.epoch),
-                ),
-            )),
-            HotShotEvent::ViewSyncFinalizeVoteSend(vote) => Some((
-                vote.signing_key(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
-                )),
-                TransmitType::Direct(
-                    self.quorum_membership
-                        .leader(vote.view_number() + vote.date().relay, self.epoch),
-                ),
-            )),
+            HotShotEvent::ViewSyncCommitVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
+
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncCommitVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(
+                        self.quorum_membership
+                            .leader(vote.view_number() + vote.date().relay, self.epoch),
+                    ),
+                ))
+            }
+            HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
+
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ViewSyncFinalizeVote(vote.clone()),
+                    )),
+                    TransmitType::Direct(
+                        self.quorum_membership
+                            .leader(vote.view_number() + vote.date().relay, self.epoch),
+                    ),
+                ))
+            }
             HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => Some((
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
