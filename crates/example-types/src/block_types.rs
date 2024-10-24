@@ -15,7 +15,7 @@ use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
+        block_contents::{BlockHeader, BuilderFee, BuilderTransaction, EncodeBytes, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -52,6 +52,18 @@ impl TryFrom<Vec<u8>> for TestTransaction {
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         Self::try_new(value).ok_or(TransactionError::TransactionTooLong)
+    }
+}
+
+impl BuilderTransaction for TestTransaction {
+    fn minimum_block_size(&self) -> u64 {
+        // In sequencer we account for block byte length limit with:
+        // let len = tx.payload().len() + NsTableBuilder::entry_byte_len() + NsPayloadBuilder::tx_table_header_byte_len() + NsPayloadBuilder::tx_table_entry_byte_len();
+        // where
+        // pub const fn entry_byte_len() -> usize {NS_ID_BYTE_LEN (4) + NS_OFFSET_BYTE_LEN (4)}
+        // pub const fn tx_table_header_byte_len() -> usize {NUM_TXS_BYTE_LEN (4)}
+        // pub const fn tx_table_entry_byte_len() -> usize {TX_OFFSET_BYTE_LEN (4)}
+        (self.0.len() + (4 + 4) + 4 + 4) as u64
     }
 }
 
