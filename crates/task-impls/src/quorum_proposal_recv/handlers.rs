@@ -32,7 +32,7 @@ use super::QuorumProposalRecvTaskState;
 use crate::{
     events::HotShotEvent,
     helpers::{
-        broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
+        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
         validate_proposal_view_and_certs,
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
@@ -92,10 +92,6 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         event_sender,
     )
     .await;
-
-    if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
-        debug!("Liveness Branch - Failed to update view; error = {e:#}");
-    }
 
     if !liveness_check {
         bail!("Quorum Proposal failed the liveness check");
@@ -224,7 +220,13 @@ pub(crate) async fn handle_quorum_proposal_recv<
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
-        return validate_proposal_liveness(proposal, event_sender, task_state).await;
+        validate_proposal_liveness(proposal, event_sender, task_state).await?;
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(view_number + 1)),
+            event_sender,
+        )
+        .await;
+        return Ok(());
     };
 
     // Validate the proposal
@@ -237,10 +239,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
     )
     .await?;
 
-    // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
-        debug!("Full Branch - Failed to update view; error = {e:#}");
-    }
-
+    broadcast_event(
+        Arc::new(HotShotEvent::ViewChange(view_number + 1)),
+        event_sender,
+    )
+    .await;
     Ok(())
 }

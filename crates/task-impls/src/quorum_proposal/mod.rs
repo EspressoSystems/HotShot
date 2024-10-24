@@ -364,13 +364,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) {
+        let global_view = self.consensus.read().await.cur_view();
+
         match event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 debug!(
                     "Upgrade certificate received for view {}!",
                     *cert.view_number
                 );
-
+                if cert.view_number < global_view {
+                    tracing::trace!("We are already beyond this view");
+                    return;
+                }
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 if cert.data.decide_by >= self.latest_proposed_view + 3 {
                     debug!("Updating current formed_upgrade_certificate");
@@ -382,7 +387,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 either::Right(timeout_cert) => {
                     let view_number = timeout_cert.view_number + 1;
                     let epoch_number = self.consensus.read().await.cur_epoch();
-
+                    if view_number < global_view {
+                        tracing::trace!("We are already beyond this view");
+                        return;
+                    }
                     self.create_dependency_task_if_new(
                         view_number,
                         epoch_number,
@@ -414,6 +422,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 _auction_result,
             ) => {
                 let view_number = *view_number;
+                if view_number < global_view {
+                    tracing::trace!("We are already beyond this view");
+                    return;
+                }
                 let epoch_number = self.consensus.read().await.cur_epoch();
 
                 self.create_dependency_task_if_new(
@@ -443,6 +455,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
                 let view_number = certificate.view_number;
 
+                if view_number < global_view {
+                    tracing::trace!("We are already beyond this view");
+                    return;
+                }
+
                 self.create_dependency_task_if_new(
                     view_number,
                     epoch_number,
@@ -453,7 +470,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
-
+                if view_number < global_view {
+                    tracing::trace!("We are already beyond this view");
+                    return;
+                }
                 // All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 if !self.update_latest_proposed_view(view_number).await {
                     tracing::trace!("Failed to update latest proposed view");
@@ -478,7 +498,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::VidDisperseSend(vid_share, _) => {
                 let view_number = vid_share.data.view_number();
                 let epoch_number = self.consensus.read().await.cur_epoch();
-
+                if view_number < global_view {
+                    tracing::trace!("We are already beyond this view");
+                    return;
+                }
                 self.create_dependency_task_if_new(
                     view_number,
                     epoch_number,
@@ -504,6 +527,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 .await;
             }
             HotShotEvent::HighQcUpdated(qc) => {
+                if qc.view_number() < global_view {
+                    tracing::trace!("We are already beyond this view");
+                    return;
+                }
                 let view_number = qc.view_number() + 1;
                 let epoch_number = self.consensus.read().await.cur_epoch();
                 self.create_dependency_task_if_new(

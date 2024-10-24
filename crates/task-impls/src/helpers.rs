@@ -4,7 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use core::time::Duration;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -12,15 +11,14 @@ use std::{
 
 use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, SendError, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
+use async_compatibility_layer::art::async_timeout;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
-use chrono::Utc;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
-    consensus::{ConsensusUpgradableReadLockGuard, OuterConsensus},
+    consensus::OuterConsensus,
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
@@ -29,7 +27,7 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
         BlockPayload, ValidatedState,
@@ -618,7 +616,7 @@ pub async fn validate_proposal_view_and_certs<
                 ensure!(
                     timeout_cert
                         .is_valid_cert(
-                            task_state.timeout_membership.as_ref(),
+                            task_state.quorum_membership.as_ref(),
                             task_state.cur_epoch,
                             &task_state.upgrade_lock
                         )
@@ -659,109 +657,6 @@ pub async fn validate_proposal_view_and_certs<
         &task_state.upgrade_lock,
     )
     .await?;
-
-    Ok(())
-}
-
-/// Update the view if it actually changed, takes a mutable reference to the `cur_view` and the
-/// `timeout_task` which are updated during the operation of the function.
-///
-/// # Errors
-/// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
-pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    new_view: TYPES::View,
-    event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
-) -> Result<()> {
-    ensure!(
-        new_view > task_state.cur_view,
-        "New view is not greater than our current view"
-    );
-
-    let is_old_view_leader = task_state
-        .quorum_membership
-        .leader(task_state.cur_view, task_state.cur_epoch)
-        == task_state.public_key;
-    let old_view = task_state.cur_view;
-
-    debug!("Updating view from {} to {}", *old_view, *new_view);
-
-    if *old_view / 100 != *new_view / 100 {
-        info!("Progress: entered view {:>6}", *new_view);
-    }
-
-    task_state.cur_view = new_view;
-
-    // The next view is just the current view + 1
-    let next_view = task_state.cur_view + 1;
-
-    futures::join! {
-        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
-        broadcast_event(
-            Event {
-                view_number: old_view,
-                event: EventType::ViewFinished {
-                    view_number: old_view,
-                },
-            },
-            &task_state.output_event_stream,
-        )
-    };
-
-    // Spawn a timeout task if we did actually update view
-    let new_timeout_task = async_spawn({
-        let stream = event_stream.clone();
-        // Nuance: We timeout on the view + 1 here because that means that we have
-        // not seen evidence to transition to this new view
-        let view_number = next_view;
-        let timeout = Duration::from_millis(task_state.timeout);
-        async move {
-            async_sleep(timeout).await;
-            broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
-                &stream,
-            )
-            .await;
-        }
-    });
-
-    // cancel the old timeout task
-    cancel_task(std::mem::replace(
-        &mut task_state.timeout_task,
-        new_timeout_task,
-    ))
-    .await;
-
-    let consensus = task_state.consensus.upgradable_read().await;
-    consensus
-        .metrics
-        .current_view
-        .set(usize::try_from(task_state.cur_view.u64()).unwrap());
-    let new_view_time = Utc::now().timestamp();
-    if is_old_view_leader {
-        #[allow(clippy::cast_precision_loss)]
-        consensus
-            .metrics
-            .view_duration_as_leader
-            .add_point((new_view_time - task_state.cur_view_time) as f64);
-    }
-    task_state.cur_view_time = new_view_time;
-
-    // Do the comparison before the subtraction to avoid potential overflow, since
-    // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-    if usize::try_from(task_state.cur_view.u64()).unwrap()
-        > usize::try_from(consensus.last_decided_view().u64()).unwrap()
-    {
-        consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.u64()).unwrap()
-                - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
-        );
-    }
-    let mut consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).await;
-    if let Err(e) = consensus.update_view(new_view) {
-        tracing::trace!("{e:?}");
-    }
-    tracing::trace!("View updated successfully");
 
     Ok(())
 }
