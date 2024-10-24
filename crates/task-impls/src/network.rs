@@ -598,7 +598,7 @@ impl<
             }
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.cancel_tasks(TYPES::View::new(view.saturating_sub(2)));
+                // self.cancel_tasks(TYPES::View::new(view.saturating_sub(2)));
                 self.network
                     .update_view::<TYPES>(
                         self.view.u64(),
