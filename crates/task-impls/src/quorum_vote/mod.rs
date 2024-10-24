@@ -12,13 +12,13 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::{
-    dependency::{AndDependency, Dependency, EventDependency},
+    dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::TaskState,
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, VidDisperseShare, ViewNumber},
+    data::{Leaf, VidDisperseShare},
     event::Event,
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData, QuorumVote},
@@ -97,44 +97,66 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         &self,
         proposed_leaf: &Leaf<TYPES>,
         vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
+        parent_view_number: Option<TYPES::View>,
     ) -> Result<()> {
         let justify_qc = &proposed_leaf.justify_qc();
 
+        let consensus_reader = self.consensus.read().await;
+        // Try to find the validated vview within the validasted state map. This will be present
+        // if we have the saved leaf, but if not we'll get it when we fetch_proposal.
+        let mut maybe_validated_view = match parent_view_number {
+            Some(parent_view_number) => consensus_reader
+                .validated_state_map()
+                .get(&parent_view_number)
+                .cloned(),
+            None => None,
+        };
+
         // Justify qc's leaf commitment should be the same as the parent's leaf commitment.
-        let mut maybe_parent = self
-            .consensus
-            .read()
-            .await
+        let mut maybe_parent = consensus_reader
             .saved_leaves()
             .get(&justify_qc.data().leaf_commit)
             .cloned();
+
+        drop(consensus_reader);
+
         maybe_parent = match maybe_parent {
             Some(p) => Some(p),
-            None => fetch_proposal(
-                justify_qc.view_number(),
-                self.sender.clone(),
-                self.receiver.activate_cloned(),
-                Arc::clone(&self.quorum_membership),
-                OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
-                self.public_key.clone(),
-                self.private_key.clone(),
-                &self.upgrade_lock,
-            )
-            .await
-            .ok(),
+            None => {
+                match fetch_proposal(
+                    justify_qc.view_number(),
+                    self.sender.clone(),
+                    self.receiver.activate_cloned(),
+                    Arc::clone(&self.quorum_membership),
+                    OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                    self.public_key.clone(),
+                    self.private_key.clone(),
+                    &self.upgrade_lock,
+                )
+                .await
+                .ok()
+                {
+                    Some((leaf, view)) => {
+                        maybe_validated_view = Some(view);
+                        Some(leaf)
+                    }
+                    None => None,
+                }
+            }
         };
         let parent = maybe_parent.context(info!(
             "Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}",
             justify_qc.data().leaf_commit,
             proposed_leaf.view_number(),
         ))?;
-        let consensus_reader = self.consensus.read().await;
 
-        let (Some(parent_state), _) = consensus_reader.state_and_delta(parent.view_number()) else {
-            bail!("Parent state not found! Consensus internally inconsistent");
+        let Some(validated_view) = maybe_validated_view else {
+            bail!("Don't have a validated view for our view! Consensus internally inconsistent");
         };
 
-        drop(consensus_reader);
+        let (Some(parent_state), _) = validated_view.state_and_delta() else {
+            bail!("Parent state not found! Consensus internally inconsistent");
+        };
 
         let version = self.upgrade_lock.version(self.view_number).await?;
 
@@ -251,36 +273,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
 
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
-
-        // The validated state of a non-genesis high QC should exist in the state map.
-        if *high_qc_view_number != *ViewNumber::genesis()
-            && !self
-                .consensus
-                .read()
-                .await
-                .validated_state_map()
-                .contains_key(&high_qc_view_number)
-        {
-            // Block on receiving the event from the event stream.
-            EventDependency::new(
-                self.receiver.activate_cloned(),
-                Box::new(move |event| {
-                    let event = event.as_ref();
-                    if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
-                        *view_number == high_qc_view_number
-                    } else {
-                        false
-                    }
-                }),
-            )
-            .completed()
-            .await;
-        }
-
         let mut payload_commitment = None;
         let mut leaf = None;
         let mut vid_share = None;
+        let mut parent_view_number = None;
         for event in res {
             match event.as_ref() {
                 #[allow(unused_assignments)]
@@ -307,6 +303,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         return;
                     }
                     leaf = Some(proposed_leaf);
+                    parent_view_number = Some(parent_leaf.view_number());
                 }
                 HotShotEvent::DaCertificateValidated(cert) => {
                     let cert_payload_comm = &cert.data().payload_commit;
@@ -334,6 +331,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                 _ => {}
             }
         }
+
         broadcast_event(
             Arc::new(HotShotEvent::QuorumVoteDependenciesValidated(
                 self.view_number,
@@ -359,7 +357,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
         };
 
         // Update internal state
-        if let Err(e) = self.update_shared_state(&leaf, &vid_share).await {
+        if let Err(e) = self
+            .update_shared_state(&leaf, &vid_share, parent_view_number)
+            .await
+        {
             tracing::error!("Failed to update shared consensus state; error = {e:#}");
             return;
         }

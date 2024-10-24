@@ -10,12 +10,8 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::{InactiveReceiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-use hotshot_task::{
-    dependency::{Dependency, EventDependency},
-    dependency_task::HandleDepOutput,
-};
+use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
@@ -31,7 +27,7 @@ use vbs::version::StaticVersionType;
 
 use crate::{
     events::HotShotEvent,
-    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+    helpers::{broadcast_event, parent_leaf_and_state},
     quorum_proposal::{UpgradeLock, Versions},
 };
 
@@ -247,52 +243,6 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
 
     #[allow(clippy::no_effect_underscore_binding, clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
-        let event_receiver = self.receiver.activate_cloned();
-        if !self
-            .consensus
-            .read()
-            .await
-            .validated_state_map()
-            .contains_key(&high_qc_view_number)
-        {
-            // The proposal for the high qc view is missing, try to get it asynchronously
-            let membership = Arc::clone(&self.quorum_membership);
-            let event_sender = self.sender.clone();
-            let sender_public_key = self.public_key.clone();
-            let sender_private_key = self.private_key.clone();
-            let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
-            let upgrade_lock = self.upgrade_lock.clone();
-            let rx = event_receiver.clone();
-            async_spawn(async move {
-                fetch_proposal(
-                    high_qc_view_number,
-                    event_sender,
-                    rx,
-                    membership,
-                    consensus,
-                    sender_public_key,
-                    sender_private_key,
-                    &upgrade_lock,
-                )
-                .await
-            });
-            // Block on receiving the event from the event stream.
-            EventDependency::new(
-                event_receiver,
-                Box::new(move |event| {
-                    let event = event.as_ref();
-                    if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
-                        *view_number == high_qc_view_number
-                    } else {
-                        false
-                    }
-                }),
-            )
-            .completed()
-            .await;
-        }
-
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;

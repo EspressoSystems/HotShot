@@ -57,7 +57,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
-) -> Result<Leaf<TYPES>> {
+) -> Result<(Leaf<TYPES>, View<TYPES>)> {
     // We need to be able to sign this request before submitting it to the network. Compute the
     // payload first.
     let signed_proposal_request = ProposalRequestPayload {
@@ -162,11 +162,11 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
         .await;
 
     broadcast_event(
-        HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
+        HotShotEvent::ValidatedStateUpdated(view_number, view.clone()).into(),
         &event_sender,
     )
     .await;
-    Ok(leaf)
+    Ok((leaf, view))
 }
 
 /// Helper type to give names and to the output values of the leaf chain traversal operation.
