@@ -20,7 +20,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use tracing::instrument;
-use utils::anytrace::*;
 
 use super::QuorumVoteTaskState;
 use crate::{

@@ -250,14 +250,14 @@ pub async fn decide_from_high_qc<TYPES: NodeType>(
         .saved_leaves()
         .get(&high_qc.data().leaf_commit)
     else {
-        debug!("Leaf ascension failed; No leaf corresponding to high QC found");
+        tracing::warn!("Leaf ascension failed; No leaf corresponding to high QC found");
         return res;
     };
     let Some(parent_leaf) = consensus_reader
         .saved_leaves()
         .get(&high_qc_leaf.parent_commitment())
     else {
-        debug!("Leaf ascension failed; No leaf corresponding to high QC's parent found");
+        tracing::warn!("Leaf ascension failed; No leaf corresponding to high QC's parent found");
         return res;
     };
     let parent_view_number = parent_leaf.view_number();
