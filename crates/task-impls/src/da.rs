@@ -7,14 +7,13 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{Consensus, OuterConsensus, View},
+    consensus::{OuterConsensus, View},
     data::{DaProposal, PackedBundle},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
@@ -23,7 +22,6 @@ use hotshot_types::{
     traits::{
         block_contents::vid_commitment,
         election::Membership,
-        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
