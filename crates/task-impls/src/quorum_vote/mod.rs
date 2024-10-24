@@ -550,7 +550,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         let global_view = self.consensus.read().await.cur_view();
         if event.view_number().is_some_and(|view| view < global_view) {
             tracing::trace!("We are already beyond this view");
-            return;
+            return Ok(());
         }
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {

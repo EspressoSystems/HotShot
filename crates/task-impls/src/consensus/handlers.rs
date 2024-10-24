@@ -127,7 +127,7 @@ pub(crate) async fn handle_view_change<
     tracing::debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
 
     if *old_view_number / 100 != *new_view_number / 100 {
-        info!("Progress: entered view {:>6}", *new_view_number);
+        tracing::info!("Progress: entered view {:>6}", *new_view_number);
     }
     // Move this node to the next view
     task_state.cur_view = new_view_number;

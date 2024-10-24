@@ -371,7 +371,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event: Arc<HotShotEvent<TYPES>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-
     ) -> Result<()> {
         let global_view = self.consensus.read().await.cur_view();
         match event.as_ref() {
@@ -380,10 +379,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     "Upgrade certificate received for view {}!",
                     *cert.view_number
                 );
-                if cert.view_number < global_view {
-                    tracing::trace!("We are already beyond this view");
-                    return;
-                }
+                ensure!(
+                    cert.view_number >= global_view,
+                    trace!("We are already beyond this view")
+                );
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 if cert.data.decide_by >= self.latest_proposed_view + 3 {
                     tracing::debug!("Updating current formed_upgrade_certificate");
@@ -397,7 +396,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     let epoch_number = self.consensus.read().await.cur_epoch();
                     if view_number < global_view {
                         tracing::trace!("We are already beyond this view");
-                        return;
+                        return Ok(());
                     }
                     self.create_dependency_task_if_new(
                         view_number,
@@ -432,7 +431,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let view_number = *view_number;
                 if view_number < global_view {
                     tracing::trace!("We are already beyond this view");
-                    return;
+                    return Ok(());
                 }
                 let epoch_number = self.consensus.read().await.cur_epoch();
 
@@ -465,7 +464,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
                 if view_number < global_view {
                     tracing::trace!("We are already beyond this view");
-                    return;
+                    return Ok(());
                 }
 
                 self.create_dependency_task_if_new(
@@ -480,7 +479,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let view_number = proposal.data.view_number();
                 if view_number < global_view {
                     tracing::trace!("We are already beyond this view");
-                    return;
+                    return Ok(());
                 }
                 // All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 if !self.update_latest_proposed_view(view_number).await {
@@ -509,7 +508,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let epoch_number = self.consensus.read().await.cur_epoch();
                 if view_number < global_view {
                     tracing::trace!("We are already beyond this view");
-                    return;
+                    return Ok(());
                 }
                 self.create_dependency_task_if_new(
                     view_number,
@@ -548,7 +547,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::HighQcUpdated(qc) => {
                 if qc.view_number() < global_view {
                     tracing::trace!("We are already beyond this view");
-                    return;
+                    return Ok(());
                 }
                 let view_number = qc.view_number() + 1;
                 let epoch_number = self.consensus.read().await.cur_epoch();
