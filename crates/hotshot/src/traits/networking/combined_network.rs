@@ -493,7 +493,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
             let mut map_lock = delayed_tasks_channels.write().await;
             while let Some((first_view, _)) = map_lock.first_key_value() {
                 // Broadcast a cancelling signal to all the tasks related to each view older than the new one
-                if *first_view < view  {
+                if *first_view < view {
                     if let Some((_, (sender, _))) = map_lock.pop_first() {
                         let _ = sender.try_broadcast(());
                     } else {
