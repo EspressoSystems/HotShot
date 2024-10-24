@@ -193,31 +193,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
         }
         None => None,
     };
-
-    if justify_qc.view_number() > consensus_read.high_qc().view_number {
-        if let Err(e) = task_state
-            .storage
-            .write()
-            .await
-            .update_high_qc(justify_qc.clone())
-            .await
-        {
-            bail!("Failed to store High QC, not voting; error = {:?}", e);
-        }
-    }
     drop(consensus_read);
-
-    let mut consensus_write = task_state.consensus.write().await;
-    if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
-        tracing::trace!("{e:?}");
-    }
-    drop(consensus_write);
-
-    broadcast_event(
-        HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
-        event_sender,
-    )
-    .await;
 
     let Some((parent_leaf, _parent_state)) = parent else {
         tracing::warn!(

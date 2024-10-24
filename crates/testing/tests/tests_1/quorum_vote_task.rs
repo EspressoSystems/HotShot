@@ -85,6 +85,7 @@ async fn test_quorum_vote_task_success() {
         exact(VidShareValidated(vids[1].0[0].clone())),
         exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
         validated_state_updated(),
+        exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
         quorum_vote_send(),
     ])];
 
@@ -164,10 +165,12 @@ async fn test_quorum_vote_task_miss_dependency() {
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(all_predicates![exact(VidShareValidated(
-            vids[1].0[0].clone()
-        ))]),
         Expectations::from_outputs(all_predicates![
+            exact(VidShareValidated(vids[1].0[0].clone())),
+            exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
+        ]),
+        Expectations::from_outputs(all_predicates![
+            exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
             exact(LockedViewUpdated(ViewNumber::new(1))),
             exact(DaCertificateValidated(dacs[2].clone()))
         ]),
@@ -231,6 +234,7 @@ async fn test_quorum_vote_task_incorrect_dependency() {
     let expectations = vec![Expectations::from_outputs(all_predicates![
         exact(DaCertificateValidated(dacs[1].clone())),
         exact(VidShareValidated(vids[0].0[0].clone())),
+        exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
     ])];
 
     let quorum_vote_state =
