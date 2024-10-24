@@ -136,6 +136,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 if self.consensus.read().await.cur_view() > proposal.data.view_number()
                     || self.cur_view > proposal.data.view_number()
                 {
+                    tracing::error!("Throwing away old proposal");
                     return;
                 }
                 let validation_info = ValidationInfo::<TYPES, I, V> {

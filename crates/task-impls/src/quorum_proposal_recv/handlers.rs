@@ -141,7 +141,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
         consensus.metrics.invalid_qc.update(1);
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
-
+    broadcast_event(
+        Arc::new(HotShotEvent::ViewChange(view_number + 1)),
+        event_sender,
+    )
+    .await;
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalPreliminarilyValidated(
             proposal.clone(),
@@ -221,11 +225,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             justify_qc.data.leaf_commit
         );
         validate_proposal_liveness(proposal, event_sender, &task_state).await?;
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(view_number + 1)),
-            event_sender,
-        )
-        .await;
+
         return Ok(());
     };
 
@@ -238,11 +238,6 @@ pub(crate) async fn handle_quorum_proposal_recv<
         quorum_proposal_sender_key,
     )
     .await?;
-    broadcast_event(
-        Arc::new(HotShotEvent::ViewChange(view_number + 1)),
-        event_sender,
-    )
-    .await;
 
     Ok(())
 }
