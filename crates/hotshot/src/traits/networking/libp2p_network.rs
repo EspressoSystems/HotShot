@@ -885,7 +885,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     async fn da_broadcast_message(
         &self,
         message: Vec<u8>,
-        recipients: BTreeSet<K>,
+        recipients: Vec<K>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
         // If we're not ready, return an error
@@ -1019,12 +1019,21 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for Libp2pNetwork<K> {
     /// So the logic with libp2p is to prefetch upcomming leaders libp2p address to
     /// save time when we later need to direct message the leader our vote. Hence the
     /// use of the future view and leader to queue the lookups.
-    async fn update_view<'a, TYPES>(&'a self, view: u64, membership: &TYPES::Membership)
+    async fn update_view<'a, TYPES>(&'a self, view: u64, epoch: u64, membership: &TYPES::Membership)
     where
         TYPES: NodeType<SignatureKey = K> + 'a,
     {
-        let future_view = <TYPES as NodeType>::Time::new(view) + LOOK_AHEAD;
-        let future_leader = membership.leader(future_view);
+        let future_view = <TYPES as NodeType>::View::new(view) + LOOK_AHEAD;
+        let epoch = <TYPES as NodeType>::Epoch::new(epoch);
+        let future_leader = match membership.leader(future_view, epoch) {
+            Ok(l) => l,
+            Err(e) => {
+                return tracing::info!(
+                    "Failed to calculate leader for view {:?}: {e}",
+                    future_view
+                );
+            }
+        };
 
         let _ = self
             .queue_node_lookup(ViewNumber::new(*future_view), future_leader)

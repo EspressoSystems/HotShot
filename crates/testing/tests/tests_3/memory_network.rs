@@ -24,7 +24,7 @@ use hotshot_example_types::{
     storage_types::TestStorage,
 };
 use hotshot_types::{
-    data::ViewNumber,
+    data::{EpochNumber, ViewNumber},
     message::{DataMessage, Message, MessageKind, UpgradeLock},
     signature_key::{BLSPubKey, BuilderKey},
     traits::{
@@ -53,7 +53,8 @@ pub struct Test;
 
 impl NodeType for Test {
     type AuctionResult = TestAuctionResult;
-    type Time = ViewNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;

@@ -22,7 +22,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{null_block, PackedBundle, ViewNumber},
+    data::{null_block, EpochNumber, PackedBundle, ViewNumber},
     simple_vote::DaData,
     traits::{
         block_contents::precompute_vid_commitment,
@@ -50,7 +50,11 @@ async fn test_da_task() {
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
-        handle.hotshot.memberships.quorum_membership.total_nodes(),
+        handle
+            .hotshot
+            .memberships
+            .quorum_membership
+            .total_nodes(EpochNumber::new(0)),
     );
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
@@ -96,7 +100,7 @@ async fn test_da_task() {
                 },
                 ViewNumber::new(2),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(),
+                    quorum_membership.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],
@@ -147,7 +151,11 @@ async fn test_da_task_storage_failure() {
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
-        handle.hotshot.memberships.quorum_membership.total_nodes(),
+        handle
+            .hotshot
+            .memberships
+            .quorum_membership
+            .total_nodes(EpochNumber::new(0)),
     );
 
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
@@ -193,7 +201,7 @@ async fn test_da_task_storage_failure() {
                 },
                 ViewNumber::new(2),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(),
+                    quorum_membership.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION
                 )
                 .unwrap()],

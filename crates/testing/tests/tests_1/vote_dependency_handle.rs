@@ -13,7 +13,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::ViewNumber,
+    data::{EpochNumber, ViewNumber},
     traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
     vote::HasViewNumber,
 };
@@ -96,8 +96,9 @@ async fn test_vote_dependency_handle() {
                 quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
                 storage: Arc::clone(&handle.storage()),
                 view_number,
+                epoch_number: EpochNumber::new(1),
                 sender: event_sender.clone(),
-                receiver: event_receiver.clone(),
+                receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: handle.hotshot.upgrade_lock.clone(),
                 id: handle.hotshot.id,
             };

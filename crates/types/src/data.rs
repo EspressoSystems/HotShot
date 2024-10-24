@@ -17,8 +17,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{ensure, Result};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
@@ -32,6 +30,7 @@ use thiserror::Error;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::error;
+use utils::anytrace::*;
 use vec1::Vec1;
 
 use crate::{
@@ -56,43 +55,65 @@ use crate::{
     vote::{Certificate, HasViewNumber},
 };
 
+/// Implements `ConsensusTime`, `Display`, `Add`, `AddAssign`, `Deref` and `Sub`
+/// for the given thing wrapper type around u64.
+macro_rules! impl_u64_wrapper {
+    ($t:ty) => {
+        impl ConsensusTime for $t {
+            /// Create a genesis number (0)
+            fn genesis() -> Self {
+                Self(0)
+            }
+            /// Create a new number with the given value.
+            fn new(n: u64) -> Self {
+                Self(n)
+            }
+            /// Return the u64 format
+            fn u64(&self) -> u64 {
+                self.0
+            }
+        }
+
+        impl Display for $t {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl std::ops::Add<u64> for $t {
+            type Output = $t;
+
+            fn add(self, rhs: u64) -> Self::Output {
+                Self(self.0 + rhs)
+            }
+        }
+
+        impl std::ops::AddAssign<u64> for $t {
+            fn add_assign(&mut self, rhs: u64) {
+                self.0 += rhs;
+            }
+        }
+
+        impl std::ops::Deref for $t {
+            type Target = u64;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl std::ops::Sub<u64> for $t {
+            type Output = $t;
+            fn sub(self, rhs: u64) -> Self::Output {
+                Self(self.0 - rhs)
+            }
+        }
+    };
+}
+
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ViewNumber(u64);
-
-impl ConsensusTime for ViewNumber {
-    /// Create a genesis view number (0)
-    fn genesis() -> Self {
-        Self(0)
-    }
-    /// Create a new `ViewNumber` with the given value.
-    fn new(n: u64) -> Self {
-        Self(n)
-    }
-    /// Returen the u64 format
-    fn u64(&self) -> u64 {
-        self.0
-    }
-}
-
-impl Display for ViewNumber {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 impl Committable for ViewNumber {
     fn commit(&self) -> Commitment<Self> {
@@ -101,34 +122,20 @@ impl Committable for ViewNumber {
     }
 }
 
-impl std::ops::Add<u64> for ViewNumber {
-    type Output = ViewNumber;
+impl_u64_wrapper!(ViewNumber);
 
-    fn add(self, rhs: u64) -> Self::Output {
-        Self(self.0 + rhs)
+/// Type-safe wrapper around `u64` so we know the thing we're talking about is a epoch number.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct EpochNumber(u64);
+
+impl Committable for EpochNumber {
+    fn commit(&self) -> Commitment<Self> {
+        let builder = RawCommitmentBuilder::new("Epoch Number Commitment");
+        builder.u64(self.0).finalize()
     }
 }
 
-impl std::ops::AddAssign<u64> for ViewNumber {
-    fn add_assign(&mut self, rhs: u64) {
-        self.0 += rhs;
-    }
-}
-
-impl std::ops::Deref for ViewNumber {
-    type Target = u64;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::Sub<u64> for ViewNumber {
-    type Output = ViewNumber;
-    fn sub(self, rhs: u64) -> Self::Output {
-        Self(self.0 - rhs)
-    }
-}
+impl_u64_wrapper!(EpochNumber);
 
 /// A proposal to start providing data availability for a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
@@ -139,7 +146,7 @@ pub struct DaProposal<TYPES: NodeType> {
     /// Metadata of the block to be applied.
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::View,
 }
 
 /// A proposal to upgrade the network
@@ -152,7 +159,7 @@ where
     /// The information about which version we are upgrading to.
     pub upgrade_proposal: UpgradeProposalData<TYPES>,
     /// View this proposal applies to
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::View,
 }
 
 /// VID dispersal data
@@ -163,7 +170,7 @@ where
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::View,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
@@ -173,16 +180,17 @@ pub struct VidDisperse<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> VidDisperse<TYPES> {
-    /// Create VID dispersal from a specified membership
+    /// Create VID dispersal from a specified membership for a given epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
     pub fn from_membership(
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
         membership: &TYPES::Membership,
+        epoch: TYPES::Epoch,
     ) -> Self {
         let shares = membership
-            .committee_members(view_number)
+            .committee_members(view_number, epoch)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(0)))
             .collect();
@@ -195,7 +203,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         }
     }
 
-    /// Calculate the vid disperse information from the payload given a view and membership,
+    /// Calculate the vid disperse information from the payload given a view, epoch and membership,
     /// optionally using precompute data from builder
     ///
     /// # Panics
@@ -204,10 +212,11 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     pub async fn calculate_vid_disperse(
         txns: Arc<[u8]>,
         membership: &Arc<TYPES::Membership>,
-        view: TYPES::Time,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
         precompute_data: Option<VidPrecomputeData>,
     ) -> Self {
-        let num_nodes = membership.total_nodes();
+        let num_nodes = membership.total_nodes(epoch);
 
         let vid_disperse = spawn_blocking(move || {
             precompute_data
@@ -222,7 +231,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         let vid_disperse = vid_disperse.unwrap();
 
-        Self::from_membership(view, vid_disperse, membership.as_ref())
+        Self::from_membership(view, vid_disperse, membership.as_ref(), epoch)
     }
 }
 
@@ -239,9 +248,9 @@ pub enum ViewChangeEvidence<TYPES: NodeType> {
 
 impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
     /// Check that the given ViewChangeEvidence is relevant to the current view.
-    pub fn is_valid_for_view(&self, view: &TYPES::Time) -> bool {
+    pub fn is_valid_for_view(&self, view: &TYPES::View) -> bool {
         match self {
-            ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.date().view == *view - 1,
+            ViewChangeEvidence::Timeout(timeout_cert) => timeout_cert.data().view == *view - 1,
             ViewChangeEvidence::ViewSync(view_sync_cert) => view_sync_cert.view_number == *view,
         }
     }
@@ -251,7 +260,7 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
 /// VID share and associated metadata for a single node
 pub struct VidDisperseShare<TYPES: NodeType> {
     /// The view number for which this VID data is intended
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::View,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
@@ -353,7 +362,7 @@ pub struct QuorumProposal<TYPES: NodeType> {
     pub block_header: TYPES::BlockHeader,
 
     /// CurView from leader when proposing leaf
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::View,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
@@ -376,7 +385,7 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     pub block_header: TYPES::BlockHeader,
 
     /// CurView from leader when proposing leaf
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::View,
 
     /// Per spec, justification
     pub justify_qc: LeafCertificate<TYPES>,
@@ -419,37 +428,37 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DaProposal<TYPES> {
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for VidDisperse<TYPES> {
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for VidDisperseShare<TYPES> {
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposal<TYPES> {
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposal2<TYPES> {
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         self.view_number
     }
 }
@@ -486,7 +495,7 @@ pub trait TestableLeaf {
 #[serde(bound(deserialize = ""))]
 pub struct Leaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
 
     /// Per spec, justification
     justify_qc: QuorumCertificate<TYPES>,
@@ -514,7 +523,7 @@ pub struct Leaf<TYPES: NodeType> {
 #[serde(bound(deserialize = ""))]
 pub struct Leaf2<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
 
     /// Per spec, justification
     justify_qc: LeafCertificate<TYPES>,
@@ -619,7 +628,7 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         // since this is genesis, we should never have a decided upgrade certificate.
         let upgrade_lock = UpgradeLock::<TYPES, V>::new();
 
-        let genesis_view = <TYPES::Time as ConsensusTime>::genesis();
+        let genesis_view = <TYPES::View as ConsensusTime>::genesis();
 
         let data = QuorumData {
             leaf_commit: Leaf::genesis(validated_state, instance_state)
@@ -679,13 +688,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let justify_qc = QuorumCertificate::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            <TYPES::Time as ConsensusTime>::genesis(),
+            <TYPES::View as ConsensusTime>::genesis(),
             None,
             PhantomData,
         );
 
         Self {
-            view_number: TYPES::Time::genesis(),
+            view_number: TYPES::View::genesis(),
             justify_qc,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
@@ -695,7 +704,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     }
 
     /// Time when this leaf was created.
-    pub fn view_number(&self) -> TYPES::Time {
+    pub fn view_number(&self) -> TYPES::View {
         self.view_number
     }
     /// Height of this leaf in the chain.
@@ -735,7 +744,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
-    ) -> Result<(), BlockError> {
+    ) -> std::result::Result<(), BlockError> {
         let encoded_txns = block_payload.encode();
         let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
         if commitment != self.block_header.payload_commitment() {
@@ -885,7 +894,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         Leaf {
             view_number: *view_number,
             justify_qc: justify_qc.clone(),
-            parent_commitment: justify_qc.date().leaf_commit,
+            parent_commitment: justify_qc.data().leaf_commit,
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: None,
@@ -982,7 +991,7 @@ pub struct PackedBundle<TYPES: NodeType> {
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
 
     /// The view number that this block is associated with.
-    pub view_number: TYPES::Time,
+    pub view_number: TYPES::View,
 
     /// The sequencing fee for submitting bundles.
     pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
@@ -999,7 +1008,7 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
     pub fn new(
         encoded_transactions: Arc<[u8]>,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
-        view_number: TYPES::Time,
+        view_number: TYPES::View,
         sequencing_fees: Vec1<BuilderFee<TYPES>>,
         vid_precompute: Option<VidPrecomputeData>,
         auction_result: Option<TYPES::AuctionResult>,

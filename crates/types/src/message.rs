@@ -9,13 +9,17 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use std::{fmt, fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{
+    fmt::{self, Debug},
+    marker::PhantomData,
+    sync::Arc,
+};
 
-use anyhow::{bail, ensure, Context, Result};
 use async_lock::RwLock;
 use cdn_proto::util::mnemonic;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use utils::anytrace::*;
 use vbs::{
     version::{StaticVersionType, Version},
     BinarySerializer, Serializer,
@@ -63,7 +67,7 @@ impl<TYPES: NodeType> fmt::Debug for Message<TYPES> {
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for Message<TYPES> {
     /// get the view number out of a message
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         self.kind.view_number()
     }
 }
@@ -117,6 +121,16 @@ pub enum MessageKind<TYPES: NodeType> {
     External(Vec<u8>),
 }
 
+/// List of keys to send a message to, or broadcast to all known keys
+pub enum RecipientList<K: SignatureKey> {
+    /// Broadcast to all
+    Broadcast,
+    /// Send a message directly to a key
+    Direct(K),
+    /// Send a message directly to many keys
+    Many(Vec<K>),
+}
+
 impl<TYPES: NodeType> MessageKind<TYPES> {
     // Can't implement `From<I::ConsensusMessage>` directly due to potential conflict with
     // `From<DataMessage>`.
@@ -133,16 +147,16 @@ impl<TYPES: NodeType> From<DataMessage<TYPES>> for MessageKind<TYPES> {
 }
 
 impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         match &self {
             MessageKind::Consensus(message) => message.view_number(),
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
             MessageKind::Data(DataMessage::RequestData(msg)) => msg.view,
             MessageKind::Data(DataMessage::DataResponse(msg)) => match msg {
                 ResponseMessage::Found(m) => m.view_number(),
-                ResponseMessage::NotFound | ResponseMessage::Denied => TYPES::Time::new(1),
+                ResponseMessage::NotFound | ResponseMessage::Denied => TYPES::View::new(1),
             },
-            MessageKind::External(_) => TYPES::Time::new(1),
+            MessageKind::External(_) => TYPES::View::new(1),
         }
     }
 
@@ -234,7 +248,7 @@ pub enum SequencingMessage<TYPES: NodeType> {
 
 impl<TYPES: NodeType> SequencingMessage<TYPES> {
     /// Get the view number this message relates to
-    fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::View {
         match &self {
             SequencingMessage::General(general_message) => {
                 match general_message {
@@ -328,7 +342,7 @@ pub enum DataMessage<TYPES: NodeType> {
     /// Contains a transaction to be submitted
     /// TODO rethink this when we start to send these messages
     /// we only need the view number for broadcast
-    SubmitTransaction(TYPES::Transaction, TYPES::Time),
+    SubmitTransaction(TYPES::Transaction, TYPES::View),
     /// A request for data
     RequestData(DataRequest<TYPES>),
     /// A response to a data request
@@ -375,10 +389,11 @@ where
     pub async fn validate_signature<V: Versions>(
         &self,
         quorum_membership: &TYPES::Membership,
+        epoch: TYPES::Epoch,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = quorum_membership.leader(view_number);
+        let view_leader_key = quorum_membership.leader(view_number, epoch)?;
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
         ensure!(
@@ -426,7 +441,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
     ///
     /// # Errors
     /// Returns an error if we do not support the version required by the decided upgrade certificate.
-    pub async fn version(&self, view: TYPES::Time) -> Result<Version> {
+    pub async fn version(&self, view: TYPES::View) -> Result<Version> {
         let upgrade_certificate = self.decided_upgrade_certificate.read().await;
 
         let version = match *upgrade_certificate {
@@ -450,7 +465,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
     /// Calculate the version applied in a view, based on the provided upgrade lock.
     ///
     /// This function does not fail, since it does not check that the version is supported.
-    pub async fn version_infallible(&self, view: TYPES::Time) -> Version {
+    pub async fn version_infallible(&self, view: TYPES::View) -> Version {
         let upgrade_certificate = self.decided_upgrade_certificate.read().await;
 
         match *upgrade_certificate {
@@ -487,7 +502,9 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
             }
         };
 
-        serialized_message.context("Failed to serialize message!")
+        serialized_message
+            .wrap()
+            .context(info!("Failed to serialize message!"))
     }
 
     /// Deserialize a message with a version number, using `message.view_number()` to determine the message's version. This function will fail on improperly versioned messages.
@@ -500,7 +517,8 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
         message: &[u8],
     ) -> Result<M> {
         let actual_version = Version::deserialize(message)
-            .context("Failed to read message version!")?
+            .wrap()
+            .context(info!("Failed to read message version!"))?
             .0;
 
         let deserialized_message: M = match actual_version {
@@ -510,7 +528,8 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
                 bail!("Cannot deserialize message with stated version {}", v);
             }
         }
-        .context("Failed to deserialize message!")?;
+        .wrap()
+        .context(info!("Failed to deserialize message!"))?;
 
         let view = deserialized_message.view_number();
 

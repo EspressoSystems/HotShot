@@ -8,7 +8,7 @@ use hotshot_task_impls::{
 };
 use hotshot_testing::helpers::build_system_handle;
 use hotshot_types::{
-    data::{null_block, PackedBundle, ViewNumber},
+    data::{null_block, EpochNumber, PackedBundle, ViewNumber},
     traits::{
         block_contents::precompute_vid_commitment,
         election::Membership,
@@ -39,7 +39,8 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     input.push(HotShotEvent::Shutdown);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let (_, precompute_data) = precompute_vid_commitment(&[], quorum_membership.total_nodes());
+    let (_, precompute_data) =
+        precompute_vid_commitment(&[], quorum_membership.total_nodes(EpochNumber::new(0)));
 
     // current view
     let mut exp_packed_bundle = PackedBundle::new(
@@ -50,7 +51,7 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
         current_view,
         vec1::vec1![
             null_block::builder_fee::<TestConsecutiveLeaderTypes, TestVersions>(
-                quorum_membership.total_nodes(),
+                quorum_membership.total_nodes(EpochNumber::new(0)),
                 <TestVersions as Versions>::Base::VERSION
             )
             .unwrap()

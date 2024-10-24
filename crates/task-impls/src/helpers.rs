@@ -10,7 +10,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::{Receiver, SendError, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
@@ -39,15 +38,19 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, info, instrument, warn};
+use tracing::instrument;
+use utils::anytrace::*;
 
-use crate::{events::HotShotEvent, request::REQUEST_TIMEOUT};
+use crate::{
+    events::HotShotEvent, quorum_proposal_recv::QuorumProposalRecvTaskState,
+    request::REQUEST_TIMEOUT,
+};
 
 /// Trigger a request to the network for a proposal for a view and wait for the response or timeout.
 #[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
     event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -67,7 +70,9 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     let signature = TYPES::SignatureKey::sign(
         &sender_private_key,
         signed_proposal_request.commit().as_ref(),
-    )?;
+    )
+    .wrap()
+    .context(error!("Failed to sign proposal. This should never happen."))?;
 
     // First, broadcast that we need a proposal to the current leader
     broadcast_event(
@@ -77,6 +82,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     .await;
 
     let mem = Arc::clone(&quorum_membership);
+    let current_epoch = consensus.read().await.cur_epoch();
     // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
@@ -108,7 +114,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                         hs_event.as_ref()
                     {
                         // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, upgrade_lock).await.is_ok() {
+                        if quorum_proposal.validate_signature(&mem, current_epoch, upgrade_lock).await.is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -127,7 +133,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     let justify_qc = proposal.data.justify_qc.clone();
 
     if !justify_qc
-        .is_valid_cert(quorum_membership.as_ref(), upgrade_lock)
+        .is_valid_cert(quorum_membership.as_ref(), current_epoch, upgrade_lock)
         .await
     {
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
@@ -164,10 +170,10 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
 #[derive(Debug)]
 pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     /// The new locked view obtained from a 2 chain starting from the proposal's parent.
-    pub new_locked_view_number: Option<TYPES::Time>,
+    pub new_locked_view_number: Option<TYPES::View>,
 
     /// The new decided view obtained from a 3 chain starting from the proposal's parent.
-    pub new_decided_view_number: Option<TYPES::Time>,
+    pub new_decided_view_number: Option<TYPES::View>,
 
     /// The qc for the decided chain.
     pub new_decide_qc: Option<QuorumCertificate<TYPES>>,
@@ -294,9 +300,11 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                 if let Some(cert) = leaf.upgrade_certificate() {
                     if leaf.upgrade_certificate() != *existing_upgrade_cert_reader {
                         if cert.data.decide_by < view_number {
-                            warn!("Failed to decide an upgrade certificate in time. Ignoring.");
+                            tracing::warn!(
+                                "Failed to decide an upgrade certificate in time. Ignoring."
+                            );
                         } else {
-                            info!("Reached decide on upgrade certificate: {:?}", cert);
+                            tracing::info!("Reached decide on upgrade certificate: {:?}", cert);
                             res.decided_upgrade_cert = Some(cert.clone());
                         }
                     }
@@ -342,17 +350,17 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
             true
         },
     ) {
-        debug!("Leaf ascension failed; error={e}");
+        tracing::debug!("Leaf ascension failed; error={e}");
     }
 
     res
 }
 
-/// Gets the parent leaf and state from the parent of a proposal, returning an [`anyhow::Error`] if not.
+/// Gets the parent leaf and state from the parent of a proposal, returning an [`utils::anytrace::Error`] if not.
 #[instrument(skip_all)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
-    next_proposal_view_number: TYPES::Time,
+    next_proposal_view_number: TYPES::View,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
@@ -361,9 +369,13 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     consensus: OuterConsensus<TYPES>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
+    let current_epoch = consensus.read().await.cur_epoch();
     ensure!(
-        quorum_membership.leader(next_proposal_view_number) == public_key,
-        "Somehow we formed a QC but are not the leader for the next view {next_proposal_view_number:?}",
+        quorum_membership.leader(next_proposal_view_number, current_epoch)? == public_key,
+        info!(
+            "Somehow we formed a QC but are not the leader for the next view {:?}",
+            next_proposal_view_number
+        )
     );
     let parent_view_number = consensus.read().await.high_qc().view_number();
     if !consensus
@@ -383,51 +395,33 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
             upgrade_lock,
         )
         .await
-        .context("Failed to fetch proposal")?;
+        .context(info!("Failed to fetch proposal"))?;
     }
     let consensus_reader = consensus.read().await;
     let parent_view_number = consensus_reader.high_qc().view_number();
     let parent_view = consensus_reader.validated_state_map().get(&parent_view_number).context(
-        format!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
+        debug!("Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}", *parent_view_number)
     )?;
 
-    // Leaf hash in view inner does not match high qc hash - Why?
     let (leaf_commitment, state) = parent_view.leaf_and_state().context(
-        format!("Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}")
+        info!("Parent of high QC points to a view without a proposal; parent_view_number: {parent_view_number:?}, parent_view {parent_view:?}")
     )?;
 
-    if leaf_commitment != consensus_reader.high_qc().date().leaf_commit {
+    if leaf_commitment != consensus_reader.high_qc().data().leaf_commit {
         // NOTE: This happens on the genesis block
-        debug!(
+        tracing::debug!(
             "They don't equal: {:?}   {:?}",
             leaf_commitment,
-            consensus_reader.high_qc().date().leaf_commit
+            consensus_reader.high_qc().data().leaf_commit
         );
     }
 
     let leaf = consensus_reader
         .saved_leaves()
         .get(&leaf_commitment)
-        .context("Failed to find high QC of parent")?;
+        .context(info!("Failed to find high QC of parent"))?;
 
-    let reached_decided = leaf.view_number() == consensus_reader.last_decided_view();
-    let parent_leaf = leaf.clone();
-    let original_parent_hash = parent_leaf.commit(upgrade_lock).await;
-    let mut next_parent_hash = original_parent_hash;
-
-    // Walk back until we find a decide
-    if !reached_decided {
-        debug!("We have not reached decide");
-        while let Some(next_parent_leaf) = consensus_reader.saved_leaves().get(&next_parent_hash) {
-            if next_parent_leaf.view_number() <= consensus_reader.last_decided_view() {
-                break;
-            }
-            next_parent_hash = next_parent_leaf.parent_commitment();
-        }
-        // TODO do some sort of sanity check on the view number that it matches decided
-    }
-
-    Ok((parent_leaf, Arc::clone(state)))
+    Ok((leaf.clone(), Arc::clone(state)))
 }
 
 /// Validate the state and safety and liveness of a proposal then emit
@@ -436,11 +430,8 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
 ///
 /// # Errors
 /// If any validation or state update fails.
-/// TODO - This should just take the QuorumProposalRecv task state after
-/// we merge the dependency tasks.
-#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)]
-#[instrument(skip_all, fields(id = id, view = *proposal.data.view_number()))]
+#[instrument(skip_all, fields(id = task_state.id, view = *proposal.data.view_number()))]
 pub async fn validate_proposal_safety_and_liveness<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -448,21 +439,15 @@ pub async fn validate_proposal_safety_and_liveness<
 >(
     proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
     parent_leaf: Leaf<TYPES>,
-    consensus: OuterConsensus<TYPES>,
-    decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
-    quorum_membership: Arc<TYPES::Membership>,
+    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
-    event_sender: Sender<Event<TYPES>>,
-    id: u64,
-    upgrade_lock: UpgradeLock<TYPES, V>,
-    storage: Arc<RwLock<I::Storage>>,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();
 
     let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
     ensure!(
-        proposed_leaf.parent_commitment() == parent_leaf.commit(&upgrade_lock).await,
+        proposed_leaf.parent_commitment() == parent_leaf.commit(&task_state.upgrade_lock).await,
         "Proposed leaf does not extend the parent leaf."
     );
 
@@ -471,19 +456,19 @@ pub async fn validate_proposal_safety_and_liveness<
     );
     let view = View {
         view_inner: ViewInner::Leaf {
-            leaf: proposed_leaf.commit(&upgrade_lock).await,
+            leaf: proposed_leaf.commit(&task_state.upgrade_lock).await,
             state,
             delta: None, // May be updated to `Some` in the vote task.
         },
     };
 
     {
-        let mut consensus_write = consensus.write().await;
+        let mut consensus_write = task_state.consensus.write().await;
         if let Err(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
             tracing::trace!("{e:?}");
         }
         consensus_write
-            .update_saved_leaves(proposed_leaf.clone(), &upgrade_lock)
+            .update_saved_leaves(proposed_leaf.clone(), &task_state.upgrade_lock)
             .await;
 
         // Update our internal storage of the proposal. The proposal is valid, so
@@ -491,25 +476,30 @@ pub async fn validate_proposal_safety_and_liveness<
         if let Err(e) = consensus_write.update_proposed_view(proposal.clone()) {
             tracing::debug!("Internal proposal update failed; error = {e:#}");
         };
-
-        // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
-        broadcast_event(
-            Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
-            &event_stream,
-        )
-        .await;
     }
 
+    // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
+    broadcast_event(
+        Arc::new(HotShotEvent::ValidatedStateUpdated(view_number, view)),
+        &event_stream,
+    )
+    .await;
+
+    let current_epoch = task_state.cur_epoch;
     UpgradeCertificate::validate(
         &proposal.data.upgrade_certificate,
-        &quorum_membership,
-        &upgrade_lock,
+        &task_state.quorum_membership,
+        current_epoch,
+        &task_state.upgrade_lock,
     )
     .await?;
 
     // Validate that the upgrade certificate is re-attached, if we saw one on the parent
     proposed_leaf
-        .extends_upgrade(&parent_leaf, &decided_upgrade_certificate)
+        .extends_upgrade(
+            &parent_leaf,
+            &task_state.upgrade_lock.decided_upgrade_certificate,
+        )
         .await?;
 
     let justify_qc = proposal.data.justify_qc.clone();
@@ -518,7 +508,7 @@ pub async fn validate_proposal_safety_and_liveness<
 
     // Liveness check.
     {
-        let read_consensus = consensus.read().await;
+        let read_consensus = task_state.consensus.read().await;
         let liveness_check = justify_qc.view_number() > read_consensus.locked_view();
 
         // Safety check.
@@ -542,18 +532,25 @@ pub async fn validate_proposal_safety_and_liveness<
                         view_number,
                         event: EventType::Error { error: Arc::new(e) },
                     },
-                    &event_sender,
+                    &task_state.output_event_stream,
                 )
                 .await;
             }
 
-            format!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
+            error!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
         });
     }
 
     // Update our persistent storage of the proposal. If we cannot store the proposal reutrn
     // and error so we don't vote
-    storage.write().await.append_proposal(&proposal).await?;
+    task_state
+        .storage
+        .write()
+        .await
+        .append_proposal(&proposal)
+        .await
+        .wrap()
+        .context(error!("Failed to append proposal in storage!"))?;
 
     // We accept the proposal, notify the application layer
     broadcast_event(
@@ -564,7 +561,7 @@ pub async fn validate_proposal_safety_and_liveness<
                 sender,
             },
         },
-        &event_sender,
+        &task_state.output_event_stream,
     )
     .await;
 
@@ -587,29 +584,34 @@ pub async fn validate_proposal_safety_and_liveness<
 ///
 /// # Errors
 /// If any validation or view number check fails.
-pub async fn validate_proposal_view_and_certs<TYPES: NodeType, V: Versions>(
+pub async fn validate_proposal_view_and_certs<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    cur_view: TYPES::Time,
-    quorum_membership: &Arc<TYPES::Membership>,
-    timeout_membership: &Arc<TYPES::Membership>,
-    upgrade_lock: &UpgradeLock<TYPES, V>,
+    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let view = proposal.data.view_number();
     ensure!(
-        view >= cur_view,
+        view >= task_state.cur_view,
         "Proposal is from an older view {:?}",
         proposal.data.clone()
     );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     proposal
-        .validate_signature(quorum_membership, upgrade_lock)
+        .validate_signature(
+            &task_state.quorum_membership,
+            task_state.cur_epoch,
+            &task_state.upgrade_lock,
+        )
         .await?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view - 1 {
         let received_proposal_cert =
-            proposal.data.proposal_certificate.clone().context(format!(
+            proposal.data.proposal_certificate.clone().context(debug!(
                 "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
                 *view
         ))?;
@@ -617,13 +619,17 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType, V: Versions>(
         match received_proposal_cert {
             ViewChangeEvidence::Timeout(timeout_cert) => {
                 ensure!(
-                    timeout_cert.date().view == view - 1,
+                    timeout_cert.data().view == view - 1,
                     "Timeout certificate for view {} was not for the immediately preceding view",
                     *view
                 );
                 ensure!(
                     timeout_cert
-                        .is_valid_cert(timeout_membership.as_ref(), upgrade_lock)
+                        .is_valid_cert(
+                            task_state.timeout_membership.as_ref(),
+                            task_state.cur_epoch,
+                            &task_state.upgrade_lock
+                        )
                         .await,
                     "Timeout certificate for view {} was invalid",
                     *view
@@ -640,7 +646,11 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType, V: Versions>(
                 // View sync certs must also be valid.
                 ensure!(
                     view_sync_cert
-                        .is_valid_cert(quorum_membership.as_ref(), upgrade_lock)
+                        .is_valid_cert(
+                            task_state.quorum_membership.as_ref(),
+                            task_state.cur_epoch,
+                            &task_state.upgrade_lock
+                        )
                         .await,
                     "Invalid view sync finalize cert provided"
                 );
@@ -652,8 +662,9 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType, V: Versions>(
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
     UpgradeCertificate::validate(
         &proposal.data.upgrade_certificate,
-        quorum_membership,
-        upgrade_lock,
+        &task_state.quorum_membership,
+        task_state.cur_epoch,
+        &task_state.upgrade_lock,
     )
     .await?;
 
@@ -664,37 +675,33 @@ pub async fn validate_proposal_view_and_certs<TYPES: NodeType, V: Versions>(
 /// `timeout_task` which are updated during the operation of the function.
 ///
 /// # Errors
-/// Returns an [`anyhow::Error`] when the new view is not greater than the current view.
-/// TODO: Remove args when we merge dependency tasks.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn update_view<TYPES: NodeType>(
-    new_view: TYPES::Time,
+/// Returns an [`utils::anytrace::Error`] when the new view is not greater than the current view.
+pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    new_view: TYPES::View,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
-    timeout: u64,
-    consensus: OuterConsensus<TYPES>,
-    cur_view: &mut TYPES::Time,
-    cur_view_time: &mut i64,
-    timeout_task: &mut JoinHandle<()>,
-    output_event_stream: &Sender<Event<TYPES>>,
-    is_old_view_leader: bool,
+    task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
     ensure!(
-        new_view > *cur_view,
+        new_view > task_state.cur_view,
         "New view is not greater than our current view"
     );
 
-    let old_view = *cur_view;
+    let is_old_view_leader = task_state
+        .quorum_membership
+        .leader(task_state.cur_view, task_state.cur_epoch)?
+        == task_state.public_key;
+    let old_view = task_state.cur_view;
 
-    debug!("Updating view from {} to {}", *old_view, *new_view);
+    tracing::debug!("Updating view from {} to {}", *old_view, *new_view);
 
     if *old_view / 100 != *new_view / 100 {
-        info!("Progress: entered view {:>6}", *new_view);
+        tracing::info!("Progress: entered view {:>6}", *new_view);
     }
 
-    *cur_view = new_view;
+    task_state.cur_view = new_view;
 
     // The next view is just the current view + 1
-    let next_view = *cur_view + 1;
+    let next_view = task_state.cur_view + 1;
 
     futures::join! {
         broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
@@ -705,7 +712,7 @@ pub(crate) async fn update_view<TYPES: NodeType>(
                     view_number: old_view,
                 },
             },
-            output_event_stream,
+            &task_state.output_event_stream,
         )
     };
 
@@ -715,11 +722,11 @@ pub(crate) async fn update_view<TYPES: NodeType>(
         // Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
         let view_number = next_view;
-        let timeout = Duration::from_millis(timeout);
+        let timeout = Duration::from_millis(task_state.timeout);
         async move {
             async_sleep(timeout).await;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::Time::new(*view_number))),
+                Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
                 &stream,
             )
             .await;
@@ -727,30 +734,34 @@ pub(crate) async fn update_view<TYPES: NodeType>(
     });
 
     // cancel the old timeout task
-    cancel_task(std::mem::replace(timeout_task, new_timeout_task)).await;
+    cancel_task(std::mem::replace(
+        &mut task_state.timeout_task,
+        new_timeout_task,
+    ))
+    .await;
 
-    let consensus = consensus.upgradable_read().await;
+    let consensus = task_state.consensus.upgradable_read().await;
     consensus
         .metrics
         .current_view
-        .set(usize::try_from(cur_view.u64()).unwrap());
+        .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     let new_view_time = Utc::now().timestamp();
     if is_old_view_leader {
         #[allow(clippy::cast_precision_loss)]
         consensus
             .metrics
             .view_duration_as_leader
-            .add_point((new_view_time - *cur_view_time) as f64);
+            .add_point((new_view_time - task_state.cur_view_time) as f64);
     }
-    *cur_view_time = new_view_time;
+    task_state.cur_view_time = new_view_time;
 
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
-    if usize::try_from(cur_view.u64()).unwrap()
+    if usize::try_from(task_state.cur_view.u64()).unwrap()
         > usize::try_from(consensus.last_decided_view().u64()).unwrap()
     {
         consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(cur_view.u64()).unwrap()
+            usize::try_from(task_state.cur_view.u64()).unwrap()
                 - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
         );
     }
@@ -787,17 +798,5 @@ pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Send
                 e
             );
         }
-    }
-}
-
-/// Utilities to print anyhow logs.
-pub trait AnyhowTracing {
-    /// Print logs as debug
-    fn err_as_debug(self);
-}
-
-impl<T> AnyhowTracing for anyhow::Result<T> {
-    fn err_as_debug(self) {
-        let _ = self.inspect_err(|e| tracing::debug!("{}", format!("{:?}", e)));
     }
 }

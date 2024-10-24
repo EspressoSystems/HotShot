@@ -145,7 +145,7 @@ test_quorum_proposal_recv_task:
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_quorum_proposal_recv_task -- --test-threads=1 --nocapture
 
 test_upgrade_task:
-  echo Testing the upgrade task without dependency tasks
+  echo Testing the upgrade task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast test_upgrade_task -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot"

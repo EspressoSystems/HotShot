@@ -8,7 +8,6 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use anyhow::{bail, Result};
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -31,6 +30,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
+use utils::anytrace::{bail, Result};
 use vbs::version::Version;
 
 use self::handlers::handle_quorum_proposal_recv;
@@ -55,10 +55,13 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub consensus: OuterConsensus<TYPES>,
 
     /// View number this view is executing in.
-    pub cur_view: TYPES::Time,
+    pub cur_view: TYPES::View,
 
     /// Timestamp this view starts at.
     pub cur_view_time: i64,
+
+    /// Epoch number this node is executing in.
+    pub cur_epoch: TYPES::Epoch,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -89,7 +92,7 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
-    pub spawned_tasks: BTreeMap<TYPES::Time, Vec<JoinHandle<()>>>,
+    pub spawned_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
 
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
@@ -105,7 +108,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     QuorumProposalRecvTaskState<TYPES, I, V>
 {
     /// Cancel all tasks the consensus tasks has spawned before the given view
-    pub async fn cancel_tasks(&mut self, view: TYPES::Time) {
+    pub async fn cancel_tasks(&mut self, view: TYPES::View) {
         let keep = self.spawned_tasks.split_off(&view);
         let mut cancel = Vec::new();
         while let Some((_, tasks)) = self.spawned_tasks.pop_first() {

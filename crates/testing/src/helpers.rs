@@ -40,12 +40,12 @@ use hotshot_types::{
     utils::{View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidProposal, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
+    ValidatorConfig,
 };
 use jf_vid::VidScheme;
 use serde::Serialize;
 
-use crate::test_builder::TestDescription;
-
+use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
 /// if cannot create a [`HotShotInitializer`]
@@ -67,18 +67,46 @@ pub async fn build_system_handle<
     let builder: TestDescription<TYPES, I, V> = TestDescription::default_multiple_rounds();
 
     let launcher = builder.gen_launcher(node_id);
+    build_system_handle_from_launcher(node_id, &launcher).await
+}
 
+/// create the [`SystemContextHandle`] from a node id and `TestLauncher`
+/// # Panics
+/// if cannot create a [`HotShotInitializer`]
+pub async fn build_system_handle_from_launcher<
+    TYPES: NodeType<InstanceState = TestInstanceState>,
+    I: NodeImplementation<
+            TYPES,
+            Storage = TestStorage<TYPES>,
+            AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
+        > + TestableNodeImplementation<TYPES>,
+    V: Versions,
+>(
+    node_id: u64,
+    launcher: &TestLauncher<TYPES, I, V>,
+) -> (
+    SystemContextHandle<TYPES, I, V>,
+    Sender<Arc<HotShotEvent<TYPES>>>,
+    Receiver<Arc<HotShotEvent<TYPES>>>,
+) {
     let network = (launcher.resource_generator.channel_generator)(node_id).await;
     let storage = (launcher.resource_generator.storage)(node_id);
     let marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
-    let config = launcher.resource_generator.config.clone();
+    let mut config = launcher.resource_generator.config.clone();
 
     let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(TestInstanceState::new(
-        launcher.metadata.async_delay_config,
+        launcher.metadata.async_delay_config.clone(),
     ))
     .await
     .unwrap();
 
+    // See whether or not we should be DA
+    let is_da = node_id < config.da_staked_committee_size as u64;
+
+    // We assign node's public key and stake value rather than read from config file since it's a test
+    let validator_config =
+        ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
+    config.my_own_validator_config = validator_config;
     let private_key = config.my_own_validator_config.private_key.clone();
     let public_key = config.my_own_validator_config.public_key.clone();
 
@@ -122,7 +150,8 @@ pub async fn build_cert<
 >(
     data: DATAType,
     membership: &TYPES::Membership,
-    view: TYPES::Time,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
@@ -131,6 +160,7 @@ pub async fn build_cert<
         &data,
         membership,
         view,
+        epoch,
         upgrade_lock,
     )
     .await;
@@ -186,10 +216,11 @@ pub async fn build_assembled_sig<
 >(
     data: &DATAType,
     membership: &TYPES::Membership,
-    view: TYPES::Time,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    let stake_table = membership.stake_table();
+    let stake_table = membership.stake_table(epoch);
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
@@ -244,18 +275,23 @@ pub fn key_pair_for_id<TYPES: NodeType>(
 #[must_use]
 pub fn vid_scheme_from_view_number<TYPES: NodeType>(
     membership: &TYPES::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
 ) -> VidSchemeType {
-    let num_storage_nodes = membership.committee_members(view_number).len();
+    let num_storage_nodes = membership
+        .committee_members(view_number, epoch_number)
+        .len();
     vid_scheme(num_storage_nodes)
 }
 
 pub fn vid_payload_commitment<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec<TestTransaction>,
 ) -> VidCommitment {
-    let mut vid = vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number);
+    let mut vid =
+        vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number, epoch_number);
     let encoded_transactions = TestTransaction::encode(&transactions);
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
@@ -265,19 +301,24 @@ pub fn vid_payload_commitment<TYPES: NodeType>(
 pub fn da_payload_commitment<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
     transactions: Vec<TestTransaction>,
+    epoch_number: TYPES::Epoch,
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
-    vid_commitment(&encoded_transactions, quorum_membership.total_nodes())
+    vid_commitment(
+        &encoded_transactions,
+        quorum_membership.total_nodes(epoch_number),
+    )
 }
 
 pub fn build_payload_commitment<TYPES: NodeType>(
     membership: &<TYPES as NodeType>::Membership,
-    view: TYPES::Time,
+    view: TYPES::View,
+    epoch: TYPES::Epoch,
 ) -> <VidSchemeType as VidScheme>::Commit {
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view);
+    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view, epoch);
     let encoded_transactions = Vec::new();
     vid.commit_only(&encoded_transactions).unwrap()
 }
@@ -285,17 +326,20 @@ pub fn build_payload_commitment<TYPES: NodeType>(
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
 pub fn build_vid_proposal<TYPES: NodeType>(
     quorum_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec<TestTransaction>,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
 ) -> VidProposal<TYPES> {
-    let mut vid = vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number);
+    let mut vid =
+        vid_scheme_from_view_number::<TYPES>(quorum_membership, view_number, epoch_number);
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let vid_disperse = VidDisperse::from_membership(
         view_number,
         vid.disperse(&encoded_transactions).unwrap(),
         quorum_membership,
+        epoch_number,
     );
 
     let signature =
@@ -320,10 +364,12 @@ pub fn build_vid_proposal<TYPES: NodeType>(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
     quorum_membership: &<TYPES as NodeType>::Membership,
     da_membership: &<TYPES as NodeType>::Membership,
-    view_number: TYPES::Time,
+    view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     transactions: Vec<TestTransaction>,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -331,8 +377,10 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
 ) -> DaCertificate<TYPES> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
-    let da_payload_commitment =
-        vid_commitment(&encoded_transactions, quorum_membership.total_nodes());
+    let da_payload_commitment = vid_commitment(
+        &encoded_transactions,
+        quorum_membership.total_nodes(epoch_number),
+    );
 
     let da_data = DaData {
         payload_commit: da_payload_commitment,
@@ -342,6 +390,7 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
         da_data,
         da_membership,
         view_number,
+        epoch_number,
         public_key,
         private_key,
         upgrade_lock,

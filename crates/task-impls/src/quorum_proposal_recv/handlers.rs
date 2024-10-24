@@ -8,7 +8,6 @@
 
 use std::sync::Arc;
 
-use anyhow::{bail, Context, Result};
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
@@ -26,7 +25,8 @@ use hotshot_types::{
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, error, instrument, warn};
+use tracing::instrument;
+use utils::anytrace::*;
 
 use super::QuorumProposalRecvTaskState;
 use crate::{
@@ -78,7 +78,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         )
         .await
     {
-        warn!("Couldn't store undecided state.  Error: {:?}", e);
+        tracing::warn!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
     let liveness_check =
@@ -93,21 +93,8 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     )
     .await;
 
-    let cur_view = task_state.cur_view;
-    if let Err(e) = update_view::<TYPES>(
-        view_number,
-        event_sender,
-        task_state.timeout,
-        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        &mut task_state.cur_view,
-        &mut task_state.cur_view_time,
-        &mut task_state.timeout_task,
-        &task_state.output_event_stream,
-        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
-    )
-    .await
-    {
-        debug!("Liveness Branch - Failed to update view; error = {e:#}");
+    if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
+        tracing::debug!("Liveness Branch - Failed to update view; error = {e:#}");
     }
 
     if !liveness_check {
@@ -138,17 +125,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
-    let cur_view = task_state.cur_view;
 
-    validate_proposal_view_and_certs(
-        proposal,
-        task_state.cur_view,
-        &task_state.quorum_membership,
-        &task_state.timeout_membership,
-        &task_state.upgrade_lock,
-    )
-    .await
-    .context("Failed to validate proposal view or attached certs")?;
+    validate_proposal_view_and_certs(proposal, task_state)
+        .await
+        .context(warn!("Failed to validate proposal view or attached certs"))?;
 
     let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
@@ -156,6 +136,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     if !justify_qc
         .is_valid_cert(
             task_state.quorum_membership.as_ref(),
+            task_state.cur_epoch,
             &task_state.upgrade_lock,
         )
         .await
@@ -239,7 +220,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     .await;
 
     let Some((parent_leaf, _parent_state)) = parent else {
-        warn!(
+        tracing::warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
@@ -250,33 +231,15 @@ pub(crate) async fn handle_quorum_proposal_recv<
     validate_proposal_safety_and_liveness::<TYPES, I, V>(
         proposal.clone(),
         parent_leaf,
-        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
-        Arc::clone(&task_state.quorum_membership),
+        task_state,
         event_sender.clone(),
         quorum_proposal_sender_key,
-        task_state.output_event_stream.clone(),
-        task_state.id,
-        task_state.upgrade_lock.clone(),
-        Arc::clone(&task_state.storage),
     )
     .await?;
 
     // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    if let Err(e) = update_view::<TYPES>(
-        view_number,
-        event_sender,
-        task_state.timeout,
-        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        &mut task_state.cur_view,
-        &mut task_state.cur_view_time,
-        &mut task_state.timeout_task,
-        &task_state.output_event_stream,
-        task_state.quorum_membership.leader(cur_view) == task_state.public_key,
-    )
-    .await
-    {
-        debug!("Full Branch - Failed to update view; error = {e:#}");
+    if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
+        tracing::debug!("Full Branch - Failed to update view; error = {e:#}");
     }
 
     Ok(())

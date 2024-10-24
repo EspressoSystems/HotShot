@@ -8,10 +8,10 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_broadcast::{broadcast, RecvError};
-use async_compatibility_layer::art::async_spawn;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{
@@ -94,6 +94,29 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     ));
 }
 
+/// Add a task which updates our queue lenght metric at a set interval
+pub fn add_queue_len_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    handle: &mut SystemContextHandle<TYPES, I, V>,
+) {
+    let consensus = handle.hotshot.consensus();
+    let rx = handle.internal_event_stream.1.clone();
+    let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+    let task_handle = async_spawn(async move {
+        futures::pin_mut!(shutdown_signal);
+        loop {
+            futures::select! {
+                () = shutdown_signal => {
+                    return;
+                },
+                () = async_sleep(Duration::from_millis(500)).fuse() => {
+                    consensus.read().await.metrics.internal_event_queue_len.set(rx.len());
+                }
+            }
+        }
+    });
+    handle.network_registry.register(task_handle);
+}
+
 /// Add the network task to handle messages and publish events.
 pub fn add_network_message_task<
     TYPES: NodeType,
@@ -107,6 +130,7 @@ pub fn add_network_message_task<
     let network_state: NetworkMessageTaskState<_> = NetworkMessageTaskState {
         internal_event_stream: handle.internal_event_stream.0.clone(),
         external_event_stream: handle.output_event_stream.0.clone(),
+        public_key: handle.public_key().clone(),
     };
 
     let upgrade_lock = handle.hotshot.upgrade_lock.clone();
@@ -169,7 +193,8 @@ pub fn add_network_event_task<
 ) {
     let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
         network,
-        view: TYPES::Time::genesis(),
+        view: TYPES::View::genesis(),
+        epoch: TYPES::Epoch::genesis(),
         quorum_membership,
         da_membership,
         storage: Arc::clone(&handle.storage()),
@@ -217,16 +242,16 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
 
     {
         use hotshot_task_impls::{
-            consensus2::Consensus2TaskState, quorum_proposal::QuorumProposalTaskState,
+            consensus::ConsensusTaskState, quorum_proposal::QuorumProposalTaskState,
             quorum_proposal_recv::QuorumProposalRecvTaskState, quorum_vote::QuorumVoteTaskState,
         };
 
         handle.add_task(QuorumProposalTaskState::<TYPES, I, V>::create_from(handle).await);
         handle.add_task(QuorumVoteTaskState::<TYPES, I, V>::create_from(handle).await);
         handle.add_task(QuorumProposalRecvTaskState::<TYPES, I, V>::create_from(handle).await);
-        handle.add_task(Consensus2TaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(ConsensusTaskState::<TYPES, I, V>::create_from(handle).await);
     }
-
+    add_queue_len_task(handle);
     #[cfg(feature = "rewind")]
     handle.add_task(RewindTaskState::<TYPES>::create_from(&handle).await);
 }

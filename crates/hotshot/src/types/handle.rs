@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, Context, Ok, Result};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
@@ -22,11 +22,14 @@ use hotshot_types::{
     consensus::Consensus,
     data::{Leaf, QuorumProposal},
     error::HotShotError,
-    message::Proposal,
+    message::{Message, MessageKind, Proposal, RecipientList},
     request_response::ProposalRequestPayload,
     traits::{
-        consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
-        node_implementation::NodeType, signature_key::SignatureKey,
+        consensus_api::ConsensusApi,
+        election::Membership,
+        network::{BroadcastDelay, ConnectedNetwork, Topic},
+        node_implementation::NodeType,
+        signature_key::SignatureKey,
     },
     vote::HasViewNumber,
 };
@@ -88,6 +91,43 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.output_event_stream.1.activate_cloned()
     }
 
+    /// Message other participents with a serialized message from the application
+    /// Receivers of this message will get an `Event::ExternalMessageReceived` via
+    /// the event stream.
+    ///
+    /// # Errors
+    /// Errors if serializing the request fails, or the request fails to be sent
+    pub async fn send_external_message(
+        &self,
+        msg: Vec<u8>,
+        recipients: RecipientList<TYPES::SignatureKey>,
+    ) -> Result<()> {
+        let message = Message {
+            sender: self.public_key().clone(),
+            kind: MessageKind::External(msg),
+        };
+        let serialized_message = self.hotshot.upgrade_lock.serialize(&message).await?;
+
+        match recipients {
+            RecipientList::Broadcast => {
+                self.network
+                    .broadcast_message(serialized_message, Topic::Global, BroadcastDelay::None)
+                    .await?;
+            }
+            RecipientList::Direct(recipient) => {
+                self.network
+                    .direct_message(serialized_message, recipient)
+                    .await?;
+            }
+            RecipientList::Many(recipients) => {
+                self.network
+                    .da_broadcast_message(serialized_message, recipients, BroadcastDelay::None)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
     /// Request a proposal from the all other nodes.  Will block until some node
     /// returns a valid proposal with the requested commitment.  If nobody has the
     /// proposal this will block forever
@@ -96,7 +136,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// Errors if signing the request for proposal fails
     pub fn request_proposal(
         &self,
-        view: TYPES::Time,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
         leaf_commitment: Commitment<Leaf<TYPES>>,
     ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal<TYPES>>>>> {
         // We need to be able to sign this request before submitting it to the network. Compute the
@@ -145,7 +186,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 {
                     // Make sure that the quorum_proposal is valid
                     if let Err(err) = quorum_proposal
-                        .validate_signature(&mem, &upgrade_lock)
+                        .validate_signature(&mem, epoch, &upgrade_lock)
                         .await
                     {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
@@ -202,7 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// return [`None`] if the requested view has already been decided (but see
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
-    pub async fn state(&self, view: TYPES::Time) -> Option<Arc<TYPES::ValidatedState>> {
+    pub async fn state(&self, view: TYPES::View) -> Option<Arc<TYPES::ValidatedState>> {
         self.hotshot.state(view).await
     }
 
@@ -274,12 +315,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     }
 
     /// Wrapper for `HotShotConsensusApi`'s `leader` function
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated
     #[allow(clippy::unused_async)] // async for API compatibility reasons
-    pub async fn leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
+    pub async fn leader(
+        &self,
+        view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
+    ) -> Result<TYPES::SignatureKey> {
         self.hotshot
             .memberships
             .quorum_membership
-            .leader(view_number)
+            .leader(view_number, epoch_number)
+            .context("Failed to lookup leader")
     }
 
     // Below is for testing only:
@@ -306,8 +355,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
 
     /// Wrapper to get the view number this node is on.
     #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
-    pub async fn cur_view(&self) -> TYPES::Time {
+    pub async fn cur_view(&self) -> TYPES::View {
         self.hotshot.consensus.read().await.cur_view()
+    }
+
+    /// Wrapper to get the epoch number this node is on.
+    #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
+    pub async fn cur_epoch(&self) -> TYPES::Epoch {
+        self.hotshot.consensus.read().await.cur_epoch()
     }
 
     /// Provides a reference to the underlying storage for this [`SystemContext`], allowing access to

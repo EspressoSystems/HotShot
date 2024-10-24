@@ -13,7 +13,7 @@ use hotshot::traits::{
     NodeImplementation,
 };
 use hotshot_types::{
-    data::ViewNumber,
+    data::{EpochNumber, ViewNumber},
     signature_key::{BLSPubKey, BuilderKey},
     traits::node_implementation::{NodeType, Versions},
 };
@@ -45,7 +45,8 @@ use crate::{
 pub struct TestTypes;
 impl NodeType for TestTypes {
     type AuctionResult = TestAuctionResult;
-    type Time = ViewNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
@@ -74,7 +75,8 @@ impl NodeType for TestTypes {
 pub struct TestTypesRandomizedLeader;
 impl NodeType for TestTypesRandomizedLeader {
     type AuctionResult = TestAuctionResult;
-    type Time = ViewNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
@@ -103,7 +105,8 @@ impl NodeType for TestTypesRandomizedLeader {
 pub struct TestConsecutiveLeaderTypes;
 impl NodeType for TestConsecutiveLeaderTypes {
     type AuctionResult = TestAuctionResult;
-    type Time = ViewNumber;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
     type BlockHeader = TestBlockHeader;
     type BlockPayload = TestBlockPayload;
     type SignatureKey = BLSPubKey;
@@ -235,8 +238,8 @@ mod tests {
 
         let data = TestData { data: 10 };
 
-        let view_0 = <TestTypes as NodeType>::Time::new(0);
-        let view_1 = <TestTypes as NodeType>::Time::new(1);
+        let view_0 = <TestTypes as NodeType>::View::new(0);
+        let view_1 = <TestTypes as NodeType>::View::new(1);
 
         let versioned_data_0 =
             VersionedVoteData::<TestTypes, TestData, MarketplaceTestVersions>::new(

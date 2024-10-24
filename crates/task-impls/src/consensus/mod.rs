@@ -6,7 +6,6 @@
 
 use std::sync::Arc;
 
-use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -27,6 +26,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
+use utils::anytrace::Result;
 
 use self::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
@@ -37,7 +37,7 @@ use crate::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
 mod handlers;
 
 /// Task state for the Consensus task.
-pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
+pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Our public key
     pub public_key: TYPES::SignatureKey,
 
@@ -70,10 +70,13 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub storage: Arc<RwLock<I::Storage>>,
 
     /// The view number that this node is currently executing in.
-    pub cur_view: TYPES::Time,
+    pub cur_view: TYPES::View,
 
     /// Timestamp this view starts at.
     pub cur_view_time: i64,
+
+    /// The epoch number that this node is currently executing in.
+    pub cur_epoch: TYPES::Epoch,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -88,7 +91,7 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub consensus: OuterConsensus<TYPES>,
 
     /// The last decided view
-    pub last_decided_view: TYPES::Time,
+    pub last_decided_view: TYPES::View,
 
     /// The node's id
     pub id: u64,
@@ -96,14 +99,14 @@ pub struct Consensus2TaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Consensus2TaskState<TYPES, I, V> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskState<TYPES, I, V> {
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, last_decided_view = *self.last_decided_view), name = "Consensus replica task", level = "error", target = "Consensus2TaskState")]
+    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, last_decided_view = *self.last_decided_view), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) {
+    ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumVoteRecv(ref vote) => {
                 if let Err(e) =
@@ -146,12 +149,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Consensus2TaskS
             }
             _ => {}
         }
+
+        Ok(())
     }
 }
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
-    for Consensus2TaskState<TYPES, I, V>
+    for ConsensusTaskState<TYPES, I, V>
 {
     type Event = HotShotEvent<TYPES>;
 
@@ -161,9 +166,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         _receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event, sender.clone()).await;
-
-        Ok(())
+        self.handle(event, sender.clone()).await
     }
 
     /// Joins all subtasks.

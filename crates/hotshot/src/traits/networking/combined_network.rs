@@ -7,7 +7,7 @@
 //! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, HashMap},
+    collections::{hash_map::DefaultHasher, BTreeMap, HashMap},
     future::Future,
     hash::{Hash, Hasher},
     num::NonZeroUsize,
@@ -391,7 +391,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
     async fn da_broadcast_message(
         &self,
         message: Vec<u8>,
-        recipients: BTreeSet<TYPES::SignatureKey>,
+        recipients: Vec<TYPES::SignatureKey>,
         broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
         let primary = self.primary().clone();
@@ -484,7 +484,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         self.secondary().queue_node_lookup(view_number, pk)
     }
 
-    async fn update_view<'a, T>(&'a self, view: u64, membership: &T::Membership)
+    async fn update_view<'a, T>(&'a self, view: u64, epoch: u64, membership: &T::Membership)
     where
         T: NodeType<SignatureKey = TYPES::SignatureKey> + 'a,
     {
@@ -505,7 +505,10 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
             }
         });
         // Run `update_view` logic for the libp2p network
-        self.networks.1.update_view::<T>(view, membership).await;
+        self.networks
+            .1
+            .update_view::<T>(view, epoch, membership)
+            .await;
     }
 
     fn is_primary_down(&self) -> bool {
