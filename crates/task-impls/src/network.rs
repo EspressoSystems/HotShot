@@ -460,6 +460,7 @@ impl<
                 ))
             }
             HotShotEvent::ViewSyncCommitVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + vote.date().relay;
                 let leader = match self.quorum_membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
@@ -482,6 +483,7 @@ impl<
                 ))
             }
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + vote.date().relay;
                 let leader = match self.quorum_membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
