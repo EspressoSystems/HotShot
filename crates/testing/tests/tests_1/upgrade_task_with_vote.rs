@@ -139,10 +139,12 @@ async fn test_upgrade_task_with_vote() {
             exact(VidShareValidated(vids[1].0[0].clone())),
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
             validated_state_updated(),
+            exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
             quorum_vote_send(),
         ]),
         Expectations::from_outputs_and_task_states(
             all_predicates![
+                exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
                 exact(LockedViewUpdated(ViewNumber::new(1))),
                 exact(DaCertificateValidated(dacs[2].clone())),
                 exact(VidShareValidated(vids[2].0[0].clone())),
@@ -154,6 +156,7 @@ async fn test_upgrade_task_with_vote() {
         ),
         Expectations::from_outputs_and_task_states(
             all_predicates![
+                exact(HighQcUpdated(proposals[3].data.justify_qc.clone())),
                 exact(LockedViewUpdated(ViewNumber::new(2))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(1))),
                 leaf_decided(),
@@ -167,6 +170,7 @@ async fn test_upgrade_task_with_vote() {
         ),
         Expectations::from_outputs_and_task_states(
             all_predicates![
+                exact(HighQcUpdated(proposals[4].data.justify_qc.clone())),
                 exact(LockedViewUpdated(ViewNumber::new(3))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(2))),
                 leaf_decided(),
@@ -180,6 +184,7 @@ async fn test_upgrade_task_with_vote() {
         ),
         Expectations::from_outputs_and_task_states(
             all_predicates![
+                exact(HighQcUpdated(proposals[5].data.justify_qc.clone())),
                 exact(LockedViewUpdated(ViewNumber::new(4))),
                 exact(LastDecidedViewUpdated(ViewNumber::new(3))),
                 leaf_decided(),
