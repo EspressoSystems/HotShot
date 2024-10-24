@@ -601,7 +601,7 @@ impl<
                 // self.cancel_tasks(TYPES::View::new(view.saturating_sub(2)));
                 self.network
                     .update_view::<TYPES>(
-                        self.view.u64(),
+                        self.view.saturating_sub(1),
                         self.epoch.u64(),
                         &self.quorum_membership,
                     )
