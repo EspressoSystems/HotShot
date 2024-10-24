@@ -282,19 +282,25 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                 recipient_key,
                 view_number: vid_disperse.view_number,
                 common: vid_disperse.common.clone(),
-                payload_commitment: vid_disperse.payload_commitment,
+                payload_commitment: vid_disperse.payload_commitment.clone(),
             })
             .collect()
     }
 
     /// Consume `self` and return a `Proposal`
+    ///
+    /// # Panics
+    ///
+    /// When [`bincode::serialize`] returns [`Err`].
     pub fn to_proposal(
         self,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Option<Proposal<TYPES, Self>> {
-        let Ok(signature) =
-            TYPES::SignatureKey::sign(private_key, self.payload_commitment.as_ref())
-        else {
+        let Ok(signature) = TYPES::SignatureKey::sign(
+            private_key,
+            &bincode::serialize(&self.payload_commitment)
+                .expect("serialization of payload commitment should succeed"),
+        ) else {
             error!("VID: failed to sign dispersal share payload");
             return None;
         };
@@ -345,7 +351,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                     recipient_key,
                     view_number: vid_disperse_proposal.data.view_number,
                     common: vid_disperse_proposal.data.common.clone(),
-                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
+                    payload_commitment: vid_disperse_proposal.data.payload_commitment.clone(),
                 },
                 signature: vid_disperse_proposal.signature.clone(),
                 _pd: vid_disperse_proposal._pd,

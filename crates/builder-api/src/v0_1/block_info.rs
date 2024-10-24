@@ -64,13 +64,15 @@ impl<TYPES: NodeType> AvailableBlockHeaderInput<TYPES> {
         offered_fee: u64,
         metadata: &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     ) -> bool {
-        self.sender
-            .validate_builder_signature(&self.message_signature, self.vid_commitment.as_ref())
-            && self.sender.validate_fee_signature(
-                &self.fee_signature,
-                offered_fee,
-                metadata,
-                &self.vid_commitment,
-            )
+        self.sender.validate_builder_signature(
+            &self.message_signature,
+            &bincode::serialize(&self.vid_commitment)
+                .expect("serialization of payload commitment should succeed"),
+        ) && self.sender.validate_fee_signature(
+            &self.fee_signature,
+            offered_fee,
+            metadata,
+            &self.vid_commitment,
+        )
     }
 }

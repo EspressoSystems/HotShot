@@ -79,7 +79,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     vid_precompute.clone(),
                 )
                 .await;
-                let payload_commitment = vid_disperse.payload_commitment;
+                let payload_commitment = vid_disperse.payload_commitment.clone();
                 let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
                 let mut consensus = self.consensus.write().await;
                 for share in shares {
@@ -115,7 +115,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 let view_number = *view_number;
                 let Ok(signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    vid_disperse.payload_commitment.as_ref(),
+                    &bincode::serialize(&vid_disperse.payload_commitment)
+                        .expect("serialization of payload commitment should succeed"),
                 ) else {
                     error!("VID: failed to sign dispersal payload");
                     return None;
