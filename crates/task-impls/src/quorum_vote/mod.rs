@@ -547,7 +547,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
         let current_epoch = self.consensus.read().await.cur_epoch();
-
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
                 tracing::trace!("Received Proposal for view {}", *proposal.view_number());
@@ -681,8 +680,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 }
             }
             HotShotEvent::Timeout(view) => {
+                let view = TYPES::View::new(view.saturating_sub(1));
                 // cancel old tasks
-                let current_tasks = self.vote_dependencies.split_off(view);
+                let current_tasks = self.vote_dependencies.split_off(&view);
                 while let Some((_, task)) = self.vote_dependencies.pop_last() {
                     cancel_task(task).await;
                 }

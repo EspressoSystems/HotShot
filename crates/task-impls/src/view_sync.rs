@@ -451,7 +451,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
             &HotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
                 ensure!(
-                    view_number > self.current_view,
+                    view_number >= self.current_view,
                     debug!("Discarding old timeout vote.")
                 );
 
