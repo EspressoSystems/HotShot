@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use super::node_implementation::NodeType;
 use crate::{
     consensus::{CommitmentMap, View},
-    data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare},
+    data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
@@ -35,6 +35,11 @@ pub trait Storage<TYPES: NodeType>: Send + Sync + Clone {
         &self,
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     ) -> Result<()>;
+    /// Add a proposal we sent to the store
+    async fn append_proposal2(
+        &self,
+        proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
+    ) -> Result<()>;
     /// Record a HotShotAction taken.
     async fn record_action(&self, view: TYPES::View, action: HotShotAction) -> Result<()>;
     /// Update the current high QC in storage.
@@ -46,9 +51,24 @@ pub trait Storage<TYPES: NodeType>: Send + Sync + Clone {
         leafs: CommitmentMap<Leaf<TYPES>>,
         state: BTreeMap<TYPES::View, View<TYPES>>,
     ) -> Result<()>;
+    /// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
+    /// and the undecided state.
+    async fn update_undecided_state2(
+        &self,
+        leafs: CommitmentMap<Leaf2<TYPES>>,
+        state: BTreeMap<TYPES::View, View<TYPES>>,
+    ) -> Result<()>;
     /// Upgrade the current decided upgrade certificate in storage.
     async fn update_decided_upgrade_certificate(
         &self,
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+    ) -> Result<()>;
+    /// Migrate leaves from `Leaf` to `Leaf2`, and proposals from `QuorumProposal` to `QuorumProposal2`
+    async fn migrate_consensus(
+        &self,
+        convert_leaf: fn(Leaf<TYPES>) -> Leaf2<TYPES>,
+        convert_proposal: fn(
+            Proposal<TYPES, QuorumProposal<TYPES>>,
+        ) -> Proposal<TYPES, QuorumProposal2<TYPES>>,
     ) -> Result<()>;
 }
