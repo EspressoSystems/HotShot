@@ -477,7 +477,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
-                if view_number < global_view {
+                if view_number + 1 < global_view {
                     tracing::trace!("We are already beyond this view");
                     return Ok(());
                 }
@@ -546,7 +546,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::HighQcUpdated(qc) => {
                 let view_number = qc.view_number() + 1;
-                if view_number < global_view {
+                if view_number + 1 < global_view {
                     tracing::trace!("We are already beyond this view");
                     return Ok(());
                 }
