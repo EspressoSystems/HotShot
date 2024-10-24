@@ -25,7 +25,7 @@ use vbs::version::StaticVersionType;
 
 use super::{
     auction_results_provider::AuctionResultsProvider,
-    block_contents::{BlockHeader, TestableBlock, Transaction},
+    block_contents::{BlockHeader, BuilderTransaction, TestableBlock, Transaction},
     network::{
         AsyncGenerator, ConnectedNetwork, NetworkReliability, TestableNetworkingImplementation,
     },
@@ -240,7 +240,7 @@ pub trait NodeType:
     /// The transaction type that this hotshot setup is using.
     ///
     /// This should be equal to `BlockPayload::Transaction`
-    type Transaction: Transaction;
+    type Transaction: Transaction + BuilderTransaction;
 
     /// The instance-level state type that this hotshot setup is using.
     type InstanceState: InstanceState;

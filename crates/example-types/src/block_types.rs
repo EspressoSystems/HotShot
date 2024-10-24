@@ -15,7 +15,9 @@ use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
+        block_contents::{
+            BlockHeader, BuilderFee, BuilderTransaction, EncodeBytes, TestableBlock, Transaction,
+        },
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -52,6 +54,13 @@ impl TryFrom<Vec<u8>> for TestTransaction {
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         Self::try_new(value).ok_or(TransactionError::TransactionTooLong)
+    }
+}
+
+impl BuilderTransaction for TestTransaction {
+    fn minimum_block_size(&self, additional_length_overhead: u64) -> u64 {
+        // the estimation on transaction size is the length of the transaction plus the additional overhead
+        self.0.len() as u64 + additional_length_overhead
     }
 }
 
