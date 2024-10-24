@@ -384,20 +384,27 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// The block header to append
     pub block_header: TYPES::BlockHeader,
 
-    /// CurView from leader when proposing leaf
+    /// view number for the proposal
     pub view_number: TYPES::View,
 
-    /// Per spec, justification
+    /// certificate that the proposal is chaining from
     pub justify_qc: LeafCertificate<TYPES>,
+
+    /// a secondary certificate
 
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
-    /// Possible timeout or view sync certificate.
-    /// - A timeout certificate is only present if the justify_qc is not for the preceding view
-    /// - A view sync certificate is only present if the justify_qc and timeout_cert are not
-    /// present.
+    /// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
+
+    /// the DRB seed currently being calculated
+    #[serde(with = "serde_bytes")]
+    pub drb_seed: [u8; 96],
+
+    /// the result of the DRB calculation
+    #[serde(with = "serde_bytes")]
+    pub drb_result: [u8; 32],
 }
 
 impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
@@ -408,6 +415,8 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
             justify_qc: LeafCertificate::Quorum(quorum_proposal.justify_qc),
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             proposal_certificate: quorum_proposal.proposal_certificate,
+            drb_seed: [0; 96],
+            drb_result: [0; 32],
         }
     }
 }
