@@ -158,9 +158,7 @@ pub(crate) async fn handle_view_change<
     let timeout = task_state.timeout;
     let new_timeout_task = async_spawn({
         let stream = sender.clone();
-        // Nuance: We timeout on the view + 1 here because that means that we have
-        // not seen evidence to transition to this new view
-        let view_number = new_view_number + 1;
+        let view_number = new_view_number;
         async move {
             async_sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
@@ -229,7 +227,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
     ensure!(
-        task_state.cur_view < view_number,
+        task_state.cur_view <= view_number,
         "Timeout event is for an old view"
     );
 
