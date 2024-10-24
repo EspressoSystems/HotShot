@@ -598,12 +598,12 @@ impl<
             }
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.cancel_tasks(TYPES::View::new(view.saturating_sub(2)));
+                // self.cancel_tasks(TYPES::View::new(view.saturating_sub(2)));
                 let net = Arc::clone(&self.network);
                 let epoch = self.epoch.u64();
                 let mem = self.quorum_membership.clone();
                 async_spawn(async move {
-                    net.update_view::<TYPES>(view.saturating_sub(1), epoch, &mem)
+                    net.update_view::<TYPES>(view.saturating_sub(2), epoch, &mem)
                         .await;
                 });
                 None
