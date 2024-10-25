@@ -226,10 +226,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         .await
         .wrap()
         .context(error!("Failed to sign vote. This should never happen."))?;
-        tracing::debug!(
-            "sending vote to next quorum leader {:?}",
-            vote.view_number() + 1
-        );
+
         // Add to the storage.
         self.storage
             .write()
@@ -238,6 +235,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             .await
             .wrap()
             .context(error!("Failed to store VID share"))?;
+        
+        tracing::error!(
+            "sending vote to next quorum leader {:?}",
+            vote.view_number() + 1
+        );
         broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &self.sender).await;
 
         Ok(())

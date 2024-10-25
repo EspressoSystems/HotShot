@@ -249,28 +249,6 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     .wrap()
     .context(error!("Failed to sign TimeoutData"))?;
 
-    let timeout = task_state.timeout;
-    let new_timeout_task = async_spawn({
-        let stream = sender.clone();
-        // Nuance: We timeout on the view + 1 here because that means that we have
-        // not seen evidence to transition to this new view
-        let view_number = view_number + 1;
-        async move {
-            async_sleep(Duration::from_millis(timeout)).await;
-            broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
-                &stream,
-            )
-            .await;
-        }
-    });
-
-    // Cancel the old timeout task
-    cancel_task(std::mem::replace(
-        &mut task_state.timeout_task,
-        new_timeout_task,
-    ))
-    .await;
     broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), sender).await;
     broadcast_event(
         Event {
