@@ -245,6 +245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
 
     #[allow(clippy::too_many_lines)]
+    #[instrument(skip_all, fields(id = self.id, view = *self.view_number))]
     async fn handle_dep_result(self, res: Self::Output) {
         let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
 
@@ -281,7 +282,36 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                 #[allow(unused_assignments)]
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
-                    if let Some(comm) = payload_commitment {
+                    let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
+                    let proposed_leaf = Leaf::from_quorum_proposal(proposal);
+
+                    tracing::debug!(
+                        "proposal leaf height = {}, parent leaf height = {}",
+                        proposed_leaf.height(),
+                        parent_leaf.height()
+                    );
+                    if proposed_leaf.height() == parent_leaf.height()
+                        && proposed_leaf.payload_commitment() == parent_leaf.payload_commitment()
+                    {
+                        tracing::info!("Reached end of epoch. Proposed leaf has the same height and payload as its parent. No need to check the VID and DAC.");
+                        vid_share = if let Some(vid_shares) = self
+                            .consensus
+                            .read()
+                            .await
+                            .vid_shares()
+                            .get(&parent_leaf.view_number())
+                        {
+                            if let Some(vid) = vid_shares.get(&self.public_key) {
+                                Some(vid.clone())
+                            } else {
+                                tracing::warn!("Proposed leaf is the same as its parent but we don't have our VID for it");
+                                return;
+                            }
+                        } else {
+                            tracing::warn!("Proposed leaf is the same as its parent but we don't have VIDs for it");
+                            return;
+                        };
+                    } else if let Some(comm) = payload_commitment {
                         if proposal_payload_comm != comm {
                             error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
                             return;
@@ -289,8 +319,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     } else {
                         payload_commitment = Some(proposal_payload_comm);
                     }
-                    let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
-                    let proposed_leaf = Leaf::from_quorum_proposal(proposal);
+
                     if proposed_leaf.parent_commitment() != parent_commitment {
                         warn!("Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote.");
                         return;
@@ -451,7 +480,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
     /// given view number if it doesn't exist.
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote crete dependency task if new", level = "error")]
-    fn create_dependency_task_if_new(
+    async fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::View,
         epoch_number: TYPES::Epoch,
@@ -484,7 +513,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             }
         }
 
-        let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
+        let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
+        let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
+
+        let deps = if is_high_qc_for_last_block && !is_high_qc_extended {
+            tracing::info!("Reached end of epoch. VID and DAC are not required. Last block is already validated.");
+            vec![quorum_proposal_dependency]
+        } else {
+            vec![quorum_proposal_dependency, dac_dependency, vid_dependency]
+        };
+
         let dependency_chain = AndDependency::from_deps(deps);
 
         let dependency_task = DependencyTask::new(
@@ -558,7 +596,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     event_receiver,
                     &event_sender,
                     Some(Arc::clone(&event)),
-                );
+                )
+                .await;
             }
             HotShotEvent::DaCertificateRecv(cert) => {
                 let view = cert.view_number;
@@ -597,7 +636,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     event_receiver,
                     &event_sender,
                     None,
-                );
+                )
+                .await;
             }
             HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
@@ -669,7 +709,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     event_receiver,
                     &event_sender,
                     None,
-                );
+                )
+                .await;
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
                 debug!("All vote dependencies verified for view {:?}", view_number);

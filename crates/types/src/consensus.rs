@@ -907,7 +907,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
         let decided_height = self.decided_leaf().height();
         if high_qc_height != decided_height || high_qc_height != locked_height {
-            tracing::debug!("High QC height is {}, locked height is {}, decided height is {}. They do not form a 3-chain.", high_qc_height, locked_height, decided_height);
+            tracing::debug!("High QC height is {}, locked height is {}, decided height is {}. They do not form a 3-chain for the last block.", high_qc_height, locked_height, decided_height);
             return false;
         }
         true

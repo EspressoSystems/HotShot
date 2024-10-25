@@ -133,11 +133,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         if version < V::Marketplace::VERSION {
             self.handle_view_change_legacy(event_stream, block_view)
                 .await
-        } else if version < V::Epochs::VERSION {
-            self.handle_view_change_marketplace(event_stream, block_view)
-                .await
         } else {
-            self.handle_view_change_epochs(event_stream, block_view)
+            self.handle_view_change_marketplace(event_stream, block_view)
                 .await
         }
     }

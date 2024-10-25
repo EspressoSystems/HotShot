@@ -171,6 +171,9 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         let high_qc = self.consensus.read().await.high_qc().clone();
         let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
+        if is_high_qc_extended {
+            tracing::debug!("We have formed an eQC! Proposing a new block.");
+        }
         let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
 
         let block_header = if is_high_qc_for_last_block && !is_high_qc_extended {
@@ -189,7 +192,9 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 );
                 block_header
             } else {
-                return Err(anyhow::anyhow!("There is no leaf for the high QC"));
+                return Err(anyhow::anyhow!(
+                    "There is no leaf for the high QC. Consensus inconsistent!"
+                ));
             }
         } else if version < V::Marketplace::VERSION {
             TYPES::BlockHeader::new_legacy(
