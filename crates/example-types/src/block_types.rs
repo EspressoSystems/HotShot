@@ -58,9 +58,9 @@ impl TryFrom<Vec<u8>> for TestTransaction {
 }
 
 impl BuilderTransaction for TestTransaction {
-    fn minimum_block_size(&self, additional_length_overhead: u64) -> u64 {
+    fn minimum_block_size(&self) -> u64 {
         // the estimation on transaction size is the length of the transaction plus the additional overhead
-        self.0.len() as u64 + additional_length_overhead
+        self.0.len() as u64
     }
 }
 
