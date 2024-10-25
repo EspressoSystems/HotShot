@@ -260,7 +260,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             match event.as_ref() {
                 #[allow(unused_assignments)]
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
-                    let proposal_payload_comm = proposal.block_header.payload_commitment();
+                    let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     if let Some(ref comm) = payload_commitment {
                         if proposal_payload_comm != *comm {
                             tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");

@@ -449,40 +449,31 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
 
+                if *view == 0 && self.membership.leader(view + 1, self.cur_epoch)? == self.public_key {
+                    self.handle_view_change(&event_stream, view + 1).await;
+                    return Ok(());
+                }
+
                 tracing::debug!("view change in transactions to view {:?}", view);
                 ensure!(
-                  *view > *self.cur_view || *self.cur_view == 0,
+                  *view > *self.cur_view,
                   debug!(
                     "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
                   )
                 );
 
-                let mut make_block = false;
-                if *view - *self.cur_view > 1 {
-                    tracing::info!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
-                }
                 self.cur_view = view;
-
-                let next_view = self.cur_view + 1;
-                let next_leader =
-                    self.membership.leader(next_view, self.cur_epoch)? == self.public_key;
-
+                
+                let make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
                 ensure!(
-                    make_block || next_leader,
+                    make_block,
                     debug!(
                         "Not making the block because we are not leader for view {:?}",
                         self.cur_view
                     )
                 );
 
-                if make_block {
-                    self.handle_view_change(&event_stream, self.cur_view).await;
-                }
-
-                if next_leader {
-                    self.handle_view_change(&event_stream, next_view).await;
-                }
+                self.handle_view_change(&event_stream, self.cur_view).await;
             }
             _ => {}
         }
@@ -521,6 +512,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         let mut target_view = TYPES::View::new(block_view.saturating_sub(1));
 
         loop {
+            tracing::error!("looping looking for vid for view {:?}", block_view);
             let view_data = consensus
                 .validated_state_map()
                 .get(&target_view)
