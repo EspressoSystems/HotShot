@@ -268,10 +268,7 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
 impl Committable for DaData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("DA data")
-            .var_size_bytes(
-                &bincode::serialize(&self.payload_commit)
-                    .expect("serialization of payload commitment should succeed"),
-            )
+            .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
     }
 }
@@ -279,10 +276,7 @@ impl Committable for DaData {
 impl Committable for VidData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("VID data")
-            .var_size_bytes(
-                &bincode::serialize(&self.payload_commit)
-                    .expect("serialization of payload commitment should succeed"),
-            )
+            .var_size_bytes(self.payload_commit.as_ref())
             .finalize()
     }
 }

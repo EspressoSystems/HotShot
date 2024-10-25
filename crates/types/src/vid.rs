@@ -278,6 +278,13 @@ impl<'a> TryFrom<&'a TaggedBase64> for VidCommitment {
     }
 }
 
+// TODO add AsRef trait bound upstream
+impl AsRef<[u8]> for VidCommitment {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
 impl PayloadProver<LargeRangeProofType> for VidSchemeType {
     fn payload_proof<B>(&self, payload: B, range: Range<usize>) -> VidResult<LargeRangeProofType>
     where

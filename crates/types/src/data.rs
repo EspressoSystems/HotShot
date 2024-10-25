@@ -296,11 +296,9 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         self,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Option<Proposal<TYPES, Self>> {
-        let Ok(signature) = TYPES::SignatureKey::sign(
-            private_key,
-            &bincode::serialize(&self.payload_commitment)
-                .expect("serialization of payload commitment should succeed"),
-        ) else {
+        let Ok(signature) =
+            TYPES::SignatureKey::sign(private_key, self.payload_commitment.as_ref())
+        else {
             error!("VID: failed to sign dispersal share payload");
             return None;
         };

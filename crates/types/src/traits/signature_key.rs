@@ -336,10 +336,7 @@ fn aggregate_fee_data<Metadata: EncodeBytes>(
     let mut fee_info = Vec::new();
     fee_info.extend_from_slice(fee_amount.to_be_bytes().as_ref());
     fee_info.extend_from_slice(metadata.encode().as_ref());
-    fee_info.extend_from_slice(
-        &bincode::serialize(&vid_commitment)
-            .expect("serialization of payload commitment should succeed"),
-    );
+    fee_info.extend_from_slice(vid_commitment.as_ref());
     fee_info
 }
 

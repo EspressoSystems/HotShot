@@ -205,12 +205,9 @@ where
         TYPES::BuilderSignatureKey::sign_builder_message(&priv_key, commitment.as_ref())
             .expect("Failed to sign commitment");
 
-    let signature_over_vid_commitment = TYPES::BuilderSignatureKey::sign_builder_message(
-        &priv_key,
-        &bincode::serialize(&vid_commitment)
-            .expect("serialization of payload commitment should succeed"),
-    )
-    .expect("Failed to sign block vid commitment");
+    let signature_over_vid_commitment =
+        TYPES::BuilderSignatureKey::sign_builder_message(&priv_key, vid_commitment.as_ref())
+            .expect("Failed to sign block vid commitment");
 
     let signature_over_fee_info =
         TYPES::BuilderSignatureKey::sign_fee(&priv_key, 123_u64, &metadata, &vid_commitment)

@@ -568,8 +568,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
         let parent_comm_sig = match <<TYPES as NodeType>::SignatureKey as SignatureKey>::sign(
             &self.private_key,
-            &bincode::serialize(&parent_comm)
-                .expect("serialization of payload commitment should succeed"),
+            parent_comm.as_ref(),
         ) {
             Ok(sig) => sig,
             Err(err) => {

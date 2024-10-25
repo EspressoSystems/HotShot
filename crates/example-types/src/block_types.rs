@@ -395,10 +395,7 @@ impl Committable for TestBlockHeader {
             )
             .constant_str("payload commitment")
             .var_size_bytes(
-                &bincode::serialize(
-                    &<TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self),
-                )
-                .expect("serialization of payload commitment should succeed"),
+                <TestBlockHeader as BlockHeader<TestTypes>>::payload_commitment(self).as_ref(),
             )
             .finalize()
     }

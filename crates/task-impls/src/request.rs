@@ -314,8 +314,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                         && da_members_for_view.contains(sender_key)
                         && sender_key.validate(
                             &proposal.signature,
-                            &bincode::serialize(&proposal.data.payload_commitment)
-                                .expect("serialization of payload commitment should succeed"),
+                            proposal.data.payload_commitment.as_ref(),
                         )
                 } else {
                     false

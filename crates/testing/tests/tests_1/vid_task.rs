@@ -73,8 +73,7 @@ async fn test_vid_task() {
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(
         handle.private_key(),
-        &bincode::serialize(&payload_commitment)
-            .expect("serialization of payload commitment should succeed"),
+        payload_commitment.as_ref(),
     )
     .expect("Failed to sign block payload!");
     let proposal: DaProposal<TestTypes> = DaProposal {

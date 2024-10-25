@@ -625,11 +625,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Check that the signature is valid
                 ensure!(
-                    sender.validate(
-                        &disperse.signature,
-                        &bincode::serialize(&payload_commitment)
-                            .expect("serialization of payload commitment should succeed")
-                    ),
+                    sender.validate(&disperse.signature, payload_commitment.as_ref()),
                     "VID share signature is invalid"
                 );
 

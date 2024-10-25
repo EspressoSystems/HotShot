@@ -342,12 +342,9 @@ pub fn build_vid_proposal<TYPES: NodeType>(
         epoch_number,
     );
 
-    let signature = TYPES::SignatureKey::sign(
-        private_key,
-        &bincode::serialize(&vid_disperse.payload_commitment)
-            .expect("serialization of payload commitment should succeed"),
-    )
-    .expect("Failed to sign VID commitment");
+    let signature =
+        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment.as_ref())
+            .expect("Failed to sign VID commitment");
     let vid_disperse_proposal = Proposal {
         data: vid_disperse.clone(),
         signature,
