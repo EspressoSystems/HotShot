@@ -17,6 +17,7 @@ use hotshot_types::{
     PeerConfig,
 };
 use rand::{rngs::StdRng, Rng};
+use utils::anytrace::Result;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
@@ -40,6 +41,8 @@ pub struct RandomizedCommittee<T: NodeType> {
 }
 
 impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
+    type Error = utils::anytrace::Error;
+
     /// Create a new election
     fn new(
         eligible_leaders: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
@@ -138,11 +141,11 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
     }
 
     /// Index the vector of public keys with the current view number
-    fn leader(
+    fn lookup_leader(
         &self,
         view_number: TYPES::View,
         _epoch: <TYPES as NodeType>::Epoch,
-    ) -> TYPES::SignatureKey {
+    ) -> Result<TYPES::SignatureKey> {
         let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
 
         let randomized_view_number: u64 = rng.gen_range(0..=u64::MAX);
@@ -151,7 +154,7 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
 
         let res = self.eligible_leaders[index].clone();
 
-        TYPES::SignatureKey::public_key(&res)
+        Ok(TYPES::SignatureKey::public_key(&res))
     }
 
     /// Get the total number of nodes in the committee

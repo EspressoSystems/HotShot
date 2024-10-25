@@ -7,6 +7,8 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 use std::{collections::BTreeSet, fmt::Debug, hash::Hash, num::NonZeroU64};
 
+use utils::anytrace::Result;
+
 use super::{network::Topic, node_implementation::NodeType};
 use crate::{traits::signature_key::SignatureKey, PeerConfig};
 
@@ -14,6 +16,9 @@ use crate::{traits::signature_key::SignatureKey, PeerConfig};
 pub trait Membership<TYPES: NodeType>:
     Clone + Debug + Eq + PartialEq + Send + Sync + Hash + 'static
 {
+    /// The error type returned by methods like `lookup_leader`.
+    type Error: std::fmt::Display;
+
     /// Create a committee
     fn new(
         // Note: eligible_leaders is currently a hack because the DA leader == the quorum leader
@@ -54,8 +59,30 @@ pub trait Membership<TYPES: NodeType>:
     /// See if a node has stake in the committee in a specific epoch
     fn has_stake(&self, pub_key: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool;
 
-    /// The leader of the committee for view `view_number` in an epoch `epoch`.
-    fn leader(&self, view_number: TYPES::View, epoch: TYPES::Epoch) -> TYPES::SignatureKey;
+    /// The leader of the committee for view `view_number` in `epoch`.
+    ///
+    /// Note: this function uses a HotShot-internal error type.
+    /// You should implement `lookup_leader`, rather than implementing this function directly.
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated.
+    fn leader(&self, view: TYPES::View, epoch: TYPES::Epoch) -> Result<TYPES::SignatureKey> {
+        use utils::anytrace::*;
+
+        self.lookup_leader(view, epoch).wrap().context(info!(
+            "Failed to get leader for view {view} in epoch {epoch}"
+        ))
+    }
+
+    /// The leader of the committee for view `view_number` in `epoch`.
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated
+    fn lookup_leader(
+        &self,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
+    ) -> std::result::Result<TYPES::SignatureKey, Self::Error>;
 
     /// Get the network topic for the committee
     fn committee_topic(&self) -> Topic;

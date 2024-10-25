@@ -32,7 +32,8 @@ use hotshot_types::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
-use tracing::{debug, error, instrument};
+use tracing::instrument;
+use utils::anytrace::*;
 use vbs::version::StaticVersionType;
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
@@ -209,7 +210,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 version,
             )
             .await
-            .context("Failed to construct legacy block header")?
+            .wrap()
+            .context(warn!("Failed to construct legacy block header"))?
         } else {
             TYPES::BlockHeader::new_marketplace(
                 state.as_ref(),
@@ -224,7 +226,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 version,
             )
             .await
-            .context("Failed to construct marketplace block header")?
+            .wrap()
+            .context(warn!("Failed to construct marketplace block header"))?
         };
 
         let proposal = QuorumProposal {
@@ -245,14 +248,15 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             &self.private_key,
             proposed_leaf.commit(&self.upgrade_lock).await.as_ref(),
         )
-        .context("Failed to compute proposed_leaf.commit()")?;
+        .wrap()
+        .context(error!("Failed to compute proposed_leaf.commit()"))?;
 
         let message = Proposal {
             data: proposal,
             signature,
             _pd: PhantomData,
         };
-        debug!(
+        tracing::debug!(
             "Sending proposal for view {:?}",
             proposed_leaf.view_number(),
         );
@@ -362,14 +366,14 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
         }
 
         if commit_and_metadata.is_none() {
-            error!(
+            tracing::error!(
                 "Somehow completed the proposal dependency task without a commitment and metadata"
             );
             return;
         }
 
         if vid_share.is_none() {
-            error!("Somehow completed the proposal dependency task without a VID share");
+            tracing::error!("Somehow completed the proposal dependency task without a VID share");
             return;
         }
 
@@ -389,7 +393,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             )
             .await
         {
-            error!("Failed to publish proposal; error = {e:#}");
+            tracing::error!("Failed to publish proposal; error = {e:#}");
         }
     }
 }
