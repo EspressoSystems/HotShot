@@ -7,9 +7,11 @@
 //! This module provides an opaque constructor [`vid_scheme`] that returns a new
 //! instance of a VID scheme.
 //!
-//! Purpose: the specific choice of VID scheme is an implementation detail. This
-//! crate and all downstream crates should talk to the VID scheme only via the
-//! traits exposed here.
+//! Purpose: the specific choice of VID scheme is an implementation detail. We
+//! want all communication with the VID scheme to occur only via the API exposed
+//! in the [`VidScheme`] trait, but limitations of Rust make it difficult to
+//! achieve this level of abstraction. Hence, there's a lot of boilerplate code
+//! in this module.
 
 #![allow(missing_docs)]
 use std::{fmt::Debug, ops::Range};

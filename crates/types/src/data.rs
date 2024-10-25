@@ -288,10 +288,6 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
     }
 
     /// Consume `self` and return a `Proposal`
-    ///
-    /// # Panics
-    ///
-    /// When [`bincode::serialize`] returns [`Err`].
     pub fn to_proposal(
         self,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
