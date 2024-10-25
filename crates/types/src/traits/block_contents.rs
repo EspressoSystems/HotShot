@@ -43,12 +43,6 @@ pub trait Transaction:
 {
 }
 
-/// Abstraction over the minimum block size for transaction submitted to the builder
-pub trait BuilderTransaction {
-    /// The function to estimate transaction size
-    fn minimum_block_size(&self) -> u64;
-}
-
 /// Abstraction over the full contents of a block
 ///
 /// This trait encapsulates the behaviors that the transactions of a block must have in order to be

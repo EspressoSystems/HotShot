@@ -12,12 +12,11 @@ use std::{
 
 use async_trait::async_trait;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
+use hotshot_builder_api::v0_3::data_source::BuilderTransaction;
 use hotshot_types::{
     data::{BlockError, Leaf},
     traits::{
-        block_contents::{
-            BlockHeader, BuilderFee, BuilderTransaction, EncodeBytes, TestableBlock, Transaction,
-        },
+        block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
         node_implementation::NodeType,
         BlockPayload, ValidatedState,
     },
@@ -59,7 +58,7 @@ impl TryFrom<Vec<u8>> for TestTransaction {
 
 impl BuilderTransaction for TestTransaction {
     fn minimum_block_size(&self) -> u64 {
-        // the estimation on transaction size is the length of the transaction plus the additional overhead
+        // the estimation on transaction size is the length of the transaction
         self.0.len() as u64
     }
 }

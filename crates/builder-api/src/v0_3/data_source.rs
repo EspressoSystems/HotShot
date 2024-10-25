@@ -18,3 +18,9 @@ pub trait BuilderDataSource<TYPES: NodeType> {
     /// To get the builder's address
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError>;
 }
+
+/// Abstraction over the minimum block size for transaction submitted to the builder
+pub trait BuilderTransaction {
+    /// The function to estimate transaction size
+    fn minimum_block_size(&self) -> u64;
+}
