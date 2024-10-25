@@ -849,7 +849,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             return false;
         };
         let block_height = leaf.height();
-        if block_height == 0 {
+        if block_height == 0 || self.epoch_height == 0 {
             false
         } else {
             block_height % self.epoch_height == 0
