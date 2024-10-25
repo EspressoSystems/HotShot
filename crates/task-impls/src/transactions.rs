@@ -133,8 +133,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         if version < V::Marketplace::VERSION {
             self.handle_view_change_legacy(event_stream, block_view)
                 .await
-        } else {
+        } else if version < V::Epochs::VERSION {
             self.handle_view_change_marketplace(event_stream, block_view)
+                .await
+        } else {
+            self.handle_view_change_epochs(event_stream, block_view)
                 .await
         }
     }
@@ -417,6 +420,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         .await;
 
         None
+    }
+
+    /// epochs view change handler
+    #[instrument(skip_all, fields(id = self.id, view_number = *self.cur_view))]
+    pub async fn handle_view_change_epochs(
+        &mut self,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+        block_view: TYPES::View,
+    ) -> Option<HotShotTaskCompleted> {
+        let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
+        let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
+
+        if is_high_qc_for_last_block && !is_high_qc_extended {
+            tracing::info!("Reached end of epoch. Not getting a new block until we form an eQC.");
+            None
+        } else {
+            self.handle_view_change_marketplace(event_stream, block_view)
+                .await
+        }
     }
 
     /// main task event handler

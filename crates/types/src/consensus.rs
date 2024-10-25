@@ -20,6 +20,7 @@ use tracing::{debug, error, instrument, trace};
 use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
+use crate::vote::Certificate;
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
@@ -37,7 +38,6 @@ use crate::{
     vid::VidCommitment,
     vote::HasViewNumber,
 };
-use crate::vote::Certificate;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -852,23 +852,62 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         let block_height = leaf.height();
         if block_height == 0 {
             false
-        } else if block_height % self.epoch_height == 0 {
-            true
         } else {
-            false
+            block_height % self.epoch_height == 0
         }
     }
 
     /// Returns true if the current high qc is an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    ///
+    /// # Panics
+    /// if the last decided view's leaf does not exist in the state map or saved leaves, which
+    /// should never happen.
     pub fn is_high_qc_extended(&self) -> bool {
         if !self.is_high_qc_for_last_block() {
+            tracing::debug!("High QC is not for the last block in the epoch.");
             return false;
         }
-        let high_qc_view = self.high_qc().view_number();
+        let high_qc = self.high_qc();
+        let high_qc_view = high_qc.view_number();
         if high_qc_view - 1 != self.locked_view {
+            tracing::debug!("High QC and locked QC are not one view apart.");
             return false;
         }
         if self.locked_view - 1 != self.last_decided_view {
+            tracing::debug!("Locked QC and decided QC are not one view apart.");
+            return false;
+        }
+
+        let high_qc_height =
+            if let Some(high_qc_leaf) = self.saved_leaves.get(&high_qc.data.leaf_commit) {
+                high_qc_leaf.height()
+            } else {
+                tracing::warn!("No leaf corresponding to high QC. Consensus inconsistent!");
+                return false;
+            };
+        let locked_height = if let Some(view) = self.validated_state_map.get(&self.locked_view) {
+            if let Some(leaf_commit) = view.leaf_commitment() {
+                if let Some(leaf) = self.saved_leaves.get(&leaf_commit) {
+                    leaf.height()
+                } else {
+                    tracing::warn!("No leaf corresponding to locked view. Consensus inconsistent!");
+                    return false;
+                }
+            } else {
+                tracing::warn!("Locked leaf is not a consensus leaf. Consensus inconsistent!");
+                return false;
+            }
+        } else {
+            tracing::warn!(
+                "No validated state corresponding to locked view. Consensus inconsistent!"
+            );
+            return false;
+        };
+        let decided_height = self.decided_leaf().height();
+        if high_qc_height != decided_height || high_qc_height != locked_height {
+            tracing::debug!("High QC height is {}, locked height is {}, decided height is {}. They do not form a 3-chain.", high_qc_height, locked_height, decided_height);
             return false;
         }
         true

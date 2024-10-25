@@ -9,6 +9,11 @@
 
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
@@ -17,6 +22,7 @@ use hotshot_task::{
     dependency::{Dependency, EventDependency},
     dependency_task::HandleDepOutput,
 };
+use hotshot_types::vote::Certificate;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
@@ -28,12 +34,6 @@ use hotshot_types::{
 };
 use tracing::{debug, error, instrument};
 use vbs::version::StaticVersionType;
-use hotshot_types::vote::Certificate;
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -108,7 +108,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
-    #[instrument(skip_all, target = "ProposalDependencyHandle", fields(id = self.id, view_number = *self.view_number, latest_proposed_view = *self.latest_proposed_view))]
+    #[instrument(skip_all, fields(id = self.id, view_number = *self.view_number, latest_proposed_view = *self.latest_proposed_view))]
     async fn publish_proposal(
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,
@@ -174,8 +174,20 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
 
         let block_header = if is_high_qc_for_last_block && !is_high_qc_extended {
-            if let Some(leaf) = self.consensus.read().await.saved_leaves().get(&high_qc.data().leaf_commit) {
-                leaf.block_header().clone()
+            tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
+            if let Some(leaf) = self
+                .consensus
+                .read()
+                .await
+                .saved_leaves()
+                .get(&high_qc.data().leaf_commit)
+            {
+                let block_header = leaf.block_header().clone();
+                tracing::debug!(
+                    "Proposing block no. {} to form the eQC.",
+                    block_header.block_number()
+                );
+                block_header
             } else {
                 return Err(anyhow::anyhow!("There is no leaf for the high QC"));
             }

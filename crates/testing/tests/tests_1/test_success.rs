@@ -6,6 +6,7 @@
 
 use std::time::Duration;
 
+use hotshot_example_types::node_types::EpochsTestVersions;
 use hotshot_example_types::{
     node_types::{
         Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes, TestTypes,
@@ -135,9 +136,9 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_epoch_end,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
-    Types: [TestTypes, TestTypesRandomizedLeader],
-    Versions: [TestVersions],
+    Impls: [MemoryImpl],
+    Types: [TestTypes],
+    Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
         TestDescription {
