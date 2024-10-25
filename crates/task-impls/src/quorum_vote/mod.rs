@@ -12,13 +12,13 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::{
-    dependency::{AndDependency, Dependency, EventDependency},
+    dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::TaskState,
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, VidDisperseShare, ViewNumber},
+    data::{Leaf, VidDisperseShare},
     event::Event,
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData, QuorumVote},
@@ -251,33 +251,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
 
     #[allow(clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
-        let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
-
-        // The validated state of a non-genesis high QC should exist in the state map.
-        if *high_qc_view_number != *ViewNumber::genesis()
-            && !self
-                .consensus
-                .read()
-                .await
-                .validated_state_map()
-                .contains_key(&high_qc_view_number)
-        {
-            // Block on receiving the event from the event stream.
-            EventDependency::new(
-                self.receiver.activate_cloned(),
-                Box::new(move |event| {
-                    let event = event.as_ref();
-                    if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
-                        *view_number == high_qc_view_number
-                    } else {
-                        false
-                    }
-                }),
-            )
-            .completed()
-            .await;
-        }
-
         let mut payload_commitment = None;
         let mut leaf = None;
         let mut vid_share = None;

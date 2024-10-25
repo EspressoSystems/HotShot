@@ -100,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                 let current_epoch = self.state.read().await.cur_epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
-                if prop_view >= self.view
+                if prop_view + 1 >= self.view
                     && !self
                         .state
                         .read()
