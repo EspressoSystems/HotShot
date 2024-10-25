@@ -280,10 +280,16 @@ impl<'a> TryFrom<&'a TaggedBase64> for VidCommitment {
     }
 }
 
-// TODO add AsRef trait bound upstream
-impl AsRef<[u8]> for VidCommitment {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
+// TODO add AsRef trait bound upstream.
+//
+// We impl `AsRef<[u8; _]>` instead of `AsRef<[u8]>` to maintain backward
+// compatibility for downstream code that re-hashes the `VidCommitment`.
+// Specifically, if we support only `AsRef<[u8]>` then code that uses
+// `Committable` must switch `fixed_size_bytes` to `var_size_bytes`, which
+// prepends length data into the hash, thus changing the hash.
+impl AsRef<[u8; 32]> for VidCommitment {
+    fn as_ref(&self) -> &[u8; 32] {
+        self.0.as_ref().as_ref()
     }
 }
 
