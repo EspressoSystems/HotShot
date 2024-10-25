@@ -238,6 +238,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         debug!("We were not chosen for the consensus committee for view {view_number:?}")
     );
 
+
     let vote = TimeoutVote::create_signed_vote(
         TimeoutData::<TYPES> { view: view_number },
         view_number,
@@ -259,7 +260,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    tracing::debug!(
+    tracing::error!(
         "We did not receive evidence for view {} in time, sending timeout vote for that view!",
         *view_number
     );
