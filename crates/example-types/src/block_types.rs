@@ -55,7 +55,6 @@ impl TryFrom<Vec<u8>> for TestTransaction {
     }
 }
 
-
 impl TestTransaction {
     /// Construct a new transaction
     ///

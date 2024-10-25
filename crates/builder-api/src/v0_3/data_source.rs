@@ -18,4 +18,3 @@ pub trait BuilderDataSource<TYPES: NodeType> {
     /// To get the builder's address
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError>;
 }
-
