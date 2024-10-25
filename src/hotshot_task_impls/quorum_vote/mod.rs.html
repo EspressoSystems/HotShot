@@ -1017,8 +1017,8 @@
                 <span class="attr">#[allow(unused_assignments)]
                 </span>HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) =&gt; {
                     <span class="kw">let </span>proposal_payload_comm = proposal.block_header.payload_commitment();
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
-                        <span class="kw">if </span>proposal_payload_comm != comm {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>comm) = payload_commitment {
+                        <span class="kw">if </span>proposal_payload_comm != <span class="kw-2">*</span>comm {
                             <span class="macro">tracing::error!</span>(<span class="string">"Quorum proposal has inconsistent payload commitment with DAC or VID."</span>);
                             <span class="kw">return</span>;
                         }
@@ -1034,26 +1034,26 @@
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
                 }
                 HotShotEvent::DaCertificateValidated(cert) =&gt; {
-                    <span class="kw">let </span>cert_payload_comm = cert.data().payload_commit;
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
+                    <span class="kw">let </span>cert_payload_comm = <span class="kw-2">&amp;</span>cert.data().payload_commit;
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>comm) = payload_commitment {
                         <span class="kw">if </span>cert_payload_comm != comm {
                             <span class="macro">tracing::error!</span>(<span class="string">"DAC has inconsistent payload commitment with quorum proposal or VID."</span>);
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
-                        payload_commitment = <span class="prelude-val">Some</span>(cert_payload_comm);
+                        payload_commitment = <span class="prelude-val">Some</span>(cert_payload_comm.clone());
                     }
                 }
                 HotShotEvent::VidShareValidated(share) =&gt; {
-                    <span class="kw">let </span>vid_payload_commitment = share.data.payload_commitment;
+                    <span class="kw">let </span>vid_payload_commitment = <span class="kw-2">&amp;</span>share.data.payload_commitment;
                     vid_share = <span class="prelude-val">Some</span>(share.clone());
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(comm) = payload_commitment {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>comm) = payload_commitment {
                         <span class="kw">if </span>vid_payload_commitment != comm {
                             <span class="macro">tracing::error!</span>(<span class="string">"VID has inconsistent payload commitment with quorum proposal or DAC."</span>);
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
-                        payload_commitment = <span class="prelude-val">Some</span>(vid_payload_commitment);
+                        payload_commitment = <span class="prelude-val">Some</span>(vid_payload_commitment.clone());
                     }
                 }
                 <span class="kw">_ </span>=&gt; {}
@@ -1351,7 +1351,7 @@
                 </span>);
 
                 <span class="comment">// Validate the VID share.
-                </span><span class="kw">let </span>payload_commitment = disperse.data.payload_commitment;
+                </span><span class="kw">let </span>payload_commitment = <span class="kw-2">&amp;</span>disperse.data.payload_commitment;
                 <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="comment">// Check that the signature is valid
@@ -1374,7 +1374,7 @@
                 </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes(current_epoch)).verify_share(
                     <span class="kw-2">&amp;</span>disperse.data.share,
                     <span class="kw-2">&amp;</span>disperse.data.common,
-                    <span class="kw-2">&amp;</span>payload_commitment,
+                    payload_commitment,
                 ) {
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(())) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                         <span class="macro">bail!</span>(<span class="string">"Failed to verify VID share"</span>);

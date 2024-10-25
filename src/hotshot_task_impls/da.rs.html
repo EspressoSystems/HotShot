@@ -546,7 +546,7 @@
                 <span class="comment">// Generate and send vote
                 </span><span class="kw">let </span>vote = DaVote::create_signed_vote(
                     DaData {
-                        payload_commit: payload_commitment,
+                        payload_commit: payload_commitment.clone(),
                     },
                     view_number,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,

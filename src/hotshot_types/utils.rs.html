@@ -272,7 +272,7 @@
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Da { payload_commitment } =&gt; <span class="self">Self</span>::Da {
-                payload_commitment: <span class="kw-2">*</span>payload_commitment,
+                payload_commitment: payload_commitment.clone(),
             },
             <span class="self">Self</span>::Leaf { leaf, state, delta } =&gt; <span class="self">Self</span>::Leaf {
                 leaf: <span class="kw-2">*</span>leaf,
@@ -337,7 +337,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;VidCommitment&gt; {
         <span class="kw">if let </span><span class="self">Self</span>::Da { payload_commitment } = <span class="self">self </span>{
-            <span class="prelude-val">Some</span>(<span class="kw-2">*</span>payload_commitment)
+            <span class="prelude-val">Some</span>(payload_commitment.clone())
         } <span class="kw">else </span>{
             <span class="prelude-val">None
         </span>}

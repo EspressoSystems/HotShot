@@ -417,8 +417,6 @@
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -791,7 +789,7 @@
     }
 
     <span class="kw">fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
-        <span class="self">self</span>.payload_commitment
+        <span class="self">self</span>.payload_commitment.clone()
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata {
@@ -816,9 +814,7 @@
             )
             .constant_str(<span class="string">"payload commitment"</span>)
             .fixed_size_bytes(
-                &lt;TestBlockHeader <span class="kw">as </span>BlockHeader&lt;TestTypes&gt;&gt;::payload_commitment(<span class="self">self</span>)
-                    .as_ref()
-                    .as_ref(),
+                &lt;TestBlockHeader <span class="kw">as </span>BlockHeader&lt;TestTypes&gt;&gt;::payload_commitment(<span class="self">self</span>).as_ref(),
             )
             .finalize()
     }

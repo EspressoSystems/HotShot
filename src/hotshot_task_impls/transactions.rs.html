@@ -809,6 +809,11 @@
 <a href="#807" id="807">807</a>
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1099,7 +1104,9 @@
                 <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
                 <span class="kw">async </span>{
                     <span class="kw">let </span>client = BuilderClientMarketplace::new(url);
-                    client.bundle(<span class="kw-2">*</span>parent_view, parent_hash, <span class="kw-2">*</span>block_view).<span class="kw">await
+                    client
+                        .bundle(<span class="kw-2">*</span>parent_view, parent_hash.clone(), <span class="kw-2">*</span>block_view)
+                        .<span class="kw">await
                 </span>},
             ));
         }
@@ -1337,15 +1344,15 @@
                     <span class="string">"Missing record for view {?target_view} in validated state"
                 </span>))<span class="question-mark">?</span>;
 
-            <span class="kw">match </span>view_data.view_inner {
+            <span class="kw">match </span><span class="kw-2">&amp;</span>view_data.view_inner {
                 ViewInner::Da { payload_commitment } =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, payload_commitment))
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, payload_commitment.clone()))
                 }
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
                     ..
                 } =&gt; {
-                    <span class="kw">let </span>leaf = consensus.saved_leaves().get(<span class="kw-2">&amp;</span>leaf_commitment).context
+                    <span class="kw">let </span>leaf = consensus.saved_leaves().get(leaf_commitment).context
                         (<span class="macro">info!</span>(<span class="string">"Missing leaf with commitment {leaf_commitment} for view {target_view} in saved_leaves"</span>))<span class="question-mark">?</span>;
                     <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, leaf.payload_commitment()));
                 }
@@ -1390,7 +1397,7 @@
             <span class="kw">match </span>async_timeout(
                 <span class="self">self</span>.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                <span class="self">self</span>.block_from_builder(parent_comm, parent_view, <span class="kw-2">&amp;</span>parent_comm_sig),
+                <span class="self">self</span>.block_from_builder(parent_comm.clone(), parent_view, <span class="kw-2">&amp;</span>parent_comm_sig),
             )
             .<span class="kw">await
             </span>{
@@ -1431,20 +1438,23 @@
             </span>.builder_clients
             .iter()
             .enumerate()
-            .map(|(builder_idx, client)| <span class="kw">async move </span>{
-                client
-                    .available_blocks(
-                        parent_comm,
-                        view_number.u64(),
-                        <span class="self">self</span>.public_key.clone(),
-                        parent_comm_sig,
-                    )
-                    .<span class="kw">await
-                    </span>.map(<span class="kw">move </span>|blocks| {
-                        blocks
-                            .into_iter()
-                            .map(<span class="kw">move </span>|block_info| (block_info, builder_idx))
-                    })
+            .map(|(builder_idx, client)| {
+                <span class="kw">let </span>parent_comm = parent_comm.clone();
+                <span class="kw">async move </span>{
+                    client
+                        .available_blocks(
+                            parent_comm,
+                            view_number.u64(),
+                            <span class="self">self</span>.public_key.clone(),
+                            parent_comm_sig,
+                        )
+                        .<span class="kw">await
+                        </span>.map(<span class="kw">move </span>|blocks| {
+                            blocks
+                                .into_iter()
+                                .map(<span class="kw">move </span>|block_info| (block_info, builder_idx))
+                        })
+                }
             })
             .collect::&lt;FuturesUnordered&lt;<span class="kw">_</span>&gt;&gt;();
         <span class="kw">let </span><span class="kw-2">mut </span>results = Vec::with_capacity(<span class="self">self</span>.builder_clients.len());
