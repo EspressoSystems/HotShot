@@ -41,6 +41,8 @@ pub trait EncodeBytes {
 pub trait Transaction:
     Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
 {
+    /// The function to estimate the transaction size
+    fn minimum_block_size(&self) -> u64;
 }
 
 /// Abstraction over the full contents of a block
