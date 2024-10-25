@@ -2187,6 +2187,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.85",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -3439,6 +3440,7 @@ dependencies = [
  "committable",
  "custom_debug",
  "derivative",
+ "derive_more 1.0.0",
  "digest 0.10.7",
  "displaydoc",
  "dyn-clone 1.0.17 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.17)",
