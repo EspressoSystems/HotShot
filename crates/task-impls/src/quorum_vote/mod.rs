@@ -235,7 +235,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             .await
             .wrap()
             .context(error!("Failed to store VID share"))?;
-        
+
         tracing::error!(
             "sending vote to next quorum leader {:?}",
             vote.view_number() + 1
