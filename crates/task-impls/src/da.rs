@@ -7,14 +7,13 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::spawn_blocking;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::{Consensus, OuterConsensus, View},
+    consensus::{OuterConsensus, View},
     data::{DaProposal, PackedBundle},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
@@ -23,8 +22,7 @@ use hotshot_types::{
     traits::{
         block_contents::vid_commitment,
         election::Membership,
-        network::ConnectedNetwork,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
     },
@@ -107,12 +105,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 // Allow a DA proposal that is one view older, in case we have voted on a quorum
                 // proposal and updated the view.
-                // `self.cur_view` should be at least 1 since there is a view change before getting
-                // the `DaProposalRecv` event. Otherwise, the view number subtraction below will
-                // cause an overflow error.
-                // TODO ED Come back to this - we probably don't need this, but we should also never receive a DAC where this fails, investigate block ready so it doesn't make one for the genesis block
+                //
+                // Anything older is discarded because it is no longer relevant.
                 ensure!(
-                    self.cur_view == TYPES::View::genesis() || view >= self.cur_view - 1,
+                    self.cur_view <= view + 1,
                     "Throwing away DA proposal that is more than one view older"
                 );
 
@@ -232,42 +228,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     Arc::clone(&proposal.data.encoded_transactions),
                 ) {
                     tracing::trace!("{e:?}");
-                }
-                // Optimistically calculate and update VID if we know that the primary network is down.
-                if self.network.is_primary_down() {
-                    let consensus =
-                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
-                    let membership = Arc::clone(&self.quorum_membership);
-                    let pk = self.private_key.clone();
-                    let public_key = self.public_key.clone();
-                    let chan = event_stream.clone();
-                    let current_epoch = self.cur_epoch;
-                    async_spawn(async move {
-                        Consensus::calculate_and_update_vid(
-                            OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
-                            view_number,
-                            membership,
-                            &pk,
-                            current_epoch,
-                        )
-                        .await;
-                        if let Some(Some(vid_share)) = consensus
-                            .read()
-                            .await
-                            .vid_shares()
-                            .get(&view_number)
-                            .map(|shares| shares.get(&public_key).cloned())
-                        {
-                            broadcast_event(
-                                Arc::new(HotShotEvent::VidShareRecv(
-                                    public_key.clone(),
-                                    vid_share.clone(),
-                                )),
-                                &chan,
-                            )
-                            .await;
-                        }
-                    });
                 }
             }
             HotShotEvent::DaVoteRecv(ref vote) => {
