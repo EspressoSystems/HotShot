@@ -449,7 +449,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             HotShotEvent::ViewChange(view) => {
                 let view = *view;
 
-                if *view == 0 && self.membership.leader(view + 1, self.cur_epoch)? == self.public_key {
+                if *view == 0
+                    && self.membership.leader(view + 1, self.cur_epoch)? == self.public_key
+                {
                     self.handle_view_change(&event_stream, view + 1).await;
                     return Ok(());
                 }
@@ -463,7 +465,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 );
 
                 self.cur_view = view;
-                
+
                 let make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
                 ensure!(
                     make_block,
