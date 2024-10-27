@@ -434,7 +434,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
     <span class="doccomment">/// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
-    </span><span class="kw">pub </span>state: OuterConsensus&lt;TYPES&gt;,
+    </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// Last seen view, we won't request for proposals before older than this view
     </span><span class="kw">pub </span>view: TYPES::View,
     <span class="doccomment">/// Delay before requesting peers
@@ -477,18 +477,18 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>prop_view = proposal.view_number();
-                <span class="kw">let </span>current_epoch = <span class="self">self</span>.state.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="comment">// If we already have the VID shares for the next view, do nothing.
                 </span><span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view
                     &amp;&amp; !<span class="self">self
-                        </span>.state
+                        </span>.consensus
                         .read()
                         .<span class="kw">await
                         </span>.vid_shares()
                         .contains_key(<span class="kw-2">&amp;</span>prop_view)
                 {
-                    <span class="self">self</span>.spawn_requests(prop_view, current_epoch, sender, receiver);
+                    <span class="self">self</span>.spawn_requests(prop_view, cur_epoch, sender, receiver);
                 }
                 <span class="prelude-val">Ok</span>(())
             }
@@ -556,7 +556,7 @@
         view: TYPES::View,
         epoch: TYPES::Epoch,
     ) {
-        <span class="kw">let </span>state = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.state.inner_consensus));
+        <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>shutdown_flag = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag);
         <span class="kw">let </span>delay = <span class="self">self</span>.delay;
@@ -588,7 +588,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>recipients_it = recipients.iter().cycle();
             <span class="comment">// First check if we got the data before continuing
             </span><span class="kw">while </span>!<span class="self">Self</span>::cancel_vid_request_task(
-                <span class="kw-2">&amp;</span>state,
+                <span class="kw-2">&amp;</span>consensus,
                 <span class="kw-2">&amp;</span>sender,
                 <span class="kw-2">&amp;</span>public_key,
                 <span class="kw-2">&amp;</span>view,
@@ -707,19 +707,19 @@
 
     <span class="doccomment">/// Returns true if we got the data we wanted, a shutdown even was received, or the view has moved on.
     </span><span class="kw">async fn </span>cancel_vid_request_task(
-        state: <span class="kw-2">&amp;</span>OuterConsensus&lt;TYPES&gt;,
+        consensus: <span class="kw-2">&amp;</span>OuterConsensus&lt;TYPES&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         public_key: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
         view: <span class="kw-2">&amp;</span>TYPES::View,
         shutdown_flag: <span class="kw-2">&amp;</span>Arc&lt;AtomicBool&gt;,
     ) -&gt; bool {
-        <span class="kw">let </span>state = state.read().<span class="kw">await</span>;
+        <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
 
         <span class="kw">let </span>cancel = shutdown_flag.load(Ordering::Relaxed)
-            || state.vid_shares().contains_key(view)
-            || state.cur_view() &gt; <span class="kw-2">*</span>view;
+            || consensus_reader.vid_shares().contains_key(view)
+            || consensus_reader.cur_view() &gt; <span class="kw-2">*</span>view;
         <span class="kw">if </span>cancel {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = state
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus_reader
                 .vid_shares()
                 .get(view)
                 .map(|shares| shares.get(public_key).cloned())
@@ -736,7 +736,7 @@
             <span class="macro">tracing::debug!</span>(
                 <span class="string">"Canceling vid request for view {:?}, cur view is {:?}"</span>,
                 view,
-                state.cur_view()
+                consensus_reader.cur_view()
             );
         }
         cancel

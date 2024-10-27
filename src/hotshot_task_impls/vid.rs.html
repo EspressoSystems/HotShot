@@ -177,6 +177,14 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -210,20 +218,28 @@
 </span><span class="kw">pub struct </span>VidTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::View,
+
     <span class="doccomment">/// Epoch number this node is executing in.
     </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
+
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
+
     <span class="doccomment">/// Membership for the quorum
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+
     <span class="doccomment">/// This Nodes Public Key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
+
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+
     <span class="doccomment">/// The view and ID of the current vote collection task, if there is one.
     </span><span class="kw">pub </span>vote_collector: <span class="prelude-ty">Option</span>&lt;(TYPES::View, usize, usize)&gt;,
+
     <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
 }
@@ -260,13 +276,13 @@
                 .<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment.clone();
                 <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
-                <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
                 <span class="kw">for </span>share <span class="kw">in </span>shares {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(disperse) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) {
-                        consensus.update_vid_shares(<span class="kw-2">*</span>view_number, disperse);
+                        consensus_writer.update_vid_shares(<span class="kw-2">*</span>view_number, disperse);
                     }
                 }
-                drop(consensus);
+                drop(consensus_writer);
 
                 <span class="comment">// send the commitment and metadata to consensus for block building
                 </span>broadcast_event(

@@ -798,6 +798,10 @@
 <a href="#796" id="796">796</a>
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1080,12 +1084,12 @@
 
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
-        <span class="kw">let </span>state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
+        <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, V, NET, S&gt;::maybe_record_action(
                 <span class="prelude-val">Some</span>(HotShotAction::VidDisperse),
                 storage,
-                state,
+                consensus,
                 view,
             )
             .<span class="kw">await
@@ -1106,11 +1110,11 @@
     </span><span class="kw">async fn </span>maybe_record_action(
         maybe_action: <span class="prelude-ty">Option</span>&lt;HotShotAction&gt;,
         storage: Arc&lt;RwLock&lt;S&gt;&gt;,
-        state: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+        consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     ) -&gt; std::result::Result&lt;(), ()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(action) = maybe_action {
-            <span class="kw">if </span>!state.write().<span class="kw">await</span>.update_action(action, view) {
+            <span class="kw">if </span>!consensus.write().<span class="kw">await</span>.update_action(action, view) {
                 <span class="macro">tracing::warn!</span>(<span class="string">"Already actioned {:?} in view {:?}"</span>, action, view);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(());
             }
@@ -1424,19 +1428,21 @@
             sender,
             kind: message_kind,
         };
-        <span class="kw">let </span>view = message.kind.view_number();
+        <span class="kw">let </span>view_number = message.kind.view_number();
         <span class="kw">let </span>committee_topic = <span class="self">self</span>.quorum_membership.committee_topic();
-        <span class="kw">let </span>da_committee = <span class="self">self</span>.da_membership.committee_members(view, <span class="self">self</span>.epoch);
-        <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
+        <span class="kw">let </span>da_committee = <span class="self">self
+            </span>.da_membership
+            .committee_members(view_number, <span class="self">self</span>.epoch);
+        <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
-        <span class="kw">let </span>state = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
+        <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
         <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, V, NET, S&gt;::maybe_record_action(
                 maybe_action,
                 Arc::clone(<span class="kw-2">&amp;</span>storage),
-                state,
-                view,
+                consensus,
+                view_number,
             )
             .<span class="kw">await
             </span>.is_err()
@@ -1462,19 +1468,21 @@
 
             <span class="kw">let </span>transmit_result = <span class="kw">match </span>transmit {
                 TransmitType::Direct(recipient) =&gt; {
-                    net.direct_message(serialized_message, recipient).<span class="kw">await
+                    network.direct_message(serialized_message, recipient).<span class="kw">await
                 </span>}
                 TransmitType::Broadcast =&gt; {
-                    net.broadcast_message(serialized_message, committee_topic, broadcast_delay)
+                    network
+                        .broadcast_message(serialized_message, committee_topic, broadcast_delay)
                         .<span class="kw">await
                 </span>}
                 TransmitType::DaCommitteeBroadcast =&gt; {
-                    net.da_broadcast_message(
-                        serialized_message,
-                        da_committee.iter().cloned().collect(),
-                        broadcast_delay,
-                    )
-                    .<span class="kw">await
+                    network
+                        .da_broadcast_message(
+                            serialized_message,
+                            da_committee.iter().cloned().collect(),
+                            broadcast_delay,
+                        )
+                        .<span class="kw">await
                 </span>}
             };
 

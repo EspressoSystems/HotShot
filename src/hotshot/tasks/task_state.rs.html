@@ -399,7 +399,7 @@
     <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I, V&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
-            state: OuterConsensus::new(handle.hotshot.consensus()),
+            consensus: OuterConsensus::new(handle.hotshot.consensus()),
             view: handle.cur_view().<span class="kw">await</span>,
             delay: handle.hotshot.config.data_request_delay,
             da_membership: handle.hotshot.memberships.da_membership.clone(),
@@ -513,9 +513,9 @@
         <span class="kw">let </span>cur_view = handle.cur_view().<span class="kw">await</span>;
 
         <span class="self">Self </span>{
-            current_view: cur_view,
+            cur_view,
             next_view: cur_view,
-            current_epoch: handle.cur_epoch().<span class="kw">await</span>,
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             public_key: handle.public_key().clone(),

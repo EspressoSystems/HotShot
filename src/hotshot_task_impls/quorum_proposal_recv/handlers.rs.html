@@ -294,7 +294,7 @@
     task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;
 
     <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
 
@@ -309,10 +309,10 @@
         </span>},
     };
 
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_validated_state_map(view_number, view.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
-    consensus_write
+    consensus_writer
         .update_saved_leaves(leaf.clone(), <span class="kw-2">&amp;</span>task_state.upgrade_lock)
         .<span class="kw">await</span>;
 
@@ -321,8 +321,8 @@
         .write()
         .<span class="kw">await
         </span>.update_undecided_state(
-            consensus_write.saved_leaves().clone(),
-            consensus_write.validated_state_map().clone(),
+            consensus_writer.saved_leaves().clone(),
+            consensus_writer.validated_state_map().clone(),
         )
         .<span class="kw">await
     </span>{
@@ -330,9 +330,9 @@
     }
 
     <span class="kw">let </span>liveness_check =
-        proposal.data.justify_qc.clone().view_number() &gt; consensus_write.locked_view();
+        proposal.data.justify_qc.clone().view_number() &gt; consensus_writer.locked_view();
 
-    drop(consensus_write);
+    drop(consensus_writer);
 
     <span class="comment">// Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     </span>broadcast_event(
@@ -389,8 +389,8 @@
         )
         .<span class="kw">await
     </span>{
-        <span class="kw">let </span>consensus = task_state.consensus.read().<span class="kw">await</span>;
-        consensus.metrics.invalid_qc.update(<span class="number">1</span>);
+        <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
+        consensus_reader.metrics.invalid_qc.update(<span class="number">1</span>);
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
     }
 
@@ -429,11 +429,11 @@
         .<span class="kw">await
         </span>.ok(),
     };
-    <span class="kw">let </span>consensus_read = task_state.consensus.read().<span class="kw">await</span>;
+    <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
 
     <span class="kw">let </span>parent = <span class="kw">match </span>parent_leaf {
         <span class="prelude-val">Some</span>(leaf) =&gt; {
-            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) = consensus_read.state_and_delta(leaf.view_number()) {
+            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(state), <span class="kw">_</span>) = consensus_reader.state_and_delta(leaf.view_number()) {
                 <span class="prelude-val">Some</span>((leaf, Arc::clone(<span class="kw-2">&amp;</span>state)))
             } <span class="kw">else </span>{
                 <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
@@ -442,7 +442,7 @@
         <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
     };
 
-    <span class="kw">if </span>justify_qc.view_number() &gt; consensus_read.high_qc().view_number {
+    <span class="kw">if </span>justify_qc.view_number() &gt; consensus_reader.high_qc().view_number {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
             .storage
             .write()
@@ -453,13 +453,13 @@
             <span class="macro">bail!</span>(<span class="string">"Failed to store High QC, not voting; error = {:?}"</span>, e);
         }
     }
-    drop(consensus_read);
+    drop(consensus_reader);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_high_qc(justify_qc.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
-    drop(consensus_write);
+    drop(consensus_writer);
 
     broadcast_event(
         HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),

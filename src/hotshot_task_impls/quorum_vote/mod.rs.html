@@ -724,11 +724,6 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1277,10 +1272,9 @@
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
-
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) =&gt; {
+                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="macro">tracing::trace!</span>(<span class="string">"Received Proposal for view {}"</span>, <span class="kw-2">*</span>proposal.view_number());
 
                 <span class="comment">// Handle the event before creating the dependency task.
@@ -1294,7 +1288,7 @@
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     proposal.view_number,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     <span class="kw-2">&amp;</span>event_sender,
                     <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>event)),
@@ -1310,15 +1304,11 @@
                     <span class="string">"Received DAC for an older view."
                 </span>);
 
-                <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="comment">// Validate the DAC.
                 </span><span class="macro">ensure!</span>(
-                    cert.is_valid_cert(
-                        <span class="self">self</span>.da_membership.as_ref(),
-                        current_epoch,
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
-                    )
-                    .<span class="kw">await</span>,
+                    cert.is_valid_cert(<span class="self">self</span>.da_membership.as_ref(), cur_epoch, <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
+                        .<span class="kw">await</span>,
                     <span class="macro">warn!</span>(<span class="string">"Invalid DAC"</span>)
                 );
 
@@ -1335,7 +1325,7 @@
                 .<span class="kw">await</span>;
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     <span class="kw-2">&amp;</span>event_sender,
                     <span class="prelude-val">None</span>,
@@ -1352,7 +1342,7 @@
 
                 <span class="comment">// Validate the VID share.
                 </span><span class="kw">let </span>payload_commitment = <span class="kw-2">&amp;</span>disperse.data.payload_commitment;
-                <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="comment">// Check that the signature is valid
                 </span><span class="macro">ensure!</span>(
@@ -1363,15 +1353,15 @@
                 <span class="comment">// ensure that the VID share was sent by a DA member OR the view leader
                 </span><span class="macro">ensure!</span>(
                     <span class="self">self</span>.da_membership
-                        .committee_members(view, current_epoch)
+                        .committee_members(view, cur_epoch)
                         .contains(sender)
-                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.quorum_membership.leader(view, current_epoch)<span class="question-mark">?</span>,
+                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.quorum_membership.leader(view, cur_epoch)<span class="question-mark">?</span>,
                     <span class="string">"VID share was not sent by a DA member or the view leader."
                 </span>);
 
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes(current_epoch)).verify_share(
+                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes(cur_epoch)).verify_share(
                     <span class="kw-2">&amp;</span>disperse.data.share,
                     <span class="kw-2">&amp;</span>disperse.data.common,
                     payload_commitment,
@@ -1399,7 +1389,7 @@
                 .<span class="kw">await</span>;
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     <span class="kw-2">&amp;</span>event_sender,
                     <span class="prelude-val">None</span>,

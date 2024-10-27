@@ -373,13 +373,13 @@
             .get(<span class="kw-2">&amp;</span>view)
             .is_some_and(|m| m.contains_key(key));
         <span class="kw">if </span>!contained {
-            <span class="kw">let </span>current_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+            <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
             <span class="kw">if </span>Consensus::calculate_and_update_vid(
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)),
                 view,
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                current_epoch,
+                cur_epoch,
             )
             .<span class="kw">await
             </span>.is_none()
@@ -391,7 +391,7 @@
                     view,
                     Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                    current_epoch,
+                    cur_epoch,
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
             }

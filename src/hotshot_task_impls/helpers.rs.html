@@ -802,6 +802,14 @@
 <a href="#800" id="800">800</a>
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -886,7 +894,7 @@
     .<span class="kw">await</span>;
 
     <span class="kw">let </span>mem = Arc::clone(<span class="kw-2">&amp;</span>quorum_membership);
-    <span class="kw">let </span>current_epoch = consensus.read().<span class="kw">await</span>.cur_epoch();
+    <span class="kw">let </span>cur_epoch = consensus.read().<span class="kw">await</span>.cur_epoch();
     <span class="comment">// Make a background task to await the arrival of the event data.
     </span><span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proposal)) =
         <span class="comment">// We want to explicitly timeout here so we aren't waiting around for the data.
@@ -918,7 +926,7 @@
                         hs_event.as_ref()
                     {
                         <span class="comment">// Make sure that the quorum_proposal is valid
-                        </span><span class="kw">if </span>quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem, current_epoch, upgrade_lock).<span class="kw">await</span>.is_ok() {
+                        </span><span class="kw">if </span>quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem, cur_epoch, upgrade_lock).<span class="kw">await</span>.is_ok() {
                             proposal = <span class="prelude-val">Some</span>(quorum_proposal.clone());
                         }
 
@@ -937,12 +945,12 @@
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
     <span class="kw">if </span>!justify_qc
-        .is_valid_cert(quorum_membership.as_ref(), current_epoch, upgrade_lock)
+        .is_valid_cert(quorum_membership.as_ref(), cur_epoch, upgrade_lock)
         .<span class="kw">await
     </span>{
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
     }
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = consensus.write().<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
     <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
     <span class="kw">let </span>state = Arc::new(
         &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header),
@@ -955,13 +963,14 @@
             delta: <span class="prelude-val">None</span>,
         },
     };
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_validated_state_map(view_number, view.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
 
-    consensus_write
+    consensus_writer
         .update_saved_leaves(leaf.clone(), upgrade_lock)
         .<span class="kw">await</span>;
+
     broadcast_event(
         HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
         <span class="kw-2">&amp;</span>event_sender,
@@ -1173,21 +1182,24 @@
     consensus: OuterConsensus&lt;TYPES&gt;,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
-    <span class="kw">let </span>current_epoch = consensus.read().<span class="kw">await</span>.cur_epoch();
+    <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
+    <span class="kw">let </span>cur_epoch = consensus_reader.cur_epoch();
     <span class="macro">ensure!</span>(
-        quorum_membership.leader(next_proposal_view_number, current_epoch)<span class="question-mark">? </span>== public_key,
+        quorum_membership.leader(next_proposal_view_number, cur_epoch)<span class="question-mark">? </span>== public_key,
         <span class="macro">info!</span>(
             <span class="string">"Somehow we formed a QC but are not the leader for the next view {:?}"</span>,
             next_proposal_view_number
         )
     );
-    <span class="kw">let </span>parent_view_number = consensus.read().<span class="kw">await</span>.high_qc().view_number();
-    <span class="kw">if </span>!consensus
+    <span class="kw">let </span>parent_view_number = consensus_reader.high_qc().view_number();
+    <span class="kw">let </span>vsm_contains_parent_view = consensus
         .read()
         .<span class="kw">await
         </span>.validated_state_map()
-        .contains_key(<span class="kw-2">&amp;</span>parent_view_number)
-    {
+        .contains_key(<span class="kw-2">&amp;</span>parent_view_number);
+    drop(consensus_reader);
+
+    <span class="kw">if </span>!vsm_contains_parent_view {
         <span class="kw">let _ </span>= fetch_proposal(
             parent_view_number,
             event_sender.clone(),
@@ -1201,6 +1213,7 @@
         .<span class="kw">await
         </span>.context(<span class="macro">info!</span>(<span class="string">"Failed to fetch proposal"</span>))<span class="question-mark">?</span>;
     }
+
     <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span>parent_view_number = consensus_reader.high_qc().view_number();
     <span class="kw">let </span>parent_view = consensus_reader.validated_state_map().get(<span class="kw-2">&amp;</span>parent_view_number).context(
@@ -1267,17 +1280,17 @@
     };
 
     {
-        <span class="kw">let </span><span class="kw-2">mut </span>consensus_write = task_state.consensus.write().<span class="kw">await</span>;
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
+        <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_validated_state_map(view_number, view.clone()) {
             <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
         }
-        consensus_write
+        consensus_writer
             .update_saved_leaves(proposed_leaf.clone(), <span class="kw-2">&amp;</span>task_state.upgrade_lock)
             .<span class="kw">await</span>;
 
         <span class="comment">// Update our internal storage of the proposal. The proposal is valid, so
         // we swallow this error and just log if it occurs.
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_write.update_proposed_view(proposal.clone()) {
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_proposed_view(proposal.clone()) {
             <span class="macro">tracing::debug!</span>(<span class="string">"Internal proposal update failed; error = {e:#}"</span>);
         };
     }
@@ -1289,11 +1302,11 @@
     )
     .<span class="kw">await</span>;
 
-    <span class="kw">let </span>current_epoch = task_state.cur_epoch;
+    <span class="kw">let </span>cur_epoch = task_state.cur_epoch;
     UpgradeCertificate::validate(
         <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
         <span class="kw-2">&amp;</span>task_state.quorum_membership,
-        current_epoch,
+        cur_epoch,
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1312,19 +1325,19 @@
 
     // Liveness check.
     </span>{
-        <span class="kw">let </span>read_consensus = task_state.consensus.read().<span class="kw">await</span>;
-        <span class="kw">let </span>liveness_check = justify_qc.view_number() &gt; read_consensus.locked_view();
+        <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
+        <span class="kw">let </span>liveness_check = justify_qc.view_number() &gt; consensus_reader.locked_view();
 
         <span class="comment">// Safety check.
         // Check if proposal extends from the locked leaf.
-        </span><span class="kw">let </span>outcome = read_consensus.visit_leaf_ancestors(
+        </span><span class="kw">let </span>outcome = consensus_reader.visit_leaf_ancestors(
             justify_qc.view_number(),
-            Terminator::Inclusive(read_consensus.locked_view()),
+            Terminator::Inclusive(consensus_reader.locked_view()),
             <span class="bool-val">false</span>,
             |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
                 <span class="comment">// if leaf view no == locked view no then we're done, report success by
                 // returning true
-                </span>leaf.view_number() != read_consensus.locked_view()
+                </span>leaf.view_number() != consensus_reader.locked_view()
             },
         );
         <span class="kw">let </span>safety_check = outcome.is_ok();
@@ -1341,7 +1354,7 @@
                 .<span class="kw">await</span>;
             }
 
-            <span class="macro">error!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, read_consensus.high_qc(), proposal.data.clone(), read_consensus.locked_view())
+            <span class="macro">error!</span>(<span class="string">"Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}"</span>, consensus_reader.high_qc(), proposal.data.clone(), consensus_reader.locked_view())
         });
     }
 
@@ -1396,9 +1409,9 @@
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="kw">let </span>view = proposal.data.view_number();
+    <span class="kw">let </span>view_number = proposal.data.view_number();
     <span class="macro">ensure!</span>(
-        view &gt;= task_state.cur_view,
+        view_number &gt;= task_state.cur_view,
         <span class="string">"Proposal is from an older view {:?}"</span>,
         proposal.data.clone()
     );
@@ -1413,19 +1426,19 @@
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Verify a timeout certificate OR a view sync certificate exists and is valid.
-    </span><span class="kw">if </span>proposal.data.justify_qc.view_number() != view - <span class="number">1 </span>{
+    </span><span class="kw">if </span>proposal.data.justify_qc.view_number() != view_number - <span class="number">1 </span>{
         <span class="kw">let </span>received_proposal_cert =
             proposal.data.proposal_certificate.clone().context(<span class="macro">debug!</span>(
                 <span class="string">"Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one"</span>,
-                <span class="kw-2">*</span>view
+                <span class="kw-2">*</span>view_number
         ))<span class="question-mark">?</span>;
 
         <span class="kw">match </span>received_proposal_cert {
             ViewChangeEvidence::Timeout(timeout_cert) =&gt; {
                 <span class="macro">ensure!</span>(
-                    timeout_cert.data().view == view - <span class="number">1</span>,
+                    timeout_cert.data().view == view_number - <span class="number">1</span>,
                     <span class="string">"Timeout certificate for view {} was not for the immediately preceding view"</span>,
-                    <span class="kw-2">*</span>view
+                    <span class="kw-2">*</span>view_number
                 );
                 <span class="macro">ensure!</span>(
                     timeout_cert
@@ -1436,15 +1449,15 @@
                         )
                         .<span class="kw">await</span>,
                     <span class="string">"Timeout certificate for view {} was invalid"</span>,
-                    <span class="kw-2">*</span>view
+                    <span class="kw-2">*</span>view_number
                 );
             }
             ViewChangeEvidence::ViewSync(view_sync_cert) =&gt; {
                 <span class="macro">ensure!</span>(
-                    view_sync_cert.view_number == view,
+                    view_sync_cert.view_number == view_number,
                     <span class="string">"View sync cert view number {:?} does not match proposal view number {:?}"</span>,
                     view_sync_cert.view_number,
-                    view
+                    view_number
                 );
 
                 <span class="comment">// View sync certs must also be valid.
@@ -1544,15 +1557,15 @@
     ))
     .<span class="kw">await</span>;
 
-    <span class="kw">let </span>consensus = task_state.consensus.upgradable_read().<span class="kw">await</span>;
-    consensus
+    <span class="kw">let </span>consensus_reader = task_state.consensus.upgradable_read().<span class="kw">await</span>;
+    consensus_reader
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     <span class="kw">let </span>new_view_time = Utc::now().timestamp();
     <span class="kw">if </span>is_old_view_leader {
         <span class="attr">#[allow(clippy::cast_precision_loss)]
-        </span>consensus
+        </span>consensus_reader
             .metrics
             .view_duration_as_leader
             .add_point((new_view_time - task_state.cur_view_time) <span class="kw">as </span>f64);
@@ -1562,15 +1575,18 @@
     <span class="comment">// Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
     </span><span class="kw">if </span>usize::try_from(task_state.cur_view.u64()).unwrap()
-        &gt; usize::try_from(consensus.last_decided_view().u64()).unwrap()
+        &gt; usize::try_from(consensus_reader.last_decided_view().u64()).unwrap()
     {
-        consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.u64()).unwrap()
-                - usize::try_from(consensus.last_decided_view().u64()).unwrap(),
-        );
+        consensus_reader
+            .metrics
+            .number_of_views_since_last_decide
+            .set(
+                usize::try_from(task_state.cur_view.u64()).unwrap()
+                    - usize::try_from(consensus_reader.last_decided_view().u64()).unwrap(),
+            );
     }
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusUpgradableReadLockGuard::upgrade(consensus).<span class="kw">await</span>;
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus.update_view(new_view) {
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = ConsensusUpgradableReadLockGuard::upgrade(consensus_reader).<span class="kw">await</span>;
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_view(new_view) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
     <span class="macro">tracing::trace!</span>(<span class="string">"View updated successfully"</span>);

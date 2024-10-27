@@ -291,6 +291,9 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -462,8 +465,8 @@
     ))
     .<span class="kw">await</span>;
 
-    <span class="kw">let </span>consensus = task_state.consensus.read().<span class="kw">await</span>;
-    consensus
+    <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
+    consensus_reader
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
@@ -474,7 +477,7 @@
         </span>== task_state.public_key
     {
         <span class="attr">#[allow(clippy::cast_precision_loss)]
-        </span>consensus
+        </span>consensus_reader
             .metrics
             .view_duration_as_leader
             .add_point((cur_view_time - task_state.cur_view_time) <span class="kw">as </span>f64);
@@ -486,10 +489,13 @@
     </span><span class="kw">if </span>usize::try_from(task_state.cur_view.u64()).unwrap()
         &gt; usize::try_from(task_state.last_decided_view.u64()).unwrap()
     {
-        consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.u64()).unwrap()
-                - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
-        );
+        consensus_reader
+            .metrics
+            .number_of_views_since_last_decide
+            .set(
+                usize::try_from(task_state.cur_view.u64()).unwrap()
+                    - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
+            );
     }
 
     broadcast_event(
