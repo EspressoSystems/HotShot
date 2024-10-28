@@ -123,7 +123,7 @@ type Advz = advz::AdvzGPU<'static, E, H>;
 pub struct VidSchemeType(Advz);
 
 /// Newtype wrapper for assoc type [`VidScheme::Commit`].
-#[derive(Clone, Debug, Deserialize, Display, Eq, PartialEq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Display, Eq, PartialEq, Hash, Serialize)]
 pub struct VidCommitment(<Advz as VidScheme>::Commit);
 
 /// Newtype wrapper for assoc type [`VidScheme::Common`].
