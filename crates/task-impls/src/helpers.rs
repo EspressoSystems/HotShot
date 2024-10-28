@@ -266,10 +266,6 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 
                     // The chain grows by one
                     current_chain_length += 1;
-                    tracing::trace!(
-                        "Incremented current_chain_length to {}",
-                        current_chain_length
-                    );
 
                     // We emit a locked view when the chain length is 2
                     if current_chain_length == 2 {
