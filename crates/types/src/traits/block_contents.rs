@@ -45,7 +45,7 @@ pub trait Transaction:
     /// It takes in the transaction itself and a boolean indicating if the transaction adds a new namespace
     /// Since each new namespace adds overhead
     /// just ignore this parameter by default and use it when needed
-    fn minimum_block_size(&self, new_ns: bool) -> u64;
+    fn minimum_block_size(&self) -> u64;
 }
 
 /// Abstraction over the full contents of a block

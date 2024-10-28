@@ -123,7 +123,7 @@ impl Committable for TestTransaction {
 }
 
 impl Transaction for TestTransaction {
-    fn minimum_block_size(&self, _new_ns: bool) -> u64 {
+    fn minimum_block_size(&self) -> u64 {
         // the estimation on transaction size is the length of the transaction
         self.0.len() as u64
     }
