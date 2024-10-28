@@ -20,9 +20,8 @@ use hotshot_testing::{
     script::{Expectations, InputOrder, TaskScript},
     serial,
 };
-use hotshot_types::data::EpochNumber;
 use hotshot_types::{
-    data::{null_block, DaProposal, PackedBundle, VidDisperse, ViewNumber},
+    data::{null_block, DaProposal, EpochNumber, PackedBundle, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -70,7 +69,7 @@ async fn test_vid_task() {
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
     let (_, vid_precompute) = vid.commit_only_precompute(&encoded_transactions).unwrap();
-    let payload_commitment = vid_disperse.commit;
+    let payload_commitment = vid_disperse.commit.clone();
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(
         handle.private_key(),
