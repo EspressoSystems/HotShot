@@ -59,6 +59,7 @@ url = { workspace = true }
 num_enum = "0.7"
 parking_lot = "0.12"
 twox-hash = { version = "1", default-features = false }
+utils = { path = "../utils" }
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
