@@ -623,7 +623,7 @@
                 ];
             }
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
-                <span class="self">self</span>.validated_proposals.push(proposal.clone());
+                <span class="self">self</span>.validated_proposals.push(proposal.data.clone());
             }
             <span class="kw">_ </span>=&gt; {}
         }

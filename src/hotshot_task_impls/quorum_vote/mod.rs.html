@@ -724,6 +724,15 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1011,7 +1020,7 @@
             <span class="kw">match </span>event.as_ref() {
                 <span class="attr">#[allow(unused_assignments)]
                 </span>HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) =&gt; {
-                    <span class="kw">let </span>proposal_payload_comm = proposal.block_header.payload_commitment();
+                    <span class="kw">let </span>proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>comm) = payload_commitment {
                         <span class="kw">if </span>proposal_payload_comm != <span class="kw-2">*</span>comm {
                             <span class="macro">tracing::error!</span>(<span class="string">"Quorum proposal has inconsistent payload commitment with DAC or VID."</span>);
@@ -1021,9 +1030,15 @@
                         payload_commitment = <span class="prelude-val">Some</span>(proposal_payload_comm);
                     }
                     <span class="kw">let </span>parent_commitment = parent_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>;
-                    <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(proposal);
+                    <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
                     <span class="kw">if </span>proposed_leaf.parent_commitment() != parent_commitment {
                         <span class="macro">tracing::warn!</span>(<span class="string">"Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote."</span>);
+                        <span class="kw">return</span>;
+                    }
+                    <span class="comment">// Update our persistent storage of the proposal. If we cannot store the proposal reutrn
+                    // and error so we don't vote
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_proposal(proposal).<span class="kw">await </span>{
+                        <span class="macro">tracing::error!</span>(<span class="string">"failed to store proposal, not voting.  error = {e:#}"</span>);
                         <span class="kw">return</span>;
                     }
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
@@ -1150,7 +1165,7 @@
                 <span class="kw">let </span>event_view = <span class="kw">match </span>dependency_type {
                     VoteDependency::QuorumProposal =&gt; {
                         <span class="kw">if let </span>HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) = event {
-                            proposal.view_number
+                            proposal.data.view_number
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
@@ -1275,11 +1290,14 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) =&gt; {
                 <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
-                <span class="macro">tracing::trace!</span>(<span class="string">"Received Proposal for view {}"</span>, <span class="kw-2">*</span>proposal.view_number());
+                <span class="macro">tracing::trace!</span>(
+                    <span class="string">"Received Proposal for view {}"</span>,
+                    <span class="kw-2">*</span>proposal.data.view_number()
+                );
 
                 <span class="comment">// Handle the event before creating the dependency task.
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
-                    handle_quorum_proposal_validated(proposal, <span class="kw-2">&amp;</span>event_sender, <span class="self">self</span>).<span class="kw">await
+                    handle_quorum_proposal_validated(<span class="kw-2">&amp;</span>proposal.data, <span class="kw-2">&amp;</span>event_sender, <span class="self">self</span>).<span class="kw">await
                 </span>{
                     <span class="macro">tracing::debug!</span>(
                         <span class="string">"Failed to handle QuorumProposalValidated event; error = {e:#}"
@@ -1287,7 +1305,7 @@
                 }
 
                 <span class="self">self</span>.create_dependency_task_if_new(
-                    proposal.view_number,
+                    proposal.data.view_number,
                     cur_epoch,
                     event_receiver,
                     <span class="kw-2">&amp;</span>event_sender,

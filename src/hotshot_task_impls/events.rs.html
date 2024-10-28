@@ -721,7 +721,7 @@
     /// 2. The proposal has been correctly signed by the leader of the current view
     /// 3. The justify QC is valid
     /// 4. The proposal passes either liveness or safety check.
-    </span>QuorumProposalValidated(QuorumProposal&lt;TYPES&gt;, Leaf&lt;TYPES&gt;),
+    </span>QuorumProposalValidated(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;, Leaf&lt;TYPES&gt;),
     <span class="doccomment">/// A quorum proposal is missing for a view that we need.
     </span>QuorumProposalRequestSend(
         ProposalRequestPayload&lt;TYPES&gt;,
@@ -888,9 +888,14 @@
                 <span class="prelude-val">Some</span>(v.view_number())
             }
             HotShotEvent::QuorumProposalRecv(proposal, <span class="kw">_</span>)
-            | HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(proposal.data.view_number()),
+            | HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>)
+            | HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>)
+            | HotShotEvent::QuorumProposalResponseSend(<span class="kw">_</span>, proposal)
+            | HotShotEvent::QuorumProposalResponseRecv(proposal)
+            | HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) =&gt; {
+                <span class="prelude-val">Some</span>(proposal.data.view_number())
+            }
             HotShotEvent::QuorumVoteSend(vote) =&gt; <span class="prelude-val">Some</span>(vote.view_number()),
-            HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(proposal.view_number()),
             HotShotEvent::DaProposalRecv(proposal, <span class="kw">_</span>)
             | HotShotEvent::DaProposalValidated(proposal, <span class="kw">_</span>)
             | HotShotEvent::DaProposalSend(proposal, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(proposal.data.view_number()),
@@ -932,11 +937,6 @@
             }
             HotShotEvent::QuorumProposalRequestSend(req, <span class="kw">_</span>)
             | HotShotEvent::QuorumProposalRequestRecv(req, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(req.view_number),
-            HotShotEvent::QuorumProposalResponseSend(<span class="kw">_</span>, proposal)
-            | HotShotEvent::QuorumProposalResponseRecv(proposal)
-            | HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) =&gt; {
-                <span class="prelude-val">Some</span>(proposal.data.view_number())
-            }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number)
             | HotShotEvent::ViewChange(view_number)
             | HotShotEvent::ViewSyncTimeout(view_number, <span class="kw">_</span>, <span class="kw">_</span>)
@@ -1019,7 +1019,7 @@
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; <span class="macro">write!</span>(
                 f,
                 <span class="string">"QuorumProposalValidated(view_number={:?})"</span>,
-                proposal.view_number()
+                proposal.data.view_number()
             ),
             HotShotEvent::DaProposalSend(proposal, <span class="kw">_</span>) =&gt; <span class="macro">write!</span>(
                 f,
