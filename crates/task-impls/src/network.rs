@@ -308,11 +308,16 @@ impl<
         storage: Arc<RwLock<S>>,
         state: Arc<RwLock<Consensus<TYPES>>>,
         view: <TYPES as NodeType>::View,
-    ) -> Result<(), ()> {
-        if let Some(action) = maybe_action {
+    ) -> std::result::Result<(), ()> {
+        if let Some(mut action) = maybe_action {
             if !state.write().await.update_action(action, view) {
                 warn!("Already actioned {:?} in view {:?}", action, view);
                 return Err(());
+            }
+            // If the action was view sync record it as a vote, but we don't
+            // want to limit to 1 View sycn vote above so change the action here.
+            if matches!(action, HotShotAction::ViewSyncVote) {
+                action = HotShotAction::Vote;
             }
             match storage.write().await.record_action(view, action).await {
                 Ok(()) => Ok(()),
@@ -428,7 +433,7 @@ impl<
                 ),
             )),
             HotShotEvent::ViewSyncCommitVoteSend(vote) => {
-                *maybe_action = Some(HotShotAction::Vote);
+                *maybe_action = Some(HotShotAction::ViewSyncVote);
 
                 Some((
                     vote.signing_key(),
@@ -442,7 +447,7 @@ impl<
                 ))
             }
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
-                *maybe_action = Some(HotShotAction::Vote);
+                *maybe_action = Some(HotShotAction::ViewSyncVote);
 
                 Some((
                     vote.signing_key(),
