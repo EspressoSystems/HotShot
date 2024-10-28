@@ -10,7 +10,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::{InactiveReceiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
