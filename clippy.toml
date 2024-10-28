@@ -1,0 +1,1 @@
+allowed-wildcard-imports = [ "utils", "hotshot_task_impls", "hotshot_types" ]

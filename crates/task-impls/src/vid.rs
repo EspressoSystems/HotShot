@@ -6,7 +6,6 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
@@ -21,6 +20,7 @@ use hotshot_types::{
     },
 };
 use tracing::{debug, error, info, instrument};
+use utils::anytrace::Result;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -31,20 +31,28 @@ use crate::{
 pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// View number this view is executing in.
     pub cur_view: TYPES::View,
+
     /// Epoch number this node is executing in.
     pub cur_epoch: TYPES::Epoch,
+
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: OuterConsensus<TYPES>,
+
     /// The underlying network
     pub network: Arc<I::Network>,
+
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,
+
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
+
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
     /// The view and ID of the current vote collection task, if there is one.
     pub vote_collector: Option<(TYPES::View, usize, usize)>,
+
     /// This state's ID
     pub id: u64,
 }
@@ -79,15 +87,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     vid_precompute.clone(),
                 )
                 .await;
-                let payload_commitment = vid_disperse.payload_commitment;
+                let payload_commitment = vid_disperse.payload_commitment.clone();
                 let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
-                let mut consensus = self.consensus.write().await;
+                let mut consensus_writer = self.consensus.write().await;
                 for share in shares {
                     if let Some(disperse) = share.to_proposal(&self.private_key) {
-                        consensus.update_vid_shares(*view_number, disperse);
+                        consensus_writer.update_vid_shares(*view_number, disperse);
                     }
                 }
-                drop(consensus);
+                drop(consensus_writer);
 
                 // send the commitment and metadata to consensus for block building
                 broadcast_event(

@@ -8,7 +8,6 @@
 
 use std::sync::Arc;
 
-use anyhow::{bail, Context, Result};
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLockUpgradableReadGuard;
@@ -28,7 +27,8 @@ use hotshot_types::{
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-use tracing::{debug, error, instrument, warn};
+use tracing::instrument;
+use utils::anytrace::*;
 
 use super::QuorumProposalRecvTaskState;
 use crate::{
@@ -48,7 +48,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();
-    let mut consensus_write = task_state.consensus.write().await;
+    let mut consensus_writer = task_state.consensus.write().await;
 
     let leaf = Leaf::from_quorum_proposal(&proposal.data);
 
@@ -63,10 +63,10 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         },
     };
 
-    if let Err(e) = consensus_write.update_validated_state_map(view_number, view.clone()) {
+    if let Err(e) = consensus_writer.update_validated_state_map(view_number, view.clone()) {
         tracing::trace!("{e:?}");
     }
-    consensus_write
+    consensus_writer
         .update_saved_leaves(leaf.clone(), &task_state.upgrade_lock)
         .await;
 
@@ -75,18 +75,18 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         .write()
         .await
         .update_undecided_state(
-            consensus_write.saved_leaves().clone(),
-            consensus_write.validated_state_map().clone(),
+            consensus_writer.saved_leaves().clone(),
+            consensus_writer.validated_state_map().clone(),
         )
         .await
     {
-        warn!("Couldn't store undecided state.  Error: {:?}", e);
+        tracing::warn!("Couldn't store undecided state.  Error: {:?}", e);
     }
 
     let liveness_check =
-        proposal.data.justify_qc.clone().view_number() > consensus_write.locked_view();
+        proposal.data.justify_qc.clone().view_number() > consensus_writer.locked_view();
 
-    drop(consensus_write);
+    drop(consensus_writer);
 
     // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
     broadcast_event(
@@ -96,7 +96,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     .await;
 
     if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
-        debug!("Liveness Branch - Failed to update view; error = {e:#}");
+        tracing::debug!("Liveness Branch - Failed to update view; error = {e:#}");
     }
 
     if !liveness_check {
@@ -159,7 +159,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
     validate_proposal_view_and_certs(proposal, task_state)
         .await
-        .context("Failed to validate proposal view or attached certs")?;
+        .context(warn!("Failed to validate proposal view or attached certs"))?;
 
     let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
@@ -172,8 +172,8 @@ pub(crate) async fn handle_quorum_proposal_recv<
         )
         .await
     {
-        let consensus = task_state.consensus.read().await;
-        consensus.metrics.invalid_qc.update(1);
+        let consensus_reader = task_state.consensus.read().await;
+        consensus_reader.metrics.invalid_qc.update(1);
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
 
@@ -213,7 +213,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
     let parent = match parent_leaf {
         Some(leaf) => {
-            if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
+            if let (Some(state), _) = consensus_reader.state_and_delta(leaf.view_number()) {
                 Some((leaf, Arc::clone(&state)))
             } else {
                 bail!("Parent state not found! Consensus internally inconsistent");
@@ -222,7 +222,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
         None => None,
     };
 
-    if justify_qc.view_number() > consensus_read.high_qc().view_number {
+    if justify_qc.view_number() > consensus_reader.high_qc().view_number {
         if let Err(e) = task_state
             .storage
             .write()
@@ -233,13 +233,13 @@ pub(crate) async fn handle_quorum_proposal_recv<
             bail!("Failed to store High QC, not voting; error = {:?}", e);
         }
     }
-    drop(consensus_read);
+    drop(consensus_reader);
 
-    let mut consensus_write = task_state.consensus.write().await;
-    if let Err(e) = consensus_write.update_high_qc(justify_qc.clone()) {
+    let mut consensus_writer = task_state.consensus.write().await;
+    if let Err(e) = consensus_writer.update_high_qc(justify_qc.clone()) {
         tracing::trace!("{e:?}");
     }
-    drop(consensus_write);
+    drop(consensus_writer);
 
     broadcast_event(
         HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
@@ -248,7 +248,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     .await;
 
     let Some((parent_leaf, _parent_state)) = parent else {
-        warn!(
+        tracing::warn!(
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
@@ -267,7 +267,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
     // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
     if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
-        debug!("Full Branch - Failed to update view; error = {e:#}");
+        tracing::debug!("Full Branch - Failed to update view; error = {e:#}");
     }
 
     Ok(())
