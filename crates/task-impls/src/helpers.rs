@@ -259,11 +259,6 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
         |leaf, state, delta| {
             // This is the core paper logic. We're implementing the chain in chained hotstuff.
             if res.new_decided_view_number.is_none() {
-                tracing::trace!(
-                    "last_view_number_visited = {}, leaf.view_number = {}",
-                    *last_view_number_visited,
-                    *leaf.view_number()
-                );
                 // If the last view number is the child of the leaf we've moved to...
                 if last_view_number_visited == leaf.view_number() + 1 {
                     last_view_number_visited = leaf.view_number();
@@ -278,14 +273,12 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                     // We emit a locked view when the chain length is 2
                     if current_chain_length == 2 {
                         res.new_locked_view_number = Some(leaf.view_number());
-                        tracing::trace!("New new_locked_view_number is {}", *leaf.view_number());
                         // The next leaf in the chain, if there is one, is decided, so this
                         // leaf's justify_qc would become the QC for the decided chain.
                         res.new_decide_qc = Some(leaf.justify_qc().clone());
                     } else if current_chain_length == 3 {
                         // And we decide when the chain length is 3.
                         res.new_decided_view_number = Some(leaf.view_number());
-                        tracing::trace!("New new_decided_view_number is {}", *leaf.view_number());
                     }
                 } else {
                     // There isn't a new chain extension available, so we signal to the callback

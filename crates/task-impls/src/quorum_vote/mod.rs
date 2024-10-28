@@ -286,6 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             match event.as_ref() {
                 #[allow(unused_assignments)]
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
+                    let mut is_same_block_proposed = false;
                     let proposal_payload_comm = proposal.block_header.payload_commitment();
                     let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
                     let proposed_leaf = Leaf::from_quorum_proposal(proposal);
@@ -299,6 +300,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         && proposed_leaf.payload_commitment() == parent_leaf.payload_commitment()
                     {
                         tracing::info!("Reached end of epoch. Proposed leaf has the same height and payload as its parent. No need to check the VID and DAC.");
+                        is_same_block_proposed = true;
                         vid_share = if let Some(vid_shares) = self
                             .consensus
                             .read()
@@ -330,6 +332,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         return;
                     }
                     leaf = Some(proposed_leaf);
+                    // Proposed and parent block are the same. We don't care about VID and DAC.
+                    if is_same_block_proposed {
+                        break;
+                    }
                 }
                 HotShotEvent::DaCertificateValidated(cert) => {
                     let cert_payload_comm = cert.data().payload_commit;
@@ -518,15 +524,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             }
         }
 
-        let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
-        let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
-
-        let deps = if is_high_qc_for_last_block && !is_high_qc_extended {
-            tracing::info!("Reached end of epoch. VID and DAC are not required. Last block is already validated.");
-            vec![quorum_proposal_dependency]
-        } else {
-            vec![quorum_proposal_dependency, dac_dependency, vid_dependency]
-        };
+        let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
 
         let dependency_chain = AndDependency::from_deps(deps);
 

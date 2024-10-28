@@ -19,6 +19,8 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
+use crate::traits::block_contents::BlockHeader;
+use crate::utils::Terminator::Inclusive;
 pub use crate::utils::{View, ViewInner};
 use crate::vote::Certificate;
 use crate::{
@@ -859,57 +861,58 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Returns true if the current high qc is an extended Quorum Certificate
     /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
     /// consecutive views for the last block in the epoch.
-    ///
-    /// # Panics
-    /// if the last decided view's leaf does not exist in the state map or saved leaves, which
-    /// should never happen.
     pub fn is_high_qc_extended(&self) -> bool {
         if !self.is_high_qc_for_last_block() {
             tracing::debug!("High QC is not for the last block in the epoch.");
             return false;
         }
+
         let high_qc = self.high_qc();
         let high_qc_view = high_qc.view_number();
-        if high_qc_view - 1 != self.locked_view {
-            tracing::debug!("High QC and locked QC are not one view apart.");
-            return false;
-        }
-        if self.locked_view - 1 != self.last_decided_view {
-            tracing::debug!("Locked QC and decided QC are not one view apart.");
-            return false;
-        }
-
-        let high_qc_height =
-            if let Some(high_qc_leaf) = self.saved_leaves.get(&high_qc.data.leaf_commit) {
-                high_qc_leaf.height()
+        let high_qc_block_number =
+            if let Some(leaf) = self.saved_leaves.get(&high_qc.data().leaf_commit) {
+                leaf.block_header().block_number()
             } else {
-                tracing::warn!("No leaf corresponding to high QC. Consensus inconsistent!");
                 return false;
             };
-        let locked_height = if let Some(view) = self.validated_state_map.get(&self.locked_view) {
-            if let Some(leaf_commit) = view.leaf_commitment() {
-                if let Some(leaf) = self.saved_leaves.get(&leaf_commit) {
-                    leaf.height()
-                } else {
-                    tracing::warn!("No leaf corresponding to locked view. Consensus inconsistent!");
+
+        let mut last_visited_view_number = high_qc_view;
+        let mut is_high_qc_extended = true;
+        if let Err(e) = self.visit_leaf_ancestors(
+            high_qc_view,
+            Inclusive(high_qc_view - 2),
+            true,
+            |leaf, _, _| {
+                tracing::trace!(
+                    "last_visited_view_number = {}, leaf.view_number = {}",
+                    *last_visited_view_number,
+                    *leaf.view_number()
+                );
+
+                if leaf.view_number() == high_qc_view {
+                    return true;
+                }
+
+                if last_visited_view_number - 1 != leaf.view_number() {
+                    tracing::trace!("The chain is broken. Non consecutive views.");
+                    is_high_qc_extended = false;
                     return false;
                 }
-            } else {
-                tracing::warn!("Locked leaf is not a consensus leaf. Consensus inconsistent!");
-                return false;
-            }
-        } else {
-            tracing::warn!(
-                "No validated state corresponding to locked view. Consensus inconsistent!"
-            );
-            return false;
-        };
-        let decided_height = self.decided_leaf().height();
-        if high_qc_height != decided_height || high_qc_height != locked_height {
-            tracing::debug!("High QC height is {}, locked height is {}, decided height is {}. They do not form a 3-chain for the last block.", high_qc_height, locked_height, decided_height);
-            return false;
+                if high_qc_block_number != leaf.height() {
+                    tracing::trace!("The chain is broken. Block numbers do not match.");
+                    is_high_qc_extended = false;
+                    return false;
+                }
+                last_visited_view_number = leaf.view_number();
+                true
+            },
+        ) {
+            is_high_qc_extended = false;
+            tracing::trace!("The chain is broken. Leaf ascension failed.");
+            tracing::debug!("Leaf ascension failed; error={e}");
         }
-        true
+        tracing::trace!("Is the high QC an eQC? {}", is_high_qc_extended);
+        is_high_qc_extended
     }
 }
 
