@@ -287,7 +287,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     if let Some(ref comm) = payload_commitment {
-                        if proposal_payload_comm != comm {
+                        if proposal_payload_comm != *comm {
                             tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
                             return;
                         }
@@ -303,7 +303,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     // Update our persistent storage of the proposal. If we cannot store the proposal reutrn
                     // and error so we don't vote
                     if let Err(e) = self.storage.write().await.append_proposal(proposal).await {
-                        error!("failed to store proposal, not voting.  error = {e:#}");
+                        tracing::error!("failed to store proposal, not voting.  error = {e:#}");
                         return;
                     }
                     leaf = Some(proposed_leaf);
@@ -555,7 +555,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
                 let cur_epoch = self.consensus.read().await.cur_epoch();
-                tracing::trace!("Received Proposal for view {}", *proposal.data.view_number());
+                tracing::trace!(
+                    "Received Proposal for view {}",
+                    *proposal.data.view_number()
+                );
 
                 // Handle the event before creating the dependency task.
                 if let Err(e) =

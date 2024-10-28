@@ -213,7 +213,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
     let parent = match parent_leaf {
         Some(leaf) => {
-            if let (Some(state), _) = consensus_reader.state_and_delta(leaf.view_number()) {
+            if let (Some(state), _) = consensus_read.state_and_delta(leaf.view_number()) {
                 Some((leaf, Arc::clone(&state)))
             } else {
                 bail!("Parent state not found! Consensus internally inconsistent");
@@ -222,7 +222,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
         None => None,
     };
 
-    if justify_qc.view_number() > consensus_reader.high_qc().view_number {
+    if justify_qc.view_number() > consensus_read.high_qc().view_number {
         if let Err(e) = task_state
             .storage
             .write()
@@ -233,7 +233,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             bail!("Failed to store High QC, not voting; error = {:?}", e);
         }
     }
-    drop(consensus_reader);
+    drop(consensus_read);
 
     let mut consensus_writer = task_state.consensus.write().await;
     if let Err(e) = consensus_writer.update_high_qc(justify_qc.clone()) {
