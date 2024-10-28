@@ -21,9 +21,8 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::data::EpochNumber;
 use hotshot_types::{
-    data::{null_block, PackedBundle, ViewNumber},
+    data::{null_block, EpochNumber, PackedBundle, ViewNumber},
     simple_vote::DaData,
     traits::{
         block_contents::precompute_vid_commitment,
@@ -70,8 +69,13 @@ async fn test_da_task() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit: payload_commit.clone(),
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -83,8 +87,13 @@ async fn test_da_task() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit: payload_commit.clone(),
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -171,8 +180,13 @@ async fn test_da_task_storage_failure() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit: payload_commit.clone(),
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -184,8 +198,13 @@ async fn test_da_task_storage_failure() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit: payload_commit.clone(),
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
