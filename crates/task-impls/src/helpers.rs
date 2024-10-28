@@ -118,6 +118,9 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                         }
 
                     }
+                } else {
+                    // If the dep returns early return none
+                    return None;
                 }
             }
 
