@@ -201,6 +201,8 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -387,6 +389,8 @@
 </span><span class="kw">pub enum </span>HotShotAction {
     <span class="doccomment">/// A quorum vote was sent
     </span>Vote,
+    <span class="doccomment">/// View Sync Vote
+    </span>ViewSyncVote,
     <span class="doccomment">/// A quorum proposal was sent
     </span>Propose,
     <span class="doccomment">/// DA proposal was sent

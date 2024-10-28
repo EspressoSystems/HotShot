@@ -802,6 +802,13 @@
 <a href="#800" id="800">800</a>
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1113,10 +1120,15 @@
         consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     ) -&gt; std::result::Result&lt;(), ()&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(action) = maybe_action {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>action) = maybe_action {
             <span class="kw">if </span>!consensus.write().<span class="kw">await</span>.update_action(action, view) {
                 <span class="macro">tracing::warn!</span>(<span class="string">"Already actioned {:?} in view {:?}"</span>, action, view);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(());
+            }
+            <span class="comment">// If the action was view sync record it as a vote, but we don't
+            // want to limit to 1 View sycn vote above so change the action here.
+            </span><span class="kw">if </span><span class="macro">matches!</span>(action, HotShotAction::ViewSyncVote) {
+                action = HotShotAction::Vote;
             }
             <span class="kw">match </span>storage.write().<span class="kw">await</span>.record_action(view, action).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
@@ -1264,6 +1276,7 @@
                 ))
             }
             HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; {
+                <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::ViewSyncVote);
                 <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
                 <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
@@ -1286,6 +1299,7 @@
                 ))
             }
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; {
+                <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::ViewSyncVote);
                 <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
                 <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
