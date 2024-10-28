@@ -16,7 +16,7 @@ pub mod transport;
 use std::{collections::HashSet, fmt::Debug};
 
 use futures::channel::oneshot::Sender;
-use hotshot_types::traits::{network::NetworkError, signature_key::SignatureKey};
+use hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 #[cfg(async_executor_impl = "async-std")]
 use libp2p::dns::async_std::Transport as DnsTransport;
 #[cfg(async_executor_impl = "tokio")]
@@ -162,9 +162,9 @@ type BoxedTransport = Boxed<(PeerId, StreamMuxerBox)>;
 /// # Errors
 /// If we could not create a DNS transport
 #[instrument(skip(identity))]
-pub async fn gen_transport<K: SignatureKey + 'static>(
+pub async fn gen_transport<T: NodeType>(
     identity: Keypair,
-    stake_table: Option<HashSet<K>>,
+    stake_table: Option<T::Membership>,
     auth_message: Option<Vec<u8>>,
 ) -> Result<BoxedTransport, NetworkError> {
     // Create the initial `Quic` transport
@@ -175,7 +175,8 @@ pub async fn gen_transport<K: SignatureKey + 'static>(
     };
 
     // Require authentication against the stake table
-    let transport = StakeTableAuthentication::new(transport, stake_table, auth_message);
+    let transport: StakeTableAuthentication<_, T, _> =
+        StakeTableAuthentication::new(transport, stake_table, auth_message);
 
     // Support DNS resolution
     let transport = {

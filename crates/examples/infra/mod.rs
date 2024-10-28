@@ -383,9 +383,7 @@ pub trait RunDa<
 
         let all_nodes = if cfg!(feature = "fixed-leader-election") {
             let mut vec = config.config.known_nodes_with_stake.clone();
-
             vec.truncate(config.config.fixed_leader_for_gpuvid);
-
             vec
         } else {
             config.config.known_nodes_with_stake.clone()
@@ -698,7 +696,7 @@ pub struct Libp2pDaRun<TYPES: NodeType> {
     /// The underlying network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
     /// The underlying network
-    network: Libp2pNetwork<TYPES::SignatureKey>,
+    network: Libp2pNetwork<TYPES>,
 }
 
 #[async_trait]
@@ -711,12 +709,12 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            Network = Libp2pNetwork<TYPES::SignatureKey>,
+            Network = Libp2pNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
             AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
         V: Versions,
-    > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, NODE, V> for Libp2pDaRun<TYPES>
+    > RunDa<TYPES, Libp2pNetwork<TYPES>, NODE, V> for Libp2pDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -755,6 +753,10 @@ where
             .to_string()
         };
 
+        // Create the qurorum membership from the list of known nodes
+        let all_nodes = config.config.known_nodes_with_stake.clone();
+        let quorum_membership = TYPES::Membership::new(all_nodes.clone(), all_nodes, Topic::Global);
+
         // Derive the bind address
         let bind_address =
             derive_libp2p_multiaddr(&bind_address).expect("failed to derive bind address");
@@ -762,6 +764,7 @@ where
         // Create the Libp2p network
         let libp2p_network = Libp2pNetwork::from_config(
             config.clone(),
+            quorum_membership,
             GossipConfig::default(),
             bind_address,
             &public_key,
@@ -780,7 +783,7 @@ where
         }
     }
 
-    fn network(&self) -> Libp2pNetwork<TYPES::SignatureKey> {
+    fn network(&self) -> Libp2pNetwork<TYPES> {
         self.network.clone()
     }
 
@@ -826,14 +829,15 @@ where
         libp2p_advertise_address: Option<String>,
     ) -> CombinedDaRun<TYPES> {
         // Initialize our Libp2p network
-        let libp2p_network: Libp2pDaRun<TYPES> =
-            <Libp2pDaRun<TYPES> as RunDa<
-                TYPES,
-                Libp2pNetwork<TYPES::SignatureKey>,
-                Libp2pImpl,
-                V,
-            >>::initialize_networking(config.clone(), libp2p_advertise_address.clone())
-            .await;
+        let libp2p_network: Libp2pDaRun<TYPES> = <Libp2pDaRun<TYPES> as RunDa<
+            TYPES,
+            Libp2pNetwork<TYPES>,
+            Libp2pImpl,
+            V,
+        >>::initialize_networking(
+            config.clone(), libp2p_advertise_address.clone()
+        )
+        .await;
 
         // Initialize our CDN network
         let cdn_network: PushCdnDaRun<TYPES> =
