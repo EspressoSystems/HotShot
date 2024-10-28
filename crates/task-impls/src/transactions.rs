@@ -298,7 +298,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 async {
                     let client = BuilderClientMarketplace::new(url);
                     client
-                        .bundle(*parent_view, parent_hash.clone(), *block_view)
+                        .bundle(*parent_view, parent_hash, *block_view)
                         .await
                 },
             ));
@@ -539,7 +539,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
             match &view_data.view_inner {
                 ViewInner::Da { payload_commitment } => {
-                    return Ok((target_view, payload_commitment.clone()))
+                    return Ok((target_view, *payload_commitment))
                 }
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
@@ -590,7 +590,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             match async_timeout(
                 self.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                self.block_from_builder(parent_comm.clone(), parent_view, &parent_comm_sig),
+                self.block_from_builder(parent_comm, parent_view, &parent_comm_sig),
             )
             .await
             {
@@ -632,7 +632,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .iter()
             .enumerate()
             .map(|(builder_idx, client)| {
-                let parent_comm = parent_comm.clone();
+                let parent_comm = parent_comm;
                 async move {
                     client
                         .available_blocks(

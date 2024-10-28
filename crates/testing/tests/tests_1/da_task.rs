@@ -71,7 +71,7 @@ async fn test_da_task() {
         votes.push(
             view.create_da_vote(
                 DaData {
-                    payload_commit: payload_commit.clone(),
+                    payload_commit: payload_commit,
                 },
                 &handle,
             )
@@ -89,7 +89,7 @@ async fn test_da_task() {
         votes.push(
             view.create_da_vote(
                 DaData {
-                    payload_commit: payload_commit.clone(),
+                    payload_commit: payload_commit,
                 },
                 &handle,
             )
@@ -182,7 +182,7 @@ async fn test_da_task_storage_failure() {
         votes.push(
             view.create_da_vote(
                 DaData {
-                    payload_commit: payload_commit.clone(),
+                    payload_commit: payload_commit,
                 },
                 &handle,
             )
@@ -200,7 +200,7 @@ async fn test_da_task_storage_failure() {
         votes.push(
             view.create_da_vote(
                 DaData {
-                    payload_commit: payload_commit.clone(),
+                    payload_commit: payload_commit,
                 },
                 &handle,
             )

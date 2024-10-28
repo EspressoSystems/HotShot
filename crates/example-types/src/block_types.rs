@@ -370,7 +370,7 @@ impl<
     }
 
     fn payload_commitment(&self) -> VidCommitment {
-        self.payload_commitment.clone()
+        self.payload_commitment
     }
 
     fn metadata(&self) -> &<TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata {
