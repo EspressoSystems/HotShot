@@ -569,13 +569,23 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+</span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
@@ -583,6 +593,7 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>either::Either;
+<span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::DependencyTask,
@@ -620,7 +631,7 @@
     </span><span class="kw">pub </span>latest_proposed_view: TYPES::View,
 
     <span class="doccomment">/// Table for the in-progress proposal dependency tasks.
-    </span><span class="kw">pub </span>proposal_dependencies: HashMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
+    </span><span class="kw">pub </span>proposal_dependencies: BTreeMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
 
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
@@ -892,7 +903,7 @@
                 latest_proposed_view: <span class="self">self</span>.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                receiver: event_receiver,
+                receiver: event_receiver.deactivate(),
                 quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
@@ -1104,9 +1115,22 @@
                     Arc::clone(<span class="kw-2">&amp;</span>event),
                 )<span class="question-mark">?</span>;
             }
+            HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) =&gt; {
+                <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view).<span class="kw">await</span>;
+            }
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
+    }
+    <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
+    </span><span class="kw">pub async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::View) {
+        <span class="kw">let </span>keep = <span class="self">self</span>.proposal_dependencies.split_off(<span class="kw-2">&amp;</span>view);
+        <span class="kw">let </span><span class="kw-2">mut </span>cancel = Vec::new();
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, task)) = <span class="self">self</span>.proposal_dependencies.pop_first() {
+            cancel.push(cancel_task(task));
+        }
+        <span class="self">self</span>.proposal_dependencies = keep;
+        join_all(cancel).<span class="kw">await</span>;
     }
 }
 
@@ -1126,11 +1150,7 @@
     </span>}
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">for </span>handle <span class="kw">in </span><span class="self">self
-            </span>.proposal_dependencies
-            .drain()
-            .map(|(_view, handle)| handle)
-        {
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handle)) = <span class="self">self</span>.proposal_dependencies.pop_first() {
             <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
             </span>handle.cancel().<span class="kw">await</span>;
             <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]

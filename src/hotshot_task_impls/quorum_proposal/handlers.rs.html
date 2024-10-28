@@ -371,6 +371,7 @@
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -382,7 +383,7 @@
 
 </span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
 
-<span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_task::{
@@ -442,7 +443,7 @@
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// The event receiver.
-    </span><span class="kw">pub </span>receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>receiver: InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// Immutable instance state
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -625,6 +626,7 @@
     <span class="attr">#[allow(clippy::no_effect_underscore_binding, clippy::too_many_lines)]
     </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
         <span class="kw">let </span>high_qc_view_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number;
+        <span class="kw">let </span>event_receiver = <span class="self">self</span>.receiver.activate_cloned();
         <span class="kw">if </span>!<span class="self">self
             </span>.consensus
             .read()
@@ -635,16 +637,16 @@
             <span class="comment">// The proposal for the high qc view is missing, try to get it asynchronously
             </span><span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
             <span class="kw">let </span>event_sender = <span class="self">self</span>.sender.clone();
-            <span class="kw">let </span>event_receiver = <span class="self">self</span>.receiver.clone();
             <span class="kw">let </span>sender_public_key = <span class="self">self</span>.public_key.clone();
             <span class="kw">let </span>sender_private_key = <span class="self">self</span>.private_key.clone();
             <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
             <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
+            <span class="kw">let </span>rx = event_receiver.clone();
             async_spawn(<span class="kw">async move </span>{
                 fetch_proposal(
                     high_qc_view_number,
                     event_sender,
-                    event_receiver,
+                    rx,
                     membership,
                     consensus,
                     sender_public_key,
@@ -655,7 +657,7 @@
             </span>});
             <span class="comment">// Block on receiving the event from the event stream.
             </span>EventDependency::new(
-                <span class="self">self</span>.receiver.clone(),
+                event_receiver,
                 Box::new(<span class="kw">move </span>|event| {
                     <span class="kw">let </span>event = event.as_ref();
                     <span class="kw">if let </span>HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) = event {

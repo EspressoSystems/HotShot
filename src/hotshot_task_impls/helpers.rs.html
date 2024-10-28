@@ -822,7 +822,7 @@
     sync::Arc,
 };
 
-<span class="kw">use </span>async_broadcast::{Receiver, SendError, Sender};
+<span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, SendError, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
@@ -1175,7 +1175,7 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>parent_leaf_and_state&lt;TYPES: NodeType, V: Versions&gt;(
     next_proposal_view_number: TYPES::View,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    event_receiver: <span class="kw-2">&amp;</span>InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     quorum_membership: Arc&lt;TYPES::Membership&gt;,
     public_key: TYPES::SignatureKey,
     private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -1203,7 +1203,7 @@
         <span class="kw">let _ </span>= fetch_proposal(
             parent_view_number,
             event_sender.clone(),
-            event_receiver.clone(),
+            event_receiver.activate_cloned(),
             quorum_membership,
             consensus.clone(),
             public_key.clone(),
