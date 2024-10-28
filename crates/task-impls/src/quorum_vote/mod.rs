@@ -491,7 +491,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
     /// given view number if it doesn't exist.
     #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote crete dependency task if new", level = "error")]
-    async fn create_dependency_task_if_new(
+    fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::View,
         epoch_number: TYPES::Epoch,
@@ -602,8 +602,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     event_receiver,
                     &event_sender,
                     Some(Arc::clone(&event)),
-                )
-                .await;
+                );
             }
             HotShotEvent::DaCertificateRecv(cert) => {
                 let view = cert.view_number;
@@ -640,8 +639,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     event_receiver,
                     &event_sender,
                     None,
-                )
-                .await;
+                );
             }
             HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
@@ -705,8 +703,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     event_receiver,
                     &event_sender,
                     None,
-                )
-                .await;
+                );
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
                 tracing::debug!("All vote dependencies verified for view {:?}", view_number);
