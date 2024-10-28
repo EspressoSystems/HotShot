@@ -1036,7 +1036,7 @@
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
-                        payload_commitment = <span class="prelude-val">Some</span>(cert_payload_comm.clone());
+                        payload_commitment = <span class="prelude-val">Some</span>(<span class="kw-2">*</span>cert_payload_comm);
                     }
                 }
                 HotShotEvent::VidShareValidated(share) =&gt; {
@@ -1048,7 +1048,7 @@
                             <span class="kw">return</span>;
                         }
                     } <span class="kw">else </span>{
-                        payload_commitment = <span class="prelude-val">Some</span>(vid_payload_commitment.clone());
+                        payload_commitment = <span class="prelude-val">Some</span>(<span class="kw-2">*</span>vid_payload_commitment);
                     }
                 }
                 <span class="kw">_ </span>=&gt; {}

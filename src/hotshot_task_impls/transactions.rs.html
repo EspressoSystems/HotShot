@@ -818,11 +818,6 @@
 <a href="#816" id="816">816</a>
 <a href="#817" id="817">817</a>
 <a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1122,9 +1117,7 @@
                 <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
                 <span class="kw">async </span>{
                     <span class="kw">let </span>client = BuilderClientMarketplace::new(url);
-                    client
-                        .bundle(<span class="kw-2">*</span>parent_view, parent_hash.clone(), <span class="kw-2">*</span>block_view)
-                        .<span class="kw">await
+                    client.bundle(<span class="kw-2">*</span>parent_view, parent_hash, <span class="kw-2">*</span>block_view).<span class="kw">await
                 </span>},
             ));
         }
@@ -1364,7 +1357,7 @@
 
             <span class="kw">match </span><span class="kw-2">&amp;</span>view_data.view_inner {
                 ViewInner::Da { payload_commitment } =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, payload_commitment.clone()))
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, <span class="kw-2">*</span>payload_commitment))
                 }
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
@@ -1415,7 +1408,7 @@
             <span class="kw">match </span>async_timeout(
                 <span class="self">self</span>.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                <span class="self">self</span>.block_from_builder(parent_comm.clone(), parent_view, <span class="kw-2">&amp;</span>parent_comm_sig),
+                <span class="self">self</span>.block_from_builder(parent_comm, parent_view, <span class="kw-2">&amp;</span>parent_comm_sig),
             )
             .<span class="kw">await
             </span>{
@@ -1456,23 +1449,20 @@
             </span>.builder_clients
             .iter()
             .enumerate()
-            .map(|(builder_idx, client)| {
-                <span class="kw">let </span>parent_comm = parent_comm.clone();
-                <span class="kw">async move </span>{
-                    client
-                        .available_blocks(
-                            parent_comm,
-                            view_number.u64(),
-                            <span class="self">self</span>.public_key.clone(),
-                            parent_comm_sig,
-                        )
-                        .<span class="kw">await
-                        </span>.map(<span class="kw">move </span>|blocks| {
-                            blocks
-                                .into_iter()
-                                .map(<span class="kw">move </span>|block_info| (block_info, builder_idx))
-                        })
-                }
+            .map(|(builder_idx, client)| <span class="kw">async move </span>{
+                client
+                    .available_blocks(
+                        parent_comm,
+                        view_number.u64(),
+                        <span class="self">self</span>.public_key.clone(),
+                        parent_comm_sig,
+                    )
+                    .<span class="kw">await
+                    </span>.map(<span class="kw">move </span>|blocks| {
+                        blocks
+                            .into_iter()
+                            .map(<span class="kw">move </span>|block_info| (block_info, builder_idx))
+                    })
             })
             .collect::&lt;FuturesUnordered&lt;<span class="kw">_</span>&gt;&gt;();
         <span class="kw">let </span><span class="kw-2">mut </span>results = Vec::with_capacity(<span class="self">self</span>.builder_clients.len());

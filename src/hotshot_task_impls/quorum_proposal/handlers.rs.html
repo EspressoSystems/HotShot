@@ -684,7 +684,7 @@
                     auction_result,
                 ) =&gt; {
                     commit_and_metadata = <span class="prelude-val">Some</span>(CommitmentAndMetadata {
-                        commitment: payload_commitment.clone(),
+                        commitment: <span class="kw-2">*</span>payload_commitment,
                         builder_commitment: builder_commitment.clone(),
                         metadata: metadata.clone(),
                         fees: fees.clone(),
