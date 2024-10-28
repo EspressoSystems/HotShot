@@ -65,10 +65,13 @@ const RETRY_DELAY: Duration = Duration::from_millis(100);
 pub struct BuilderResponse<TYPES: NodeType> {
     /// Fee information
     pub fee: BuilderFee<TYPES>,
+
     /// Block payload
     pub block_payload: TYPES::BlockPayload,
+
     /// Block metadata
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+
     /// Optional precomputed commitment
     pub precompute_data: Option<VidPrecomputeData>,
 }
@@ -101,16 +104,22 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
+
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
     /// InstanceState
     pub instance_state: Arc<TYPES::InstanceState>,
+
     /// This state's ID
     pub id: u64,
+
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+
     /// auction results provider
     pub auction_results_provider: Arc<I::AuctionResultsProvider>,
+
     /// fallback builder url
     pub fallback_builder_url: Url,
 }
@@ -288,7 +297,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 self.builder_timeout.saturating_sub(start.elapsed()),
                 async {
                     let client = BuilderClientMarketplace::new(url);
-                    client.bundle(*parent_view, parent_hash, *block_view).await
+                    client
+                        .bundle(*parent_view, parent_hash.clone(), *block_view)
+                        .await
                 },
             ));
         }
@@ -515,26 +526,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         &self,
         block_view: TYPES::View,
     ) -> Result<(TYPES::View, VidCommitment)> {
-        let consensus = self.consensus.read().await;
+        let consensus_reader = self.consensus.read().await;
         let mut target_view = TYPES::View::new(block_view.saturating_sub(1));
 
         loop {
-            let view_data = consensus
+            let view_data = consensus_reader
                 .validated_state_map()
                 .get(&target_view)
                 .context(info!(
                     "Missing record for view {?target_view} in validated state"
                 ))?;
 
-            match view_data.view_inner {
+            match &view_data.view_inner {
                 ViewInner::Da { payload_commitment } => {
-                    return Ok((target_view, payload_commitment))
+                    return Ok((target_view, payload_commitment.clone()))
                 }
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
                     ..
                 } => {
-                    let leaf = consensus.saved_leaves().get(&leaf_commitment).context
+                    let leaf = consensus_reader.saved_leaves().get(leaf_commitment).context
                         (info!("Missing leaf with commitment {leaf_commitment} for view {target_view} in saved_leaves"))?;
                     return Ok((target_view, leaf.payload_commitment()));
                 }
@@ -579,7 +590,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             match async_timeout(
                 self.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
-                self.block_from_builder(parent_comm, parent_view, &parent_comm_sig),
+                self.block_from_builder(parent_comm.clone(), parent_view, &parent_comm_sig),
             )
             .await
             {
@@ -620,20 +631,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .builder_clients
             .iter()
             .enumerate()
-            .map(|(builder_idx, client)| async move {
-                client
-                    .available_blocks(
-                        parent_comm,
-                        view_number.u64(),
-                        self.public_key.clone(),
-                        parent_comm_sig,
-                    )
-                    .await
-                    .map(move |blocks| {
-                        blocks
-                            .into_iter()
-                            .map(move |block_info| (block_info, builder_idx))
-                    })
+            .map(|(builder_idx, client)| {
+                let parent_comm = parent_comm.clone();
+                async move {
+                    client
+                        .available_blocks(
+                            parent_comm,
+                            view_number.u64(),
+                            self.public_key.clone(),
+                            parent_comm_sig,
+                        )
+                        .await
+                        .map(move |blocks| {
+                            blocks
+                                .into_iter()
+                                .map(move |block_info| (block_info, builder_idx))
+                        })
+                }
             })
             .collect::<FuturesUnordered<_>>();
         let mut results = Vec::with_capacity(self.builder_clients.len());
