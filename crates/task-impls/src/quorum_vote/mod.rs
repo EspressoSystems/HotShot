@@ -318,8 +318,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                             tracing::warn!("Proposed leaf is the same as its parent but we don't have VIDs for it");
                             return;
                         };
-                    } else if let Some(comm) = payload_commitment {
-                        if proposal_payload_comm != comm {
+                    } else if let Some(ref comm) = payload_commitment {
+                        if proposal_payload_comm != *comm {
                             tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
                             return;
                         }
@@ -338,26 +338,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     }
                 }
                 HotShotEvent::DaCertificateValidated(cert) => {
-                    let cert_payload_comm = cert.data().payload_commit;
-                    if let Some(comm) = payload_commitment {
+                    let cert_payload_comm = &cert.data().payload_commit;
+                    if let Some(ref comm) = payload_commitment {
                         if cert_payload_comm != comm {
                             tracing::error!("DAC has inconsistent payload commitment with quorum proposal or VID.");
                             return;
                         }
                     } else {
-                        payload_commitment = Some(cert_payload_comm);
+                        payload_commitment = Some(cert_payload_comm.clone());
                     }
                 }
                 HotShotEvent::VidShareValidated(share) => {
-                    let vid_payload_commitment = share.data.payload_commitment;
+                    let vid_payload_commitment = &share.data.payload_commitment;
                     vid_share = Some(share.clone());
-                    if let Some(comm) = payload_commitment {
+                    if let Some(ref comm) = payload_commitment {
                         if vid_payload_commitment != comm {
                             tracing::error!("VID has inconsistent payload commitment with quorum proposal or DAC.");
                             return;
                         }
                     } else {
-                        payload_commitment = Some(vid_payload_commitment);
+                        payload_commitment = Some(vid_payload_commitment.clone());
                     }
                 }
                 _ => {}
@@ -582,10 +582,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
-        let current_epoch = self.consensus.read().await.cur_epoch();
-
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
+                let cur_epoch = self.consensus.read().await.cur_epoch();
                 tracing::trace!("Received Proposal for view {}", *proposal.view_number());
 
                 // Handle the event before creating the dependency task.
@@ -599,7 +598,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 self.create_dependency_task_if_new(
                     proposal.view_number,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     &event_sender,
                     Some(Arc::clone(&event)),
@@ -616,15 +615,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     "Received DAC for an older view."
                 );
 
-                let current_epoch = self.consensus.read().await.cur_epoch();
+                let cur_epoch = self.consensus.read().await.cur_epoch();
                 // Validate the DAC.
                 ensure!(
-                    cert.is_valid_cert(
-                        self.da_membership.as_ref(),
-                        current_epoch,
-                        &self.upgrade_lock
-                    )
-                    .await,
+                    cert.is_valid_cert(self.da_membership.as_ref(), cur_epoch, &self.upgrade_lock)
+                        .await,
                     warn!("Invalid DAC")
                 );
 
@@ -641,7 +636,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 .await;
                 self.create_dependency_task_if_new(
                     view,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     &event_sender,
                     None,
@@ -658,8 +653,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
 
                 // Validate the VID share.
-                let payload_commitment = disperse.data.payload_commitment;
-                let current_epoch = self.consensus.read().await.cur_epoch();
+                let payload_commitment = &disperse.data.payload_commitment;
+                let cur_epoch = self.consensus.read().await.cur_epoch();
 
                 // Check that the signature is valid
                 ensure!(
@@ -670,18 +665,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
                     self.da_membership
-                        .committee_members(view, current_epoch)
+                        .committee_members(view, cur_epoch)
                         .contains(sender)
-                        || *sender == self.quorum_membership.leader(view, current_epoch)?,
+                        || *sender == self.quorum_membership.leader(view, cur_epoch)?,
                     "VID share was not sent by a DA member or the view leader."
                 );
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                match vid_scheme(self.quorum_membership.total_nodes(current_epoch)).verify_share(
+                match vid_scheme(self.quorum_membership.total_nodes(cur_epoch)).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
-                    &payload_commitment,
+                    payload_commitment,
                 ) {
                     Ok(Err(())) | Err(_) => {
                         bail!("Failed to verify VID share");
@@ -706,7 +701,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 .await;
                 self.create_dependency_task_if_new(
                     view,
-                    current_epoch,
+                    cur_epoch,
                     event_receiver,
                     &event_sender,
                     None,
