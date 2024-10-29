@@ -847,7 +847,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Returns true if the current high qc is for the last block in the epoch
     pub fn is_high_qc_for_last_block(&self) -> bool {
         let high_qc = self.high_qc();
-        let Some(leaf) = self.saved_leaves.get(&high_qc.data().leaf_commit) else {
+        self.is_qc_for_last_block(high_qc)
+    }
+
+    /// Returns true if the given qc is for the last block in the epoch
+    pub fn is_qc_for_last_block(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+        let Some(leaf) = self.saved_leaves.get(&cert.data().leaf_commit) else {
             return false;
         };
         let block_height = leaf.height();
@@ -862,57 +867,61 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
     /// consecutive views for the last block in the epoch.
     pub fn is_high_qc_extended(&self) -> bool {
-        if !self.is_high_qc_for_last_block() {
+        let high_qc = self.high_qc();
+        self.is_qc_extended(high_qc)
+    }
+
+    /// Returns true if the given qc is an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    pub fn is_qc_extended(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+        if !self.is_qc_for_last_block(cert) {
             tracing::debug!("High QC is not for the last block in the epoch.");
             return false;
         }
 
-        let high_qc = self.high_qc();
-        let high_qc_view = high_qc.view_number();
+        let qc_view = cert.view_number();
         let high_qc_block_number =
-            if let Some(leaf) = self.saved_leaves.get(&high_qc.data().leaf_commit) {
+            if let Some(leaf) = self.saved_leaves.get(&cert.data().leaf_commit) {
                 leaf.block_header().block_number()
             } else {
                 return false;
             };
 
-        let mut last_visited_view_number = high_qc_view;
-        let mut is_high_qc_extended = true;
-        if let Err(e) = self.visit_leaf_ancestors(
-            high_qc_view,
-            Inclusive(high_qc_view - 2),
-            true,
-            |leaf, _, _| {
+        let mut last_visited_view_number = qc_view;
+        let mut is_qc_extended = true;
+        if let Err(e) =
+            self.visit_leaf_ancestors(qc_view, Inclusive(qc_view - 2), true, |leaf, _, _| {
                 tracing::trace!(
                     "last_visited_view_number = {}, leaf.view_number = {}",
                     *last_visited_view_number,
                     *leaf.view_number()
                 );
 
-                if leaf.view_number() == high_qc_view {
+                if leaf.view_number() == qc_view {
                     return true;
                 }
 
                 if last_visited_view_number - 1 != leaf.view_number() {
                     tracing::trace!("The chain is broken. Non consecutive views.");
-                    is_high_qc_extended = false;
+                    is_qc_extended = false;
                     return false;
                 }
                 if high_qc_block_number != leaf.height() {
                     tracing::trace!("The chain is broken. Block numbers do not match.");
-                    is_high_qc_extended = false;
+                    is_qc_extended = false;
                     return false;
                 }
                 last_visited_view_number = leaf.view_number();
                 true
-            },
-        ) {
-            is_high_qc_extended = false;
+            })
+        {
+            is_qc_extended = false;
             tracing::trace!("The chain is broken. Leaf ascension failed.");
             tracing::debug!("Leaf ascension failed; error={e}");
         }
-        tracing::trace!("Is the high QC an eQC? {}", is_high_qc_extended);
-        is_high_qc_extended
+        tracing::trace!("Is the given QC an eQC? {}", is_qc_extended);
+        is_qc_extended
     }
 }
 

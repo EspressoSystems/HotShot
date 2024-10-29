@@ -290,34 +290,53 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
                     let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+                    let is_justify_qc_for_last_block = self
+                        .consensus
+                        .read()
+                        .await
+                        .is_qc_for_last_block(&proposal.data.justify_qc);
+                    let is_justify_qc_extended = self
+                        .consensus
+                        .read()
+                        .await
+                        .is_qc_extended(&proposal.data.justify_qc);
 
                     tracing::debug!(
                         "proposal leaf height = {}, parent leaf height = {}",
                         proposed_leaf.height(),
                         parent_leaf.height()
                     );
-                    if proposed_leaf.height() == parent_leaf.height()
-                        && proposed_leaf.payload_commitment() == parent_leaf.payload_commitment()
-                    {
-                        tracing::info!("Reached end of epoch. Proposed leaf has the same height and payload as its parent. No need to check the VID and DAC.");
-                        is_same_block_proposed = true;
-                        vid_share = if let Some(vid_shares) = self
-                            .consensus
-                            .read()
-                            .await
-                            .vid_shares()
-                            .get(&parent_leaf.view_number())
+                    if is_justify_qc_for_last_block && !is_justify_qc_extended {
+                        tracing::info!(
+                            "Reached end of epoch. Justify QC is for the last block in the epoch."
+                        );
+                        if proposed_leaf.height() == parent_leaf.height()
+                            && proposed_leaf.payload_commitment()
+                                == parent_leaf.payload_commitment()
                         {
-                            if let Some(vid) = vid_shares.get(&self.public_key) {
-                                Some(vid.clone())
+                            tracing::info!("Reached end of epoch. Proposed leaf has the same height and payload as its parent. No need to check the VID and DAC.");
+                            is_same_block_proposed = true;
+                            vid_share = if let Some(vid_shares) = self
+                                .consensus
+                                .read()
+                                .await
+                                .vid_shares()
+                                .get(&parent_leaf.view_number())
+                            {
+                                if let Some(vid) = vid_shares.get(&self.public_key) {
+                                    Some(vid.clone())
+                                } else {
+                                    tracing::warn!("Proposed leaf is the same as its parent but we don't have our VID for it");
+                                    return;
+                                }
                             } else {
-                                tracing::warn!("Proposed leaf is the same as its parent but we don't have our VID for it");
+                                tracing::warn!("Proposed leaf is the same as its parent but we don't have VIDs for it");
                                 return;
-                            }
+                            };
                         } else {
-                            tracing::warn!("Proposed leaf is the same as its parent but we don't have VIDs for it");
+                            tracing::error!("Justify QC is for the last block but it's not extended and a new block is proposed. Not voting!");
                             return;
-                        };
+                        }
                     } else if let Some(ref comm) = payload_commitment {
                         if proposal_payload_comm != *comm {
                             tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
