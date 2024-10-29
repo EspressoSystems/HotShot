@@ -433,8 +433,6 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -491,9 +489,7 @@
             HotShotEvent::QuorumProposalSend(proposal, signature) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>result = Vec::new();
 
-                <span class="kw">for </span>n <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.multiplier {
-                    <span class="comment">// reset last actioned view so we actually propose multiple times
-                    </span>consensus.write().<span class="kw">await</span>.reset_actions();
+                <span class="kw">for </span>n <span class="kw">in </span><span class="number">1</span>..<span class="self">self</span>.multiplier {
                     <span class="kw">let </span><span class="kw-2">mut </span>modified_proposal = proposal.clone();
 
                     modified_proposal.data.view_number += n * <span class="self">self</span>.increment;
@@ -503,8 +499,8 @@
                         signature.clone(),
                     ));
                 }
-                consensus.write().<span class="kw">await</span>.reset_actions();
 
+                consensus.write().<span class="kw">await</span>.reset_actions();
                 result
             }
             <span class="kw">_ </span>=&gt; <span class="macro">vec!</span>[event.clone()],

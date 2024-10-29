@@ -347,8 +347,6 @@
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -616,7 +614,6 @@
             private_key: handle.private_key().clone(),
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
-            round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             formed_upgrade_certificate: <span class="prelude-val">None</span>,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
@@ -643,7 +640,6 @@
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_task: async_spawn(<span class="kw">async </span>{}),
             timeout: handle.hotshot.config.next_view_timeout,
-            round_start_delay: handle.hotshot.config.round_start_delay,
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             proposal_cert: <span class="prelude-val">None</span>,

@@ -295,7 +295,7 @@
                         <span class="kw">let _ </span>=
                             S::handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, input, <span class="kw-2">&amp;</span><span class="self">self</span>.sender, <span class="kw-2">&amp;</span><span class="self">self</span>.receiver)
                                 .<span class="kw">await
-                                </span>.inspect_err(|e| <span class="macro">tracing::info!</span>(<span class="string">"{e}"</span>));
+                                </span>.inspect_err(|e| <span class="macro">tracing::debug!</span>(<span class="string">"{e}"</span>));
                     }
                     <span class="prelude-val">Err</span>(RecvError::Closed) =&gt; {
                         <span class="kw">break </span><span class="self">self</span>.boxed_state();

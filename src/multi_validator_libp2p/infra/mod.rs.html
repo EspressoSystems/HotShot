@@ -1103,15 +1103,6 @@
 <a href="#1101" id="1101">1101</a>
 <a href="#1102" id="1102">1102</a>
 <a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1126,13 +1117,10 @@
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     num::NonZeroUsize,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
-<span class="kw">use </span>async_compatibility_layer::{
-    art::async_sleep,
-    logging::{setup_backtrace, setup_logging},
-};
+<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
 <span class="kw">use </span>chrono::Utc;
@@ -1557,10 +1545,7 @@
         transaction_size_in_bytes: u64,
     ) -&gt; BenchResults {
         <span class="kw">let </span>NetworkConfig {
-            rounds,
-            node_index,
-            start_delay_seconds,
-            ..
+            rounds, node_index, ..
         } = <span class="self">self</span>.config();
 
         <span class="kw">let </span><span class="kw-2">mut </span>total_transactions_committed = <span class="number">0</span>;
@@ -1569,9 +1554,6 @@
         <span class="kw">let </span><span class="kw-2">mut </span>maximum_latency = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>total_latency = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>num_latency = <span class="number">0</span>;
-
-        <span class="macro">info!</span>(<span class="string">"Sleeping for {start_delay_seconds} seconds before starting hotshot!"</span>);
-        async_sleep(Duration::from_secs(start_delay_seconds)).<span class="kw">await</span>;
 
         <span class="macro">info!</span>(<span class="string">"Starting HotShot example!"</span>);
         <span class="kw">let </span>start = Instant::now();

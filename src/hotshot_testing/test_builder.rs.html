@@ -557,32 +557,6 @@
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -605,7 +579,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
     traits::node_implementation::{NodeType, Versions},
-    ExecutionType, HotShotConfig, ValidatorConfig,
+    HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>tide_disco::Url;
 <span class="kw">use </span>vec1::Vec1;
@@ -629,12 +603,6 @@
 </span><span class="kw">pub struct </span>TimingData {
     <span class="doccomment">/// Base duration for next-view timeout, in milliseconds
     </span><span class="kw">pub </span>next_view_timeout: u64,
-    <span class="doccomment">/// The exponential backoff ration for the next-view timeout
-    </span><span class="kw">pub </span>timeout_ratio: (u64, u64),
-    <span class="doccomment">/// The delay a leader inserts before starting pre-commit, in milliseconds
-    </span><span class="kw">pub </span>round_start_delay: u64,
-    <span class="doccomment">/// Delay after init before starting consensus, in milliseconds
-    </span><span class="kw">pub </span>start_delay: u64,
     <span class="doccomment">/// The maximum amount of time a leader can wait to get a block from a builder
     </span><span class="kw">pub </span>builder_timeout: Duration,
     <span class="doccomment">/// time to wait until we request data associated with a proposal
@@ -872,9 +840,6 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             next_view_timeout: <span class="number">4000</span>,
-            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
-            round_start_delay: <span class="number">100</span>,
-            start_delay: <span class="number">100</span>,
             builder_timeout: Duration::from_millis(<span class="number">500</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
             secondary_network_delay: Duration::from_millis(<span class="number">1000</span>),
@@ -905,9 +870,6 @@
             },
             timing_data: TimingData {
                 next_view_timeout: <span class="number">2000</span>,
-                timeout_ratio: (<span class="number">1</span>, <span class="number">1</span>),
-                start_delay: <span class="number">20000</span>,
-                round_start_delay: <span class="number">25</span>,
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
@@ -934,8 +896,6 @@
                 expected_views_to_fail: HashMap::new(),
             },
             timing_data: TimingData {
-                start_delay: <span class="number">120_000</span>,
-                round_start_delay: <span class="number">25</span>,
                 ..TimingData::default()
             },
             view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
@@ -1085,23 +1045,17 @@
         );
         <span class="comment">// let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         </span><span class="kw">let </span>config = HotShotConfig {
-            <span class="comment">// TODO this doesn't exist anymore
-            </span>execution_type: ExecutionType::Incremental,
             start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
             num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
             <span class="comment">// Currently making this zero for simplicity
             </span>known_da_nodes,
             num_bootstrap: num_bootstrap_nodes,
             known_nodes_with_stake,
-            known_nodes_without_stake: <span class="macro">vec!</span>[],
             my_own_validator_config,
             da_staked_committee_size,
             fixed_leader_for_gpuvid: <span class="number">1</span>,
             next_view_timeout: <span class="number">500</span>,
             view_sync_timeout: Duration::from_millis(<span class="number">250</span>),
-            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
-            round_start_delay: <span class="number">25</span>,
-            start_delay: <span class="number">1</span>,
             builder_timeout: Duration::from_millis(<span class="number">1000</span>),
             data_request_delay: Duration::from_millis(<span class="number">200</span>),
             <span class="comment">// Placeholder until we spin up the builder
@@ -1118,9 +1072,6 @@
         };
         <span class="kw">let </span>TimingData {
             next_view_timeout,
-            timeout_ratio,
-            round_start_delay,
-            start_delay,
             builder_timeout,
             data_request_delay,
             secondary_network_delay,
@@ -1130,9 +1081,6 @@
             <span class="comment">// TODO this should really be using the timing config struct
             </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey&gt;| {
                 a.next_view_timeout = next_view_timeout;
-                a.timeout_ratio = timeout_ratio;
-                a.round_start_delay = round_start_delay;
-                a.start_delay = start_delay;
                 a.builder_timeout = builder_timeout;
                 a.data_request_delay = data_request_delay;
                 a.view_sync_timeout = view_sync_timeout;

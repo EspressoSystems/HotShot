@@ -1095,39 +1095,6 @@
 <a href="#1093" id="1093">1093</a>
 <a href="#1094" id="1094">1094</a>
 <a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1304,8 +1271,6 @@
     <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span><span class="doccomment">/// reliability_config
     </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    <span class="doccomment">/// if we're a member of the DA committee or not
-    </span>is_da: bool,
     <span class="doccomment">/// Killswitch sender
     </span>kill_switch: channel::Sender&lt;()&gt;,
 }
@@ -1337,7 +1302,6 @@
         num_bootstrap: usize,
         _network_id: usize,
         da_committee_size: usize,
-        _is_da: bool,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
         _secondary_network_delay: Duration,
     ) -&gt; AsyncGenerator&lt;Arc&lt;<span class="self">Self</span>&gt;&gt; {
@@ -1347,16 +1311,6 @@
         </span>);
         <span class="kw">let </span>bootstrap_addrs: PeerInfoVec = Arc::default();
         <span class="kw">let </span>node_ids: Arc&lt;RwLock&lt;HashSet&lt;u64&gt;&gt;&gt; = Arc::default();
-        <span class="comment">// We assign known_nodes' public key and stake value rather than read from config file since it's a test
-        </span><span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
-
-        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0u64</span>..(expected_node_count <span class="kw">as </span>u64) {
-            <span class="kw">let </span>privkey = TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], i).<span class="number">1</span>;
-            <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-            <span class="kw">if </span>i &lt; da_committee_size <span class="kw">as </span>u64 {
-                da_keys.insert(pubkey.clone());
-            }
-        }
 
         <span class="comment">// NOTE uncomment this for easier debugging
         // let start_port = 5000;
@@ -1407,7 +1361,6 @@
 
                 <span class="kw">let </span>bootstrap_addrs_ref = Arc::clone(<span class="kw-2">&amp;</span>bootstrap_addrs);
                 <span class="kw">let </span>node_ids_ref = Arc::clone(<span class="kw-2">&amp;</span>node_ids);
-                <span class="kw">let </span>da = da_keys.clone();
                 <span class="kw">let </span>reliability_config_dup = reliability_config.clone();
 
                 Box::pin(<span class="kw">async move </span>{
@@ -1429,7 +1382,6 @@
                             usize::try_from(node_id).unwrap(),
                             <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                             </span>reliability_config_dup,
-                            da.contains(<span class="kw-2">&amp;</span>pubkey),
                         )
                         .<span class="kw">await
                         </span>{
@@ -1614,12 +1566,6 @@
 
         <span class="comment">// Calculate all keys so we can keep track of direct message recipients
         </span><span class="kw">let </span><span class="kw-2">mut </span>all_keys = BTreeSet::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>da_keys = BTreeSet::new();
-
-        <span class="comment">// Make a node DA if it is under the staked committee size
-        </span><span class="kw">for </span>node <span class="kw">in </span>config.config.known_da_nodes {
-            da_keys.insert(K::public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
-        }
 
         <span class="comment">// Insert all known nodes into the set of all keys
         </span><span class="kw">for </span>node <span class="kw">in </span>config.config.known_nodes_with_stake {
@@ -1635,7 +1581,6 @@
             usize::try_from(config.node_index)<span class="question-mark">?</span>,
             <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
             </span><span class="prelude-val">None</span>,
-            da_keys.contains(pub_key),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>)
     }
@@ -1677,7 +1622,6 @@
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-        is_da: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;K&gt;, NetworkError&gt; {
         <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node::&lt;K&gt;(config.clone(), id)
             .<span class="kw">await
@@ -1692,10 +1636,7 @@
         pubkey_pid_map.insert(pk.clone(), network_handle.peer_id());
 
         <span class="comment">// Subscribe to the relevant topics
-        </span><span class="kw">let </span><span class="kw-2">mut </span>subscribed_topics = HashSet::from_iter(<span class="macro">vec!</span>[QC_TOPIC.to_string()]);
-        <span class="kw">if </span>is_da {
-            subscribed_topics.insert(<span class="string">"DA"</span>.to_string());
-        }
+        </span><span class="kw">let </span>subscribed_topics = HashSet::from_iter(<span class="macro">vec!</span>[QC_TOPIC.to_string()]);
 
         <span class="comment">// unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
@@ -1724,7 +1665,6 @@
                 </span>latest_seen_view: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                 </span>reliability_config,
-                is_da,
                 kill_switch: kill_tx,
             }),
         };
@@ -1774,7 +1714,6 @@
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>is_bootstrapped = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_bootstrapped);
         <span class="kw">let </span>inner = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
-        <span class="kw">let </span>is_da = <span class="self">self</span>.inner.is_da;
 
         async_spawn({
             <span class="kw">let </span>is_ready = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_ready);
@@ -1793,11 +1732,6 @@
 
                 <span class="comment">// Subscribe to the QC topic
                 </span>handle.subscribe(QC_TOPIC.to_string()).<span class="kw">await</span>.unwrap();
-
-                <span class="comment">// Only subscribe to DA events if we are DA
-                </span><span class="kw">if </span>is_da {
-                    handle.subscribe(<span class="string">"DA"</span>.to_string()).<span class="kw">await</span>.unwrap();
-                }
 
                 <span class="comment">// Map our staking key to our Libp2p Peer ID so we can properly
                 // route direct messages
