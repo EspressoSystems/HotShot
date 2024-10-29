@@ -38,7 +38,7 @@ pub trait BuilderDataSource<TYPES: NodeType> {
     ) -> Result<AvailableBlockData<TYPES>, BuildError>;
 
     /// To claim a block from the list of provided available blocks and provide the number of nodes
-    /// information to the builder for VID calculation.
+    /// information to the builder for VID computation.
     async fn claim_block_with_num_nodes(
         &self,
         block_hash: &BuilderCommitment,

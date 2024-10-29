@@ -187,7 +187,7 @@ pub mod v0_1 {
         }
 
         /// Claim block and provide the number of nodes information to the builder for VID
-        /// calculation.
+        /// computation.
         ///
         /// # Errors
         /// - [`BuilderClientError::BlockNotFound`] if block isn't available
@@ -198,7 +198,7 @@ pub mod v0_1 {
             view_number: u64,
             sender: TYPES::SignatureKey,
             signature: &<<TYPES as NodeType>::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-            num_nodes: u64,
+            num_nodes: usize,
         ) -> Result<AvailableBlockData<TYPES>, BuilderClientError> {
             let encoded_signature: TaggedBase64 = signature.clone().into();
             self.client
