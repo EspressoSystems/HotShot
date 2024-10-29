@@ -302,7 +302,7 @@ where
         view_number: u64,
         sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-        _num_nodes: u64,
+        _num_nodes: usize,
     ) -> Result<AvailableBlockData<TYPES>, BuildError> {
         self.claim_block(block_hash, view_number, sender, signature)
             .await

@@ -45,7 +45,7 @@ pub trait BuilderDataSource<TYPES: NodeType> {
         view_number: u64,
         sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
-        num_nodes: u64,
+        num_nodes: usize,
     ) -> Result<AvailableBlockData<TYPES>, BuildError>;
 
     /// To claim a block header input
