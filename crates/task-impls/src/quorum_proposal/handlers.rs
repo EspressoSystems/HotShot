@@ -171,48 +171,27 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let version = self.upgrade_lock.version(self.view_number).await?;
 
         let high_qc = self.consensus.read().await.high_qc().clone();
-        let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
-        if is_high_qc_extended {
-            tracing::debug!("We have formed an eQC! Proposing a new block.");
-        }
-        let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
 
-        let block_header = if is_high_qc_for_last_block && !is_high_qc_extended {
-            tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
-            if let Some(leaf) = self
-                .consensus
-                .read()
-                .await
-                .saved_leaves()
-                .get(&high_qc.data().leaf_commit)
-            {
-                let block_header = leaf.block_header().clone();
-                tracing::debug!(
-                    "Proposing block no. {} to form the eQC.",
-                    block_header.block_number()
-                );
-                block_header
-            } else {
-                return Err(anyhow::anyhow!(
-                    "There is no leaf for the high QC. Consensus inconsistent!"
-                ));
-            }
-        } else if version < V::Marketplace::VERSION {
+        let builder_commitment = commitment_and_metadata.builder_commitment.clone();
+        let metadata = commitment_and_metadata.metadata.clone();
+        let get_legacy_block_header_fn = async {
             TYPES::BlockHeader::new_legacy(
                 state.as_ref(),
                 self.instance_state.as_ref(),
                 &parent_leaf,
                 commitment_and_metadata.commitment,
-                commitment_and_metadata.builder_commitment,
-                commitment_and_metadata.metadata,
+                builder_commitment,
+                metadata,
                 commitment_and_metadata.fees.first().clone(),
                 vid_share.data.common.clone(),
                 version,
             )
             .await
             .wrap()
-            .context(warn!("Failed to construct legacy block header"))?
-        } else {
+            .context(warn!("Failed to construct legacy block header"))
+        };
+
+        let get_marketplace_block_header_fn = async {
             TYPES::BlockHeader::new_marketplace(
                 state.as_ref(),
                 self.instance_state.as_ref(),
@@ -227,7 +206,44 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             )
             .await
             .wrap()
-            .context(warn!("Failed to construct marketplace block header"))?
+            .context(warn!("Failed to construct marketplace block header"))
+        };
+
+        let block_header = if version < V::Marketplace::VERSION {
+            get_legacy_block_header_fn.await?
+        } else if version < V::Epochs::VERSION {
+            get_marketplace_block_header_fn.await?
+        } else {
+            let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
+            if is_high_qc_extended {
+                tracing::debug!("We have formed an eQC! Proposing a new block.");
+            }
+            let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
+            if is_high_qc_for_last_block && !is_high_qc_extended {
+                tracing::info!(
+                    "Reached end of epoch. Proposing the same block again to form an eQC."
+                );
+                if let Some(leaf) = self
+                    .consensus
+                    .read()
+                    .await
+                    .saved_leaves()
+                    .get(&high_qc.data().leaf_commit)
+                {
+                    let block_header = leaf.block_header().clone();
+                    tracing::debug!(
+                        "Proposing block no. {} to form the eQC.",
+                        block_header.block_number()
+                    );
+                    block_header
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "There is no leaf for the high QC. Consensus inconsistent!"
+                    ));
+                }
+            } else {
+                get_marketplace_block_header_fn.await?
+            }
         };
 
         let proposal = QuorumProposal {
