@@ -122,8 +122,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     tracing::debug!("Failed to handle TimeoutVoteRecv event; error = {e}");
                 }
             }
-            HotShotEvent::ViewChange(new_view_number) => {
-                if let Err(e) = handle_view_change(*new_view_number, &sender, self).await {
+            HotShotEvent::ViewChange(new_view_number, epoch_number) => {
+                if let Err(e) =
+                    handle_view_change(*new_view_number, *epoch_number, &sender, self).await
+                {
                     tracing::trace!("Failed to handle ViewChange event; error = {e}");
                 }
             }

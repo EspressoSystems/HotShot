@@ -248,10 +248,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                 )
                 .await?;
             }
-            HotShotEvent::ViewChange(new_view) => {
+            HotShotEvent::ViewChange(new_view, epoch_number) => {
                 ensure!(self.cur_view < *new_view || *self.cur_view == 0);
 
                 self.cur_view = *new_view;
+                self.cur_epoch = *epoch_number;
 
                 let view: u64 = *self.cur_view;
                 let time = SystemTime::now()

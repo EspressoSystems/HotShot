@@ -40,6 +40,7 @@ pub struct TestStorageState<TYPES: NodeType> {
     proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
     high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
     action: TYPES::View,
+    epoch: TYPES::Epoch,
 }
 
 impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
@@ -50,6 +51,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
             proposals: BTreeMap::new(),
             high_qc: None,
             action: TYPES::View::genesis(),
+            epoch: TYPES::Epoch::genesis(),
         }
     }
 }
@@ -98,6 +100,9 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
     }
     pub async fn last_actioned_view(&self) -> TYPES::View {
         self.inner.read().await.action
+    }
+    pub async fn last_epoch(&self) -> TYPES::Epoch {
+        self.inner.read().await.epoch
     }
 }
 

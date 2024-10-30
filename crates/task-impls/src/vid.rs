@@ -143,7 +143,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 .await;
             }
 
-            HotShotEvent::ViewChange(view) => {
+            HotShotEvent::ViewChange(view, epoch) => {
                 let view = *view;
                 if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
@@ -153,6 +153,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     info!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
+                self.cur_epoch = *epoch;
 
                 return None;
             }

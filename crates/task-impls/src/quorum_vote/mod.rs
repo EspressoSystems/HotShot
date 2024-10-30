@@ -747,7 +747,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 }
                 self.vote_dependencies = current_tasks;
             }
-            HotShotEvent::ViewChange(mut view) => {
+            HotShotEvent::ViewChange(mut view, _) => {
                 view = TYPES::View::new(view.saturating_sub(1));
                 // cancel old tasks
                 let current_tasks = self.vote_dependencies.split_off(&view);

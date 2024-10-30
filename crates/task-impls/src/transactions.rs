@@ -472,7 +472,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 )
                 .await;
             }
-            HotShotEvent::ViewChange(view) => {
+            HotShotEvent::ViewChange(view, epoch) => {
                 let view = *view;
 
                 tracing::debug!("view change in transactions to view {:?}", view);
@@ -489,6 +489,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
                 }
                 self.cur_view = view;
+                self.cur_epoch = *epoch;
 
                 let next_view = self.cur_view + 1;
                 let next_leader =

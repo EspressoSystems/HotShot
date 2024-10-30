@@ -582,8 +582,9 @@ impl<
                     TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::ViewChange(view) => {
+            HotShotEvent::ViewChange(view, epoch) => {
                 self.view = view;
+                self.epoch = epoch;
                 self.network
                     .update_view::<TYPES>(
                         self.view.u64(),

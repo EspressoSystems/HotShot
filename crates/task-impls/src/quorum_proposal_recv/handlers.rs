@@ -12,6 +12,7 @@ use async_broadcast::{broadcast, Receiver, Sender};
 use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
+use hotshot_types::traits::block_contents::BlockHeader;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, QuorumProposal},
@@ -19,7 +20,7 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
         ValidatedState,
@@ -31,6 +32,7 @@ use tracing::instrument;
 use utils::anytrace::*;
 
 use super::QuorumProposalRecvTaskState;
+use crate::helpers::epoch_from_block_number;
 use crate::{
     events::HotShotEvent,
     helpers::{
@@ -95,7 +97,14 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     )
     .await;
 
-    if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
+    let epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        proposal.data.block_header.block_number(),
+        task_state.epoch_height,
+    ));
+
+    if let Err(e) =
+        update_view::<TYPES, I, V>(view_number, epoch_number, event_sender, task_state).await
+    {
         tracing::debug!("Liveness Branch - Failed to update view; error = {e:#}");
     }
 
@@ -265,8 +274,15 @@ pub(crate) async fn handle_quorum_proposal_recv<
     )
     .await?;
 
+    let epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        proposal.data.block_header.block_number(),
+        task_state.epoch_height,
+    ));
+
     // NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    if let Err(e) = update_view::<TYPES, I, V>(view_number, event_sender, task_state).await {
+    if let Err(e) =
+        update_view::<TYPES, I, V>(view_number, epoch_number, event_sender, task_state).await
+    {
         tracing::debug!("Full Branch - Failed to update view; error = {e:#}");
     }
 

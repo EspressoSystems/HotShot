@@ -25,6 +25,7 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
+use hotshot_types::data::EpochNumber;
 use hotshot_types::{
     data::ViewNumber,
     request_response::ProposalRequestPayload,
@@ -114,7 +115,7 @@ async fn test_quorum_proposal_recv_task() {
             proposals[1].clone(),
             leaves[0].clone(),
         )),
-        exact(ViewChange(ViewNumber::new(2))),
+        exact(ViewChange(ViewNumber::new(2), EpochNumber::new(1))),
     ])];
 
     let state =
@@ -221,7 +222,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
         exact(QuorumProposalPreliminarilyValidated(proposals[2].clone())),
-        exact(ViewChange(ViewNumber::new(3))),
+        exact(ViewChange(ViewNumber::new(3), EpochNumber::new(1))),
         exact(ValidatedStateUpdated(
             ViewNumber::new(3),
             build_fake_view_with_leaf_and_state(

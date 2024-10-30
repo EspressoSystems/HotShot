@@ -102,6 +102,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
@@ -120,7 +123,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     }
 
     /// Handles all consensus events relating to propose and vote-enabling events.
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Consensus replica task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Consensus replica task", level = "error")]
     #[allow(unused_variables)]
     pub async fn handle(
         &mut self,

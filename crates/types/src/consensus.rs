@@ -507,6 +507,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             "New epoch isn't newer than the current epoch."
         );
         self.cur_epoch = epoch_number;
+        tracing::trace!("Epoch updated successfully");
         Ok(())
     }
 

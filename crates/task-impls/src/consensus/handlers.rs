@@ -115,6 +115,7 @@ pub(crate) async fn handle_view_change<
     V: Versions,
 >(
     new_view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
@@ -128,6 +129,7 @@ pub(crate) async fn handle_view_change<
 
     // Move this node to the next view
     task_state.cur_view = new_view_number;
+    task_state.cur_epoch = epoch_number;
 
     // If we have a decided upgrade certificate, the protocol version may also have been upgraded.
     let decided_upgrade_certificate_read = task_state

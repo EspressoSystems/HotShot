@@ -424,7 +424,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                 }
             }
 
-            &HotShotEvent::ViewChange(new_view) => {
+            &HotShotEvent::ViewChange(new_view, epoch) => {
                 let new_view = TYPES::View::new(*new_view);
                 if self.cur_view < new_view {
                     tracing::debug!(
@@ -434,6 +434,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     );
 
                     self.cur_view = new_view;
+                    self.cur_epoch = epoch;
                     self.next_view = self.cur_view;
                     self.num_timeouts_tracked = 0;
 
@@ -497,7 +498,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     // If this is the first timeout we've seen advance to the next view
                     self.cur_view = view_number;
                     broadcast_event(
-                        Arc::new(HotShotEvent::ViewChange(TYPES::View::new(*self.cur_view))),
+                        Arc::new(HotShotEvent::ViewChange(self.cur_view, self.cur_epoch)),
                         &event_stream,
                     )
                     .await;
@@ -663,8 +664,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     *self.next_view
                 );
 
+                // TODO: Figure out the correct way to view sync across epochs if needed
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view)),
+                    Arc::new(HotShotEvent::ViewChange(self.next_view, self.cur_epoch)),
                     &event_stream,
                 )
                 .await;
@@ -729,8 +731,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     cancel_task(timeout_task).await;
                 }
 
+                // TODO: Figure out the correct way to view sync across epochs if needed
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view)),
+                    Arc::new(HotShotEvent::ViewChange(self.next_view, self.cur_epoch)),
                     &event_stream,
                 )
                 .await;

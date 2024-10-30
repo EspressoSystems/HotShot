@@ -259,7 +259,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 )
                 .await?;
             }
-            HotShotEvent::ViewChange(view) => {
+            HotShotEvent::ViewChange(view, epoch) => {
                 let view = *view;
 
                 ensure!(
@@ -271,6 +271,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     tracing::info!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
+                self.cur_epoch = *epoch;
 
                 // If we are not the next leader (DA leader for this view) immediately exit
                 ensure!(

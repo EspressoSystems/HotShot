@@ -674,6 +674,7 @@ pub async fn validate_proposal_view_and_certs<
 /// Returns an [`utils::anytrace::Error`] when the new view is not greater than the current view.
 pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     new_view: TYPES::View,
+    epoch_number: TYPES::Epoch,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut QuorumProposalRecvTaskState<TYPES, I, V>,
 ) -> Result<()> {
@@ -700,7 +701,7 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     let next_view = task_state.cur_view + 1;
 
     futures::join! {
-        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view)), event_stream),
+        broadcast_event(Arc::new(HotShotEvent::ViewChange(new_view, epoch_number)), event_stream),
         broadcast_event(
             Event {
                 view_number: old_view,
@@ -770,6 +771,10 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     }
     tracing::trace!("View updated successfully");
 
+    if let Err(e) = consensus_writer.update_epoch(epoch_number) {
+        tracing::trace!("{e:?}");
+    }
+
     Ok(())
 }
 
@@ -797,5 +802,17 @@ pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Send
                 e
             );
         }
+    }
+}
+
+/// Returns an epoch number given a block number and an epoch height
+#[must_use]
+pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
+    if epoch_height == 0 {
+        0
+    } else if block_number % epoch_height == 0 {
+        block_number / epoch_height
+    } else {
+        block_number / epoch_height + 1
     }
 }
