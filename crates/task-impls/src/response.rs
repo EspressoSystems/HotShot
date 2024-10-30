@@ -23,7 +23,7 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 /// Time to wait for txns before sending `ResponseMessage::NotFound`
@@ -84,6 +84,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                             if let Some(proposal) =
                                 self.get_or_calc_vid_share(request.view, sender).await
                             {
+                                info!("calced vid shares for view {:?}", request.view);
                                 broadcast_event(
                                     HotShotEvent::VidResponseSend(
                                         self.pub_key.clone(),

@@ -38,7 +38,7 @@ use hotshot_types::{
 use jf_vid::VidScheme;
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, error, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{
     events::HotShotEvent,
@@ -549,7 +549,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         let current_epoch = self.consensus.read().await.cur_epoch();
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _leaf) => {
-                trace!(
+                info!(
                     "Received Proposal for view {}",
                     *proposal.data.view_number()
                 );
@@ -558,7 +558,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 if let Err(e) =
                     handle_quorum_proposal_validated(&proposal.data, &event_sender, self).await
                 {
-                    debug!("Failed to handle QuorumProposalValidated event; error = {e:#}");
+                    info!("Failed to handle QuorumProposalValidated event; error = {e:#}");
                 }
 
                 self.create_dependency_task_if_new(
@@ -571,7 +571,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             }
             HotShotEvent::DaCertificateRecv(cert) => {
                 let view = cert.view_number;
-                trace!("Received DAC for view {}", *view);
+                info!("Received DAC for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -610,7 +610,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             }
             HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
-                trace!("Received VID share for view {}", *view);
+                info!("Received VID share for view {}", *view);
                 if view <= self.latest_voted_view {
                     return;
                 }
@@ -663,7 +663,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     .update_vid_shares(view, disperse.clone());
 
                 if disperse.data.recipient_key != self.public_key {
-                    debug!("Got a Valid VID share but it's not for our key");
+                    info!("Got a Valid VID share but it's not for our key");
                     return;
                 }
 
@@ -681,7 +681,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
-                debug!("All vote dependencies verified for view {:?}", view_number);
+                info!("All vote dependencies verified for view {:?}", view_number);
                 if !self.update_latest_voted_view(*view_number).await {
                     debug!("view not updated");
                     return;

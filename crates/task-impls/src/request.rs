@@ -180,8 +180,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let network = Arc::clone(&self.network);
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
         let delay = self.delay;
-        let da_committee_for_view = self.da_membership.committee_members(view, epoch);
         let public_key = self.public_key.clone();
+        let mut da_committee_for_view = self.da_membership.committee_members(view, epoch);
+        da_committee_for_view.insert(self.da_membership.leader(view, epoch));
 
         // Get committee members for view
         let mut recipients: Vec<TYPES::SignatureKey> = self
@@ -205,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 async_sleep(delay).await;
             }
 
-            let mut recipients_it = recipients.iter().cycle();
+            let mut recipients_it = recipients.iter();
             // First check if we got the data before continuing
             while !Self::cancel_vid_request_task(
                 &state,
@@ -238,7 +239,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                         return;
                     }
                 } else {
-                    // This shouldnt be possible `recipients_it.next()` should clone original and start over if `None`
                     tracing::warn!(
                         "Sent VID request to all available DA members and got no reponse for view: {:?}",
                         view
@@ -353,7 +353,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 )
                 .await;
             }
-            tracing::debug!(
+            tracing::info!(
                 "Canceling vid request for view {:?}, cur view is {:?}",
                 view,
                 state.cur_view()

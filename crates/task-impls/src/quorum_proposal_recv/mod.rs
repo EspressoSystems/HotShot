@@ -129,6 +129,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) {
         if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
+            tracing::info!(
+                "Proposal received for view {:?}",
+                proposal.data.view_number()
+            );
             match handle_quorum_proposal_recv(
                 proposal,
                 sender,
