@@ -289,12 +289,12 @@ impl<
 
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let state = Arc::clone(&self.consensus);
+        let consensus = Arc::clone(&self.consensus);
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
                 storage,
-                state,
+                consensus,
                 view,
             )
             .await
@@ -315,13 +315,18 @@ impl<
     async fn maybe_record_action(
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
-        state: Arc<RwLock<Consensus<TYPES>>>,
+        consensus: Arc<RwLock<Consensus<TYPES>>>,
         view: <TYPES as NodeType>::View,
     ) -> std::result::Result<(), ()> {
-        if let Some(action) = maybe_action {
-            if !state.write().await.update_action(action, view) {
+        if let Some(mut action) = maybe_action {
+            if !consensus.write().await.update_action(action, view) {
                 tracing::warn!("Already actioned {:?} in view {:?}", action, view);
                 return Err(());
+            }
+            // If the action was view sync record it as a vote, but we don't
+            // want to limit to 1 View sycn vote above so change the action here.
+            if matches!(action, HotShotAction::ViewSyncVote) {
+                action = HotShotAction::Vote;
             }
             match storage.write().await.record_action(view, action).await {
                 Ok(()) => Ok(()),
@@ -481,6 +486,7 @@ impl<
                 ))
             }
             HotShotEvent::ViewSyncCommitVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::ViewSyncVote);
                 let view_number = vote.view_number() + vote.date().relay;
                 let leader = match self.quorum_membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
@@ -503,6 +509,7 @@ impl<
                 ))
             }
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::ViewSyncVote);
                 let view_number = vote.view_number() + vote.date().relay;
                 let leader = match self.quorum_membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
@@ -646,19 +653,21 @@ impl<
             sender,
             kind: message_kind,
         };
-        let view = message.kind.view_number();
+        let view_number = message.kind.view_number();
         let committee_topic = self.quorum_membership.committee_topic();
-        let da_committee = self.da_membership.committee_members(view, self.epoch);
-        let net = Arc::clone(&self.network);
+        let da_committee = self
+            .da_membership
+            .committee_members(view_number, self.epoch);
+        let network = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let state = Arc::clone(&self.consensus);
+        let consensus = Arc::clone(&self.consensus);
         let upgrade_lock = self.upgrade_lock.clone();
         let handle = async_spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 maybe_action,
                 Arc::clone(&storage),
-                state,
-                view,
+                consensus,
+                view_number,
             )
             .await
             .is_err()
@@ -684,19 +693,21 @@ impl<
 
             let transmit_result = match transmit {
                 TransmitType::Direct(recipient) => {
-                    net.direct_message(serialized_message, recipient).await
+                    network.direct_message(serialized_message, recipient).await
                 }
                 TransmitType::Broadcast => {
-                    net.broadcast_message(serialized_message, committee_topic, broadcast_delay)
+                    network
+                        .broadcast_message(serialized_message, committee_topic, broadcast_delay)
                         .await
                 }
                 TransmitType::DaCommitteeBroadcast => {
-                    net.da_broadcast_message(
-                        serialized_message,
-                        da_committee.iter().cloned().collect(),
-                        broadcast_delay,
-                    )
-                    .await
+                    network
+                        .da_broadcast_message(
+                            serialized_message,
+                            da_committee.iter().cloned().collect(),
+                            broadcast_delay,
+                        )
+                        .await
                 }
             };
 

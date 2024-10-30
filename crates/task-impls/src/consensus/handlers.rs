@@ -176,8 +176,8 @@ pub(crate) async fn handle_view_change<
     ))
     .await;
 
-    let consensus = task_state.consensus.read().await;
-    consensus
+    let consensus_reader = task_state.consensus.read().await;
+    consensus_reader
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
@@ -188,7 +188,7 @@ pub(crate) async fn handle_view_change<
         == task_state.public_key
     {
         #[allow(clippy::cast_precision_loss)]
-        consensus
+        consensus_reader
             .metrics
             .view_duration_as_leader
             .add_point((cur_view_time - task_state.cur_view_time) as f64);
@@ -200,10 +200,13 @@ pub(crate) async fn handle_view_change<
     if usize::try_from(task_state.cur_view.u64()).unwrap()
         > usize::try_from(task_state.last_decided_view.u64()).unwrap()
     {
-        consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.u64()).unwrap()
-                - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
-        );
+        consensus_reader
+            .metrics
+            .number_of_views_since_last_decide
+            .set(
+                usize::try_from(task_state.cur_view.u64()).unwrap()
+                    - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
+            );
     }
 
     broadcast_event(
