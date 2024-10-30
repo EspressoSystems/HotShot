@@ -2,7 +2,7 @@
 version = "0.5.78"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
-rust-version = "1.76.0"
+rust-version = "1.80.0"
 homepage = "https://github.com/EspressoSystems/HotShot"
 documentation = "https://hotshot.docs.espressosys.com"
 repository = "https://github.com/EspressoSystems/HotShot"
@@ -57,7 +57,7 @@ espresso-systems-common = { git = "https://github.com/espressosystems/espresso-s
 ethereum-types = { version = "0.14", default-features = false, features = [
   "serialize",
 ] }
-derive_more = { version = "1.0", features = ["from"] }
+derive_more = { version = "1.0", features = ["from", "deref"] }
 futures = { version = "0.3", default-features = false }
 jf-crhf = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
@@ -174,3 +174,8 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 # TODO change to deny
 missing_docs = "warn"
 warnings = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(async_executor_impl, values("async-std"))',
+  'cfg(async_executor_impl, values("tokio"))',
+  'cfg(hotshot_example)',
+] }

@@ -2,19 +2,151 @@
 
 use std::hash::Hasher;
 use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use std::u32;
 
 use anyhow::{Context, Result};
 use cdn_broker::reexports::def::hook::{HookResult, MessageHookDef};
 use cdn_broker::reexports::message::{Broadcast, Direct, Message as PushCdnMessage};
+use gcr::{Gcr, GcrRequestError};
 use lru::LruCache;
+use parking_lot::Mutex;
+use tracing::warn;
 use twox_hash::xxh3::Hash64;
 
+/// The type of message being processed. Is used downstream to determine
+/// which sample and average to use when processing a message.
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
+enum MessageType {
+    /// A broadcast message
+    Broadcast,
+    /// A direct message
+    Direct,
+}
+
+/// An average representing the number of bytes processed per second
+struct Average {
+    /// The number of bytes processed
+    num_bytes: f64,
+
+    /// The number of samples
+    num_samples: u64,
+}
+
+impl Average {
+    /// Create a new `Average` instance
+    fn new() -> Self {
+        Self {
+            num_bytes: 0.0,
+            num_samples: 0,
+        }
+    }
+
+    /// Add a sample to the average
+    fn add(&mut self, num: f64) {
+        // Add the bytes and increment the number of samples
+        self.num_bytes = self.num_bytes + num;
+        self.num_samples = self.num_samples.saturating_add(1);
+    }
+
+    /// Finalize the average, resetting the internal state and returning the new average
+    fn commit(&mut self) -> f64 {
+        // Calculate the new average
+        let value = self.num_bytes / self.num_samples as f64;
+
+        // Reset the internal state
+        self.num_bytes = 0.0;
+        self.num_samples = 0;
+
+        // Return the new average
+        value
+    }
+}
+
+/// A wrapper around an average that caches the last calculated value
 #[derive(Clone)]
-/// The message hook for `HotShot` messages. Each user has a unique message hook.
+struct CachedAverage {
+    /// The inner average
+    average: Arc<Mutex<Average>>,
+
+    /// The last calculated value
+    last_calculated: Arc<AtomicU32>,
+}
+
+impl CachedAverage {
+    /// Create a new `CachedAverage` instance
+    fn new() -> Self {
+        Self {
+            average: Arc::new(Mutex::new(Average::new())),
+            last_calculated: Arc::new(AtomicU32::new(0)),
+        }
+    }
+}
+
+/// A sample representing the number of bytes processed per second
+#[derive(Clone)]
+pub struct Sample {
+    /// The number of bytes processed
+    num_bytes: f64,
+
+    /// The time of the last commit
+    last_committed_time: Instant,
+}
+
+impl Sample {
+    /// Create a new `Sample` instance
+    fn new() -> Self {
+        Self {
+            num_bytes: 0.0,
+            last_committed_time: Instant::now(),
+        }
+    }
+
+    /// Add a number of bytes to the sample
+    fn add(&mut self, num: f64) {
+        self.num_bytes += num;
+    }
+
+    /// Commit the sample, returning the number of bytes processed per second and
+    /// resetting the internal state
+    fn commit(&mut self) -> f64 {
+        let elapsed = self.last_committed_time.elapsed();
+        self.last_committed_time = Instant::now();
+        let value = self.num_bytes / elapsed.as_secs() as f64;
+        self.num_bytes = 0.0;
+        value
+    }
+}
+
+/// The message hook for `HotShot` messages. Each user has a unique
+#[derive(Clone)]
 pub struct HotShotMessageHook {
     /// The cache for message hashes. We use this to deduplicate a sliding window of
     /// 100 messages.
     message_hash_cache: LruCache<u64, ()>,
+
+    /// The reference counter so we can keep track of the number of hooks there are
+    num_hooks: Arc<()>,
+
+    /// The global average number of bytes per second for direct messages
+    global_average_direct_bps: CachedAverage,
+
+    /// The global average number of bytes per second for broadcast messages
+    global_average_broadcast_bps: CachedAverage,
+
+    /// The local GCR instance for direct messages
+    local_gcr_direct: Gcr,
+
+    /// The local GCR instance for broadcast messages
+    local_gcr_broadcast: Gcr,
+
+    /// The local, running number of consumed bytes for direct messages
+    local_sample_direct_bps: Sample,
+
+    /// The local, running number of consumed bytes for broadcast messages
+    local_sample_broadcast_bps: Sample,
 }
 
 impl Default for HotShotMessageHook {
@@ -23,6 +155,14 @@ impl Default for HotShotMessageHook {
     fn default() -> Self {
         Self {
             message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
+            num_hooks: Arc::new(()),
+            local_gcr_direct: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX)).unwrap(),
+            local_gcr_broadcast: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX))
+                .unwrap(),
+            local_sample_direct_bps: Sample::new(),
+            local_sample_broadcast_bps: Sample::new(),
+            global_average_direct_bps: CachedAverage::new(),
+            global_average_broadcast_bps: CachedAverage::new(),
         }
     }
 }
@@ -34,9 +174,77 @@ impl HotShotMessageHook {
     /// If 100 < 0
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
+        Self::default()
+    }
+
+    /// Process a message against the moving average
+    /// Returns whether or not the message should be skipped.
+    fn process_against_average(
+        &mut self,
+        message_len: usize,
+        message_type: MessageType,
+    ) -> HookResult {
+        // Get the correct sample, `GCR`, and global average based on the message type
+        let (local_sample, gcr, global_average) = match message_type {
+            MessageType::Broadcast => (
+                &mut self.local_sample_broadcast_bps,
+                &mut self.local_gcr_broadcast,
+                &mut self.global_average_broadcast_bps,
+            ),
+            MessageType::Direct => (
+                &mut self.local_sample_direct_bps,
+                &mut self.local_gcr_direct,
+                &mut self.global_average_direct_bps,
+            ),
+        };
+
+        // Check against the `GCR` instance, skipping if we're rate limited
+        // If we hit some other request error (like parameter error), we'll process
+        // the message anyway
+        if let Err(err) = gcr.request(message_len as u32) {
+            if let GcrRequestError::DeniedFor(_) = err {
+                return HookResult::SkipMessage;
+            }
+
+            warn!("Failed to check GCR instance: {err}");
         }
+
+        // Add the message to our local sample
+        local_sample.add(message_len as f64);
+
+        // If it's been a minute,
+        if local_sample.last_committed_time.elapsed() > Duration::from_secs(60) {
+            // Commit the sample to the global average
+            let value = local_sample.commit();
+
+            // Store the new average
+            let mut global_average_guard = global_average.average.lock();
+            global_average_guard.add(value);
+
+            // If we've collected enough samples, commit the average
+            if global_average_guard.num_samples >= Arc::strong_count(&self.num_hooks) as u64 {
+                // Commit the average
+                let new_average = global_average_guard.commit();
+
+                // Update the last calculated value
+                global_average
+                    .last_calculated
+                    .store(new_average as u32, Ordering::Relaxed);
+            }
+            drop(global_average_guard);
+
+            // Update the `Gcr` instance to be double the last calculated average
+            let new_global_average = global_average.last_calculated.load(Ordering::Relaxed);
+            if let Err(e) = gcr.adjust(
+                new_global_average.saturating_div(2),
+                Duration::from_secs(60),
+                Some(new_global_average.saturating_div(2)),
+            ) {
+                warn!("Failed to adjust GCR instance: {e}");
+            }
+        }
+
+        HookResult::ProcessMessage
     }
 
     /// Process against the local message cache. This is used to deduplicate messages.
@@ -60,6 +268,14 @@ impl HotShotMessageHook {
             return Ok(HookResult::SkipMessage);
         }
 
+        // Check against the average message rate
+        if self.process_against_average(broadcast.message.len(), MessageType::Broadcast)
+            != HookResult::ProcessMessage
+        {
+            warn!("Broadcast message not processed due to high message rate");
+            return Ok(HookResult::SkipMessage);
+        };
+
         Ok(HookResult::ProcessMessage)
     }
 
@@ -70,12 +286,21 @@ impl HotShotMessageHook {
             return Ok(HookResult::SkipMessage);
         }
 
+        // Check against the average message rate
+        if self.process_against_average(direct.message.len(), MessageType::Direct)
+            != HookResult::ProcessMessage
+        {
+            warn!("Direct message not processed due to high message rate");
+            return Ok(HookResult::SkipMessage);
+        };
+
         Ok(HookResult::ProcessMessage)
     }
 }
 
+/// Implement the hook trait for `HotShotMessageHook`
 impl MessageHookDef for HotShotMessageHook {
-    /// Implement the hook trait for `HotShotMessageHook`
+    /// Handle a received message
     fn on_message_received(&mut self, message: &mut PushCdnMessage) -> Result<HookResult> {
         match message {
             PushCdnMessage::Broadcast(broadcast) => self
