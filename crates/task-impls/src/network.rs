@@ -4,7 +4,11 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::Arc,
+};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
@@ -49,6 +53,9 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
 
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,
+
+    /// Transaction Cache to ignore previously seen transatctions
+    pub transactions_cache: lru::LruCache<u64, ()>,
 }
 
 impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
@@ -127,6 +134,11 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
             // Handle data messages
             MessageKind::Data(message) => match message {
                 DataMessage::SubmitTransaction(transaction, _) => {
+                    let mut hasher = DefaultHasher::new();
+                    transaction.hash(&mut hasher);
+                    if self.transactions_cache.put(hasher.finish(), ()).is_some() {
+                        return;
+                    }
                     broadcast_event(
                         Arc::new(HotShotEvent::TransactionsRecv(vec![transaction])),
                         &self.internal_event_stream,
