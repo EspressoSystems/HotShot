@@ -716,7 +716,10 @@ impl<
                 Err(e) => tracing::warn!("Failed to send message task: {:?}", e),
             }
         });
-        self.transmit_tasks.entry(view).or_default().push(handle);
+        self.transmit_tasks
+            .entry(view_number)
+            .or_default()
+            .push(handle);
     }
 }
 
