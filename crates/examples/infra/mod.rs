@@ -65,7 +65,7 @@ use hotshot_types::{
     },
     HotShotConfig, PeerConfig, ValidatorConfig,
 };
-use libp2p_networking::network::GossipConfig;
+use libp2p_networking::network::{GossipConfig, RequestResponseConfig};
 use rand::{rngs::StdRng, SeedableRng};
 use surf_disco::Url;
 use tracing::{debug, error, info, warn};
@@ -763,6 +763,7 @@ where
         let libp2p_network = Libp2pNetwork::from_config(
             config.clone(),
             GossipConfig::default(),
+            RequestResponseConfig::default(),
             bind_address,
             &public_key,
             &private_key,
