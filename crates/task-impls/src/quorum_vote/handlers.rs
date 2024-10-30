@@ -179,13 +179,12 @@ pub(crate) async fn update_shared_state<
     let consensus_reader = consensus.read().await;
     // Try to find the validated vview within the validasted state map. This will be present
     // if we have the saved leaf, but if not we'll get it when we fetch_proposal.
-    let mut maybe_validated_view = match parent_view_number {
-        Some(parent_view_number) => consensus_reader
+    let mut maybe_validated_view = parent_view_number.and_then(|view_number| {
+        consensus_reader
             .validated_state_map()
-            .get(&parent_view_number)
-            .cloned(),
-        None => None,
-    };
+            .get(&view_number)
+            .cloned()
+    });
 
     // Justify qc's leaf commitment should be the same as the parent's leaf commitment.
     let mut maybe_parent = consensus_reader
@@ -227,7 +226,10 @@ pub(crate) async fn update_shared_state<
     ))?;
 
     let Some(validated_view) = maybe_validated_view else {
-        bail!("Don't have a validated view for our view! Consensus internally inconsistent");
+        bail!(
+            "Failed to fetch view for parent, parent view {:?}",
+            parent_view_number
+        );
     };
 
     let (Some(parent_state), _) = validated_view.state_and_delta() else {
