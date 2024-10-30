@@ -8,7 +8,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration};
 
 use async_broadcast::{broadcast, RecvError};
 use async_compatibility_layer::art::async_sleep;
@@ -119,6 +119,7 @@ pub fn add_queue_len_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Vers
 }
 
 /// Add the network task to handle messages and publish events.
+#[allow(clippy::missing_panics_doc)]
 pub fn add_network_message_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -132,6 +133,7 @@ pub fn add_network_message_task<
         internal_event_stream: handle.internal_event_stream.0.clone(),
         external_event_stream: handle.output_event_stream.0.clone(),
         public_key: handle.public_key().clone(),
+        transactions_cache: lru::LruCache::new(NonZeroUsize::new(100_000).unwrap()),
     };
 
     let upgrade_lock = handle.hotshot.upgrade_lock.clone();
