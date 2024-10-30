@@ -298,16 +298,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
                     let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-                    let is_justify_qc_for_last_block = self
-                        .consensus
-                        .read()
-                        .await
-                        .is_qc_for_last_block(&proposal.data.justify_qc);
-                    let is_justify_qc_extended = self
-                        .consensus
-                        .read()
-                        .await
-                        .is_qc_extended(&proposal.data.justify_qc);
 
                     tracing::debug!(
                         "proposal leaf height = {}, parent leaf height = {}",
@@ -315,8 +305,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         parent_leaf.height()
                     );
                     if version >= V::Epochs::VERSION
-                        && is_justify_qc_for_last_block
-                        && !is_justify_qc_extended
+                        && self
+                            .consensus
+                            .read()
+                            .await
+                            .is_qc_forming_eqc(&proposal.data.justify_qc)
                     {
                         tracing::info!(
                             "Reached end of epoch. Justify QC is for the last block in the epoch."

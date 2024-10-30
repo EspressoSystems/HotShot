@@ -868,7 +868,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// consecutive views for the last block in the epoch.
     pub fn is_high_qc_extended(&self) -> bool {
         let high_qc = self.high_qc();
-        self.is_qc_extended(high_qc)
+        let ret = self.is_qc_extended(high_qc);
+        if ret {
+            tracing::debug!("We have formed an eQC!");
+        };
+        ret
     }
 
     /// Returns true if the given qc is an extended Quorum Certificate
@@ -922,6 +926,19 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
         tracing::trace!("Is the given QC an eQC? {}", is_qc_extended);
         is_qc_extended
+    }
+
+    /// Return true if the given Quorum Certificate takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    pub fn is_qc_forming_eqc(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+        self.is_qc_for_last_block(cert) && !self.is_qc_extended(cert)
+    }
+
+    /// Return true if the high QC takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    pub fn is_high_qc_forming_eqc(&self) -> bool {
+        let high_qc = self.high_qc();
+        self.is_qc_for_last_block(high_qc) && !self.is_qc_extended(high_qc)
     }
 }
 

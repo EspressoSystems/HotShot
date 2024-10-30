@@ -440,10 +440,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::View,
     ) -> Option<HotShotTaskCompleted> {
-        let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
-        let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
-
-        if is_high_qc_for_last_block && !is_high_qc_extended {
+        if self.consensus.read().await.is_high_qc_forming_eqc() {
             tracing::info!("Reached end of epoch. Not getting a new block until we form an eQC.");
             None
         } else {
