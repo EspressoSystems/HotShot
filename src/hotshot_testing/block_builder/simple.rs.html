@@ -443,6 +443,7 @@
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
 <a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -586,7 +587,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _parent_view: u64,
         _parent_hash: <span class="kw-2">&amp;</span>VidCommitment,
-        _view_number: u64,
+        view_number: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Bundle&lt;TYPES&gt;, BuildError&gt; {
         <span class="kw">let </span>transactions = <span class="self">self
             </span>.transactions
@@ -615,6 +616,7 @@
             fee_signature: TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(
                 <span class="kw-2">&amp;</span><span class="self">self</span>.priv_key.clone(),
                 fee_amount,
+                view_number,
             )
             .expect(<span class="string">"Failed to sign fee!"</span>),
         };
