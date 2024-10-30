@@ -39,6 +39,7 @@ use jf_vid::VidScheme;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use crate::{
     events::HotShotEvent,
@@ -286,6 +287,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             match event.as_ref() {
                 #[allow(unused_assignments)]
                 HotShotEvent::QuorumProposalValidated(proposal, parent_leaf) => {
+                    let version = match self.upgrade_lock.version(self.view_number).await {
+                        Ok(version) => version,
+                        Err(e) => {
+                            tracing::error!("{e:#}");
+                            return;
+                        }
+                    };
                     let mut is_same_block_proposed = false;
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
                     let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
@@ -306,7 +314,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         proposed_leaf.height(),
                         parent_leaf.height()
                     );
-                    if is_justify_qc_for_last_block && !is_justify_qc_extended {
+                    if version >= V::Epochs::VERSION
+                        && is_justify_qc_for_last_block
+                        && !is_justify_qc_extended
+                    {
                         tracing::info!(
                             "Reached end of epoch. Justify QC is for the last block in the epoch."
                         );
