@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Ok, Result};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
+use async_compatibility_layer::art::async_block_on;
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use futures::Stream;
@@ -164,13 +165,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 &sender,
             )
             .await;
-            loop {
-                let hs_event = EventDependency::new(
+            let hs_event = EventDependency::new(
                     receiver.clone(),
                     Box::new(move |event| {
                         let event = event.as_ref();
                         if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = event {
-                            quorum_proposal.data.view_number() == view
+                            if quorum_proposal.data.view_number() != view {
+                                return false;
+                            }
+                                                // Make sure that the quorum_proposal is valid
+                            if let Err(err) = async_block_on(quorum_proposal
+                                .validate_signature(&mem, epoch, &upgrade_lock))
+                            {
+                                tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
+                                return false;
+                            }
+                            let proposed_leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
+                            let commit = async_block_on(proposed_leaf.commit(&upgrade_lock));
+                            if commit == leaf_commitment {
+                                return true;
+                            }
+                            tracing::warn!("Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
+                            false
                         } else {
                             false
                         }
@@ -180,26 +196,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 .await
                 .ok_or(anyhow!("Event dependency failed to get event"))?;
 
-                // Then, if it's `Some`, make sure that the data is correct
+            // Then, if it's `Some`, make sure that the data is correct
 
-                if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
-                {
-                    // Make sure that the quorum_proposal is valid
-                    if let Err(err) = quorum_proposal
-                        .validate_signature(&mem, epoch, &upgrade_lock)
-                        .await
-                    {
-                        tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
-                        continue;
-                    }
-                    let proposed_leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
-                    let commit = proposed_leaf.commit(&upgrade_lock).await;
-                    if commit == leaf_commitment {
-                        return Ok(quorum_proposal.clone());
-                    }
-                    tracing::warn!("Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
-                }
+            if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref() {
+                return Ok(quorum_proposal.clone());
             }
+            Err(anyhow!("Proposal Fetching Failed"))
         })
     }
 

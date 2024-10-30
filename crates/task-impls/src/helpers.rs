@@ -11,7 +11,7 @@ use std::{
 };
 
 use async_broadcast::{InactiveReceiver, Receiver, SendError, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
+use async_compatibility_layer::art::{async_block_on, async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
@@ -82,14 +82,12 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
 
     let mem = Arc::clone(&quorum_membership);
     let cur_epoch = consensus.read().await.cur_epoch();
+    let up_lock = upgrade_lock.clone();
     // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
         async_timeout(REQUEST_TIMEOUT, async move {
             // We want to iterate until the proposal is not None, or until we reach the timeout.
-            let mut proposal = None;
-            while proposal.is_none() {
-                // First, capture the output from the event dependency
                 let event = EventDependency::new(
                     event_receiver.clone(),
                     Box::new(move |event| {
@@ -98,33 +96,23 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                             quorum_proposal,
                         ) = event
                         {
-                            quorum_proposal.data.view_number() == view_number
+                            let right_view = quorum_proposal.data.view_number() == view_number;
+                            let signed = async_block_on(quorum_proposal.validate_signature(&mem, cur_epoch, &up_lock)).is_ok();
+                            right_view && signed
                         } else {
                             false
                         }
                     }),
                 )
                     .completed()
-                    .await;
+                    .await?;
+                let HotShotEvent::QuorumProposalResponseRecv(
+                    quorum_proposal,
+                ) = event.as_ref() else {
+                    return None
+                };
+                Some(quorum_proposal.clone())
 
-                // Then, if it's `Some`, make sure that the data is correct
-                if let Some(hs_event) = event.as_ref() {
-                    if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) =
-                        hs_event.as_ref()
-                    {
-                        // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, cur_epoch, upgrade_lock).await.is_ok() {
-                            proposal = Some(quorum_proposal.clone());
-                        }
-
-                    }
-                } else {
-                    // If the dep returns early return none
-                    return None;
-                }
-            }
-
-            proposal
         })
         .await
     else {
@@ -382,9 +370,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
         )
     );
     let parent_view_number = consensus_reader.high_qc().view_number();
-    let vsm_contains_parent_view = consensus
-        .read()
-        .await
+    let vsm_contains_parent_view = consensus_reader
         .validated_state_map()
         .contains_key(&parent_view_number);
     drop(consensus_reader);
