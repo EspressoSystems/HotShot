@@ -7,7 +7,7 @@
 //! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc};
 
 use crate::{
     events::HotShotEvent,
@@ -16,7 +16,7 @@ use crate::{
 };
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{InactiveReceiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
@@ -83,9 +83,6 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
 
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-
-    /// Round start delay from config, in milliseconds.
-    pub round_start_delay: u64,
 
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
@@ -171,13 +168,49 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let version = self.upgrade_lock.version(self.view_number).await?;
 
         let high_qc = self.consensus.read().await.high_qc().clone();
-        let is_high_qc_extended = self.consensus.read().await.is_high_qc_extended();
-        if is_high_qc_extended {
-            tracing::debug!("We have formed an eQC! Proposing a new block.");
-        }
-        let is_high_qc_for_last_block = self.consensus.read().await.is_high_qc_for_last_block();
 
-        let block_header = if is_high_qc_for_last_block && !is_high_qc_extended {
+        let builder_commitment = commitment_and_metadata.builder_commitment.clone();
+        let metadata = commitment_and_metadata.metadata.clone();
+        let get_legacy_block_header_fn = async {
+            TYPES::BlockHeader::new_legacy(
+                state.as_ref(),
+                self.instance_state.as_ref(),
+                &parent_leaf,
+                commitment_and_metadata.commitment,
+                builder_commitment,
+                metadata,
+                commitment_and_metadata.fees.first().clone(),
+                vid_share.data.common.clone(),
+                version,
+            )
+            .await
+            .wrap()
+            .context(warn!("Failed to construct legacy block header"))
+        };
+
+        let get_marketplace_block_header_fn = async {
+            TYPES::BlockHeader::new_marketplace(
+                state.as_ref(),
+                self.instance_state.as_ref(),
+                &parent_leaf,
+                commitment_and_metadata.commitment,
+                commitment_and_metadata.builder_commitment,
+                commitment_and_metadata.metadata,
+                commitment_and_metadata.fees.to_vec(),
+                vid_share.data.common.clone(),
+                commitment_and_metadata.auction_result,
+                version,
+            )
+            .await
+            .wrap()
+            .context(warn!("Failed to construct marketplace block header"))
+        };
+
+        let block_header = if version < V::Marketplace::VERSION {
+            get_legacy_block_header_fn.await?
+        } else if version < V::Epochs::VERSION {
+            get_marketplace_block_header_fn.await?
+        } else if self.consensus.read().await.is_high_qc_forming_eqc() {
             tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
             if let Some(leaf) = self
                 .consensus
@@ -197,37 +230,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                     "There is no leaf for the high QC. Consensus inconsistent!"
                 ));
             }
-        } else if version < V::Marketplace::VERSION {
-            TYPES::BlockHeader::new_legacy(
-                state.as_ref(),
-                self.instance_state.as_ref(),
-                &parent_leaf,
-                commitment_and_metadata.commitment,
-                commitment_and_metadata.builder_commitment,
-                commitment_and_metadata.metadata,
-                commitment_and_metadata.fees.first().clone(),
-                vid_share.data.common.clone(),
-                version,
-            )
-            .await
-            .wrap()
-            .context(warn!("Failed to construct legacy block header"))?
         } else {
-            TYPES::BlockHeader::new_marketplace(
-                state.as_ref(),
-                self.instance_state.as_ref(),
-                &parent_leaf,
-                commitment_and_metadata.commitment,
-                commitment_and_metadata.builder_commitment,
-                commitment_and_metadata.metadata,
-                commitment_and_metadata.fees.to_vec(),
-                vid_share.data.common.clone(),
-                commitment_and_metadata.auction_result,
-                version,
-            )
-            .await
-            .wrap()
-            .context(warn!("Failed to construct marketplace block header"))?
+            get_marketplace_block_header_fn.await?
         };
 
         let proposal = QuorumProposal {
@@ -261,7 +265,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             proposed_leaf.view_number(),
         );
 
-        async_sleep(Duration::from_millis(self.round_start_delay)).await;
         broadcast_event(
             Arc::new(HotShotEvent::QuorumProposalSend(
                 message.clone(),
