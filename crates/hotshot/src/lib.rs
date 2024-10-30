@@ -498,17 +498,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         async_spawn(async move {
             let da_membership = &api.memberships.da_membership.clone();
             join! {
-                // TODO We should have a function that can return a network error if there is one
-                // but first we'd need to ensure our network implementations can support that
-                // (and not hang instead)
-
-                // version <0, 1> currently fixed; this is the same as VERSION_0_1,
-                // and will be updated to be part of SystemContext. I wanted to use associated
-                // constants in NodeType, but that seems to be unavailable in the current Rust.
                 api
-                    .network.broadcast_message(
+                    .network.da_broadcast_message(
                         serialized_message,
-                        da_membership.committee_topic(),
+                        da_membership.committee_members(view_number, TYPES::Epoch::new(1)).iter().cloned().collect(),
                         BroadcastDelay::None,
                     ),
                 api
