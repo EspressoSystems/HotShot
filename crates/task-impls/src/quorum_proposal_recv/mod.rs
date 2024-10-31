@@ -13,19 +13,20 @@ use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
+use either::Either;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
-    data::{Leaf, ViewChangeEvidence},
+    data::{EpochNumber, Leaf, ViewChangeEvidence},
     event::Event,
     message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
     traits::{
-        node_implementation::{NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
@@ -36,7 +37,9 @@ use vbs::version::Version;
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
     events::{HotShotEvent, ProposalMissing},
-    helpers::{broadcast_event, cancel_task, parent_leaf_and_state},
+    helpers::{
+        broadcast_event, cancel_task, epoch_from_block_number, parent_leaf_and_state, update_view,
+    },
 };
 
 /// Event handlers for this task.
@@ -128,21 +131,45 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) {
-        if let HotShotEvent::QuorumProposalRecv(proposal, sender) = event.as_ref() {
-            match handle_quorum_proposal_recv(
-                proposal,
-                sender,
-                &event_sender,
-                &event_receiver,
-                self,
-            )
-            .await
-            {
-                Ok(()) => {
-                    self.cancel_tasks(proposal.data.view_number()).await;
+        match event.as_ref() {
+            HotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                match handle_quorum_proposal_recv(
+                    proposal,
+                    sender,
+                    &event_sender,
+                    &event_receiver,
+                    self,
+                )
+                .await
+                {
+                    Ok(()) => {
+                        self.cancel_tasks(proposal.data.view_number()).await;
+                    }
+                    Err(e) => debug!(?e, "Failed to validate the proposal"),
                 }
-                Err(e) => debug!(?e, "Failed to validate the proposal"),
             }
+            HotShotEvent::QcFormed(Either::Left(cert)) => {
+                let new_view = cert.view_number();
+                let block_number = if let Some(leaf) = self
+                    .consensus
+                    .read()
+                    .await
+                    .saved_leaves()
+                    .get(&cert.data().leaf_commit)
+                {
+                    leaf.height()
+                } else {
+                    error!("No leaf corresponding to the newly formed QC. Consensus inconsistent!");
+                    return;
+                };
+                let epoch = epoch_from_block_number(block_number, self.epoch_height);
+                if let Err(e) =
+                    update_view(new_view, TYPES::Epoch::new(epoch), &event_sender, self).await
+                {
+                    debug!("Failed to update view; error = {e:#}");
+                }
+            }
+            _ => {}
         }
     }
 }
