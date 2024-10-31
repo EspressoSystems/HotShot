@@ -134,6 +134,9 @@ pub struct HotShotMessageHook {
     /// by the consumer
     identifier: u64,
 
+    /// The commit interval for a local sample -> global average
+    commit_interval: Duration,
+
     /// The cache of previously dropped GCRs by identifier. This is used to prevent a user
     /// from reconnecting and using a brand new GCR instance (empty rate limit)
     dropped_gcr_cache: Arc<Mutex<LruCache<u64, (Gcr, Gcr)>>>,
@@ -168,6 +171,7 @@ impl Default for HotShotMessageHook {
             dropped_gcr_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(1000).unwrap(),
             ))),
+            commit_interval: Duration::from_secs(60),
             local_gcr_direct: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX)).unwrap(),
             local_gcr_broadcast: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX))
                 .unwrap(),
@@ -185,8 +189,10 @@ impl HotShotMessageHook {
     /// # Panics
     /// If 100 < 0
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(commit_interval: Duration) -> Self {
+        let mut default = Self::default();
+        default.commit_interval = commit_interval;
+        default
     }
 
     /// Process a message against the moving average
@@ -225,7 +231,7 @@ impl HotShotMessageHook {
         local_sample.add(message_len as f64);
 
         // If it's been a minute,
-        if local_sample.last_committed_time.elapsed() > Duration::from_secs(60) {
+        if local_sample.last_committed_time.elapsed() > self.commit_interval {
             // Commit the sample to the global average
             let value = local_sample.commit();
 
@@ -377,7 +383,7 @@ mod test {
     use super::*;
 
     #[test]
-    pub fn deduplication_broadcast() {
+    fn deduplication_broadcast() {
         // Create a new message hook
         let mut hook = HotShotMessageHook::default();
 
@@ -424,7 +430,7 @@ mod test {
     }
 
     #[test]
-    pub fn deduplication_direct() {
+    fn deduplication_direct() {
         // Create a new message hook
         let mut hook = HotShotMessageHook::default();
 
