@@ -236,9 +236,9 @@ impl HotShotMessageHook {
             // Update the `Gcr` instance to be double the last calculated average
             let new_global_average = global_average.last_calculated.load(Ordering::Relaxed);
             if let Err(e) = gcr.adjust(
-                new_global_average.saturating_div(2),
+                new_global_average.saturating_mul(2),
                 Duration::from_secs(60),
-                Some(new_global_average.saturating_div(2)),
+                Some(new_global_average.saturating_mul(4)),
             ) {
                 warn!("Failed to adjust GCR instance: {e}");
             }
