@@ -450,7 +450,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -486,7 +486,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
                 }
                 self.cur_view = view;
-                self.cur_epoch = *epoch;
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
 
                 let next_view = self.cur_view + 1;
                 let next_leader =

@@ -129,7 +129,9 @@ pub(crate) async fn handle_view_change<
 
     // Move this node to the next view
     task_state.cur_view = new_view_number;
-    task_state.cur_epoch = epoch_number;
+    if epoch_number > task_state.cur_epoch {
+        task_state.cur_epoch = epoch_number;
+    }
 
     // If we have a decided upgrade certificate, the protocol version may also have been upgraded.
     let decided_upgrade_certificate_read = task_state

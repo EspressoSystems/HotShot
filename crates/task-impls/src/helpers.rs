@@ -694,6 +694,9 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     }
 
     task_state.cur_view = new_view;
+    if epoch_number > task_state.cur_epoch {
+        task_state.cur_epoch = epoch_number;
+    }
 
     // The next view is just the current view + 1
     let next_view = task_state.cur_view + 1;
