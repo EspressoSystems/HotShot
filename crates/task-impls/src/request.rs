@@ -182,11 +182,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let delay = self.delay;
         let public_key = self.public_key.clone();
 
-        // Get the committee members for the view and the leader, if applicable
+        // Get the committee members for the view and the leader
         let mut da_committee_for_view = self.da_membership.committee_members(view, epoch);
-        if let Ok(leader) = self.da_membership.leader(view, epoch) {
-            da_committee_for_view.insert(leader);
-        }
+        da_committee_for_view.insert(self.da_membership.leader(view, epoch));
 
         // Get committee members for view
         let mut recipients: Vec<TYPES::SignatureKey> = self
