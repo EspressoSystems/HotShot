@@ -54,7 +54,7 @@ async fn test_view_sync_task() {
 
     output.push(HotShotEvent::ViewChange(
         ViewNumber::new(2),
-        EpochNumber::new(1),
+        EpochNumber::new(0),
     ));
     output.push(HotShotEvent::ViewSyncPreCommitVoteSend(vote.clone()));
 
