@@ -17,15 +17,6 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
     /// The error type returned by methods like `lookup_leader`.
     type Error: std::fmt::Display;
 
-    /// Create a committee
-    fn new(
-        // Note: eligible_leaders is currently a hack because the DA leader == the quorum leader
-        // but they should not have voting power.
-        eligible_leaders: Vec<PeerConfig<TYPES::SignatureKey>>,
-        committee_members: Vec<PeerConfig<TYPES::SignatureKey>>,
-        committee_topic: Topic,
-    ) -> Self;
-
     /// Get all participants in the committee (including their stake) for a specific epoch
     fn stake_table(
         &self,
