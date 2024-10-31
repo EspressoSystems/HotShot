@@ -130,6 +130,14 @@ pub struct HotShotMessageHook {
     /// The reference counter so we can keep track of the number of hooks there are
     num_hooks: Arc<()>,
 
+    /// The unique identifier for the hook. This is used to uniquely identify the hook
+    /// by the consumer
+    identifier: u64,
+
+    /// The cache of previously dropped GCRs by identifier. This is used to prevent a user
+    /// from reconnecting and using a brand new GCR instance (empty rate limit)
+    dropped_gcr_cache: Arc<Mutex<LruCache<u64, (Gcr, Gcr)>>>,
+
     /// The global average number of bytes per second for direct messages
     global_average_direct_bps: CachedAverage,
 
@@ -156,6 +164,10 @@ impl Default for HotShotMessageHook {
         Self {
             message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
             num_hooks: Arc::new(()),
+            identifier: rand::random(),
+            dropped_gcr_cache: Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(1000).unwrap(),
+            ))),
             local_gcr_direct: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX)).unwrap(),
             local_gcr_broadcast: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX))
                 .unwrap(),
@@ -313,6 +325,50 @@ impl MessageHookDef for HotShotMessageHook {
 
             _ => Ok(HookResult::ProcessMessage),
         }
+    }
+
+    /// Setting the identifier for the hook should update the GCR instances if we have
+    /// previously dropped ones for it
+    fn set_identifier(&mut self, identifier: u64) {
+        // Set the identifier
+        self.identifier = identifier;
+
+        // If we have a GCR instance for it, use that instead of creating a new one
+        if let Some((direct, broadcast)) = self.dropped_gcr_cache.lock().get(&identifier) {
+            self.local_gcr_direct = direct.clone();
+            self.local_gcr_broadcast = broadcast.clone();
+        }
+    }
+}
+
+impl Drop for HotShotMessageHook {
+    /// When the hook is dropped, we should cache the GCR instances in case the user reconnects
+    fn drop(&mut self) {
+        // If there is already a GCR instance for the identifier, use the one with the least capacity
+        let mut dropped_gcr_cache_guard = self.dropped_gcr_cache.lock();
+
+        if let Some((previous_direct, previous_broadcast)) =
+            dropped_gcr_cache_guard.pop(&self.identifier)
+        {
+            // Set the local GCR instances to the ones with the least capacity
+            if previous_direct.capacity() < self.local_gcr_direct.capacity() {
+                self.local_gcr_direct = previous_direct;
+            }
+
+            // Do the same for the broadcast GCR instance
+            if previous_broadcast.capacity() < self.local_gcr_broadcast.capacity() {
+                self.local_gcr_broadcast = previous_broadcast;
+            }
+        }
+
+        // Cache the GCR instances
+        dropped_gcr_cache_guard.put(
+            self.identifier,
+            (
+                self.local_gcr_direct.clone(),
+                self.local_gcr_broadcast.clone(),
+            ),
+        );
     }
 }
 
