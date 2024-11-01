@@ -342,7 +342,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
 
                         let mut updated_vid = vid.clone();
                         updated_vid.data.view_number = proposal.data.view_number;
-                        consensus_writer.update_vid_shares(updated_vid.data.view_number, updated_vid.clone());
+                        consensus_writer
+                            .update_vid_shares(updated_vid.data.view_number, updated_vid.clone());
 
                         vid_share = Some(updated_vid);
                     } else if let Some(ref comm) = payload_commitment {
