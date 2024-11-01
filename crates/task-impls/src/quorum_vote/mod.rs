@@ -325,9 +325,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         tracing::info!("Reached end of epoch. Proposed leaf has the same height and payload as its parent. No need to check the VID and DAC.");
                         is_same_block_proposed = true;
 
-                        let consensus_reader = self.consensus.read().await;
+                        let mut consensus_writer = self.consensus.write().await;
 
-                        let Some(vid_shares) = consensus_reader
+                        let Some(vid_shares) = consensus_writer
                             .vid_shares()
                             .get(&parent_leaf.view_number())
                         else {
@@ -340,7 +340,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                             return;
                         };
 
-                        vid_share = Some(vid.clone());
+                        let mut updated_vid = vid.clone();
+                        updated_vid.data.view_number = proposal.data.view_number;
+                        consensus_writer
+                            .update_vid_shares(updated_vid.data.view_number, updated_vid.clone());
+
+                        vid_share = Some(updated_vid);
                     } else if let Some(ref comm) = payload_commitment {
                         if proposal_payload_comm != *comm {
                             tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
