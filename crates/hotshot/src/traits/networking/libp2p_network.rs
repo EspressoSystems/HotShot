@@ -389,6 +389,7 @@ impl<T: NodeType> Libp2pNetwork<T> {
     ///
     /// # Panics
     /// If we are unable to calculate the replication factor
+    #[allow(clippy::too_many_arguments)]
     pub async fn from_config(
         mut config: NetworkConfig<T::SignatureKey>,
         quorum_membership: T::Membership,
@@ -519,7 +520,7 @@ impl<T: NodeType> Libp2pNetwork<T> {
         id: usize,
         #[cfg(feature = "hotshot-testing")] reliability_config: Option<Box<dyn NetworkReliability>>,
     ) -> Result<Libp2pNetwork<T>, NetworkError> {
-        let (mut rx, network_handle) = spawn_network_node::<K>(config.clone(), id)
+        let (mut rx, network_handle) = spawn_network_node::<T>(config.clone(), id)
             .await
             .map_err(|e| NetworkError::ConfigError(format!("failed to spawn network node: {e}")))?;
 
