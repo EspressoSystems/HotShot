@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::u32;
+use std::{cmp, u32};
 
 use anyhow::{Context, Result};
 use cdn_broker::reexports::def::hook::{HookResult, MessageHookDef};
@@ -26,66 +26,70 @@ enum MessageType {
     Direct,
 }
 
-/// An average representing the number of bytes processed per second
+/// An average representing the number of bytes processed per period
 struct Average {
     /// The number of bytes processed
-    num_bytes: f64,
+    num_bytes: Mutex<f64>,
 
     /// The number of samples
-    num_samples: u64,
+    num_samples: Mutex<u64>,
+
+    /// The last committed value
+    last_committed_average: AtomicU32,
 }
 
 impl Average {
     /// Create a new `Average` instance
     fn new() -> Self {
         Self {
-            num_bytes: 0.0,
-            num_samples: 0,
+            num_bytes: Mutex::new(0.0),
+            num_samples: Mutex::new(0),
+            last_committed_average: AtomicU32::new(0),
         }
     }
 
     /// Add a sample to the average
-    fn add(&mut self, num: f64) {
-        // Add the bytes and increment the number of samples
-        self.num_bytes = self.num_bytes + num;
-        self.num_samples = self.num_samples.saturating_add(1);
+    fn add(&self, num: f64) {
+        let mut num_bytes = self.num_bytes.lock();
+        *num_bytes += num;
+
+        let mut num_samples = self.num_samples.lock();
+        *num_samples += 1;
     }
 
-    /// Finalize the average, resetting the internal state and returning the new average
-    fn commit(&mut self) -> f64 {
+    /// Get the last committed average
+    fn get_last_committed_average(&self) -> u32 {
+        self.last_committed_average.load(Ordering::Relaxed)
+    }
+
+    /// Finalize the average, resetting the internal state and caching the new average.
+    /// Returns `true` if we committed a new average, `false` otherwise.
+    fn commit_if_necessary(&self, num_required_samples: usize) -> bool {
+        let mut num_samples = self.num_samples.lock();
+
+        // Return early if we don't have enough samples
+        if *num_samples < num_required_samples as u64 {
+            return false;
+        }
+
         // Calculate the new average
-        let value = self.num_bytes / self.num_samples as f64;
+        let mut num_bytes = self.num_bytes.lock();
+        let new_average = (*num_bytes / *num_samples as f64) as u32;
 
         // Reset the internal state
-        self.num_bytes = 0.0;
-        self.num_samples = 0;
+        *num_bytes = 0.0;
+        *num_samples = 0;
+
+        // Cache the new average
+        self.last_committed_average
+            .store(new_average as u32, Ordering::Relaxed);
 
         // Return the new average
-        value
+        true
     }
 }
 
-/// A wrapper around an average that caches the last calculated value
-#[derive(Clone)]
-struct CachedAverage {
-    /// The inner average
-    average: Arc<Mutex<Average>>,
-
-    /// The last calculated value
-    last_calculated: Arc<AtomicU32>,
-}
-
-impl CachedAverage {
-    /// Create a new `CachedAverage` instance
-    fn new() -> Self {
-        Self {
-            average: Arc::new(Mutex::new(Average::new())),
-            last_calculated: Arc::new(AtomicU32::new(0)),
-        }
-    }
-}
-
-/// A sample representing the number of bytes processed per second
+/// A sample representing the number of bytes processed per period
 #[derive(Clone)]
 pub struct Sample {
     /// The number of bytes processed
@@ -109,14 +113,26 @@ impl Sample {
         self.num_bytes += num;
     }
 
-    /// Commit the sample, returning the number of bytes processed per second and
-    /// resetting the internal state
-    fn commit(&mut self) -> f64 {
+    /// Commit the sample if necessary, returning the number of bytes processed per commit interval
+    /// and resetting the internal state if we did.
+    fn commit_if_necessary(&mut self, commit_interval: Duration) -> Option<f64> {
+        // Get the elapsed time
         let elapsed = self.last_committed_time.elapsed();
+
+        // Return early if we aren't past the commit interval
+        if elapsed < commit_interval {
+            return None;
+        }
+
+        // Calculate the new average
+        let value = self.num_bytes / elapsed.div_duration_f64(commit_interval);
+
+        // Reset the internal state
         self.last_committed_time = Instant::now();
-        let value = self.num_bytes / elapsed.as_secs() as f64;
         self.num_bytes = 0.0;
-        value
+
+        // Return the new average
+        Some(value)
     }
 }
 
@@ -141,11 +157,11 @@ pub struct HotShotMessageHook {
     /// from reconnecting and using a brand new GCR instance (empty rate limit)
     dropped_gcr_cache: Arc<Mutex<LruCache<u64, (Gcr, Gcr)>>>,
 
-    /// The global average number of bytes per second for direct messages
-    global_average_direct_bps: CachedAverage,
+    /// The global average number of bytes per period for direct messages
+    global_average_direct_bps: Arc<Average>,
 
-    /// The global average number of bytes per second for broadcast messages
-    global_average_broadcast_bps: CachedAverage,
+    /// The global average number of bytes per period for broadcast messages
+    global_average_broadcast_bps: Arc<Average>,
 
     /// The local GCR instance for direct messages
     local_gcr_direct: Gcr,
@@ -164,22 +180,7 @@ impl Default for HotShotMessageHook {
     /// # Panics
     /// If 100 < 0
     fn default() -> Self {
-        Self {
-            message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
-            num_hooks: Arc::new(()),
-            identifier: rand::random(),
-            dropped_gcr_cache: Arc::new(Mutex::new(LruCache::new(
-                NonZeroUsize::new(1000).unwrap(),
-            ))),
-            commit_interval: Duration::from_secs(60),
-            local_gcr_direct: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX)).unwrap(),
-            local_gcr_broadcast: Gcr::new(u32::MAX, Duration::from_secs(60), Some(u32::MAX))
-                .unwrap(),
-            local_sample_direct_bps: Sample::new(),
-            local_sample_broadcast_bps: Sample::new(),
-            global_average_direct_bps: CachedAverage::new(),
-            global_average_broadcast_bps: CachedAverage::new(),
-        }
+        Self::new(Duration::from_secs(60), u32::MAX)
     }
 }
 
@@ -189,10 +190,22 @@ impl HotShotMessageHook {
     /// # Panics
     /// If 100 < 0
     #[must_use]
-    pub fn new(commit_interval: Duration) -> Self {
-        let mut default = Self::default();
-        default.commit_interval = commit_interval;
-        default
+    pub fn new(period: Duration, starting_rate: u32) -> Self {
+        Self {
+            message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
+            num_hooks: Arc::new(()),
+            identifier: rand::random(),
+            dropped_gcr_cache: Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(1000).unwrap(),
+            ))),
+            commit_interval: period,
+            local_gcr_direct: Gcr::new(starting_rate, period, Some(u32::MAX)).unwrap(),
+            local_gcr_broadcast: Gcr::new(starting_rate, period, Some(u32::MAX)).unwrap(),
+            local_sample_direct_bps: Sample::new(),
+            local_sample_broadcast_bps: Sample::new(),
+            global_average_direct_bps: Arc::new(Average::new()),
+            global_average_broadcast_bps: Arc::new(Average::new()),
+        }
     }
 
     /// Process a message against the moving average
@@ -207,20 +220,19 @@ impl HotShotMessageHook {
             MessageType::Broadcast => (
                 &mut self.local_sample_broadcast_bps,
                 &mut self.local_gcr_broadcast,
-                &mut self.global_average_broadcast_bps,
+                &self.global_average_broadcast_bps,
             ),
             MessageType::Direct => (
                 &mut self.local_sample_direct_bps,
                 &mut self.local_gcr_direct,
-                &mut self.global_average_direct_bps,
+                &self.global_average_direct_bps,
             ),
         };
 
         // Check against the `GCR` instance, skipping if we're rate limited
-        // If we hit some other request error (like parameter error), we'll process
-        // the message anyway
+        // If we hit a parameter error, we'll process the message anyway
         if let Err(err) = gcr.request(message_len as u32) {
-            if let GcrRequestError::DeniedFor(_) = err {
+            if !matches!(err, GcrRequestError::ParametersOutOfRange(_)) {
                 return HookResult::SkipMessage;
             }
 
@@ -230,35 +242,30 @@ impl HotShotMessageHook {
         // Add the message to our local sample
         local_sample.add(message_len as f64);
 
-        // If it's been a minute,
-        if local_sample.last_committed_time.elapsed() > self.commit_interval {
-            // Commit the sample to the global average
-            let value = local_sample.commit();
+        // Commit the local sample if necessary. If we did, update the global average
+        // and adjust our GCR instance
+        if let Some(local_average) = local_sample.commit_if_necessary(self.commit_interval) {
+            // Add the local average to the global average
+            global_average.add(local_average);
 
-            // Store the new average
-            let mut global_average_guard = global_average.average.lock();
-            global_average_guard.add(value);
+            // Commit the global average if we have enough samples
+            global_average.commit_if_necessary(Arc::strong_count(&self.num_hooks) - 1);
 
-            // If we've collected enough samples, commit the average
-            if global_average_guard.num_samples >= Arc::strong_count(&self.num_hooks) as u64 {
-                // Commit the average
-                let new_average = global_average_guard.commit();
+            // Get the global average
+            let last_committed_global_average = global_average.get_last_committed_average();
 
-                // Update the last calculated value
-                global_average
-                    .last_calculated
-                    .store(new_average as u32, Ordering::Relaxed);
-            }
-            drop(global_average_guard);
-
-            // Update the `Gcr` instance to be double the last calculated average
-            let new_global_average = global_average.last_calculated.load(Ordering::Relaxed);
-            if let Err(e) = gcr.adjust(
-                new_global_average.saturating_mul(2),
-                Duration::from_secs(60),
-                Some(new_global_average.saturating_mul(4)),
-            ) {
-                warn!("Failed to adjust GCR instance: {e}");
+            // If the global average is greater than 0, update our GCR instance
+            if last_committed_global_average > 0 {
+                // Update our GCR instance such that:
+                // - `rate` is 2 * the global average
+                // - `max_burst` is 4 * the global average
+                if let Err(e) = gcr.adjust(
+                    cmp::max(last_committed_global_average.saturating_mul(2), 1000),
+                    self.commit_interval,
+                    Some(u32::MAX),
+                ) {
+                    warn!("Failed to adjust GCR instance: {e}");
+                }
             }
         }
 
@@ -380,10 +387,98 @@ impl Drop for HotShotMessageHook {
 
 #[cfg(test)]
 mod test {
+    use std::thread::sleep;
+
     use super::*;
 
     #[test]
-    fn deduplication_broadcast() {
+    fn test_hook_drop() {
+        // Create a base hook
+        let base_hook = HotShotMessageHook::new(Duration::from_millis(100), 100);
+
+        // Clone the user hook
+        let mut user_hook = base_hook.clone();
+        user_hook.set_identifier(1);
+
+        // Consume u32::MAX units of bandwidth
+        user_hook.process_against_average(u32::MAX as usize, MessageType::Broadcast);
+
+        // Drop the user hook
+        drop(user_hook);
+
+        // Create a new hook with the same identifier
+        let mut new_hook = base_hook.clone();
+        new_hook.set_identifier(1);
+
+        // Make sure we can't process any messages
+        assert_eq!(
+            new_hook.process_against_average(100, MessageType::Broadcast),
+            HookResult::SkipMessage
+        );
+    }
+
+    #[test]
+    fn test_sample() {
+        // Create a new sample
+        let mut sample = Sample::new();
+
+        // Add 100 bytes
+        sample.add(100.0);
+
+        // Make sure we do not commit if we haven't waited long enough
+        assert_eq!(sample.commit_if_necessary(Duration::from_millis(100)), None);
+
+        // Wait 100ms
+        sleep(Duration::from_millis(100));
+
+        // Make sure we do commit
+        let commit = sample
+            .commit_if_necessary(Duration::from_millis(100))
+            .expect("Failed to commit sample");
+
+        // Make sure the bytes per period is approximately correct
+        assert!((commit - 100.0).abs() < 5.0);
+
+        // Make sure the state is reset
+        assert_eq!(sample.num_bytes, 0.0);
+        assert!(sample.last_committed_time.elapsed() < Duration::from_millis(10));
+    }
+
+    #[test]
+    fn test_average() {
+        // Create a new average
+        let average = Average::new();
+
+        // Test that we don't commit with too few samples
+        assert_eq!(average.commit_if_necessary(1), false);
+
+        // Add 200 bytes/period to the average
+        average.add(50.0);
+        average.add(150.0);
+
+        // Make sure we do commit
+        assert!(average.commit_if_necessary(1));
+
+        // Make sure the bytes per period is approximately correct
+        assert_eq!(average.get_last_committed_average(), 100);
+
+        // Make sure the internal state is reset
+        assert_eq!(*average.num_bytes.lock(), 0.0);
+        assert_eq!(*average.num_samples.lock(), 0);
+
+        // Do some more adding
+        average.add(0.0);
+        average.add(10.0);
+
+        // Make sure we do commit again
+        assert!(average.commit_if_necessary(2));
+
+        // Make sure the bytes per period is approximately correct
+        assert_eq!(average.get_last_committed_average(), 5);
+    }
+
+    #[test]
+    fn test_deduplication_broadcast() {
         // Create a new message hook
         let mut hook = HotShotMessageHook::default();
 
@@ -430,7 +525,7 @@ mod test {
     }
 
     #[test]
-    fn deduplication_direct() {
+    fn test_deduplication_direct() {
         // Create a new message hook
         let mut hook = HotShotMessageHook::default();
 

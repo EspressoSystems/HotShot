@@ -179,3 +179,10 @@ unexpected_cfgs = { level = "warn", check-cfg = [
   'cfg(async_executor_impl, values("tokio"))',
   'cfg(hotshot_example)',
 ] }
+
+
+[patch."https://github.com/EspressoSystems/Push-CDN"]
+cdn-proto = { path = "../cdn/cdn-proto" }
+cdn-marshal = { path = "../cdn/cdn-marshal" }
+cdn-broker = { path = "../cdn/cdn-broker" }
+cdn-client = { path = "../cdn/cdn-client" }

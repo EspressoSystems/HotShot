@@ -61,6 +61,7 @@ parking_lot = "0.12"
 twox-hash = { version = "1", default-features = false }
 utils = { path = "../utils" }
 gcr = "0.1"
+tracing-subscriber = "0.3"
 
 [target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }

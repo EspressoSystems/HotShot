@@ -1320,7 +1320,6 @@ dependencies = [
 [[package]]
 name = "cdn-broker"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.2#363b6e3a160842de7bc57ded31f6370b409e922b"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1344,7 +1343,6 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.2#363b6e3a160842de7bc57ded31f6370b409e922b"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1360,7 +1358,6 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.2#363b6e3a160842de7bc57ded31f6370b409e922b"
 dependencies = [
  "async-std",
  "cdn-proto",
@@ -1374,7 +1371,6 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.2#363b6e3a160842de7bc57ded31f6370b409e922b"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -3144,6 +3140,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "tracing-subscriber 0.3.18",
  "twox-hash",
  "url",
  "utils",
