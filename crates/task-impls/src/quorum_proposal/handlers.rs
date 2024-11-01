@@ -22,7 +22,6 @@ use hotshot_task::{
     dependency::{Dependency, EventDependency},
     dependency_task::HandleDepOutput,
 };
-use hotshot_types::vote::Certificate;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
@@ -206,33 +205,20 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             .context(warn!("Failed to construct marketplace block header"))
         };
 
-        let block_header = if version < V::Marketplace::VERSION {
+        let mut block_header = if version < V::Marketplace::VERSION {
             get_legacy_block_header_fn.await?
-        } else if version < V::Epochs::VERSION {
-            get_marketplace_block_header_fn.await?
-        } else if self.consensus.read().await.is_high_qc_forming_eqc() {
-            tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
-            if let Some(leaf) = self
-                .consensus
-                .read()
-                .await
-                .saved_leaves()
-                .get(&high_qc.data().leaf_commit)
-            {
-                let block_header = leaf.block_header().clone();
-                tracing::debug!(
-                    "Proposing block no. {} to form the eQC.",
-                    block_header.block_number()
-                );
-                block_header
-            } else {
-                return Err(anyhow::anyhow!(
-                    "There is no leaf for the high QC. Consensus inconsistent!"
-                ));
-            }
         } else {
             get_marketplace_block_header_fn.await?
         };
+        
+        if version >= V::Epochs::VERSION && self.consensus.read().await.is_high_qc_forming_eqc() {
+            tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
+            block_header = parent_leaf.block_header().clone();
+            tracing::debug!(
+                "Proposing block no. {} to form the eQC.",
+                block_header.block_number()
+            );
+        }
 
         let proposal = QuorumProposal {
             block_header,

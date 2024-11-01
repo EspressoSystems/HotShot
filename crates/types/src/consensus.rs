@@ -937,8 +937,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Return true if the high QC takes part in forming an eQC, i.e.
     /// it is one of the 3-chain certificates but not the eQC itself
     pub fn is_high_qc_forming_eqc(&self) -> bool {
-        let high_qc = self.high_qc();
-        self.is_qc_for_last_block(high_qc) && !self.is_qc_extended(high_qc)
+        self.is_high_qc_for_last_block() && !self.is_high_qc_extended()
     }
 }
 
