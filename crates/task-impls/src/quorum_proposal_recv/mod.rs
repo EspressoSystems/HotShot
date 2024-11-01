@@ -78,9 +78,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// View timeout from config.
     pub timeout: u64,
 
-    /// Round start delay from config, in milliseconds.
-    pub round_start_delay: u64,
-
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
@@ -169,7 +166,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
             let Some((_, handles)) = self.spawned_tasks.pop_first() else {
                 break;
             };
-
             for handle in handles {
                 #[cfg(async_executor_impl = "async-std")]
                 handle.cancel().await;

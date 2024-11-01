@@ -282,7 +282,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                 recipient_key,
                 view_number: vid_disperse.view_number,
                 common: vid_disperse.common.clone(),
-                payload_commitment: vid_disperse.payload_commitment.clone(),
+                payload_commitment: vid_disperse.payload_commitment,
             })
             .collect()
     }
@@ -345,7 +345,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                     recipient_key,
                     view_number: vid_disperse_proposal.data.view_number,
                     common: vid_disperse_proposal.data.common.clone(),
-                    payload_commitment: vid_disperse_proposal.data.payload_commitment.clone(),
+                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
                 },
                 signature: vid_disperse_proposal.signature.clone(),
                 _pd: vid_disperse_proposal._pd,
@@ -801,7 +801,7 @@ pub mod null_block {
     use crate::{
         traits::{
             block_contents::BuilderFee,
-            node_implementation::{NodeType, Versions},
+            node_implementation::{ConsensusTime, NodeType, Versions},
             signature_key::BuilderSignatureKey,
             BlockPayload,
         },
@@ -840,8 +840,11 @@ pub mod null_block {
             );
 
         if version >= V::Marketplace::VERSION {
-            match TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(&priv_key, FEE_AMOUNT)
-            {
+            match TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(
+                &priv_key,
+                FEE_AMOUNT,
+                *TYPES::View::genesis(),
+            ) {
                 Ok(sig) => Some(BuilderFee {
                     fee_amount: FEE_AMOUNT,
                     fee_account: pub_key,

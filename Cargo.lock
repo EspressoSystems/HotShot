@@ -2183,7 +2183,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.85",
- "unicode-xid",
 ]
 
 [[package]]
@@ -3097,7 +3096,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3167,7 +3166,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3181,6 +3180,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "hotshot",
+ "hotshot-builder-api",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
@@ -3199,7 +3199,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3249,7 +3249,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3268,7 +3268,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3278,7 +3278,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -3306,7 +3306,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3327,7 +3327,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3342,7 +3342,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3379,7 +3379,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3445,7 +3445,6 @@ dependencies = [
  "committable",
  "custom_debug",
  "derivative",
- "derive_more 1.0.0",
  "digest 0.10.7",
  "displaydoc",
  "dyn-clone 1.0.17 (git+https://github.com/dtolnay/dyn-clone?tag=1.0.17)",
@@ -4545,7 +4544,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-compatibility-layer",
@@ -4554,6 +4553,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
+ "cbor4ii",
  "custom_debug",
  "delegate",
  "derive_builder",
@@ -8405,7 +8405,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "utils"
-version = "0.5.78"
+version = "0.5.79"
 dependencies = [
  "tracing",
 ]

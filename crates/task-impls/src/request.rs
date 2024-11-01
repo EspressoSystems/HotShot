@@ -96,7 +96,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let prop_view = proposal.view_number();
+                let prop_view = proposal.data.view_number();
                 let cur_epoch = self.consensus.read().await.cur_epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
@@ -180,8 +180,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let network = Arc::clone(&self.network);
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
         let delay = self.delay;
-        let da_committee_for_view = self.da_membership.committee_members(view, epoch);
         let public_key = self.public_key.clone();
+
+        // Get the committee members for the view and the leader, if applicable
+        let mut da_committee_for_view = self.da_membership.committee_members(view, epoch);
+        if let Ok(leader) = self.da_membership.leader(view, epoch) {
+            da_committee_for_view.insert(leader);
+        }
 
         // Get committee members for view
         let mut recipients: Vec<TYPES::SignatureKey> = self
@@ -205,7 +210,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 async_sleep(delay).await;
             }
 
-            let mut recipients_it = recipients.iter().cycle();
+            let mut recipients_it = recipients.iter();
             // First check if we got the data before continuing
             while !Self::cancel_vid_request_task(
                 &consensus,

@@ -254,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 
         Self {
             latest_proposed_view: handle.cur_view().await,
-            proposal_dependencies: HashMap::new(),
+            proposal_dependencies: BTreeMap::new(),
             network: Arc::clone(&handle.hotshot.network),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             consensus: OuterConsensus::new(consensus),
@@ -265,7 +265,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             private_key: handle.private_key().clone(),
             storage: Arc::clone(&handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
-            round_start_delay: handle.hotshot.config.round_start_delay,
             id: handle.hotshot.id,
             formed_upgrade_certificate: None,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
@@ -292,7 +291,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
             timeout_task: async_spawn(async {}),
             timeout: handle.hotshot.config.next_view_timeout,
-            round_start_delay: handle.hotshot.config.round_start_delay,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             storage: Arc::clone(&handle.storage),
             proposal_cert: None,
