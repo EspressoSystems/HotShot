@@ -200,7 +200,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             .await;
         } else {
             // If we couldn't get a block, send an empty block
-            tracing::error!(
+            tracing::info!(
                 "Failed to get a block for view {:?}, proposing empty block",
                 block_view
             );
@@ -460,7 +460,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 }
                 ensure!(
                     *view > *self.cur_view,
-                    error!(
+                    debug!(
                       "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
                     )
                 );
@@ -547,7 +547,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         {
             Ok((v, c)) => (v, c),
             Err(e) => {
-                tracing::error!("Failed to find last vid commitment in time: {e}");
+                tracing::warn!("Failed to find last vid commitment in time: {e}");
                 return None;
             }
         };
@@ -586,13 +586,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 // We timed out while getting available blocks
                 Err(err) => {
-                    tracing::error!(%err, "Timeout while getting available blocks");
+                    tracing::info!(%err, "Timeout while getting available blocks");
                     return None;
                 }
             }
         }
 
-        tracing::error!("could not get a block from the builder in time");
+        tracing::warn!("could not get a block from the builder in time");
         None
     }
 
@@ -727,7 +727,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 let block_data = match block {
                     Ok(block_data) => block_data,
                     Err(err) => {
-                        tracing::error!(%err, "Error claiming block data");
+                        tracing::warn!(%err, "Error claiming block data");
                         continue;
                     }
                 };
@@ -735,14 +735,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 let header_input = match header_input {
                     Ok(block_data) => block_data,
                     Err(err) => {
-                        tracing::error!(%err, "Error claiming header input");
+                        tracing::warn!(%err, "Error claiming header input");
                         continue;
                     }
                 };
 
                 // verify the signature over the message
                 if !block_data.validate_signature() {
-                    tracing::error!(
+                    tracing::warn!(
                         "Failed to verify available block data response message signature"
                     );
                     continue;
@@ -750,7 +750,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
                 // verify the message signature and the fee_signature
                 if !header_input.validate_signature(block_info.offered_fee, &block_data.metadata) {
-                    tracing::error!(
+                    tracing::warn!(
                     "Failed to verify available block header input data response message signature"
                 );
                     continue;
