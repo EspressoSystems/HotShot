@@ -1095,6 +1095,8 @@
 <a href="#1093" id="1093">1093</a>
 <a href="#1094" id="1094">1094</a>
 <a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1156,7 +1158,7 @@
     ed25519::{<span class="self">self</span>, SecretKey},
     Keypair, PeerId,
 };
-<span class="kw">pub use </span>libp2p_networking::network::GossipConfig;
+<span class="kw">pub use </span>libp2p_networking::network::{GossipConfig, RequestResponseConfig};
 <span class="kw">use </span>libp2p_networking::{
     network::{
         behaviours::dht::record::{Namespace, RecordKey, RecordValue},
@@ -1492,6 +1494,7 @@
     </span><span class="kw">pub async fn </span>from_config(
         <span class="kw-2">mut </span>config: NetworkConfig&lt;K&gt;,
         gossip_config: GossipConfig,
+        request_response_config: RequestResponseConfig,
         bind_address: Multiaddr,
         pub_key: <span class="kw-2">&amp;</span>K,
         priv_key: <span class="kw-2">&amp;</span>K::PrivateKey,
@@ -1511,6 +1514,7 @@
 
         <span class="comment">// Set the gossip configuration
         </span>config_builder.gossip_config(gossip_config.clone());
+        config_builder.request_response_config(request_response_config);
 
         <span class="comment">// Extrapolate the stake table from the known nodes
         </span><span class="kw">let </span>stake_table: HashSet&lt;K&gt; = config

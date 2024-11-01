@@ -197,6 +197,9 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -211,6 +214,9 @@
 </span><span class="kw">mod </span>node;
 <span class="doccomment">/// Alternative Libp2p transport implementations
 </span><span class="kw">pub mod </span>transport;
+
+<span class="doccomment">/// Forked `cbor` codec with altered request/response sizes
+</span><span class="kw">pub mod </span>cbor;
 
 <span class="kw">use </span>std::{collections::HashSet, fmt::Debug};
 
@@ -243,7 +249,7 @@
     node::{
         spawn_network_node, GossipConfig, NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilder,
         NetworkNodeConfigBuilderError, NetworkNodeHandle, NetworkNodeReceiver,
-        DEFAULT_REPLICATION_FACTOR,
+        RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
     },
 };
 <span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]

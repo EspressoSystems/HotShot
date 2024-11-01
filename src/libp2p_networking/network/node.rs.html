@@ -766,6 +766,14 @@
 <a href="#764" id="764">764</a>
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -809,7 +817,7 @@
     identity::Keypair,
     kad::{store::MemoryStore, Behaviour, Config, Mode, Record},
     request_response::{
-        Behaviour <span class="kw">as </span>RequestResponse, Config <span class="kw">as </span>RequestResponseConfig, ProtocolSupport,
+        Behaviour <span class="kw">as </span>RequestResponse, Config <span class="kw">as </span>Libp2pRequestResponseConfig, ProtocolSupport,
     },
     swarm::SwarmEvent,
     Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
@@ -821,7 +829,7 @@
 <span class="kw">pub use </span><span class="self">self</span>::{
     config::{
         GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-        DEFAULT_REPLICATION_FACTOR,
+        RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
     },
     handle::{spawn_network_node, NetworkNodeHandle, NetworkNodeReceiver},
 };
@@ -830,6 +838,7 @@
         bootstrap::{<span class="self">self</span>, DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
+    cbor::Cbor,
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
     NetworkEventInternal,
 };
@@ -1037,10 +1046,17 @@
             );
             kadem.set_mode(<span class="prelude-val">Some</span>(Mode::Server));
 
-            <span class="kw">let </span>rrconfig = RequestResponseConfig::default();
+            <span class="kw">let </span>rrconfig = Libp2pRequestResponseConfig::default();
 
-            <span class="kw">let </span>direct_message: libp2p::request_response::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt; =
-                RequestResponse::new(
+            <span class="comment">// Create a new `cbor` codec with the given request and response sizes
+            </span><span class="kw">let </span>cbor = Cbor::new(
+                config.request_response_config.request_size_maximum,
+                config.request_response_config.response_size_maximum,
+            );
+
+            <span class="kw">let </span>direct_message: <span class="kw">super</span>::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt; =
+                RequestResponse::with_codec(
+                    cbor,
                     [(
                         StreamProtocol::new(<span class="string">"/HotShot/direct_message/1.0"</span>),
                         ProtocolSupport::Full,

@@ -165,14 +165,14 @@
     gossipsub::{Behaviour <span class="kw">as </span>GossipBehaviour, Event <span class="kw">as </span>GossipEvent, IdentTopic},
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
     kad::store::MemoryStore,
-    request_response::{cbor, OutboundRequestId, ResponseChannel},
+    request_response::{OutboundRequestId, ResponseChannel},
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>libp2p_swarm_derive::NetworkBehaviour;
 <span class="kw">use </span>tracing::{debug, error};
 
-<span class="kw">use super</span>::{behaviours::dht::store::ValidatedStore, NetworkEventInternal};
+<span class="kw">use super</span>::{behaviours::dht::store::ValidatedStore, cbor, NetworkEventInternal};
 
 <span class="doccomment">/// Overarching network behaviour performing:
 /// - network topology discovoery
@@ -200,7 +200,7 @@
 
     <span class="doccomment">/// purpose: directly messaging peer
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>direct_message: libp2p::request_response::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
+    </span><span class="kw">pub </span>direct_message: cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
 
     <span class="doccomment">/// Auto NAT behaviour to determine if we are publically reachable and
     /// by which address
@@ -215,7 +215,7 @@
         gossipsub: GossipBehaviour,
         dht: libp2p::kad::Behaviour&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;,
         identify: IdentifyBehaviour,
-        direct_message: cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
+        direct_message: <span class="kw">super</span>::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
         autonat: autonat::Behaviour,
     ) -&gt; NetworkDef&lt;K&gt; {
         <span class="self">Self </span>{

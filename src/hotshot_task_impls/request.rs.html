@@ -378,6 +378,11 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -560,8 +565,13 @@
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>shutdown_flag = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.shutdown_flag);
         <span class="kw">let </span>delay = <span class="self">self</span>.delay;
-        <span class="kw">let </span>da_committee_for_view = <span class="self">self</span>.da_membership.committee_members(view, epoch);
         <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
+
+        <span class="comment">// Get the committee members for the view and the leader, if applicable
+        </span><span class="kw">let </span><span class="kw-2">mut </span>da_committee_for_view = <span class="self">self</span>.da_membership.committee_members(view, epoch);
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(leader) = <span class="self">self</span>.da_membership.leader(view, epoch) {
+            da_committee_for_view.insert(leader);
+        }
 
         <span class="comment">// Get committee members for view
         </span><span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;TYPES::SignatureKey&gt; = <span class="self">self
@@ -585,7 +595,7 @@
                 async_sleep(delay).<span class="kw">await</span>;
             }
 
-            <span class="kw">let </span><span class="kw-2">mut </span>recipients_it = recipients.iter().cycle();
+            <span class="kw">let </span><span class="kw-2">mut </span>recipients_it = recipients.iter();
             <span class="comment">// First check if we got the data before continuing
             </span><span class="kw">while </span>!<span class="self">Self</span>::cancel_vid_request_task(
                 <span class="kw-2">&amp;</span>consensus,
