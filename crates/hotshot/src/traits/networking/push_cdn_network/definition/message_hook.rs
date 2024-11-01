@@ -1,11 +1,14 @@
 #![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_precision_loss)]
 
+use std::cmp;
 use std::hash::Hasher;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{cmp, u32};
 
 use anyhow::{Context, Result};
 use cdn_broker::reexports::def::hook::{HookResult, MessageHookDef};
@@ -35,6 +38,7 @@ struct Average {
     num_samples: Mutex<u64>,
 
     /// The last committed value
+    #[allow(clippy::struct_field_names)]
     last_committed_average: AtomicU32,
 }
 
@@ -82,7 +86,7 @@ impl Average {
 
         // Cache the new average
         self.last_committed_average
-            .store(new_average as u32, Ordering::Relaxed);
+            .store(new_average, Ordering::Relaxed);
 
         // Return the new average
         true
@@ -440,7 +444,7 @@ mod test {
         assert!((commit - 100.0).abs() < 5.0);
 
         // Make sure the state is reset
-        assert_eq!(sample.num_bytes, 0.0);
+        assert!(sample.num_bytes == 0.0);
         assert!(sample.last_committed_time.elapsed() < Duration::from_millis(10));
     }
 
@@ -450,7 +454,7 @@ mod test {
         let average = Average::new();
 
         // Test that we don't commit with too few samples
-        assert_eq!(average.commit_if_necessary(1), false);
+        assert!(!average.commit_if_necessary(1));
 
         // Add 200 bytes/period to the average
         average.add(50.0);
@@ -463,7 +467,7 @@ mod test {
         assert_eq!(average.get_last_committed_average(), 100);
 
         // Make sure the internal state is reset
-        assert_eq!(*average.num_bytes.lock(), 0.0);
+        assert!(*average.num_bytes.lock() == 0.0);
         assert_eq!(*average.num_samples.lock(), 0);
 
         // Do some more adding

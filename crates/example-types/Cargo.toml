@@ -42,3 +42,10 @@ reqwest = { workspace = true }
 tokio = { workspace = true }
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(async_executor_impl, values("async-std"))',
+    'cfg(async_executor_impl, values("tokio"))',
+    'cfg(hotshot_example)',
+] }

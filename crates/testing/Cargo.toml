@@ -12,6 +12,7 @@ slow-tests = []
 gpu-vid = ["hotshot-types/gpu-vid"]
 rewind = ["hotshot/rewind"]
 test-srs = ["jf-vid/test-srs"]
+broken_3_chain_fixed = []
 
 [dependencies]
 automod = "1.0.14"

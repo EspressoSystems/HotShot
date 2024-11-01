@@ -321,8 +321,8 @@ impl Precomputable for VidSchemeType {
 ///
 /// Foreign type rules prevent us from doing:
 /// - `impl From<VidDisperse<VidSchemeType>> for VidDisperse<Advz>`
-/// - `impl VidDisperse<VidSchemeType> {...}`
-/// and similarly for `Statement`.
+/// - `impl VidDisperse<VidSchemeType> {...}` and similarly for `Statement`.
+///
 /// Thus, we accomplish type conversion via functions.
 fn vid_disperse_conversion(vid_disperse: VidDisperse<Advz>) -> VidDisperse<VidSchemeType> {
     VidDisperse {
