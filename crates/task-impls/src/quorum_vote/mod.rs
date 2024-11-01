@@ -316,7 +316,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             &self.sender,
         )
         .await;
-
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(self.view_number + 1)),
+            &self.sender,
+        )
+        .await;
         let Some(vid_share) = vid_share else {
             tracing::error!(
                 "We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed.",

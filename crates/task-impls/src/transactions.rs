@@ -454,35 +454,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .await;
             }
             HotShotEvent::ViewChange(view) => {
-                let view = *view;
-
-                if *view == 0
-                    && self.membership.leader(view + 1, self.cur_epoch)? == self.public_key
-                {
-                    self.handle_view_change(&event_stream, view + 1).await;
-                    return Ok(());
+                let mut view = *view;
+                if *view == 0 {
+                    view += 1;
                 }
-
-                tracing::debug!("view change in transactions to view {:?}", view);
                 ensure!(
-                  *view > *self.cur_view,
-                  debug!(
-                    "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
-                  )
-                );
-
-                self.cur_view = view;
-
-                let make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
-                ensure!(
-                    make_block,
-                    debug!(
-                        "Not making the block because we are not leader for view {:?}",
-                        self.cur_view
+                    *view > *self.cur_view,
+                    error!(
+                      "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
                     )
                 );
 
-                self.handle_view_change(&event_stream, self.cur_view).await;
+                if self.membership.leader(view, self.cur_epoch)? == self.public_key {
+                    self.handle_view_change(&event_stream, view).await;
+                    return Ok(());
+                }
             }
             _ => {}
         }

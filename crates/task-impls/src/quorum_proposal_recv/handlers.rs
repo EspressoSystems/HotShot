@@ -250,7 +250,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
         );
         validate_proposal_liveness(proposal, event_sender, &task_state).await?;
         broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(view_number + 1)),
+            Arc::new(HotShotEvent::ViewChange(view_number)),
             event_sender,
         )
         .await;
@@ -267,7 +267,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     )
     .await?;
     broadcast_event(
-        Arc::new(HotShotEvent::ViewChange(view_number + 1)),
+        Arc::new(HotShotEvent::ViewChange(view_number)),
         event_sender,
     )
     .await;
