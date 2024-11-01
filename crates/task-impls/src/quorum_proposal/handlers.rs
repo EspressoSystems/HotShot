@@ -7,10 +7,10 @@
 //! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc};
 
-use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_broadcast::{InactiveReceiver, Sender};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
@@ -69,7 +69,7 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
 
     /// The event receiver.
-    pub receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
+    pub receiver: InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
 
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
@@ -82,9 +82,6 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
 
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-
-    /// Round start delay from config, in milliseconds.
-    pub round_start_delay: u64,
 
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
@@ -233,7 +230,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             proposed_leaf.view_number(),
         );
 
-        async_sleep(Duration::from_millis(self.round_start_delay)).await;
         broadcast_event(
             Arc::new(HotShotEvent::QuorumProposalSend(
                 message.clone(),
@@ -252,6 +248,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
     #[allow(clippy::no_effect_underscore_binding, clippy::too_many_lines)]
     async fn handle_dep_result(self, res: Self::Output) {
         let high_qc_view_number = self.consensus.read().await.high_qc().view_number;
+        let event_receiver = self.receiver.activate_cloned();
         if !self
             .consensus
             .read()
@@ -262,16 +259,16 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             // The proposal for the high qc view is missing, try to get it asynchronously
             let membership = Arc::clone(&self.quorum_membership);
             let event_sender = self.sender.clone();
-            let event_receiver = self.receiver.clone();
             let sender_public_key = self.public_key.clone();
             let sender_private_key = self.private_key.clone();
             let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
             let upgrade_lock = self.upgrade_lock.clone();
+            let rx = event_receiver.clone();
             async_spawn(async move {
                 fetch_proposal(
                     high_qc_view_number,
                     event_sender,
-                    event_receiver,
+                    rx,
                     membership,
                     consensus,
                     sender_public_key,
@@ -282,7 +279,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             });
             // Block on receiving the event from the event stream.
             EventDependency::new(
-                self.receiver.clone(),
+                event_receiver,
                 Box::new(move |event| {
                     let event = event.as_ref();
                     if let HotShotEvent::ValidatedStateUpdated(view_number, _) = event {
