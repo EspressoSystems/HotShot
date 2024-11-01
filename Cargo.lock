@@ -4548,6 +4548,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
+ "cbor4ii",
  "custom_debug",
  "delegate",
  "derive_builder",
