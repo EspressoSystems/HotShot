@@ -314,33 +314,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         tracing::info!(
                             "Reached end of epoch. Justify QC is for the last block in the epoch."
                         );
-                        if proposed_leaf.height() == parent_leaf.height()
-                            && proposed_leaf.payload_commitment()
-                                == parent_leaf.payload_commitment()
+                        if proposed_leaf.height() != parent_leaf.height()
+                            || proposed_leaf.payload_commitment()
+                                != parent_leaf.payload_commitment()
                         {
-                            tracing::info!("Reached end of epoch. Proposed leaf has the same height and payload as its parent. No need to check the VID and DAC.");
-                            is_same_block_proposed = true;
-                            vid_share = if let Some(vid_shares) = self
-                                .consensus
-                                .read()
-                                .await
-                                .vid_shares()
-                                .get(&parent_leaf.view_number())
-                            {
-                                if let Some(vid) = vid_shares.get(&self.public_key) {
-                                    Some(vid.clone())
-                                } else {
-                                    tracing::warn!("Proposed leaf is the same as its parent but we don't have our VID for it");
-                                    return;
-                                }
-                            } else {
-                                tracing::warn!("Proposed leaf is the same as its parent but we don't have VIDs for it");
-                                return;
-                            };
-                        } else {
                             tracing::error!("Justify QC is for the last block but it's not extended and a new block is proposed. Not voting!");
                             return;
                         }
+
+                        tracing::info!("Reached end of epoch. Proposed leaf has the same height and payload as its parent. No need to check the VID and DAC.");
+                        is_same_block_proposed = true;
+
+                        let consensus_reader = self.consensus.read().await;
+
+                        let Some(vid_shares) = consensus_reader
+                            .vid_shares()
+                            .get(&parent_leaf.view_number())
+                        else {
+                            tracing::warn!("Proposed leaf is the same as its parent but we don't have our VID for it");
+                            return;
+                        };
+
+                        let Some(vid) = vid_shares.get(&self.public_key) else {
+                            tracing::warn!("Proposed leaf is the same as its parent but we don't have our VID for it");
+                            return;
+                        };
+
+                        vid_share = Some(vid.clone());
                     } else if let Some(ref comm) = payload_commitment {
                         if proposal_payload_comm != *comm {
                             tracing::error!("Quorum proposal has inconsistent payload commitment with DAC or VID.");
