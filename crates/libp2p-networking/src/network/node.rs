@@ -40,7 +40,7 @@ use libp2p::{
     identity::Keypair,
     kad::{store::MemoryStore, Behaviour, Config, Mode, Record},
     request_response::{
-        Behaviour as RequestResponse, Config as RequestResponseConfig, ProtocolSupport,
+        Behaviour as RequestResponse, Config as Libp2pRequestResponseConfig, ProtocolSupport,
     },
     swarm::SwarmEvent,
     Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
@@ -52,7 +52,7 @@ use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 pub use self::{
     config::{
         GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-        DEFAULT_REPLICATION_FACTOR,
+        RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
     },
     handle::{spawn_network_node, NetworkNodeHandle, NetworkNodeReceiver},
 };
@@ -61,6 +61,7 @@ use super::{
         bootstrap::{self, DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
+    cbor::Cbor,
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
     NetworkEventInternal,
 };
@@ -265,10 +266,17 @@ impl<T: NodeType> NetworkNode<T> {
             );
             kadem.set_mode(Some(Mode::Server));
 
-            let rrconfig = RequestResponseConfig::default();
+            let rrconfig = Libp2pRequestResponseConfig::default();
 
-            let direct_message: libp2p::request_response::cbor::Behaviour<Vec<u8>, Vec<u8>> =
-                RequestResponse::new(
+            // Create a new `cbor` codec with the given request and response sizes
+            let cbor = Cbor::new(
+                config.request_response_config.request_size_maximum,
+                config.request_response_config.response_size_maximum,
+            );
+
+            let direct_message: super::cbor::Behaviour<Vec<u8>, Vec<u8>> =
+                RequestResponse::with_codec(
+                    cbor,
                     [(
                         StreamProtocol::new("/HotShot/direct_message/1.0"),
                         ProtocolSupport::Full,
