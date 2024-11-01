@@ -210,7 +210,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         } else {
             get_marketplace_block_header_fn.await?
         };
-        
+
         if version >= V::Epochs::VERSION && self.consensus.read().await.is_high_qc_forming_eqc() {
             tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
             block_header = parent_leaf.block_header().clone();
