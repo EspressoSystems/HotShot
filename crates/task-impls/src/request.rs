@@ -13,7 +13,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 #[cfg(async_executor_impl = "async-std")]
@@ -38,6 +37,7 @@ use sha2::{Digest, Sha256};
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
+use utils::anytrace::Result;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
 
@@ -54,7 +54,7 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub network: Arc<I::Network>,
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
-    pub state: OuterConsensus<TYPES>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Last seen view, we won't request for proposals before older than this view
     pub view: TYPES::View,
     /// Delay before requesting peers
@@ -96,19 +96,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
     ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
-                let prop_view = proposal.view_number();
-                let current_epoch = self.state.read().await.cur_epoch();
+                let prop_view = proposal.data.view_number();
+                let cur_epoch = self.consensus.read().await.cur_epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
                 if prop_view >= self.view
                     && !self
-                        .state
+                        .consensus
                         .read()
                         .await
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, current_epoch, sender, receiver);
+                    self.spawn_requests(prop_view, cur_epoch, sender, receiver);
                 }
                 Ok(())
             }
@@ -176,12 +176,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         view: TYPES::View,
         epoch: TYPES::Epoch,
     ) {
-        let state = OuterConsensus::new(Arc::clone(&self.state.inner_consensus));
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let network = Arc::clone(&self.network);
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
         let delay = self.delay;
-        let da_committee_for_view = self.da_membership.committee_members(view, epoch);
         let public_key = self.public_key.clone();
+
+        // Get the committee members for the view and the leader, if applicable
+        let mut da_committee_for_view = self.da_membership.committee_members(view, epoch);
+        if let Ok(leader) = self.da_membership.leader(view, epoch) {
+            da_committee_for_view.insert(leader);
+        }
 
         // Get committee members for view
         let mut recipients: Vec<TYPES::SignatureKey> = self
@@ -205,10 +210,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 async_sleep(delay).await;
             }
 
-            let mut recipients_it = recipients.iter().cycle();
+            let mut recipients_it = recipients.iter();
             // First check if we got the data before continuing
             while !Self::cancel_vid_request_task(
-                &state,
+                &consensus,
                 &sender,
                 &public_key,
                 &view,
@@ -327,19 +332,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
     /// Returns true if we got the data we wanted, a shutdown even was received, or the view has moved on.
     async fn cancel_vid_request_task(
-        state: &OuterConsensus<TYPES>,
+        consensus: &OuterConsensus<TYPES>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         public_key: &<TYPES as NodeType>::SignatureKey,
         view: &TYPES::View,
         shutdown_flag: &Arc<AtomicBool>,
     ) -> bool {
-        let state = state.read().await;
+        let consensus_reader = consensus.read().await;
 
         let cancel = shutdown_flag.load(Ordering::Relaxed)
-            || state.vid_shares().contains_key(view)
-            || state.cur_view() > *view;
+            || consensus_reader.vid_shares().contains_key(view)
+            || consensus_reader.cur_view() > *view;
         if cancel {
-            if let Some(Some(vid_share)) = state
+            if let Some(Some(vid_share)) = consensus_reader
                 .vid_shares()
                 .get(view)
                 .map(|shares| shares.get(public_key).cloned())
@@ -356,7 +361,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             tracing::debug!(
                 "Canceling vid request for view {:?}, cur view is {:?}",
                 view,
-                state.cur_view()
+                consensus_reader.cur_view()
             );
         }
         cancel

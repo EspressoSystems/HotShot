@@ -6,7 +6,6 @@
 
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{ensure, Context, Result};
 use async_broadcast::Sender;
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use chrono::Utc;
@@ -19,7 +18,8 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-use tracing::{debug, error, instrument};
+use tracing::instrument;
+use utils::anytrace::*;
 
 use super::ConsensusTaskState;
 use crate::{
@@ -44,9 +44,9 @@ pub(crate) async fn handle_quorum_vote_recv<
     ensure!(
         task_state
             .quorum_membership
-            .leader(vote.view_number() + 1, task_state.cur_epoch)
+            .leader(vote.view_number() + 1, task_state.cur_epoch)?
             == task_state.public_key,
-        format!(
+        info!(
             "We are not the leader for view {:?}",
             vote.view_number() + 1
         )
@@ -63,7 +63,7 @@ pub(crate) async fn handle_quorum_vote_recv<
         sender,
         &task_state.upgrade_lock,
     )
-    .await;
+    .await?;
 
     Ok(())
 }
@@ -83,9 +83,9 @@ pub(crate) async fn handle_timeout_vote_recv<
     ensure!(
         task_state
             .timeout_membership
-            .leader(vote.view_number() + 1, task_state.cur_epoch)
+            .leader(vote.view_number() + 1, task_state.cur_epoch)?
             == task_state.public_key,
-        format!(
+        info!(
             "We are not the leader for view {:?}",
             vote.view_number() + 1
         )
@@ -102,7 +102,7 @@ pub(crate) async fn handle_timeout_vote_recv<
         sender,
         &task_state.upgrade_lock,
     )
-    .await;
+    .await?;
 
     Ok(())
 }
@@ -124,7 +124,7 @@ pub(crate) async fn handle_view_change<
     );
 
     let old_view_number = task_state.cur_view;
-    debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
+    tracing::debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
 
     // Move this node to the next view
     task_state.cur_view = new_view_number;
@@ -138,7 +138,7 @@ pub(crate) async fn handle_view_change<
         .clone();
     if let Some(cert) = decided_upgrade_certificate_read {
         if new_view_number == cert.data.new_version_first_view {
-            error!(
+            tracing::error!(
                 "Version upgraded based on a decided upgrade cert: {:?}",
                 cert
             );
@@ -169,19 +169,19 @@ pub(crate) async fn handle_view_change<
     ))
     .await;
 
-    let consensus = task_state.consensus.read().await;
-    consensus
+    let consensus_reader = task_state.consensus.read().await;
+    consensus_reader
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     let cur_view_time = Utc::now().timestamp();
     if task_state
         .quorum_membership
-        .leader(old_view_number, task_state.cur_epoch)
+        .leader(old_view_number, task_state.cur_epoch)?
         == task_state.public_key
     {
         #[allow(clippy::cast_precision_loss)]
-        consensus
+        consensus_reader
             .metrics
             .view_duration_as_leader
             .add_point((cur_view_time - task_state.cur_view_time) as f64);
@@ -193,10 +193,13 @@ pub(crate) async fn handle_view_change<
     if usize::try_from(task_state.cur_view.u64()).unwrap()
         > usize::try_from(task_state.last_decided_view.u64()).unwrap()
     {
-        consensus.metrics.number_of_views_since_last_decide.set(
-            usize::try_from(task_state.cur_view.u64()).unwrap()
-                - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
-        );
+        consensus_reader
+            .metrics
+            .number_of_views_since_last_decide
+            .set(
+                usize::try_from(task_state.cur_view.u64()).unwrap()
+                    - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
+            );
     }
 
     broadcast_event(
@@ -228,7 +231,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         task_state
             .timeout_membership
             .has_stake(&task_state.public_key, task_state.cur_epoch),
-        format!("We were not chosen for the consensus committee for view {view_number:?}")
+        debug!("We were not chosen for the consensus committee for view {view_number:?}")
     );
 
     let vote = TimeoutVote::create_signed_vote(
@@ -239,7 +242,8 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         &task_state.upgrade_lock,
     )
     .await
-    .context("Failed to sign TimeoutData")?;
+    .wrap()
+    .context(error!("Failed to sign TimeoutData"))?;
 
     broadcast_event(Arc::new(HotShotEvent::TimeoutVoteSend(vote)), sender).await;
     broadcast_event(
@@ -251,7 +255,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    debug!(
+    tracing::debug!(
         "We did not receive evidence for view {} in time, sending timeout vote for that view!",
         *view_number
     );
@@ -274,7 +278,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         .add(1);
     if task_state
         .quorum_membership
-        .leader(view_number, task_state.cur_epoch)
+        .leader(view_number, task_state.cur_epoch)?
         == task_state.public_key
     {
         task_state

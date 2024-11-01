@@ -41,7 +41,7 @@ use libp2p::{
     identity::Keypair,
     kad::{store::MemoryStore, Behaviour, Config, Mode, Record},
     request_response::{
-        Behaviour as RequestResponse, Config as RequestResponseConfig, ProtocolSupport,
+        Behaviour as RequestResponse, Config as Libp2pRequestResponseConfig, ProtocolSupport,
     },
     swarm::SwarmEvent,
     Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
@@ -53,7 +53,7 @@ use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 pub use self::{
     config::{
         GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-        DEFAULT_REPLICATION_FACTOR,
+        RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
     },
     handle::{spawn_network_node, NetworkNodeHandle, NetworkNodeReceiver},
 };
@@ -62,6 +62,7 @@ use super::{
         bootstrap::{self, DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
+    cbor::Cbor,
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
     NetworkEventInternal,
 };
@@ -205,6 +206,20 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 .mesh_n_low(config.gossip_config.mesh_n_low) // Lower limit of mesh peers
                 .mesh_outbound_min(config.gossip_config.mesh_outbound_min) // Minimum number of outbound peers in mesh
                 .max_transmit_size(config.gossip_config.max_transmit_size) // Maximum size of a message
+                .max_ihave_length(config.gossip_config.max_ihave_length) // Maximum number of messages to include in an IHAVE message
+                .max_ihave_messages(config.gossip_config.max_ihave_messages) // Maximum number of IHAVE messages to accept from a peer within a heartbeat
+                .published_message_ids_cache_time(
+                    config.gossip_config.published_message_ids_cache_time,
+                ) // Cache duration for published message IDs
+                .iwant_followup_time(config.gossip_config.iwant_followup_time) // Time to wait for a message requested through IWANT following an IHAVE advertisement
+                .max_messages_per_rpc(config.gossip_config.max_messages_per_rpc) // The maximum number of messages we will process in a given RPC
+                .gossip_retransimission(config.gossip_config.gossip_retransmission) // Controls how many times we will allow a peer to request the same message id through IWANT gossip before we start ignoring them.
+                .flood_publish(config.gossip_config.flood_publish) // If enabled newly created messages will always be sent to all peers that are subscribed to the topic and have a good enough score.
+                .duplicate_cache_time(config.gossip_config.duplicate_cache_time) // The time period that messages are stored in the cache
+                .fanout_ttl(config.gossip_config.fanout_ttl) // Time to live for fanout peers
+                .heartbeat_initial_delay(config.gossip_config.heartbeat_initial_delay) // Initial delay in each heartbeat
+                .gossip_factor(config.gossip_config.gossip_factor) // Affects how many peers we will emit gossip to at each heartbeat
+                .gossip_lazy(config.gossip_config.gossip_lazy) // Minimum number of peers to emit gossip to during a heartbeat
                 .build()
                 .map_err(|err| {
                     NetworkError::ConfigError(format!("error building gossipsub config: {err:?}"))
@@ -255,10 +270,17 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             );
             kadem.set_mode(Some(Mode::Server));
 
-            let rrconfig = RequestResponseConfig::default();
+            let rrconfig = Libp2pRequestResponseConfig::default();
 
-            let direct_message: libp2p::request_response::cbor::Behaviour<Vec<u8>, Vec<u8>> =
-                RequestResponse::new(
+            // Create a new `cbor` codec with the given request and response sizes
+            let cbor = Cbor::new(
+                config.request_response_config.request_size_maximum,
+                config.request_response_config.response_size_maximum,
+            );
+
+            let direct_message: super::cbor::Behaviour<Vec<u8>, Vec<u8>> =
+                RequestResponse::with_codec(
+                    cbor,
                     [(
                         StreamProtocol::new("/HotShot/direct_message/1.0"),
                         ProtocolSupport::Full,

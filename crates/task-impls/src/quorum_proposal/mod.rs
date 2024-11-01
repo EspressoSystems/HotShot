@@ -4,15 +4,15 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
-use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use either::Either;
+use futures::future::join_all;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::DependencyTask,
@@ -33,7 +33,8 @@ use hotshot_types::{
 };
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
-use tracing::{debug, instrument, warn};
+use tracing::instrument;
+use utils::anytrace::*;
 
 use self::handlers::{ProposalDependency, ProposalDependencyHandle};
 use crate::{
@@ -49,7 +50,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub latest_proposed_view: TYPES::View,
 
     /// Table for the in-progress proposal dependency tasks.
-    pub proposal_dependencies: HashMap<TYPES::View, JoinHandle<()>>,
+    pub proposal_dependencies: BTreeMap<TYPES::View, JoinHandle<()>>,
 
     /// The underlying network
     pub network: Arc<I::Network>,
@@ -74,9 +75,6 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// View timeout from config.
     pub timeout: u64,
-
-    /// Round start delay from config, in milliseconds.
-    pub round_start_delay: u64,
 
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
@@ -171,7 +169,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 };
                 let valid = event_view == view_number;
                 if valid {
-                    debug!("Dependency {dependency_type:?} is complete for view {event_view:?}!",);
+                    tracing::debug!(
+                        "Dependency {dependency_type:?} is complete for view {event_view:?}!",
+                    );
                 }
                 valid
             }),
@@ -288,24 +288,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
-    ) {
+    ) -> Result<()> {
         // Don't even bother making the task if we are not entitled to propose anyway.
-        if self.quorum_membership.leader(view_number, epoch_number) != self.public_key {
-            tracing::trace!("We are not the leader of the next view");
-            return;
-        }
+        ensure!(
+            self.quorum_membership.leader(view_number, epoch_number)? == self.public_key,
+            debug!("We are not the leader of the next view")
+        );
 
         // Don't try to propose twice for the same view.
-        if view_number <= self.latest_proposed_view {
-            tracing::trace!("We have already proposed for this view");
-            return;
-        }
+        ensure!(
+            view_number > self.latest_proposed_view,
+            "We have already proposed for this view"
+        );
 
-        debug!("Attempting to make dependency task for view {view_number:?} and event {event:?}");
-        if self.proposal_dependencies.contains_key(&view_number) {
-            debug!("Task already exists");
-            return;
-        }
+        tracing::debug!(
+            "Attempting to make dependency task for view {view_number:?} and event {event:?}"
+        );
+
+        ensure!(
+            !self.proposal_dependencies.contains_key(&view_number),
+            "Task already exists"
+        );
 
         let dependency_chain =
             self.create_and_complete_dependencies(view_number, &event_receiver, event);
@@ -316,11 +319,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 latest_proposed_view: self.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                receiver: event_receiver,
+                receiver: event_receiver.deactivate(),
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
-                round_start_delay: self.round_start_delay,
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
@@ -330,15 +332,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         );
         self.proposal_dependencies
             .insert(view_number, dependency_task.run());
+
+        Ok(())
     }
 
     /// Update the latest proposed view number.
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::View) -> bool {
         if *self.latest_proposed_view < *new_view {
-            debug!(
+            tracing::debug!(
                 "Updating latest proposed view from {} to {}",
-                *self.latest_proposed_view, *new_view
+                *self.latest_proposed_view,
+                *new_view
             );
 
             // Cancel the old dependency tasks.
@@ -363,17 +368,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event: Arc<HotShotEvent<TYPES>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    ) {
+    ) -> Result<()> {
         match event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) => {
-                debug!(
+                tracing::debug!(
                     "Upgrade certificate received for view {}!",
                     *cert.view_number
                 );
 
                 // Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 if cert.data.decide_by >= self.latest_proposed_view + 3 {
-                    debug!("Updating current formed_upgrade_certificate");
+                    tracing::debug!("Updating current formed_upgrade_certificate");
 
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
@@ -389,7 +394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
-                    );
+                    )?;
                 }
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
@@ -422,24 +427,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                );
+                )?;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 let epoch_number = self.consensus.read().await.cur_epoch();
-                if !certificate
-                    .is_valid_cert(
-                        self.quorum_membership.as_ref(),
-                        epoch_number,
-                        &self.upgrade_lock,
-                    )
-                    .await
-                {
+
+                ensure!(
+                    certificate
+                        .is_valid_cert(
+                            self.quorum_membership.as_ref(),
+                            epoch_number,
+                            &self.upgrade_lock
+                        )
+                        .await,
                     warn!(
                         "View Sync Finalize certificate {:?} was invalid",
                         certificate.data()
-                    );
-                    return;
-                }
+                    )
+                );
 
                 let view_number = certificate.view_number;
 
@@ -449,7 +454,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     event,
-                );
+                )?;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
@@ -466,14 +471,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                );
+                )?;
             }
             HotShotEvent::QuorumProposalSend(proposal, _) => {
                 let view = proposal.data.view_number();
-                if !self.update_latest_proposed_view(view).await {
-                    tracing::trace!("Failed to update latest proposed view");
-                    return;
-                }
+
+                ensure!(
+                    self.update_latest_proposed_view(view).await,
+                    "Failed to update latest proposed view"
+                );
             }
             HotShotEvent::VidDisperseSend(vid_share, _) => {
                 let view_number = vid_share.data.view_number();
@@ -485,17 +491,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                );
+                )?;
             }
             HotShotEvent::UpdateHighQc(qc) => {
-                // First, update the high QC.
-                if let Err(e) = self.consensus.write().await.update_high_qc(qc.clone()) {
-                    tracing::trace!("Failed to update high qc; error = {e}");
-                }
+                // First update the high QC internally
+                self.consensus
+                    .write()
+                    .await
+                    .update_high_qc(qc.clone())
+                    .wrap()
+                    .context(error!(
+                        "Failed to update high QC in internal consensus state!"
+                    ))?;
 
-                if let Err(e) = self.storage.write().await.update_high_qc(qc.clone()).await {
-                    warn!("Failed to store High QC of QC we formed; error = {:?}", e);
-                }
+                // Then update the high QC in storage
+                self.storage
+                    .write()
+                    .await
+                    .update_high_qc(qc.clone())
+                    .await
+                    .wrap()
+                    .context(error!("Failed to update high QC in storage!"))?;
 
                 broadcast_event(
                     HotShotEvent::HighQcUpdated(qc.clone()).into(),
@@ -512,10 +528,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                );
+                )?;
+            }
+            HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) => {
+                self.cancel_tasks(*view).await;
             }
             _ => {}
         }
+        Ok(())
+    }
+    /// Cancel all tasks the consensus tasks has spawned before the given view
+    pub async fn cancel_tasks(&mut self, view: TYPES::View) {
+        let keep = self.proposal_dependencies.split_off(&view);
+        let mut cancel = Vec::new();
+        while let Some((_, task)) = self.proposal_dependencies.pop_first() {
+            cancel.push(cancel_task(task));
+        }
+        self.proposal_dependencies = keep;
+        join_all(cancel).await;
     }
 }
 
@@ -531,17 +561,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         sender: &Sender<Arc<Self::Event>>,
         receiver: &Receiver<Arc<Self::Event>>,
     ) -> Result<()> {
-        self.handle(event, receiver.clone(), sender.clone()).await;
-
-        Ok(())
+        self.handle(event, receiver.clone(), sender.clone()).await
     }
 
     async fn cancel_subtasks(&mut self) {
-        for handle in self
-            .proposal_dependencies
-            .drain()
-            .map(|(_view, handle)| handle)
-        {
+        while let Some((_, handle)) = self.proposal_dependencies.pop_first() {
             #[cfg(async_executor_impl = "async-std")]
             handle.cancel().await;
             #[cfg(async_executor_impl = "tokio")]

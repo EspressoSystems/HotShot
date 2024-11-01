@@ -11,10 +11,9 @@ use hotshot_testing::{
     predicates::{event::*, Predicate, PredicateResult},
     view_generator::TestViewGenerator,
 };
-use hotshot_types::data::EpochNumber;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::ViewNumber,
+    data::{EpochNumber, ViewNumber},
     traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
     vote::HasViewNumber,
 };
@@ -70,7 +69,7 @@ async fn test_vote_dependency_handle() {
     // the dependency handles do not (yet) work with the existing test suite.
     let all_inputs = vec![
         DaCertificateValidated(dacs[1].clone()),
-        QuorumProposalValidated(proposals[1].data.clone(), leaves[0].clone()),
+        QuorumProposalValidated(proposals[1].clone(), leaves[0].clone()),
         VidShareValidated(vids[1].0[0].clone()),
     ]
     .into_iter()
@@ -99,7 +98,7 @@ async fn test_vote_dependency_handle() {
                 view_number,
                 epoch_number: EpochNumber::new(1),
                 sender: event_sender.clone(),
-                receiver: event_receiver.clone(),
+                receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: handle.hotshot.upgrade_lock.clone(),
                 id: handle.hotshot.id,
             };

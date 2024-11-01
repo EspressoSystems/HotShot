@@ -8,7 +8,6 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use anyhow::{bail, Result};
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
@@ -31,6 +30,7 @@ use hotshot_types::{
 #[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
+use utils::anytrace::{bail, Result};
 use vbs::version::Version;
 
 use self::handlers::handle_quorum_proposal_recv;
@@ -77,9 +77,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 
     /// View timeout from config.
     pub timeout: u64,
-
-    /// Round start delay from config, in milliseconds.
-    pub round_start_delay: u64,
 
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -169,7 +166,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
             let Some((_, handles)) = self.spawned_tasks.pop_first() else {
                 break;
             };
-
             for handle in handles {
                 #[cfg(async_executor_impl = "async-std")]
                 handle.cancel().await;
