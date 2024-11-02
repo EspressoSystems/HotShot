@@ -100,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                 let cur_epoch = self.consensus.read().await.cur_epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
-                if prop_view + 1 >= self.view
+                if prop_view >= self.view
                     && !self
                         .consensus
                         .read()
@@ -342,7 +342,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
         let cancel = shutdown_flag.load(Ordering::Relaxed)
             || consensus_reader.vid_shares().contains_key(view)
-            || consensus_reader.cur_view() > *view + 1;
+            || consensus_reader.cur_view() > *view;
         if cancel {
             if let Some(Some(vid_share)) = consensus_reader
                 .vid_shares()

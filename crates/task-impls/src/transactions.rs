@@ -464,7 +464,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                       "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
                     )
                 );
-
+                self.cur_view = view;
                 if self.membership.leader(view, self.cur_epoch)? == self.public_key {
                     self.handle_view_change(&event_stream, view).await;
                     return Ok(());
