@@ -29,7 +29,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-ark-bn254 = "0.4"
+ark-bn254 = "0.5"
 ark-ed-on-bn254 = "0.4"
 ark-ff = "0.4"
 ark-serialize = "0.4"
