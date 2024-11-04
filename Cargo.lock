@@ -4554,6 +4554,7 @@ dependencies = [
  "derive_builder",
  "either",
  "futures",
+ "hotshot-example-types",
  "hotshot-types",
  "lazy_static",
  "libp2p",
