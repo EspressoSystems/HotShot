@@ -182,7 +182,7 @@ fix:
   cargo fix --allow-dirty --allow-staged --workspace --lib --bins --tests --benches
 
 doc:
-  echo Generating docs {{env_var('RUSTFLAGS')}}
+  echo Generating docs
   cargo doc --no-deps --bins --examples --lib -p 'hotshot-types'
   cargo doc --no-deps --workspace --document-private-items --bins --examples --lib
 
