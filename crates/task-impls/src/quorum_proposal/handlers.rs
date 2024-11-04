@@ -170,7 +170,18 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         let builder_commitment = commitment_and_metadata.builder_commitment.clone();
         let metadata = commitment_and_metadata.metadata.clone();
-        let get_legacy_block_header_fn = async {
+
+        let block_header = if version >= V::Epochs::VERSION
+            && self.consensus.read().await.is_high_qc_forming_eqc()
+        {
+            tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
+            let block_header = parent_leaf.block_header().clone();
+            tracing::debug!(
+                "Proposing block no. {} to form the eQC.",
+                block_header.block_number()
+            );
+            block_header
+        } else if version < V::Marketplace::VERSION {
             TYPES::BlockHeader::new_legacy(
                 state.as_ref(),
                 self.instance_state.as_ref(),
@@ -184,10 +195,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             )
             .await
             .wrap()
-            .context(warn!("Failed to construct legacy block header"))
-        };
-
-        let get_marketplace_block_header_fn = async {
+            .context(warn!("Failed to construct legacy block header"))?
+        } else {
             TYPES::BlockHeader::new_marketplace(
                 state.as_ref(),
                 self.instance_state.as_ref(),
@@ -202,23 +211,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             )
             .await
             .wrap()
-            .context(warn!("Failed to construct marketplace block header"))
+            .context(warn!("Failed to construct marketplace block header"))?
         };
-
-        let mut block_header = if version < V::Marketplace::VERSION {
-            get_legacy_block_header_fn.await?
-        } else {
-            get_marketplace_block_header_fn.await?
-        };
-
-        if version >= V::Epochs::VERSION && self.consensus.read().await.is_high_qc_forming_eqc() {
-            tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
-            block_header = parent_leaf.block_header().clone();
-            tracing::debug!(
-                "Proposing block no. {} to form the eQC.",
-                block_header.block_number()
-            );
-        }
 
         let proposal = QuorumProposal {
             block_header,
