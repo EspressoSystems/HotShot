@@ -368,6 +368,21 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -379,6 +394,12 @@
 
 </span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
+<span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
@@ -398,12 +419,6 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
-
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 
 <span class="doccomment">/// Proposal dependency types. These types represent events that precipitate a proposal.
 </span><span class="attr">#[derive(PartialEq, Debug)]
@@ -475,7 +490,7 @@
     <span class="doccomment">/// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
-    </span><span class="attr">#[instrument(skip_all, target = <span class="string">"ProposalDependencyHandle"</span>, fields(id = <span class="self">self</span>.id, view_number = <span class="kw-2">*</span><span class="self">self</span>.view_number, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view))]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view_number = <span class="kw-2">*</span><span class="self">self</span>.view_number, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view))]
     </span><span class="kw">async fn </span>publish_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         commitment_and_metadata: CommitmentAndMetadata&lt;TYPES&gt;,
@@ -536,14 +551,29 @@
 
         <span class="kw">let </span>version = <span class="self">self</span>.upgrade_lock.version(<span class="self">self</span>.view_number).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">let </span>block_header = <span class="kw">if </span>version &lt; V::Marketplace::VERSION {
+        <span class="kw">let </span>high_qc = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone();
+
+        <span class="kw">let </span>builder_commitment = commitment_and_metadata.builder_commitment.clone();
+        <span class="kw">let </span>metadata = commitment_and_metadata.metadata.clone();
+
+        <span class="kw">let </span>block_header = <span class="kw">if </span>version &gt;= V::Epochs::VERSION
+            &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.is_high_qc_forming_eqc()
+        {
+            <span class="macro">tracing::info!</span>(<span class="string">"Reached end of epoch. Proposing the same block again to form an eQC."</span>);
+            <span class="kw">let </span>block_header = parent_leaf.block_header().clone();
+            <span class="macro">tracing::debug!</span>(
+                <span class="string">"Proposing block no. {} to form the eQC."</span>,
+                block_header.block_number()
+            );
+            block_header
+        } <span class="kw">else if </span>version &lt; V::Marketplace::VERSION {
             TYPES::BlockHeader::new_legacy(
                 state.as_ref(),
                 <span class="self">self</span>.instance_state.as_ref(),
                 <span class="kw-2">&amp;</span>parent_leaf,
                 commitment_and_metadata.commitment,
-                commitment_and_metadata.builder_commitment,
-                commitment_and_metadata.metadata,
+                builder_commitment,
+                metadata,
                 commitment_and_metadata.fees.first().clone(),
                 vid_share.data.common.clone(),
                 version,
@@ -572,7 +602,7 @@
         <span class="kw">let </span>proposal = QuorumProposal {
             block_header,
             view_number: <span class="self">self</span>.view_number,
-            justify_qc: <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone(),
+            justify_qc: high_qc,
             upgrade_certificate,
             proposal_certificate,
         };

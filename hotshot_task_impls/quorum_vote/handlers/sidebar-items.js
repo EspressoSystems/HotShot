@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["handle_quorum_proposal_validated"]};
+window.SIDEBAR_ITEMS = {"fn":["handle_quorum_proposal_validated","submit_vote","update_shared_state"]};

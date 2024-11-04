@@ -1057,6 +1057,11 @@
 <a href="#1055" id="1055">1055</a>
 <a href="#1056" id="1056">1056</a>
 <a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1384,6 +1389,7 @@
             saved_payloads,
             initializer.high_qc,
             Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
+            config.epoch_height,
         );
 
         <span class="kw">let </span>consensus = Arc::new(RwLock::new(consensus));
@@ -1711,6 +1717,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
             memberships: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.memberships),
+            epoch_height: <span class="self">self</span>.config.epoch_height,
         };
 
         add_network_tasks::&lt;TYPES, I, V&gt;(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;
@@ -1824,6 +1831,7 @@
         SystemContextHandle&lt;TYPES, I, V&gt;,
         SystemContextHandle&lt;TYPES, I, V&gt;,
     ) {
+        <span class="kw">let </span>epoch_height = config.epoch_height;
         <span class="kw">let </span>left_system_context = SystemContext::new(
             public_key.clone(),
             private_key.clone(),
@@ -1891,6 +1899,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span>left_system_context.storage),
             network: Arc::clone(<span class="kw-2">&amp;</span>left_system_context.network),
             memberships: Arc::clone(<span class="kw-2">&amp;</span>left_system_context.memberships),
+            epoch_height,
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>right_handle = SystemContextHandle {
@@ -1902,6 +1911,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span>right_system_context.storage),
             network: Arc::clone(<span class="kw-2">&amp;</span>right_system_context.network),
             memberships: Arc::clone(<span class="kw-2">&amp;</span>right_system_context.memberships),
+            epoch_height,
         };
 
         <span class="comment">// add consensus tasks to each handle, using their individual internal event streams

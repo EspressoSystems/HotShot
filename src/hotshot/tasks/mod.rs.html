@@ -577,6 +577,8 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -906,6 +908,7 @@
         storage: I::Storage,
         marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
     ) -&gt; SystemContextHandle&lt;TYPES, I, V&gt; {
+        <span class="kw">let </span>epoch_height = config.epoch_height;
         <span class="kw">let </span>hotshot = SystemContext::new(
             public_key,
             private_key,
@@ -934,6 +937,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span>hotshot.storage),
             network: Arc::clone(<span class="kw-2">&amp;</span>hotshot.network),
             memberships: Arc::clone(<span class="kw-2">&amp;</span>hotshot.memberships),
+            epoch_height,
         };
 
         add_consensus_tasks::&lt;TYPES, I, V&gt;(<span class="kw-2">&amp;mut </span>handle).<span class="kw">await</span>;

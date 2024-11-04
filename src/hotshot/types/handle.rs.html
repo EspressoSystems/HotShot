@@ -374,6 +374,9 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -446,6 +449,9 @@
 
     <span class="doccomment">/// Memberships used by consensus
     </span><span class="kw">pub </span>memberships: Arc&lt;Memberships&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>, V: Versions&gt;

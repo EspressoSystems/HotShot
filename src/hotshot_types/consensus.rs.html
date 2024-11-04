@@ -856,6 +856,110 @@
 <a href="#854" id="854">854</a>
 <a href="#855" id="855">855</a>
 <a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -877,7 +981,10 @@
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vec1::Vec1;
 
+<span class="kw">use </span><span class="kw">crate</span>::traits::block_contents::BlockHeader;
+<span class="kw">use </span><span class="kw">crate</span>::utils::Terminator::Inclusive;
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
+<span class="kw">use </span><span class="kw">crate</span>::vote::Certificate;
 <span class="kw">use crate</span>::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
@@ -1175,6 +1282,9 @@
 
     <span class="doccomment">/// A reference to the metrics trait
     </span><span class="kw">pub </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="doccomment">/// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -1263,6 +1373,7 @@
         saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
         high_qc: QuorumCertificate&lt;TYPES&gt;,
         metrics: Arc&lt;ConsensusMetricsValue&gt;,
+        epoch_height: u64,
     ) -&gt; <span class="self">Self </span>{
         Consensus {
             validated_state_map,
@@ -1278,6 +1389,7 @@
             saved_payloads,
             high_qc,
             metrics,
+            epoch_height,
         }
     }
 
@@ -1692,6 +1804,102 @@
             }
         }
         <span class="prelude-val">Some</span>(())
+    }
+
+    <span class="doccomment">/// Returns true if the current high qc is for the last block in the epoch
+    </span><span class="kw">pub fn </span>is_high_qc_for_last_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span>high_qc = <span class="self">self</span>.high_qc();
+        <span class="self">self</span>.is_qc_for_last_block(high_qc)
+    }
+
+    <span class="doccomment">/// Returns true if the given qc is for the last block in the epoch
+    </span><span class="kw">pub fn </span>is_qc_for_last_block(<span class="kw-2">&amp;</span><span class="self">self</span>, cert: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>cert.data().leaf_commit) <span class="kw">else </span>{
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        };
+        <span class="kw">let </span>block_height = leaf.height();
+        <span class="kw">if </span>block_height == <span class="number">0 </span>|| <span class="self">self</span>.epoch_height == <span class="number">0 </span>{
+            <span class="bool-val">false
+        </span>} <span class="kw">else </span>{
+            block_height % <span class="self">self</span>.epoch_height == <span class="number">0
+        </span>}
+    }
+
+    <span class="doccomment">/// Returns true if the current high qc is an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    </span><span class="kw">pub fn </span>is_high_qc_extended(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span>high_qc = <span class="self">self</span>.high_qc();
+        <span class="kw">let </span>ret = <span class="self">self</span>.is_qc_extended(high_qc);
+        <span class="kw">if </span>ret {
+            <span class="macro">tracing::debug!</span>(<span class="string">"We have formed an eQC!"</span>);
+        };
+        ret
+    }
+
+    <span class="doccomment">/// Returns true if the given qc is an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    </span><span class="kw">pub fn </span>is_qc_extended(<span class="kw-2">&amp;</span><span class="self">self</span>, cert: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
+        <span class="kw">if </span>!<span class="self">self</span>.is_qc_for_last_block(cert) {
+            <span class="macro">tracing::debug!</span>(<span class="string">"High QC is not for the last block in the epoch."</span>);
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        }
+
+        <span class="kw">let </span>qc_view = cert.view_number();
+        <span class="kw">let </span>high_qc_block_number =
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>cert.data().leaf_commit) {
+                leaf.block_header().block_number()
+            } <span class="kw">else </span>{
+                <span class="kw">return </span><span class="bool-val">false</span>;
+            };
+
+        <span class="kw">let </span><span class="kw-2">mut </span>last_visited_view_number = qc_view;
+        <span class="kw">let </span><span class="kw-2">mut </span>is_qc_extended = <span class="bool-val">true</span>;
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
+            <span class="self">self</span>.visit_leaf_ancestors(qc_view, Inclusive(qc_view - <span class="number">2</span>), <span class="bool-val">true</span>, |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
+                <span class="macro">tracing::trace!</span>(
+                    <span class="string">"last_visited_view_number = {}, leaf.view_number = {}"</span>,
+                    <span class="kw-2">*</span>last_visited_view_number,
+                    <span class="kw-2">*</span>leaf.view_number()
+                );
+
+                <span class="kw">if </span>leaf.view_number() == qc_view {
+                    <span class="kw">return </span><span class="bool-val">true</span>;
+                }
+
+                <span class="kw">if </span>last_visited_view_number - <span class="number">1 </span>!= leaf.view_number() {
+                    <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Non consecutive views."</span>);
+                    is_qc_extended = <span class="bool-val">false</span>;
+                    <span class="kw">return </span><span class="bool-val">false</span>;
+                }
+                <span class="kw">if </span>high_qc_block_number != leaf.height() {
+                    <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Block numbers do not match."</span>);
+                    is_qc_extended = <span class="bool-val">false</span>;
+                    <span class="kw">return </span><span class="bool-val">false</span>;
+                }
+                last_visited_view_number = leaf.view_number();
+                <span class="bool-val">true
+            </span>})
+        {
+            is_qc_extended = <span class="bool-val">false</span>;
+            <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Leaf ascension failed."</span>);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Leaf ascension failed; error={e}"</span>);
+        }
+        <span class="macro">tracing::trace!</span>(<span class="string">"Is the given QC an eQC? {}"</span>, is_qc_extended);
+        is_qc_extended
+    }
+
+    <span class="doccomment">/// Return true if the given Quorum Certificate takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    </span><span class="kw">pub fn </span>is_qc_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>, cert: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
+        <span class="self">self</span>.is_qc_for_last_block(cert) &amp;&amp; !<span class="self">self</span>.is_qc_extended(cert)
+    }
+
+    <span class="doccomment">/// Return true if the high QC takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    </span><span class="kw">pub fn </span>is_high_qc_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.is_high_qc_for_last_block() &amp;&amp; !<span class="self">self</span>.is_high_qc_extended()
     }
 }
 

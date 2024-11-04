@@ -818,6 +818,22 @@
 <a href="#816" id="816">816</a>
 <a href="#817" id="817">817</a>
 <a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1252,6 +1268,22 @@
 
         <span class="prelude-val">None
     </span>}
+
+    <span class="doccomment">/// epochs view change handler
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view_number = <span class="kw-2">*</span><span class="self">self</span>.cur_view))]
+    </span><span class="kw">pub async fn </span>handle_view_change_epochs(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        block_view: TYPES::View,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
+        <span class="kw">if </span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.is_high_qc_forming_eqc() {
+            <span class="macro">tracing::info!</span>(<span class="string">"Reached end of epoch. Not getting a new block until we form an eQC."</span>);
+            <span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
+            <span class="self">self</span>.handle_view_change_marketplace(event_stream, block_view)
+                .<span class="kw">await
+        </span>}
+    }
 
     <span class="doccomment">/// main task event handler
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"TransactionTaskState"</span>)]
