@@ -26,7 +26,6 @@ use hotshot_types::{
 const TIMEOUT: Duration = Duration::from_millis(35);
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_vote_task_success() {
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
@@ -37,7 +36,6 @@ async fn test_quorum_vote_task_success() {
     };
 
     hotshot::helpers::initialize_logging();
-    
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -100,7 +98,6 @@ async fn test_quorum_vote_task_success() {
 }
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_vote_task_miss_dependency() {
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
@@ -109,7 +106,6 @@ async fn test_quorum_vote_task_miss_dependency() {
     };
 
     hotshot::helpers::initialize_logging();
-    
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -189,7 +185,6 @@ async fn test_quorum_vote_task_miss_dependency() {
 }
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_vote_task_incorrect_dependency() {
     use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::QuorumVoteTaskState};
@@ -198,7 +193,6 @@ async fn test_quorum_vote_task_incorrect_dependency() {
     };
 
     hotshot::helpers::initialize_logging();
-    
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await

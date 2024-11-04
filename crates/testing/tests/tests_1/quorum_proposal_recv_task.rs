@@ -37,7 +37,6 @@ use hotshot_types::{
 };
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_recv_task() {
     use std::time::Duration;
@@ -49,7 +48,6 @@ async fn test_quorum_proposal_recv_task() {
     use hotshot_types::data::Leaf;
 
     hotshot::helpers::initialize_logging();
-    
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -129,7 +127,6 @@ async fn test_quorum_proposal_recv_task() {
 }
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_recv_task_liveness_check() {
     use std::time::Duration;
@@ -144,7 +141,6 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
     use hotshot_types::{data::Leaf, vote::HasViewNumber};
 
     hotshot::helpers::initialize_logging();
-    
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(4)
         .await

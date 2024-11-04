@@ -9,7 +9,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use tokio::time::sleep;
 use hotshot_builder_api::v0_1::block_info::AvailableBlockData;
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
@@ -29,12 +28,9 @@ use hotshot_types::{
     },
 };
 use tide_disco::Url;
+use tokio::time::sleep;
 
 #[cfg(test)]
-#[cfg_attr(
-    async_executor_impl = "tokio",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_random_block_builder() {

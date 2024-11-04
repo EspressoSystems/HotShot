@@ -17,7 +17,7 @@ use tracing::instrument;
 #[instrument]
 async fn broken_3_chain() {
     hotshot::helpers::initialize_logging();
-    
+
     let mut metadata: TestDescription<TestTypes, PushCdnImpl> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,

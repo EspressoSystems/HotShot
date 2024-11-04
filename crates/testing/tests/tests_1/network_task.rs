@@ -7,7 +7,6 @@
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Sender;
-use tokio::time::timeout;
 use async_lock::RwLock;
 use hotshot::traits::implementations::MemoryNetwork;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
@@ -25,11 +24,11 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
     },
 };
+use tokio::time::timeout;
 
 // Test that the event task sends a message, and the message task receives it
 // and emits the proper event
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 #[allow(clippy::too_many_lines)]
 async fn test_network_task() {
@@ -37,7 +36,6 @@ async fn test_network_task() {
     use hotshot_types::traits::network::Topic;
 
     hotshot::helpers::initialize_logging();
-    
 
     let builder: TestDescription<TestTypes, MemoryImpl, TestVersions> =
         TestDescription::default_multiple_rounds();
@@ -108,7 +106,6 @@ async fn test_network_task() {
 }
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_network_external_mnessages() {
     use hotshot::types::EventType;
@@ -116,7 +113,6 @@ async fn test_network_external_mnessages() {
     use hotshot_types::message::RecipientList;
 
     hotshot::helpers::initialize_logging();
-    
 
     let builder: TestDescription<TestTypes, MemoryImpl, TestVersions> =
         TestDescription::default_multiple_rounds();
@@ -141,14 +137,11 @@ async fn test_network_external_mnessages() {
         .send_external_message(vec![1, 2], RecipientList::Direct(handles[2].public_key()))
         .await
         .unwrap();
-    let event = tokio::time::timeout(
-        Duration::from_millis(100),
-        event_streams[2].recv(),
-    )
-    .await
-    .unwrap()
-    .unwrap()
-    .event;
+    let event = tokio::time::timeout(Duration::from_millis(100), event_streams[2].recv())
+        .await
+        .unwrap()
+        .unwrap()
+        .event;
 
     // check that 2 received the message
     assert!(matches!(
@@ -164,14 +157,11 @@ async fn test_network_external_mnessages() {
         .send_external_message(vec![2, 1], RecipientList::Direct(handles[1].public_key()))
         .await
         .unwrap();
-    let event = tokio::time::timeout(
-        Duration::from_millis(100),
-        event_streams[1].recv(),
-    )
-    .await
-    .unwrap()
-    .unwrap()
-    .event;
+    let event = tokio::time::timeout(Duration::from_millis(100), event_streams[1].recv())
+        .await
+        .unwrap()
+        .unwrap()
+        .event;
 
     // check that 1 received the message
     assert!(matches!(
@@ -189,14 +179,11 @@ async fn test_network_external_mnessages() {
         .unwrap();
     // All other nodes get the broadcast
     for stream in event_streams.iter_mut().skip(1) {
-        let event = tokio::time::timeout(
-            Duration::from_millis(100),
-            stream.recv(),
-        )
-        .await
-        .unwrap()
-        .unwrap()
-        .event;
+        let event = tokio::time::timeout(Duration::from_millis(100), stream.recv())
+            .await
+            .unwrap()
+            .unwrap()
+            .event;
         assert!(matches!(
             event,
             EventType::ExternalMessageReceived {
@@ -211,14 +198,12 @@ async fn test_network_external_mnessages() {
 }
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_network_storage_fail() {
     use futures::StreamExt;
     use hotshot_types::traits::network::Topic;
 
     hotshot::helpers::initialize_logging();
-    
 
     let builder: TestDescription<TestTypes, MemoryImpl, TestVersions> =
         TestDescription::default_multiple_rounds();

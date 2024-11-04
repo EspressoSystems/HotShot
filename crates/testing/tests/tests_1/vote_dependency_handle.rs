@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use async_broadcast::broadcast;
 use futures::StreamExt;
-use tokio::time::timeout;
 use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::VoteDependencyHandle};
@@ -18,17 +17,16 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use itertools::Itertools;
+use tokio::time::timeout;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_vote_dependency_handle() {
     use std::sync::Arc;
 
     hotshot::helpers::initialize_logging();
-    
 
     // We use a node ID of 2 here abitrarily. We just need it to build the system handle.
     let node_id = 2;
@@ -110,9 +108,7 @@ async fn test_vote_dependency_handle() {
         // We need to avoid re-processing the inputs during our output evaluation. This part here is not
         // strictly necessary, but it makes writing the outputs easier.
         let mut output_events = vec![];
-        while let Ok(Ok(received_output)) =
-            timeout(TIMEOUT, event_receiver.recv_direct()).await
-        {
+        while let Ok(Ok(received_output)) = timeout(TIMEOUT, event_receiver.recv_direct()).await {
             output_events.push(received_output);
         }
 

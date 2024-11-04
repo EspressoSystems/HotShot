@@ -7,7 +7,6 @@
 #![allow(clippy::panic)]
 use std::{sync::Arc, time::Duration};
 
-use tokio::time::timeout;
 use hotshot::{
     traits::{
         election::static_committee::StaticCommittee,
@@ -34,6 +33,7 @@ use hotshot_types::{
 };
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
+use tokio::time::timeout;
 use tracing::{instrument, trace};
 
 #[derive(
@@ -177,11 +177,9 @@ async fn memory_network_direct_queue() {
             .await
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
-        assert!(
-            timeout(Duration::from_secs(1), network2.recv_message())
-                .await
-                .is_err()
-        );
+        assert!(timeout(Duration::from_secs(1), network2.recv_message())
+            .await
+            .is_err());
         fake_message_eq(sent_message, deserialized_message);
     }
 
@@ -200,11 +198,9 @@ async fn memory_network_direct_queue() {
             .await
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
-        assert!(
-            timeout(Duration::from_secs(1), network1.recv_message())
-                .await
-                .is_err()
-        );
+        assert!(timeout(Duration::from_secs(1), network1.recv_message())
+            .await
+            .is_err());
         fake_message_eq(sent_message, deserialized_message);
     }
 }
@@ -238,11 +234,9 @@ async fn memory_network_broadcast_queue() {
             .await
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
-        assert!(
-            timeout(Duration::from_secs(1), network2.recv_message())
-                .await
-                .is_err()
-        );
+        assert!(timeout(Duration::from_secs(1), network2.recv_message())
+            .await
+            .is_err());
         fake_message_eq(sent_message, deserialized_message);
     }
 
@@ -265,15 +259,12 @@ async fn memory_network_broadcast_queue() {
             .await
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
-        assert!(
-            timeout(Duration::from_secs(1), network1.recv_message())
-                .await
-                .is_err()
-        );
+        assert!(timeout(Duration::from_secs(1), network1.recv_message())
+            .await
+            .is_err());
         fake_message_eq(sent_message, deserialized_message);
     }
 }
-
 
 #[tokio::test(flavor = "multi_thread")]
 #[instrument]

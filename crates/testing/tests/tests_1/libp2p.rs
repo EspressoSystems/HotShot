@@ -22,7 +22,7 @@ use tracing::instrument;
 #[instrument]
 async fn libp2p_network() {
     hotshot::helpers::initialize_logging();
-    
+
     let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
@@ -53,7 +53,7 @@ async fn libp2p_network() {
 #[instrument]
 async fn libp2p_network_failures_2() {
     hotshot::helpers::initialize_logging();
-    
+
     let mut metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
@@ -101,7 +101,7 @@ async fn libp2p_network_failures_2() {
 #[ignore]
 async fn test_stress_libp2p_network() {
     hotshot::helpers::initialize_logging();
-    
+
     let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> =
         TestDescription::default_stress();
     metadata

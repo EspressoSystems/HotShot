@@ -19,14 +19,13 @@ use tracing::instrument;
 
 /// A run with both the CDN and libp2p functioning properly
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_combined_network() {
     use hotshot_testing::block_builder::SimpleBuilderImplementation;
 
     hotshot::helpers::initialize_logging();
-    
+
     let metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             next_view_timeout: 10_000,
@@ -59,7 +58,7 @@ async fn test_combined_network() {
 #[instrument]
 async fn test_combined_network_cdn_crash() {
     hotshot::helpers::initialize_logging();
-    
+
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             next_view_timeout: 10_000,
@@ -105,7 +104,7 @@ async fn test_combined_network_cdn_crash() {
 #[instrument]
 async fn test_combined_network_reup() {
     hotshot::helpers::initialize_logging();
-    
+
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             next_view_timeout: 10_000,
@@ -156,7 +155,7 @@ async fn test_combined_network_reup() {
 #[instrument]
 async fn test_combined_network_half_dc() {
     hotshot::helpers::initialize_logging();
-    
+
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             next_view_timeout: 10_000,
@@ -230,7 +229,7 @@ fn generate_random_node_changes(
 #[ignore]
 async fn test_stress_combined_network_fuzzy() {
     hotshot::helpers::initialize_logging();
-    
+
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         num_bootstrap_nodes: 10,
         num_nodes_with_stake: 20,

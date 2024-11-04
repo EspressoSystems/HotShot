@@ -16,11 +16,9 @@ use hotshot_types::{
 };
 
 #[cfg(test)]
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_view_sync_task() {
     hotshot::helpers::initialize_logging();
-    
 
     // Build the API for node 5.
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(5)

@@ -127,10 +127,6 @@ impl TestData {
         quote! {
             #[cfg(test)]
             #slow_attribute
-            #[cfg_attr(
-                async_executor_impl = "tokio",
-                tokio::test(flavor = "multi_thread")
-            )]
             #[tokio::test(flavor = "multi_thread")]
             #[tracing::instrument]
             async fn #test_name() {
