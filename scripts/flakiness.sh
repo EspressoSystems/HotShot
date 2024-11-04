@@ -60,7 +60,6 @@ do
     echo "Running iteration ${ITERATION}/${N_ITERATIONS}";
     for RUNTIME in async-std tokio;
     do
-        export RUSTFLAGS="--cfg async_executor_impl=\"${RUNTIME}\" --cfg async_channel_impl=\"${RUNTIME}\" --cfg hotshot_example"
         export CARGO_TARGET_DIR="target_dirs/nix_rustc/{$RUNTIME}"
         if ! cargo nextest run \
             --no-fail-fast \

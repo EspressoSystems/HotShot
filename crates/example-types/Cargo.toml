@@ -37,8 +37,4 @@ hotshot-task = { path = "../task" }
 vbs = { workspace = true }
 url = { workspace = true }
 reqwest = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }

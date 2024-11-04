@@ -18,9 +18,6 @@ jobs:
   test:
     strategy:
       matrix:
-        just_variants:
-          - async-std
-          - tokio
         test_suites:
           - test-ci-1
           - test-ci-2
@@ -41,7 +38,6 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "test"
-          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.test_suites == 'test-ci-rest' }}
 
@@ -55,17 +51,13 @@ jobs:
 
       - name: Unit and integration tests for all crates in workspace
         run: |
-          just ${{ matrix.just_variants }} ${{ matrix.test_suites }}
+          just ${{ matrix.test_suites }}
         timeout-minutes: 60
         env:
           RUST_BACKTRACE: full
 
   test-examples:
     strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -79,7 +71,6 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "examples"
-          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -91,15 +82,11 @@ jobs:
 
       - name: Test examples
         run: |
-          just ${{ matrix.just_variants }} example all-push-cdn -- --config_file ./crates/orchestrator/run-config.toml
+          just example all-push-cdn -- --config_file ./crates/orchestrator/run-config.toml
         timeout-minutes: 20
 
   build-release:
     strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -113,7 +100,6 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "build-release"
-          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
@@ -124,28 +110,24 @@ jobs:
           sudo cp just /usr/bin/just
 
       - name: Build examples in release mode
-        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
+        run: just build_release --examples --package hotshot-examples --no-default-features
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-amd64-${{ matrix.just_variants }}
+          name: binaries-amd64
           path: |
-            target/${{ matrix.just_variants }}/release/examples/counter
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/validator-combined
-            target/${{ matrix.just_variants }}/release/examples/validator-push-cdn
-            target/${{ matrix.just_variants }}/release/examples/orchestrator
-            target/${{ matrix.just_variants }}/release/examples/cdn-broker
-            target/${{ matrix.just_variants }}/release/examples/cdn-marshal
+            target/release/examples/counter
+            target/release/examples/multi-validator-libp2p
+            target/release/examples/validator-libp2p
+            target/release/examples/validator-combined
+            target/release/examples/validator-push-cdn
+            target/release/examples/orchestrator
+            target/release/examples/cdn-broker
+            target/release/examples/cdn-marshal
 
   build-arm-release:
     strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
       fail-fast: false
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     if: ${{ github.ref == 'refs/heads/main' }}
@@ -158,33 +140,28 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "build-arm-release"
-          prefix-key: ${{ matrix.just_variants }}
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build examples in release mode
-        run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features
+        run: just build_release --examples --package hotshot-examples --no-default-features
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-aarch64-${{ matrix.just_variants }}
+          name: binaries-aarch64
           path: |
-            target/${{ matrix.just_variants }}/release/examples/counter
-            target/${{ matrix.just_variants }}/release/examples/multi-validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/validator-libp2p
-            target/${{ matrix.just_variants }}/release/examples/validator-combined
-            target/${{ matrix.just_variants }}/release/examples/validator-push-cdn
-            target/${{ matrix.just_variants }}/release/examples/orchestrator
-            target/${{ matrix.just_variants }}/release/examples/cdn-broker
-            target/${{ matrix.just_variants }}/release/examples/cdn-marshal
+            target/release/examples/counter
+            target/release/examples/multi-validator-libp2p
+            target/release/examples/validator-libp2p
+            target/release/examples/validator-combined
+            target/release/examples/validator-push-cdn
+            target/release/examples/orchestrator
+            target/release/examples/cdn-broker
+            target/release/examples/cdn-marshal
 
   build-dockers:
     strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
       fail-fast: false
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' }}
@@ -207,56 +184,50 @@ jobs:
       - name: Download AMD executables
         uses: actions/download-artifact@v4
         with:
-          name: binaries-amd64-${{ matrix.just_variants }}
-          path: target/${{ matrix.just_variants }}/amd64/release/examples
+          name: binaries-amd64
+          path: target/amd64/release/examples
 
       - name: Download ARM executables
         uses: actions/download-artifact@v4
         with:
-          name: binaries-aarch64-${{ matrix.just_variants }}
-          path: target/${{ matrix.just_variants }}/arm64/release/examples
+          name: binaries-aarch64
+          path: target/arm64/release/examples
 
       - name: Generate validator-libp2p docker metadata
         uses: docker/metadata-action@v5
         id: validator-libp2p
         with:
           images: ghcr.io/espressosystems/hotshot/validator-libp2p
-          flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate validator-combined docker metadata
         uses: docker/metadata-action@v5
         id: validator-combined
         with:
           images: ghcr.io/espressosystems/hotshot/validator-combined
-          flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate validator-push-cdn docker metadata
         uses: docker/metadata-action@v5
         id: validator-push-cdn
         with:
           images: ghcr.io/espressosystems/hotshot/validator-push-cdn
-          flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate orchestrator docker metadata
         uses: docker/metadata-action@v5
         id: orchestrator
         with:
           images: ghcr.io/espressosystems/hotshot/orchestrator
-          flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate cdn-broker docker metadata
         uses: docker/metadata-action@v5
         id: cdn-broker
         with:
           images: ghcr.io/espressosystems/hotshot/cdn-broker
-          flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Generate cdn-marshal docker metadata
         uses: docker/metadata-action@v5
         id: cdn-marshal
         with:
           images: ghcr.io/espressosystems/hotshot/cdn-marshal
-          flavor: suffix=-${{ matrix.just_variants }}
 
       - name: Build and push validator-libp2p docker
         uses: docker/build-push-action@v6
@@ -269,8 +240,6 @@ jobs:
           labels: ${{ steps.validator-libp2p.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-combined docker
         uses: docker/build-push-action@v6
@@ -283,8 +252,6 @@ jobs:
           labels: ${{ steps.validator-combined.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push validator-push-cdn docker
         uses: docker/build-push-action@v6
@@ -297,8 +264,6 @@ jobs:
           labels: ${{ steps.validator-push-cdn.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push orchestrator docker
         uses: docker/build-push-action@v6
@@ -311,8 +276,6 @@ jobs:
           labels: ${{ steps.orchestrator.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-broker docker
         uses: docker/build-push-action@v6
@@ -325,8 +288,6 @@ jobs:
           labels: ${{ steps.cdn-broker.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
 
       - name: Build and push cdn-marshal docker
         uses: docker/build-push-action@v6
@@ -339,5 +300,3 @@ jobs:
           labels: ${{ steps.cdn-marshal.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            ASYNC_EXECUTOR=${{ matrix.just_variants }}
