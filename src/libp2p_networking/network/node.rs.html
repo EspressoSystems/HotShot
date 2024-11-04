@@ -769,11 +769,6 @@
 <a href="#767" id="767">767</a>
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -790,7 +785,6 @@
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     iter,
-    marker::PhantomData,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
 };
@@ -801,7 +795,7 @@
 };
 <span class="kw">use </span>futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 <span class="kw">use </span>hotshot_types::{
-    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::signature_key::SignatureKey,
+    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::node_implementation::NodeType,
 };
 <span class="kw">use </span>libp2p::{
     autonat,
@@ -859,32 +853,29 @@
 
 <span class="doccomment">/// Network definition
 </span><span class="attr">#[derive(custom_debug::Debug)]
-</span><span class="kw">pub struct </span>NetworkNode&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">pub struct </span>NetworkNode&lt;T: NodeType&gt; {
     <span class="doccomment">/// The keypair for the node
     </span>keypair: Keypair,
     <span class="doccomment">/// peer id of network node
     </span>peer_id: PeerId,
     <span class="doccomment">/// the swarm of networkbehaviours
     </span><span class="attr">#[debug(skip)]
-    </span>swarm: Swarm&lt;NetworkDef&lt;K&gt;&gt;,
+    </span>swarm: Swarm&lt;NetworkDef&lt;T::SignatureKey&gt;&gt;,
     <span class="doccomment">/// the configuration parameters of the netework
-    </span>config: NetworkNodeConfig&lt;K&gt;,
+    </span>config: NetworkNodeConfig&lt;T&gt;,
     <span class="doccomment">/// the listener id we are listening on, if it exists
     </span>listener_id: <span class="prelude-ty">Option</span>&lt;ListenerId&gt;,
     <span class="doccomment">/// Handler for direct messages
     </span>direct_message_state: DMBehaviour,
     <span class="doccomment">/// Handler for DHT Events
-    </span>dht_handler: DHTBehaviour&lt;K&gt;,
+    </span>dht_handler: DHTBehaviour&lt;T::SignatureKey&gt;,
     <span class="doccomment">/// Channel to resend requests, set to Some when we call `spawn_listeners`
     </span>resend_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ClientRequest&gt;&gt;,
     <span class="doccomment">/// Send to the bootstrap task to tell it to start a bootstrap
     </span>bootstrap_tx: <span class="prelude-ty">Option</span>&lt;mpsc::Sender&lt;bootstrap::InputEvent&gt;&gt;,
-
-    <span class="doccomment">/// Phantom data to hold the key type
-    </span>pd: PhantomData&lt;K&gt;,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkNode&lt;K&gt; {
+<span class="kw">impl</span>&lt;T: NodeType&gt; NetworkNode&lt;T&gt; {
     <span class="doccomment">/// Returns number of peers this node is connected to
     </span><span class="kw">pub fn </span>num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.swarm.connected_peers().count()
@@ -944,7 +935,7 @@
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     </span><span class="attr">#[instrument]
-    </span><span class="kw">pub async fn </span>new(config: NetworkNodeConfig&lt;K&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkError&gt; {
+    </span><span class="kw">pub async fn </span>new(config: NetworkNodeConfig&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkError&gt; {
         <span class="comment">// Generate a random `KeyPair` if one is not specified
         </span><span class="kw">let </span>keypair = config
             .keypair
@@ -955,7 +946,7 @@
         </span><span class="kw">let </span>peer_id = PeerId::from(keypair.public());
 
         <span class="comment">// Generate the transport from the keypair, stake table, and auth message
-        </span><span class="kw">let </span>transport: BoxedTransport = gen_transport::&lt;K&gt;(
+        </span><span class="kw">let </span>transport: BoxedTransport = gen_transport::&lt;T&gt;(
             keypair.clone(),
             config.stake_table.clone(),
             config.auth_message.clone(),
@@ -963,7 +954,7 @@
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// Generate the swarm
-        </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&lt;K&gt;&gt; = {
+        </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&lt;T::SignatureKey&gt;&gt; = {
             <span class="comment">// Use the `Blake3` hash of the message's contents as the ID
             </span><span class="kw">let </span>message_id_fn = |message: <span class="kw-2">&amp;</span>GossipsubMessage| {
                 <span class="kw">let </span>hash = blake3::hash(<span class="kw-2">&amp;</span>message.data);
@@ -1113,7 +1104,6 @@
             ),
             resend_tx: <span class="prelude-val">None</span>,
             bootstrap_tx: <span class="prelude-val">None</span>,
-            pd: PhantomData,
         })
     }
 

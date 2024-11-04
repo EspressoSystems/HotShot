@@ -200,6 +200,7 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -221,7 +222,7 @@
 <span class="kw">use </span>std::{collections::HashSet, fmt::Debug};
 
 <span class="kw">use </span>futures::channel::oneshot::Sender;
-<span class="kw">use </span>hotshot_types::traits::{network::NetworkError, signature_key::SignatureKey};
+<span class="kw">use </span>hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
 </span><span class="kw">use </span>libp2p::dns::async_std::Transport <span class="kw">as </span>DnsTransport;
 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
@@ -367,9 +368,9 @@
 /// # Errors
 /// If we could not create a DNS transport
 </span><span class="attr">#[instrument(skip(identity))]
-</span><span class="kw">pub async fn </span>gen_transport&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(
+</span><span class="kw">pub async fn </span>gen_transport&lt;T: NodeType&gt;(
     identity: Keypair,
-    stake_table: <span class="prelude-ty">Option</span>&lt;HashSet&lt;K&gt;&gt;,
+    stake_table: <span class="prelude-ty">Option</span>&lt;T::Membership&gt;,
     auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxedTransport, NetworkError&gt; {
     <span class="comment">// Create the initial `Quic` transport
@@ -380,7 +381,8 @@
     };
 
     <span class="comment">// Require authentication against the stake table
-    </span><span class="kw">let </span>transport = StakeTableAuthentication::new(transport, stake_table, auth_message);
+    </span><span class="kw">let </span>transport: StakeTableAuthentication&lt;<span class="kw">_</span>, T, <span class="kw">_</span>&gt; =
+        StakeTableAuthentication::new(transport, stake_table, auth_message);
 
     <span class="comment">// Support DNS resolution
     </span><span class="kw">let </span>transport = {

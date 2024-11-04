@@ -183,7 +183,7 @@
 
 </span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, time::Duration};
 
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
 
@@ -194,7 +194,7 @@
 
 <span class="doccomment">/// describe the configuration of the network
 </span><span class="attr">#[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
-</span><span class="kw">pub struct </span>NetworkNodeConfig&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">pub struct </span>NetworkNodeConfig&lt;T: NodeType&gt; {
     <span class="doccomment">/// The keypair for the node
     </span><span class="attr">#[builder(setter(into, strip_option), default)]
     #[debug(skip)]
@@ -226,7 +226,7 @@
     <span class="doccomment">/// The stake table. Used for authenticating other nodes. If not supplied
     /// we will not check other nodes against the stake table
     </span><span class="attr">#[builder(default)]
-    </span><span class="kw">pub </span>stake_table: <span class="prelude-ty">Option</span>&lt;HashSet&lt;K&gt;&gt;,
+    </span><span class="kw">pub </span>stake_table: <span class="prelude-ty">Option</span>&lt;T::Membership&gt;,
 
     <span class="doccomment">/// The signed authentication message sent to the remote peer
     /// If not supplied we will not send an authentication message during the handshake

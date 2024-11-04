@@ -1231,7 +1231,7 @@
     </span>byte: u8,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; Debug <span class="kw">for </span>Libp2pNetwork&lt;K&gt; {
+<span class="kw">impl</span>&lt;T: NodeType&gt; Debug <span class="kw">for </span>Libp2pNetwork&lt;T&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">"Libp2p"</span>).field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="string">"inner"</span>).finish()
     }
@@ -1242,17 +1242,17 @@
 
 <span class="doccomment">/// The underlying state of the libp2p network
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>Libp2pNetworkInner&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">struct </span>Libp2pNetworkInner&lt;T: NodeType&gt; {
     <span class="doccomment">/// this node's public key
-    </span>pk: K,
+    </span>pk: T::SignatureKey,
     <span class="doccomment">/// handle to control the network
-    </span>handle: Arc&lt;NetworkNodeHandle&lt;K&gt;&gt;,
+    </span>handle: Arc&lt;NetworkNodeHandle&lt;T&gt;&gt;,
     <span class="doccomment">/// Message Receiver
     </span>receiver: UnboundedReceiver&lt;Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// Sender for broadcast messages
     </span>sender: UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
-    </span>node_lookup_send: BoundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;,
+    </span>node_lookup_send: BoundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, T::SignatureKey)&gt;&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     </span>bootstrap_addrs: PeerInfoVec,
@@ -1280,15 +1280,13 @@
 <span class="doccomment">/// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Libp2pNetwork&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">pub struct </span>Libp2pNetwork&lt;T: NodeType&gt; {
     <span class="doccomment">/// holds the state of the libp2p network
-    </span>inner: Arc&lt;Libp2pNetworkInner&lt;K&gt;&gt;,
+    </span>inner: Arc&lt;Libp2pNetworkInner&lt;T&gt;&gt;,
 }
 
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; TestableNetworkingImplementation&lt;TYPES&gt;
-    <span class="kw">for </span>Libp2pNetwork&lt;TYPES::SignatureKey&gt;
-{
+</span><span class="kw">impl</span>&lt;T: NodeType&gt; TestableNetworkingImplementation&lt;T&gt; <span class="kw">for </span>Libp2pNetwork&lt;T&gt; {
     <span class="doccomment">/// Returns a boxed function `f(node_id, public_key) -&gt; Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
     /// Generates `num_bootstrap` bootstrap nodes. The remainder of nodes are normal
@@ -1331,12 +1329,11 @@
                     Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/ip4/127.0.0.1/udp/{port}/quic-v1"</span>)).unwrap();
 
                 <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
-                </span><span class="kw">let </span>privkey =
-                    TYPES::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
-                <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
+                </span><span class="kw">let </span>privkey = T::SignatureKey::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id).<span class="number">1</span>;
+                <span class="kw">let </span>pubkey = T::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
 
                 <span class="comment">// Derive the Libp2p keypair from the private key
-                </span><span class="kw">let </span>libp2p_keypair = derive_libp2p_keypair::&lt;TYPES::SignatureKey&gt;(<span class="kw-2">&amp;</span>privkey)
+                </span><span class="kw">let </span>libp2p_keypair = derive_libp2p_keypair::&lt;T::SignatureKey&gt;(<span class="kw-2">&amp;</span>privkey)
                     .expect(<span class="string">"Failed to derive libp2p keypair"</span>);
 
                 <span class="comment">// Sign the lookup record
@@ -1482,7 +1479,7 @@
     })
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; Libp2pNetwork&lt;K&gt; {
+<span class="kw">impl</span>&lt;T: NodeType&gt; Libp2pNetwork&lt;T&gt; {
     <span class="doccomment">/// Create and return a Libp2p network from a network config file
     /// and various other configuration-specific values.
     ///
@@ -1491,13 +1488,15 @@
     ///
     /// # Panics
     /// If we are unable to calculate the replication factor
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>from_config(
-        <span class="kw-2">mut </span>config: NetworkConfig&lt;K&gt;,
+        <span class="kw-2">mut </span>config: NetworkConfig&lt;T::SignatureKey&gt;,
+        quorum_membership: T::Membership,
         gossip_config: GossipConfig,
         request_response_config: RequestResponseConfig,
         bind_address: Multiaddr,
-        pub_key: <span class="kw-2">&amp;</span>K,
-        priv_key: <span class="kw-2">&amp;</span>K::PrivateKey,
+        pub_key: <span class="kw-2">&amp;</span>T::SignatureKey,
+        priv_key: <span class="kw-2">&amp;</span>&lt;T::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         metrics: Libp2pMetricsValue,
     ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// Try to take our Libp2p config from our broader network config
@@ -1507,7 +1506,7 @@
             .ok_or(<span class="macro">anyhow!</span>(<span class="string">"Libp2p config not supplied"</span>))<span class="question-mark">?</span>;
 
         <span class="comment">// Derive our Libp2p keypair from our supplied private key
-        </span><span class="kw">let </span>keypair = derive_libp2p_keypair::&lt;K&gt;(priv_key)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>keypair = derive_libp2p_keypair::&lt;T::SignatureKey&gt;(priv_key)<span class="question-mark">?</span>;
 
         <span class="comment">// Build our libp2p configuration
         </span><span class="kw">let </span><span class="kw-2">mut </span>config_builder = NetworkNodeConfigBuilder::default();
@@ -1516,21 +1515,14 @@
         </span>config_builder.gossip_config(gossip_config.clone());
         config_builder.request_response_config(request_response_config);
 
-        <span class="comment">// Extrapolate the stake table from the known nodes
-        </span><span class="kw">let </span>stake_table: HashSet&lt;K&gt; = config
-            .config
-            .known_nodes_with_stake
-            .iter()
-            .map(|node| K::public_key(<span class="kw-2">&amp;</span>node.stake_table_entry))
-            .collect();
-
-        <span class="kw">let </span>auth_message =
+        <span class="comment">// Construct the auth message
+        </span><span class="kw">let </span>auth_message =
             construct_auth_message(pub_key, <span class="kw-2">&amp;</span>keypair.public().to_peer_id(), priv_key)
                 .with_context(|| <span class="string">"Failed to construct auth message"</span>)<span class="question-mark">?</span>;
 
         <span class="comment">// Set the auth message and stake table
         </span>config_builder
-            .stake_table(<span class="prelude-val">Some</span>(stake_table))
+            .stake_table(<span class="prelude-val">Some</span>(quorum_membership))
             .auth_message(<span class="prelude-val">Some</span>(auth_message));
 
         <span class="comment">// The replication factor is the minimum of [the default and 2/3 the number of nodes]
@@ -1573,7 +1565,7 @@
 
         <span class="comment">// Insert all known nodes into the set of all keys
         </span><span class="kw">for </span>node <span class="kw">in </span>config.config.known_nodes_with_stake {
-            all_keys.insert(K::public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
+            all_keys.insert(T::SignatureKey::public_key(<span class="kw-2">&amp;</span>node.stake_table_entry));
         }
 
         <span class="prelude-val">Ok</span>(Libp2pNetwork::new(
@@ -1620,14 +1612,14 @@
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>new(
         metrics: Libp2pMetricsValue,
-        config: NetworkNodeConfig&lt;K&gt;,
-        pk: K,
-        lookup_record_value: RecordValue&lt;K&gt;,
+        config: NetworkNodeConfig&lt;T&gt;,
+        pk: T::SignatureKey,
+        lookup_record_value: RecordValue&lt;T::SignatureKey&gt;,
         bootstrap_addrs: BootstrapAddrs,
         id: usize,
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;K&gt;, NetworkError&gt; {
-        <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node::&lt;K&gt;(config.clone(), id)
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;T&gt;, NetworkError&gt; {
+        <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node::&lt;T&gt;(config.clone(), id)
             .<span class="kw">await
             </span>.map_err(|e| NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"failed to spawn network node: {e}"</span>)))<span class="question-mark">?</span>;
 
@@ -1685,7 +1677,10 @@
 
     <span class="doccomment">/// Spawns task for looking up nodes pre-emptively
     </span><span class="attr">#[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
-    </span><span class="kw">fn </span>spawn_node_lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>node_lookup_recv: BoundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;) {
+    </span><span class="kw">fn </span>spawn_node_lookup(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">mut </span>node_lookup_recv: BoundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, T::SignatureKey)&gt;&gt;,
+    ) {
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>dht_timeout = <span class="self">self</span>.inner.dht_timeout;
         <span class="kw">let </span>latest_seen_view = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.latest_seen_view);
@@ -1712,7 +1707,7 @@
     }
 
     <span class="doccomment">/// Initiates connection to the outside world
-    </span><span class="kw">fn </span>spawn_connect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize, lookup_record_value: RecordValue&lt;K&gt;) {
+    </span><span class="kw">fn </span>spawn_connect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: usize, lookup_record_value: RecordValue&lt;T::SignatureKey&gt;) {
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.pk.clone();
         <span class="kw">let </span>bootstrap_ref = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.bootstrap_addrs);
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
@@ -1864,7 +1859,7 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectedNetwork&lt;K&gt; <span class="kw">for </span>Libp2pNetwork&lt;K&gt; {
+</span><span class="kw">impl</span>&lt;T: NodeType&gt; ConnectedNetwork&lt;T::SignatureKey&gt; <span class="kw">for </span>Libp2pNetwork&lt;T&gt; {
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::ready_blocking"</span>, skip_all)]
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
@@ -1953,7 +1948,7 @@
     </span><span class="kw">async fn </span>da_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Vec&lt;u8&gt;,
-        recipients: Vec&lt;K&gt;,
+        recipients: Vec&lt;T::SignatureKey&gt;,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// If we're not ready, return an error
@@ -1983,7 +1978,11 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::direct_message"</span>, skip_all)]
-    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>direct_message(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: Vec&lt;u8&gt;,
+        recipient: T::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// If we're not ready, return an error
         </span><span class="kw">if </span>!<span class="self">self</span>.is_ready() {
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
@@ -2065,11 +2064,12 @@
     }
 
     <span class="attr">#[instrument(name = <span class="string">"Libp2pNetwork::queue_node_lookup"</span>, skip_all)]
+    #[allow(clippy::type_complexity)]
     </span><span class="kw">fn </span>queue_node_lookup(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: ViewNumber,
-        pk: K,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, K)&gt;&gt;&gt; {
+        pk: T::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrySendError&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, T::SignatureKey)&gt;&gt;&gt; {
         <span class="self">self</span>.inner
             .node_lookup_send
             .try_send(<span class="prelude-val">Some</span>((view_number, pk)))
@@ -2089,7 +2089,7 @@
     /// use of the future view and leader to queue the lookups.
     </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, epoch: u64, membership: <span class="kw-2">&amp;</span>TYPES::Membership)
     <span class="kw">where
-        </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,
+        </span>TYPES: NodeType&lt;SignatureKey = T::SignatureKey&gt; + <span class="lifetime">'a</span>,
     {
         <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::View::new(view) + LOOK_AHEAD;
         <span class="kw">let </span>epoch = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch::new(epoch);

@@ -731,10 +731,32 @@
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::HashSet,
     future::Future,
-    hash::BuildHasher,
     io::{Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind},
     pin::Pin,
     sync::Arc,
@@ -744,7 +766,10 @@
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result </span><span class="kw">as </span>AnyhowResult};
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>futures::{future::poll_fn, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-<span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
+<span class="kw">use </span>hotshot_types::traits::{
+    election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
+};
 <span class="kw">use </span>libp2p::{
     core::{muxing::StreamMuxerExt, transport::TransportEvent, StreamMuxer},
     identity::PeerId,
@@ -767,14 +792,13 @@
 /// by performing a handshake that checks if the remote peer is present in the
 /// stake table.
 </span><span class="attr">#[pin_project]
-</span><span class="kw">pub struct </span>StakeTableAuthentication&lt;T: Transport, S: SignatureKey + <span class="lifetime">'static</span>, C: StreamMuxer + Unpin&gt;
-{
+</span><span class="kw">pub struct </span>StakeTableAuthentication&lt;T: Transport, Types: NodeType, C: StreamMuxer + Unpin&gt; {
     <span class="attr">#[pin]
     </span><span class="doccomment">/// The underlying transport we are wrapping
     </span><span class="kw">pub </span>inner: T,
 
     <span class="doccomment">/// The stake table we check against to authenticate connections
-    </span><span class="kw">pub </span>stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;HashSet&lt;S&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Types::Membership&gt;&gt;,
 
     <span class="doccomment">/// A pre-signed message that we send to the remote peer for authentication
     </span><span class="kw">pub </span>auth_message: Arc&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;,
@@ -787,10 +811,14 @@
 </span><span class="kw">type </span>UpgradeFuture&lt;T&gt; =
     Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;&lt;T <span class="kw">as </span>Transport&gt;::Output, &lt;T <span class="kw">as </span>Transport&gt;::Error&gt;&gt; + Send&gt;&gt;;
 
-<span class="kw">impl</span>&lt;T: Transport, S: SignatureKey, C: StreamMuxer + Unpin&gt; StakeTableAuthentication&lt;T, S, C&gt; {
+<span class="kw">impl</span>&lt;T: Transport, Types: NodeType, C: StreamMuxer + Unpin&gt; StakeTableAuthentication&lt;T, Types, C&gt; {
     <span class="doccomment">/// Create a new `StakeTableAuthentication` transport that wraps the given transport
     /// and authenticates connections against the stake table.
-    </span><span class="kw">pub fn </span>new(inner: T, stake_table: <span class="prelude-ty">Option</span>&lt;HashSet&lt;S&gt;&gt;, auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(
+        inner: T,
+        stake_table: <span class="prelude-ty">Option</span>&lt;Types::Membership&gt;,
+        auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             inner,
             stake_table: Arc::from(stake_table),
@@ -831,9 +859,9 @@
     /// - The message is invalid
     /// - The peer is not in the stake table
     /// - The signature is invalid
-    </span><span class="kw">pub async fn </span>verify_peer_authentication&lt;R: AsyncReadExt + Unpin, H: BuildHasher&gt;(
+    </span><span class="kw">pub async fn </span>verify_peer_authentication&lt;R: AsyncReadExt + Unpin&gt;(
         stream: <span class="kw-2">&amp;mut </span>R,
-        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;HashSet&lt;S, H&gt;&gt;&gt;,
+        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Types::Membership&gt;&gt;,
         required_peer_id: <span class="kw-2">&amp;</span>PeerId,
     ) -&gt; AnyhowResult&lt;()&gt; {
         <span class="comment">// If we have a stake table, check if the remote peer is in it
@@ -842,7 +870,7 @@
             </span><span class="kw">let </span>message = read_length_delimited(stream, MAX_AUTH_MESSAGE_SIZE).<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="comment">// Deserialize the authentication message
-            </span><span class="kw">let </span>auth_message: AuthMessage&lt;S&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>message)
+            </span><span class="kw">let </span>auth_message: AuthMessage&lt;Types::SignatureKey&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>message)
                 .with_context(|| <span class="string">"Failed to deserialize auth message"</span>)<span class="question-mark">?</span>;
 
             <span class="comment">// Verify the signature on the public keys
@@ -860,7 +888,7 @@
             }
 
             <span class="comment">// Check if the public key is in the stake table
-            </span><span class="kw">if </span>!stake_table.contains(<span class="kw-2">&amp;</span>public_key) {
+            </span><span class="kw">if </span>!stake_table.has_stake(<span class="kw-2">&amp;</span>public_key, Types::Epoch::new(<span class="number">0</span>)) {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"Peer not in stake table"</span>));
             }
         }
@@ -875,7 +903,7 @@
     </span><span class="kw">fn </span>gen_handshake&lt;F: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T::Output, T::Error&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
         original_future: F,
         outgoing: bool,
-        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;HashSet&lt;S&gt;&gt;&gt;,
+        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Types::Membership&gt;&gt;,
         auth_message: Arc&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;,
     ) -&gt; UpgradeFuture&lt;T&gt;
     <span class="kw">where
@@ -1019,8 +1047,8 @@
     </span>bincode::serialize(<span class="kw-2">&amp;</span>auth_message).with_context(|| <span class="string">"Failed to serialize auth message"</span>)
 }
 
-<span class="kw">impl</span>&lt;T: Transport, S: SignatureKey + <span class="lifetime">'static</span>, C: StreamMuxer + Unpin&gt; Transport
-    <span class="kw">for </span>StakeTableAuthentication&lt;T, S, C&gt;
+<span class="kw">impl</span>&lt;T: Transport, Types: NodeType, C: StreamMuxer + Unpin&gt; Transport
+    <span class="kw">for </span>StakeTableAuthentication&lt;T, Types, C&gt;
 <span class="kw">where
     </span>T::Dial: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T::Output, T::Error&gt;&gt; + Send + <span class="lifetime">'static</span>,
     T::ListenerUpgrade: Send + <span class="lifetime">'static</span>,
@@ -1246,16 +1274,22 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
-    <span class="kw">use </span>std::{collections::HashSet, sync::Arc};
+    <span class="kw">use </span>std::sync::Arc;
 
-    <span class="kw">use </span>hotshot_types::{signature_key::BLSPubKey, traits::signature_key::SignatureKey};
+    <span class="kw">use </span>hotshot_types::{
+        light_client::StateVerKey,
+        signature_key::BLSPubKey,
+        traits::{network::Topic, signature_key::SignatureKey},
+        PeerConfig,
+    };
     <span class="kw">use </span>libp2p::{core::transport::dummy::DummyTransport, quic::Connection};
     <span class="kw">use </span>rand::Rng;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
 
     <span class="doccomment">/// A mock type to help with readability
-    </span><span class="kw">type </span>MockStakeTableAuth = StakeTableAuthentication&lt;DummyTransport, BLSPubKey, Connection&gt;;
+    </span><span class="kw">type </span>MockStakeTableAuth = StakeTableAuthentication&lt;DummyTransport, TestTypes, Connection&gt;;
 
     <span class="comment">// Helper macro for generating a new identity and authentication message
     </span><span class="macro">macro_rules!</span> new_identity {
@@ -1362,8 +1396,15 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="macro">cursor_from!</span>(auth_message);
 
         <span class="comment">// Create a stake table with the key
-        </span><span class="kw">let </span><span class="kw-2">mut </span>stake_table = std::collections::HashSet::new();
-        stake_table.insert(keypair.<span class="number">0</span>);
+        </span><span class="kw">let </span>peer_config = PeerConfig {
+            stake_table_entry: keypair.<span class="number">0</span>.stake_table_entry(<span class="number">1</span>),
+            state_ver_key: StateVerKey::default(),
+        };
+        <span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
+            <span class="macro">vec!</span>[peer_config.clone()],
+            <span class="macro">vec!</span>[peer_config],
+            Topic::Global,
+        );
 
         <span class="comment">// Verify the authentication message
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
@@ -1389,7 +1430,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="macro">cursor_from!</span>(auth_message);
 
         <span class="comment">// Create an empty stake table
-        </span><span class="kw">let </span>stake_table: HashSet&lt;BLSPubKey&gt; = std::collections::HashSet::new();
+        </span><span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[], <span class="macro">vec!</span>[], Topic::Global);
 
         <span class="comment">// Verify the authentication message
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
@@ -1422,8 +1463,15 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="macro">cursor_from!</span>(auth_message);
 
         <span class="comment">// Create a stake table with the key
-        </span><span class="kw">let </span><span class="kw-2">mut </span>stake_table: HashSet&lt;BLSPubKey&gt; = std::collections::HashSet::new();
-        stake_table.insert(keypair.<span class="number">0</span>);
+        </span><span class="kw">let </span>peer_config = PeerConfig {
+            stake_table_entry: keypair.<span class="number">0</span>.stake_table_entry(<span class="number">1</span>),
+            state_ver_key: StateVerKey::default(),
+        };
+        <span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
+            <span class="macro">vec!</span>[peer_config.clone()],
+            <span class="macro">vec!</span>[peer_config],
+            Topic::Global,
+        );
 
         <span class="comment">// Check against the malicious peer ID
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(

@@ -611,7 +611,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
         primary_network: PushCdnNetwork&lt;TYPES::SignatureKey&gt;,
-        secondary_network: Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
+        secondary_network: Libp2pNetwork&lt;TYPES&gt;,
         delay_duration: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="comment">// Create networks from the ones passed in
@@ -643,7 +643,7 @@
 
     <span class="doccomment">/// Get a ref to the backup network
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>secondary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Libp2pNetwork&lt;TYPES::SignatureKey&gt; {
+    </span><span class="kw">pub fn </span>secondary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Libp2pNetwork&lt;TYPES&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.networks.<span class="number">1
     </span>}
 
@@ -767,7 +767,7 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>UnderlyingCombinedNetworks&lt;TYPES: NodeType&gt;(
     <span class="kw">pub </span>PushCdnNetwork&lt;TYPES::SignatureKey&gt;,
-    <span class="kw">pub </span>Libp2pNetwork&lt;TYPES::SignatureKey&gt;,
+    <span class="kw">pub </span>Libp2pNetwork&lt;TYPES&gt;,
 );
 
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -789,7 +789,7 @@
                 <span class="prelude-val">None</span>,
                 Duration::default(),
             ),
-            &lt;Libp2pNetwork&lt;TYPES::SignatureKey&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
+            &lt;Libp2pNetwork&lt;TYPES&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;TYPES&gt;&gt;::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -813,7 +813,7 @@
                 <span class="comment">// Combine the two
                 </span><span class="kw">let </span>underlying_combined = UnderlyingCombinedNetworks(
                     cdn.clone(),
-                    Arc::&lt;Libp2pNetwork&lt;TYPES::SignatureKey&gt;&gt;::unwrap_or_clone(p2p),
+                    Arc::&lt;Libp2pNetwork&lt;TYPES&gt;&gt;::unwrap_or_clone(p2p),
                 );
 
                 <span class="comment">// We want to use the same message cache between the two networks

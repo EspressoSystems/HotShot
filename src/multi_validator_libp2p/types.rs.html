@@ -45,7 +45,7 @@
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestTypes,
     storage_types::TestStorage,
 };
-<span class="kw">use </span>hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">crate</span>::infra::Libp2pDaRun;
@@ -55,7 +55,7 @@
 </span><span class="kw">pub struct </span>NodeImpl {}
 
 <span class="doccomment">/// Convenience type alias
-</span><span class="kw">pub type </span>Network = Libp2pNetwork&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
+</span><span class="kw">pub type </span>Network = Libp2pNetwork&lt;TestTypes&gt;;
 
 <span class="kw">impl </span>NodeImplementation&lt;TestTypes&gt; <span class="kw">for </span>NodeImpl {
     <span class="kw">type </span>Network = Network;
