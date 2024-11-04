@@ -11,10 +11,7 @@ use std::{
 };
 
 use async_broadcast::{InactiveReceiver, Receiver, SendError, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use chrono::Utc;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
@@ -35,8 +32,8 @@ use hotshot_types::{
     utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
+use tokio::{spawn, time::sleep};
+use tokio::{task::JoinHandle, time::timeout};
 use tracing::instrument;
 use utils::anytrace::*;
 
@@ -85,7 +82,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
-        async_timeout(REQUEST_TIMEOUT, async move {
+        timeout(REQUEST_TIMEOUT, async move {
             // We want to iterate until the proposal is not None, or until we reach the timeout.
             let mut proposal = None;
             while proposal.is_none() {
@@ -711,14 +708,14 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     };
 
     // Spawn a timeout task if we did actually update view
-    let new_timeout_task = async_spawn({
+    let new_timeout_task = spawn({
         let stream = event_stream.clone();
         // Nuance: We timeout on the view + 1 here because that means that we have
         // not seen evidence to transition to this new view
         let view_number = next_view;
         let timeout = Duration::from_millis(task_state.timeout);
         async move {
-            async_sleep(timeout).await;
+            sleep(timeout).await;
             broadcast_event(
                 Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
                 &stream,
@@ -773,9 +770,6 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
 /// Cancel a task
 pub async fn cancel_task<T>(task: JoinHandle<T>) {
-    #[cfg(async_executor_impl = "async-std")]
-    task.cancel().await;
-    #[cfg(async_executor_impl = "tokio")]
     task.abort();
 }
 

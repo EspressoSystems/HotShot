@@ -10,8 +10,6 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
@@ -27,7 +25,6 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use utils::anytrace::{bail, Result};
@@ -167,9 +164,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
                 break;
             };
             for handle in handles {
-                #[cfg(async_executor_impl = "async-std")]
-                handle.cancel().await;
-                #[cfg(async_executor_impl = "tokio")]
                 handle.abort();
             }
         }

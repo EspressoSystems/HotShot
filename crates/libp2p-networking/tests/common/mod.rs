@@ -13,12 +13,6 @@ use std::{
     time::Duration,
 };
 
-use async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
-    async_primitives::subscribable_mutex::SubscribableMutex,
-    channel::bounded,
-    logging::{setup_backtrace, setup_logging},
-};
 use futures::{future::join_all, Future, FutureExt};
 use hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 use libp2p::Multiaddr;
@@ -28,12 +22,18 @@ use libp2p_networking::network::{
     NetworkNodeReceiver,
 };
 use thiserror::Error;
+use tokio::{
+    select, spawn,
+    sync::{mpsc::channel, Mutex},
+    time::sleep,
+};
 use tracing::{instrument, warn};
+use tracing_subscriber::EnvFilter;
 
 #[derive(Clone, Debug)]
 pub(crate) struct HandleWithState<S: Debug + Default + Send, T: NodeType> {
     pub(crate) handle: Arc<NetworkNodeHandle<T>>,
-    pub(crate) state: Arc<SubscribableMutex<S>>,
+    pub(crate) state: Arc<Mutex<S>>,
 }
 
 /// Spawn a handler `F` that will be notified every time a new [`NetworkEvent`] arrives.
@@ -51,19 +51,18 @@ where
     RET: Future<Output = Result<(), NetworkError>> + Send + 'static,
     S: Debug + Default + Send + Clone + 'static,
 {
-    async_spawn(async move {
+    spawn(async move {
         let Some(mut kill_switch) = receiver.take_kill_switch() else {
             tracing::error!(
                 "`spawn_handle` was called on a network handle that was already closed"
             );
             return;
         };
-        let mut next_msg = receiver.recv().boxed();
-        let mut kill_switch = kill_switch.recv().boxed();
+
         loop {
-            match futures::future::select(next_msg, kill_switch).await {
-                futures::future::Either::Left((incoming_message, other_stream)) => {
-                    let incoming_message = match incoming_message {
+            select! {
+                msg = receiver.recv() => {
+                    let incoming_message = match msg {
                         Ok(msg) => msg,
                         Err(e) => {
                             tracing::warn!(?e, "NetworkNodeHandle::spawn_handle was unable to receive more messages");
@@ -74,13 +73,9 @@ where
                         tracing::error!(?e, "NetworkNodeHandle::spawn_handle returned an error");
                         return;
                     }
-
-                    // re-set the `kill_switch` for the next loop
-                    kill_switch = other_stream;
-                    // re-set `receiver.recv()` for the next loop
-                    next_msg = receiver.recv().boxed();
                 }
-                futures::future::Either::Right(_) => {
+
+                _ = kill_switch.recv() => {
                     return;
                 }
             }
@@ -108,8 +103,10 @@ pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G, F
     F: FnOnce(Vec<HandleWithState<S, T>>, Duration) -> FutF,
     G: Fn(NetworkEvent, HandleWithState<S, T>) -> FutG + 'static + Send + Sync + Clone,
 {
-    setup_logging();
-    setup_backtrace();
+    // Initialize logging
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     let mut kill_switches = Vec::new();
     // NOTE we want this to panic if we can't spin up the swarms.
@@ -119,7 +116,7 @@ pub async fn test_bed<S: 'static + Send + Default + Debug + Clone, F, FutF, G, F
     let (handles, receivers): (Vec<_>, Vec<_>) = handles_and_receivers.into_iter().unzip();
     let mut handler_futures = Vec::new();
     for (i, mut rx) in receivers.into_iter().enumerate() {
-        let (kill_tx, kill_rx) = bounded(1);
+        let (kill_tx, kill_rx) = channel(1);
         let handle = &handles[i];
         kill_switches.push(kill_tx);
         rx.set_kill_switch(kill_rx);
@@ -208,7 +205,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, T: NodeType>(
         connecting_futs.push({
             let node = Arc::clone(&node);
             async move {
-                node.begin_bootstrap().await?;
+                node.begin_bootstrap()?;
                 node.lookup_pid(PeerId::random()).await
             }
             .boxed_local()
@@ -225,7 +222,6 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, T: NodeType>(
         handle
             .handle
             .add_known_peers(to_share)
-            .await
             .map_err(|e| TestError::HandleError(format!("failed to add known peers: {e}")))?;
     }
 
@@ -248,7 +244,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, T: NodeType>(
             .map_err(|e| TestError::HandleError(format!("failed to subscribe: {e}")))?;
     }
 
-    async_sleep(Duration::from_secs(5)).await;
+    sleep(Duration::from_secs(5)).await;
 
     Ok(handles)
 }

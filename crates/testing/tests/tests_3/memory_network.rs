@@ -7,7 +7,7 @@
 #![allow(clippy::panic)]
 use std::{sync::Arc, time::Duration};
 
-use async_compatibility_layer::{art::async_timeout, logging::setup_logging};
+use tokio::time::timeout;
 use hotshot::{
     traits::{
         election::static_committee::StaticCommittee,
@@ -120,22 +120,22 @@ fn gen_messages(num_messages: u64, seed: u64, pk: BLSPubKey) -> Vec<Message<Test
 }
 
 // Spawning a single MemoryNetwork should produce no errors
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_spawn_single() {
-    setup_logging();
+    hotshot::helpers::initialize_logging();
     let group: Arc<MasterMap<<Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
     let _pub_key = pubkey();
 }
 
 // // Spawning a two MemoryNetworks and connecting them should produce no errors
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_spawn_double() {
-    setup_logging();
+    hotshot::helpers::initialize_logging();
     let group: Arc<MasterMap<<Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);
     let _pub_key_1 = pubkey();
@@ -143,11 +143,11 @@ async fn memory_network_spawn_double() {
 }
 
 // Check to make sure direct queue works
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_direct_queue() {
-    setup_logging();
+    hotshot::helpers::initialize_logging();
     // Create some dummy messages
 
     // Make and connect the networking instances
@@ -178,7 +178,7 @@ async fn memory_network_direct_queue() {
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
         assert!(
-            async_timeout(Duration::from_secs(1), network2.recv_message())
+            timeout(Duration::from_secs(1), network2.recv_message())
                 .await
                 .is_err()
         );
@@ -201,7 +201,7 @@ async fn memory_network_direct_queue() {
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
         assert!(
-            async_timeout(Duration::from_secs(1), network1.recv_message())
+            timeout(Duration::from_secs(1), network1.recv_message())
                 .await
                 .is_err()
         );
@@ -210,8 +210,8 @@ async fn memory_network_direct_queue() {
 }
 
 // Check to make sure direct queue works
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn memory_network_broadcast_queue() {
     // Make and connect the networking instances
@@ -239,7 +239,7 @@ async fn memory_network_broadcast_queue() {
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
         assert!(
-            async_timeout(Duration::from_secs(1), network2.recv_message())
+            timeout(Duration::from_secs(1), network2.recv_message())
                 .await
                 .is_err()
         );
@@ -266,7 +266,7 @@ async fn memory_network_broadcast_queue() {
             .expect("Failed to receive message");
         let deserialized_message = upgrade_lock.deserialize(&recv_message).await.unwrap();
         assert!(
-            async_timeout(Duration::from_secs(1), network1.recv_message())
+            timeout(Duration::from_secs(1), network1.recv_message())
                 .await
                 .is_err()
         );
@@ -274,12 +274,12 @@ async fn memory_network_broadcast_queue() {
     }
 }
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[allow(deprecated)]
 async fn memory_network_test_in_flight_message_count() {
-    setup_logging();
+    hotshot::helpers::initialize_logging();
 
     let group: Arc<MasterMap<<Test as NodeType>::SignatureKey>> = MasterMap::new();
     trace!(?group);

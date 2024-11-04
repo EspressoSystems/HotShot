@@ -17,7 +17,6 @@ test-srs = ["jf-vid/test-srs"]
 automod = "1.0.14"
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 bitvec = { workspace = true }
@@ -51,9 +50,4 @@ vec1 = { workspace = true }
 reqwest = { workspace = true }
 url = { workspace = true }
 itertools = "0.13.0"
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }

@@ -7,7 +7,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
@@ -30,6 +29,7 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
+use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
 
@@ -281,7 +281,7 @@ impl<
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
         let consensus = Arc::clone(&self.consensus);
-        async_spawn(async move {
+        spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
                 storage,
@@ -640,7 +640,7 @@ impl<
         let storage = Arc::clone(&self.storage);
         let consensus = Arc::clone(&self.consensus);
         let upgrade_lock = self.upgrade_lock.clone();
-        async_spawn(async move {
+        spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 maybe_action,
                 Arc::clone(&storage),

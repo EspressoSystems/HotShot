@@ -10,7 +10,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::{InactiveReceiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
@@ -25,6 +24,7 @@ use hotshot_types::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
+use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
@@ -264,7 +264,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
             let upgrade_lock = self.upgrade_lock.clone();
             let rx = event_receiver.clone();
-            async_spawn(async move {
+            spawn(async move {
                 fetch_proposal(
                     high_qc_view_number,
                     event_sender,

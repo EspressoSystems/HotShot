@@ -14,6 +14,6 @@ echo "Argument 2: $2"
 fixed_leader_for_gpuvid="$1"
 orchestrator_url="$2"
 
-just async_std example_gpuvid_leader multi-validator-push-cdn -- $fixed_leader_for_gpuvid $orchestrator_url &
+just example_gpuvid_leader multi-validator-push-cdn -- $fixed_leader_for_gpuvid $orchestrator_url &
 
                                 

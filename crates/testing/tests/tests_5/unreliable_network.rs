@@ -18,12 +18,12 @@ use hotshot_types::traits::network::{
 };
 use tracing::instrument;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn libp2p_network_sync() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
@@ -49,8 +49,8 @@ async fn libp2p_network_sync() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_memory_network_sync() {
     use std::time::Duration;
 
@@ -60,8 +60,8 @@ async fn test_memory_network_sync() {
         test_builder::TestDescription,
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
@@ -82,13 +82,13 @@ async fn test_memory_network_sync() {
         .await;
 }
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 #[instrument]
 async fn libp2p_network_async() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
@@ -122,9 +122,9 @@ async fn libp2p_network_async() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+
 #[ignore]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_memory_network_async() {
     use std::time::Duration;
 
@@ -134,8 +134,8 @@ async fn test_memory_network_async() {
         test_builder::TestDescription,
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
@@ -169,8 +169,8 @@ async fn test_memory_network_async() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_memory_network_partially_sync() {
     use std::time::Duration;
 
@@ -180,8 +180,8 @@ async fn test_memory_network_partially_sync() {
         test_builder::TestDescription,
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             num_failed_views: 0,
@@ -220,12 +220,12 @@ async fn test_memory_network_partially_sync() {
         .await;
 }
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn libp2p_network_partially_sync() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             num_failed_views: 0,
@@ -261,9 +261,9 @@ async fn libp2p_network_partially_sync() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
+
 #[ignore]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_memory_network_chaos() {
     use std::time::Duration;
 
@@ -273,8 +273,8 @@ async fn test_memory_network_chaos() {
         test_builder::TestDescription,
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, MemoryImpl, TestVersions> = TestDescription {
         // allow more time to pass in CI
         completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
@@ -299,13 +299,13 @@ async fn test_memory_network_chaos() {
         .await;
 }
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 #[instrument]
 async fn libp2p_network_chaos() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
+    
     let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,

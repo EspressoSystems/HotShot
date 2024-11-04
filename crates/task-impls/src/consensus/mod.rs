@@ -8,8 +8,6 @@ use std::sync::Arc;
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -23,7 +21,6 @@ use hotshot_types::{
         signature_key::SignatureKey,
     },
 };
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::Result;

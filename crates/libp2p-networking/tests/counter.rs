@@ -9,10 +9,7 @@
 mod common;
 use std::{fmt::Debug, sync::Arc, time::Duration};
 
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::prelude::StreamExt;
 use common::{test_bed, HandleWithState, TestError};
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::traits::{
@@ -24,13 +21,14 @@ use libp2p_networking::network::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-#[cfg(async_executor_impl = "tokio")]
-use tokio_stream::StreamExt;
+use tokio::{
+    spawn,
+    task::JoinSet,
+    time::{sleep, Instant},
+};
 use tracing::{debug, error, info, instrument, warn};
 
 use crate::common::print_connections;
-#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 pub type CounterState = u32;
 
@@ -87,18 +85,17 @@ pub async fn counter_handle_network_event<T: NodeType>(
                 match msg {
                     // direct message only
                     MyCounterIs(c) => {
-                        handle.state.modify(|s| *s = c).await;
+                        *handle.state.lock().await = c;
                     }
                     // gossip message only
                     IncrementCounter { from, to, .. } => {
-                        handle
-                            .state
-                            .modify(|s| {
-                                if *s == from {
-                                    *s = to;
-                                }
-                            })
-                            .await;
+                        let mut state_lock = handle.state.lock().await;
+
+                        if *state_lock == from {
+                            *state_lock = to;
+                        }
+
+                        drop(state_lock);
                     }
                     // only as a response
                     AskForCounter | Noop => {}
@@ -112,47 +109,37 @@ pub async fn counter_handle_network_event<T: NodeType>(
                 match msg {
                     // direct message request
                     IncrementCounter { from, to, .. } => {
-                        handle
-                            .state
-                            .modify(|s| {
-                                if *s == from {
-                                    *s = to;
-                                }
-                            })
-                            .await;
-                        handle
-                            .handle
-                            .direct_response(
-                                chan,
-                                &bincode::serialize(&CounterMessage::Noop).unwrap(),
-                            )
-                            .await?;
+                        let mut state_lock = handle.state.lock().await;
+
+                        if *state_lock == from {
+                            *state_lock = to;
+                        }
+
+                        drop(state_lock);
+
+                        handle.handle.direct_response(
+                            chan,
+                            &bincode::serialize(&CounterMessage::Noop).unwrap(),
+                        )?;
                     }
                     // direct message response
                     AskForCounter => {
-                        let response = MyCounterIs(handle.state.copied().await);
+                        let response = MyCounterIs(*handle.state.lock().await);
                         handle
                             .handle
-                            .direct_response(chan, &bincode::serialize(&response).unwrap())
-                            .await?;
+                            .direct_response(chan, &bincode::serialize(&response).unwrap())?;
                     }
                     MyCounterIs(_) => {
-                        handle
-                            .handle
-                            .direct_response(
-                                chan,
-                                &bincode::serialize(&CounterMessage::Noop).unwrap(),
-                            )
-                            .await?;
+                        handle.handle.direct_response(
+                            chan,
+                            &bincode::serialize(&CounterMessage::Noop).unwrap(),
+                        )?;
                     }
                     Noop => {
-                        handle
-                            .handle
-                            .direct_response(
-                                chan,
-                                &bincode::serialize(&CounterMessage::Noop).unwrap(),
-                            )
-                            .await?;
+                        handle.handle.direct_response(
+                            chan,
+                            &bincode::serialize(&CounterMessage::Noop).unwrap(),
+                        )?;
                     }
                 }
             }
@@ -172,35 +159,52 @@ async fn run_request_response_increment<'a, T: NodeType>(
     timeout: Duration,
 ) -> Result<(), TestError<CounterState>> {
     async move {
-        let new_state = requestee_handle.state.copied().await;
-
-        // set up state change listener
-        #[cfg(async_executor_impl = "async-std")]
-        let mut stream = requester_handle.state.wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
-        #[cfg(async_executor_impl = "tokio")]
-        let mut stream = Box::pin(
-            requester_handle.state.wait_timeout_until_with_trigger(timeout, move |state| *state == new_state),
-        );
-        #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-        compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
-
+        let new_state = *requestee_handle.state.lock().await;
         let requestee_pid = requestee_handle.handle.peer_id();
 
-        match stream.next().await.unwrap() {
-            Ok(()) => {}
-            Err(e) => {error!("timed out waiting for {requestee_pid:?} to update state: {e}");
-            std::process::exit(-1)},
-        }
-        requester_handle.handle
-            .direct_request(requestee_pid, &bincode::serialize(&CounterMessage::AskForCounter).unwrap())
-            .await
-            .map_err(|e| TestError::HandleError(format!("failed to send direct request: {e}")))?;
-        match stream.next().await.unwrap() {
-            Ok(()) => {}
-            Err(e) => {error!("timed out waiting for {requestee_pid:?} to update state: {e}");
-            std::process::exit(-1)},        }
+        let state_ = Arc::clone(&requestee_handle.state);
+        let stream = spawn(async move {
+            let now = Instant::now();
+            while Instant::now() - now < timeout {
+                if *state_.lock().await == new_state {
+                    return true;
+                }
+                sleep(Duration::from_millis(100)).await;
+            }
+            false
+        });
 
-        let s1 = requester_handle.state.copied().await;
+        if !stream.await.unwrap() {
+            error!("timed out waiting for {requestee_pid:?} to update state");
+            std::process::exit(-1);
+        }
+
+        let state_ = Arc::clone(&requestee_handle.state);
+        let stream = spawn(async move {
+            let now = Instant::now();
+            while Instant::now() - now < timeout {
+                if *state_.lock().await == new_state {
+                    return true;
+                }
+                sleep(Duration::from_millis(100)).await;
+            }
+            false
+        });
+
+        requester_handle
+            .handle
+            .direct_request(
+                requestee_pid,
+                &bincode::serialize(&CounterMessage::AskForCounter).unwrap(),
+            )
+            .map_err(|e| TestError::HandleError(format!("failed to send direct request: {e}")))?;
+
+        if !stream.await.unwrap() {
+            error!("timed out waiting for {requestee_pid:?} to update state");
+            std::process::exit(-1);
+        }
+
+        let s1 = *requester_handle.state.lock().await;
 
         // sanity check
         if s1 == new_state {
@@ -226,35 +230,40 @@ async fn run_gossip_round<T: NodeType>(
 ) -> Result<(), TestError<CounterState>> {
     let mut rng = rand::thread_rng();
     let msg_handle = random_handle(handles, &mut rng);
-    msg_handle.state.modify(|s| *s = new_state).await;
+    *msg_handle.state.lock().await = new_state;
 
-    let mut futs = Vec::new();
+    let mut join_set = JoinSet::new();
 
     let len = handles.len();
     for handle in handles {
         // already modified, so skip msg_handle
         if handle.handle.peer_id() != msg_handle.handle.peer_id() {
-            let stream = handle
-                .state
-                .wait_timeout_until_with_trigger(timeout_duration, |state| *state == new_state);
-            futs.push(Box::pin(stream));
+            let state_ = Arc::clone(&handle.state);
+            let stream = spawn(async move {
+                let now = Instant::now();
+                while Instant::now() - now < timeout_duration {
+                    if *state_.lock().await == new_state {
+                        return true;
+                    }
+                    sleep(Duration::from_millis(100)).await;
+                }
+                false
+            });
+
+            join_set.spawn(stream);
         }
     }
 
-    #[cfg(async_executor_impl = "async-std")]
-    let mut merged_streams = futures::stream::select_all(futs);
-    #[cfg(async_executor_impl = "tokio")]
-    let mut merged_streams = Box::pin(futures::stream::select_all(futs));
-    #[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-    compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
-
     // make sure all are ready/listening
     for i in 0..len - 1 {
-        // unwrap is okay because stream must have 2 * (len - 1) elements
-        match merged_streams.next().await.unwrap() {
-            Ok(()) => {}
-            Err(e) => {
-                error!("timed out waiting for handle {i:?} to subscribe to state events: {e}");
+        match join_set.join_next().await.unwrap() {
+            Ok(Ok(true)) => {}
+            Ok(Ok(false)) => {
+                error!("timed out waiting for handle {i:?} to subscribe to state events");
+                std::process::exit(-1)
+            }
+            _ => {
+                error!("error joining on stream");
                 std::process::exit(-1)
             }
         }
@@ -263,18 +272,15 @@ async fn run_gossip_round<T: NodeType>(
     msg_handle
         .handle
         .gossip("global".to_string(), &bincode::serialize(&msg).unwrap())
-        .await
         .map_err(|e| TestError::HandleError(format!("failed to gossip: {e}")))?;
 
     for _ in 0..len - 1 {
-        // wait for all events to finish
-        // then check for failures
-        let _ = merged_streams.next().await;
+        let _ = join_set.join_next().await.unwrap();
     }
 
     let mut failing = Vec::new();
     for handle in handles {
-        let handle_state = handle.state.copied().await;
+        let handle_state = *handle.state.lock().await;
         if handle_state != new_state {
             failing.push(handle.handle.id());
             println!("state: {handle_state:?}, expected: {new_state:?}");
@@ -305,7 +311,7 @@ async fn run_intersperse_many_rounds<T: NodeType>(
         }
     }
     for h in handles {
-        assert_eq!(h.state.copied().await, u32::try_from(NUM_ROUNDS).unwrap());
+        assert_eq!(*h.state.lock().await, u32::try_from(NUM_ROUNDS).unwrap());
     }
 }
 
@@ -331,7 +337,7 @@ async fn run_request_response_many_rounds<T: NodeType>(
         run_request_response_increment_all(&handles, timeout).await;
     }
     for h in handles {
-        assert_eq!(h.state.copied().await, u32::try_from(NUM_ROUNDS).unwrap());
+        assert_eq!(*h.state.lock().await, u32::try_from(NUM_ROUNDS).unwrap());
     }
 }
 
@@ -344,7 +350,7 @@ async fn run_request_response_one_round<T: NodeType>(
 ) {
     run_request_response_increment_all(&handles, timeout).await;
     for h in handles {
-        assert_eq!(h.state.copied().await, 1);
+        assert_eq!(*h.state.lock().await, 1);
     }
 }
 
@@ -458,7 +464,7 @@ async fn run_request_response_increment_all<T: NodeType>(
 ) {
     let mut rng = rand::thread_rng();
     let requestee_handle = random_handle(handles, &mut rng);
-    requestee_handle.state.modify(|s| *s += 1).await;
+    *requestee_handle.state.lock().await += 1;
     info!("RR REQUESTEE IS {:?}", requestee_handle.handle.peer_id());
     let mut futs = Vec::new();
     for handle in handles {
@@ -492,7 +498,7 @@ async fn run_request_response_increment_all<T: NodeType>(
     for _ in 0..futs.len() {
         let fut = futs.pop().unwrap();
         let results = Arc::clone(&results);
-        async_spawn(async move {
+        spawn(async move {
             let res = fut.await;
             results.write().await.push(res);
         });
@@ -503,7 +509,7 @@ async fn run_request_response_increment_all<T: NodeType>(
             break;
         }
         info!("NUMBER OF RESULTS for increment all is: {}", l);
-        async_sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(1)).await;
     }
 
     if results.read().await.iter().any(Result::is_err) {
@@ -515,7 +521,7 @@ async fn run_request_response_increment_all<T: NodeType>(
         print_connections(nodes.as_slice()).await;
         let mut states = vec![];
         for handle in handles {
-            states.push(handle.state.copied().await);
+            states.push(*handle.state.lock().await);
         }
         error!("states: {states:?}");
         std::process::exit(-1);
@@ -523,8 +529,8 @@ async fn run_request_response_increment_all<T: NodeType>(
 }
 
 /// simple case of direct message
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_coverage_request_response_one_round() {
     Box::pin(test_bed(
@@ -537,8 +543,8 @@ async fn test_coverage_request_response_one_round() {
 }
 
 /// stress test of direct message
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_coverage_request_response_many_rounds() {
     Box::pin(test_bed(
@@ -551,8 +557,8 @@ async fn test_coverage_request_response_many_rounds() {
 }
 
 /// stress test of broadcast + direct message
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_coverage_intersperse_many_rounds() {
     Box::pin(test_bed(
@@ -565,8 +571,8 @@ async fn test_coverage_intersperse_many_rounds() {
 }
 
 /// stress teset that we can broadcast a message out and get counter increments
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_coverage_gossip_many_rounds() {
     Box::pin(test_bed(
@@ -579,8 +585,8 @@ async fn test_coverage_gossip_many_rounds() {
 }
 
 /// simple case of broadcast message
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_coverage_gossip_one_round() {
     Box::pin(test_bed(
@@ -593,8 +599,8 @@ async fn test_coverage_gossip_one_round() {
 }
 
 /// simple case of direct message
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[ignore]
 async fn test_stress_request_response_one_round() {
@@ -608,8 +614,8 @@ async fn test_stress_request_response_one_round() {
 }
 
 /// stress test of direct messsage
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[ignore]
 async fn test_stress_request_response_many_rounds() {
@@ -623,8 +629,8 @@ async fn test_stress_request_response_many_rounds() {
 }
 
 /// stress test of broadcast + direct message
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[ignore]
 async fn test_stress_intersperse_many_rounds() {
@@ -638,8 +644,8 @@ async fn test_stress_intersperse_many_rounds() {
 }
 
 /// stress teset that we can broadcast a message out and get counter increments
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[ignore]
 async fn test_stress_gossip_many_rounds() {
@@ -653,8 +659,8 @@ async fn test_stress_gossip_many_rounds() {
 }
 
 /// simple case of broadcast message
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[ignore]
 async fn test_stress_gossip_one_round() {
@@ -668,8 +674,8 @@ async fn test_stress_gossip_one_round() {
 }
 
 /// simple case of one dht publish event
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[ignore]
 async fn test_stress_dht_one_round() {
@@ -683,8 +689,8 @@ async fn test_stress_dht_one_round() {
 }
 
 /// many dht publishing events
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 #[ignore]
 async fn test_stress_dht_many_rounds() {
@@ -698,8 +704,8 @@ async fn test_stress_dht_many_rounds() {
 }
 
 /// simple case of one dht publish event
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_coverage_dht_one_round() {
     Box::pin(test_bed(
@@ -712,8 +718,8 @@ async fn test_coverage_dht_one_round() {
 }
 
 /// many dht publishing events
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+
+#[tokio::test(flavor = "multi_thread")]
 #[instrument]
 async fn test_coverage_dht_many_rounds() {
     Box::pin(test_bed(

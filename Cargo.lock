@@ -610,26 +610,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-compatibility-layer"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32dd1dfd4a05a197583e51036d9615f04a4d851089dc119ee965d440d0bcaa39"
-dependencies = [
- "async-lock 3.4.0",
- "async-std",
- "async-trait",
- "color-eyre",
- "console-subscriber 0.2.0",
- "flume",
- "futures",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-error",
- "tracing-subscriber 0.3.18",
-]
-
-[[package]]
 name = "async-dup"
 version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -650,18 +630,6 @@ dependencies = [
  "fastrand 2.1.0",
  "futures-lite 2.3.0",
  "slab",
-]
-
-[[package]]
-name = "async-fs"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "279cf904654eeebfa37ac9bb1598880884924aab82e290aa65c9e77a0e142e06"
-dependencies = [
- "async-lock 2.8.0",
- "autocfg",
- "blocking",
- "futures-lite 1.13.0",
 ]
 
 [[package]]
@@ -769,17 +737,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-net"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0434b1ed18ce1cf5769b8ac540e33f01fa9471058b5e89da9e06f3c882a8c12f"
-dependencies = [
- "async-io 1.13.0",
- "blocking",
- "futures-lite 1.13.0",
-]
-
-[[package]]
 name = "async-process"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -854,21 +811,6 @@ dependencies = [
  "pin-utils",
  "slab",
  "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "async-std-resolver"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc3b454643291f9a4a3bbdb35fa62efa4ba7be5ea13fe243e3be4352182ff4b8"
-dependencies = [
- "async-std",
- "async-trait",
- "futures-io",
- "futures-util",
- "hickory-resolver",
- "pin-utils",
- "socket2 0.5.7",
 ]
 
 [[package]]
@@ -1322,10 +1264,9 @@ name = "cdn-broker"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
 dependencies = [
- "async-std",
  "cdn-proto",
  "clap",
- "console-subscriber 0.3.0",
+ "console-subscriber",
  "dashmap",
  "derivative",
  "jf-signature",
@@ -1346,7 +1287,6 @@ name = "cdn-client"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
 dependencies = [
- "async-std",
  "cdn-proto",
  "clap",
  "jf-signature",
@@ -1362,7 +1302,6 @@ name = "cdn-marshal"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.4.7#5406fde54e61058428a7b55e1a98b699f0f606f1"
 dependencies = [
- "async-std",
  "cdn-proto",
  "clap",
  "jf-signature",
@@ -1503,33 +1442,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "color-eyre"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55146f5e46f237f7423d74111267d4597b59b0dad0ffaf7303bce9945d843ad5"
-dependencies = [
- "backtrace",
- "color-spantrace",
- "eyre",
- "indenter",
- "once_cell",
- "owo-colors",
- "tracing-error",
-]
-
-[[package]]
-name = "color-spantrace"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd6be1b2a7e382e2b98b43b2adcca6bb0e465af0bdd38123873ae61eb17a72c2"
-dependencies = [
- "once_cell",
- "owo-colors",
- "tracing-core",
- "tracing-error",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1598,19 +1510,6 @@ dependencies = [
 
 [[package]]
 name = "console-api"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd326812b3fd01da5bb1af7d340d0d555fd3d4b641e7f1dfcf5962a902952787"
-dependencies = [
- "futures-core",
- "prost",
- "prost-types",
- "tonic 0.10.2",
- "tracing-core",
-]
-
-[[package]]
-name = "console-api"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a257c22cd7e487dd4a13d413beabc512c5052f0bc048db0da6a84c3d8a6142fd"
@@ -1618,32 +1517,8 @@ dependencies = [
  "futures-core",
  "prost",
  "prost-types",
- "tonic 0.11.0",
+ "tonic",
  "tracing-core",
-]
-
-[[package]]
-name = "console-subscriber"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7481d4c57092cd1c19dd541b92bdce883de840df30aa5d03fd48a3935c01842e"
-dependencies = [
- "console-api 0.6.0",
- "crossbeam-channel",
- "crossbeam-utils",
- "futures-task",
- "hdrhistogram",
- "humantime",
- "prost-types",
- "serde",
- "serde_json",
- "thread_local",
- "tokio",
- "tokio-stream",
- "tonic 0.10.2",
- "tracing",
- "tracing-core",
- "tracing-subscriber 0.3.18",
 ]
 
 [[package]]
@@ -1652,7 +1527,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31c4cc54bae66f7d9188996404abdf7fdfa23034ef8e43478c8810828abad758"
 dependencies = [
- "console-api 0.7.0",
+ "console-api",
  "crossbeam-channel",
  "crossbeam-utils",
  "futures-task",
@@ -1665,7 +1540,7 @@ dependencies = [
  "thread_local",
  "tokio",
  "tokio-stream",
- "tonic 0.11.0",
+ "tonic",
  "tracing",
  "tracing-core",
  "tracing-subscriber 0.3.18",
@@ -2468,16 +2343,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eyre"
-version = "0.6.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cd915d99f24784cdc19fd37ef22b97e3ff0ae756c7e492e9fbfe897d61e2aec"
-dependencies = [
- "indenter",
- "once_cell",
-]
-
-[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2527,7 +2392,6 @@ checksum = "55ac459de2512911e4b674ce33cf20befaba382d05b62b008afc1c8b57cbf181"
 dependencies = [
  "futures-core",
  "futures-sink",
- "nanorand",
  "spin 0.9.8",
 ]
 
@@ -2768,10 +2632,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -3098,9 +2960,7 @@ version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "async-trait",
  "bimap",
  "bincode",
@@ -3136,6 +2996,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "tracing-subscriber 0.3.18",
  "url",
  "utils",
  "vbs",
@@ -3165,9 +3026,7 @@ version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "async-trait",
  "bitvec",
  "committable",
@@ -3198,9 +3057,7 @@ version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "async-trait",
  "bimap",
  "blake3",
@@ -3247,7 +3104,6 @@ name = "hotshot-fakeapi"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-compatibility-layer",
  "async-lock 2.8.0",
  "async-trait",
  "futures",
@@ -3256,6 +3112,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "tide-disco",
+ "tokio",
  "toml",
  "tracing",
  "vbs",
@@ -3276,9 +3133,7 @@ name = "hotshot-orchestrator"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "bincode",
  "blake3",
  "clap",
@@ -3326,8 +3181,6 @@ version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-compatibility-layer",
- "async-std",
  "async-trait",
  "futures",
  "tokio",
@@ -3341,9 +3194,7 @@ version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "async-trait",
  "bincode",
  "bitvec",
@@ -3378,9 +3229,7 @@ version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-broadcast",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "async-trait",
  "automod",
  "bitvec",
@@ -3428,9 +3277,7 @@ dependencies = [
  "ark-serialize",
  "ark-srs",
  "ark-std",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "async-trait",
  "bincode",
  "bitvec",
@@ -3799,7 +3646,6 @@ dependencies = [
  "ipnet",
  "log",
  "rtnetlink",
- "smol",
  "system-configuration 0.5.1",
  "tokio",
  "windows",
@@ -3851,12 +3697,6 @@ dependencies = [
  "proc-macro2",
  "quote",
 ]
-
-[[package]]
-name = "indenter"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce23b50ad8242c51a442f3ff322d56b02f08852c77e4c0b4d3fd684abc89c683"
 
 [[package]]
 name = "indexmap"
@@ -4379,7 +4219,6 @@ version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d17cbcf7160ff35c3e8e560de4a068fe9d6cb777ea72840e48eb76ff9576c4b6"
 dependencies = [
- "async-std-resolver",
  "async-trait",
  "futures",
  "hickory-resolver",
@@ -4502,8 +4341,6 @@ version = "0.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49007d9a339b3e1d7eeebc4d67c05dbf23d300b7d091193ec2d3f26802d7faf2"
 dependencies = [
- "async-io 2.3.3",
- "async-std",
  "data-encoding",
  "futures",
  "hickory-proto",
@@ -4542,9 +4379,7 @@ name = "libp2p-networking"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-compatibility-layer",
  "async-lock 2.8.0",
- "async-std",
  "async-trait",
  "bincode",
  "blake3",
@@ -4571,6 +4406,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "tracing-subscriber 0.3.18",
  "void",
 ]
 
@@ -4580,7 +4416,6 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0375cdfee57b47b313ef1f0fdb625b78aed770d33a40cf1c294a371ff5e6666"
 dependencies = [
- "async-std",
  "bytes",
  "futures",
  "futures-timer",
@@ -4627,7 +4462,6 @@ version = "0.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80cae6cb75f89dbca53862f9ebe0b9f463aa7b302762fcfaafb9e51dcc9b0f7e"
 dependencies = [
- "async-std",
  "either",
  "fnv",
  "futures",
@@ -4664,7 +4498,6 @@ version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b2460fc2748919adff99ecbc1aab296e4579e41f374fb164149bd2c9e529d4c"
 dependencies = [
- "async-io 1.13.0",
  "futures",
  "futures-timer",
  "if-watch",
@@ -5067,15 +4900,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nanorand"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
-dependencies = [
- "getrandom 0.2.15",
-]
-
-[[package]]
 name = "native-tls"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5176,7 +5000,6 @@ version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "416060d346fbaf1f23f9512963e3e878f1a78e707cb699ba9215761754244307"
 dependencies = [
- "async-io 1.13.0",
  "bytes",
  "futures",
  "libc",
@@ -5413,12 +5236,6 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
-
-[[package]]
-name = "owo-colors"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "parking"
@@ -5887,8 +5704,6 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cc2c5017e4b43d5995dcea317bc46c1e09404c0a9664d2908f7f02dfe943d75"
 dependencies = [
- "async-io 1.13.0",
- "async-std",
  "bytes",
  "futures-io",
  "pin-project-lite 0.2.14",
@@ -6382,7 +6197,6 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "322c53fd76a18698f1c27381d58091de3a043d356aa5bd0d510608b565f469a0"
 dependencies = [
- "async-global-executor",
  "futures",
  "log",
  "netlink-packet-route",
@@ -6987,23 +6801,6 @@ dependencies = [
  "autocfg",
  "static_assertions",
  "version_check",
-]
-
-[[package]]
-name = "smol"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13f2b548cd8447f8de0fdf1c592929f70f4fc7039a05e47404b0d096ec6987a1"
-dependencies = [
- "async-channel 1.9.0",
- "async-executor",
- "async-fs",
- "async-io 1.13.0",
- "async-lock 2.8.0",
- "async-net",
- "async-process",
- "blocking",
- "futures-lite 1.13.0",
 ]
 
 [[package]]
@@ -7868,7 +7665,6 @@ dependencies = [
  "mio",
  "parking_lot",
  "pin-project-lite 0.2.14",
- "signal-hook-registry",
  "socket2 0.5.7",
  "tokio-macros",
  "tracing",
@@ -7999,33 +7795,6 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d560933a0de61cf715926b9cac824d4c883c2c43142f787595e48280c40a1d0e"
-dependencies = [
- "async-stream",
- "async-trait",
- "axum",
- "base64 0.21.7",
- "bytes",
- "h2 0.3.26",
- "http 0.2.12",
- "http-body 0.4.6",
- "hyper 0.14.29",
- "hyper-timeout",
- "percent-encoding",
- "pin-project",
- "prost",
- "tokio",
- "tokio-stream",
- "tower",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "tonic"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76c4eb7a4e9ef9d4763600161f12f5070b92a578e1b634db88a6887844c91a13"
@@ -8125,16 +7894,6 @@ dependencies = [
  "itertools 0.9.0",
  "tracing",
  "tracing-core",
- "tracing-subscriber 0.3.18",
-]
-
-[[package]]
-name = "tracing-error"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d686ec1c0f384b1277f097b2f279a2ecc11afe8c133c1aabf036a27cb4cd206e"
-dependencies = [
- "tracing",
  "tracing-subscriber 0.3.18",
 ]
 
