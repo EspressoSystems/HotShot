@@ -19,10 +19,7 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
-use crate::traits::block_contents::BlockHeader;
-use crate::utils::Terminator::Inclusive;
 pub use crate::utils::{View, ViewInner};
-use crate::vote::Certificate;
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
@@ -30,15 +27,15 @@ use crate::{
     message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
-        block_contents::BuilderFee,
+        block_contents::{BlockHeader, BuilderFee},
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{BuilderCommitment, StateAndDelta, Terminator},
+    utils::{BuilderCommitment, StateAndDelta, Terminator, Terminator::Inclusive},
     vid::VidCommitment,
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 
 /// A type alias for `HashMap<Commitment<T>, T>`
