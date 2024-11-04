@@ -957,9 +957,6 @@
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -981,10 +978,7 @@
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vec1::Vec1;
 
-<span class="kw">use </span><span class="kw">crate</span>::traits::block_contents::BlockHeader;
-<span class="kw">use </span><span class="kw">crate</span>::utils::Terminator::Inclusive;
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
-<span class="kw">use </span><span class="kw">crate</span>::vote::Certificate;
 <span class="kw">use crate</span>::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
@@ -992,15 +986,15 @@
     message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
-        block_contents::BuilderFee,
+        block_contents::{BlockHeader, BuilderFee},
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{BuilderCommitment, StateAndDelta, Terminator},
+    utils::{BuilderCommitment, StateAndDelta, Terminator, Terminator::Inclusive},
     vid::VidCommitment,
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 
 <span class="doccomment">/// A type alias for `HashMap&lt;Commitment&lt;T&gt;, T&gt;`
@@ -1454,8 +1448,8 @@
     </span><span class="kw">pub fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             view_number &gt; <span class="self">self</span>.cur_view,
-            <span class="string">"New view isn't newer than the current view."
-        </span>);
+            <span class="macro">debug!</span>(<span class="string">"New view isn't newer than the current view."</span>)
+        );
         <span class="self">self</span>.cur_view = view_number;
         <span class="prelude-val">Ok</span>(())
     }
@@ -1466,8 +1460,8 @@
     </span><span class="kw">pub fn </span>update_epoch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, epoch_number: TYPES::Epoch) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             epoch_number &gt; <span class="self">self</span>.cur_epoch,
-            <span class="string">"New epoch isn't newer than the current epoch."
-        </span>);
+            <span class="macro">debug!</span>(<span class="string">"New epoch isn't newer than the current epoch."</span>)
+        );
         <span class="self">self</span>.cur_epoch = epoch_number;
         <span class="prelude-val">Ok</span>(())
     }
@@ -1518,8 +1512,8 @@
                     </span>.last_proposals
                     .last_key_value()
                     .map_or(TYPES::View::genesis(), |(k, <span class="kw">_</span>)| { <span class="kw-2">*</span>k }),
-            <span class="string">"New view isn't newer than the previously proposed view."
-        </span>);
+            <span class="macro">debug!</span>(<span class="string">"New view isn't newer than the previously proposed view."</span>)
+        );
         <span class="self">self</span>.last_proposals
             .insert(proposal.data.view_number(), proposal);
         <span class="prelude-val">Ok</span>(())
@@ -1532,8 +1526,8 @@
     </span><span class="kw">pub fn </span>update_last_decided_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             view_number &gt; <span class="self">self</span>.last_decided_view,
-            <span class="string">"New view isn't newer than the previously decided view."
-        </span>);
+            <span class="macro">debug!</span>(<span class="string">"New view isn't newer than the previously decided view."</span>)
+        );
         <span class="self">self</span>.last_decided_view = view_number;
         <span class="prelude-val">Ok</span>(())
     }
@@ -1545,8 +1539,8 @@
     </span><span class="kw">pub fn </span>update_locked_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             view_number &gt; <span class="self">self</span>.locked_view,
-            <span class="string">"New view isn't newer than the previously locked view."
-        </span>);
+            <span class="macro">debug!</span>(<span class="string">"New view isn't newer than the previously locked view."</span>)
+        );
         <span class="self">self</span>.locked_view = view_number;
         <span class="prelude-val">Ok</span>(())
     }
@@ -1574,8 +1568,8 @@
                 {
                     <span class="macro">ensure!</span>(
                          new_delta.is_some() || existing_delta.is_none(),
-                         <span class="string">"Skipping the state update to not override a `Leaf` view with `Some` state delta."
-                     </span>);
+                         <span class="macro">debug!</span>(<span class="string">"Skipping the state update to not override a `Leaf` view with `Some` state delta."</span>)
+                     );
                 } <span class="kw">else </span>{
                     <span class="macro">bail!</span>(<span class="string">"Skipping the state update to not override a `Leaf` view with a non-`Leaf` view."</span>);
                 }
@@ -1618,8 +1612,8 @@
     </span><span class="kw">pub fn </span>update_high_qc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             high_qc.view_number &gt; <span class="self">self</span>.high_qc.view_number || high_qc == <span class="self">self</span>.high_qc,
-            <span class="string">"High QC with an equal or higher view exists."
-        </span>);
+            <span class="macro">debug!</span>(<span class="string">"High QC with an equal or higher view exists."</span>)
+        );
         <span class="macro">tracing::debug!</span>(<span class="string">"Updating high QC"</span>);
         <span class="self">self</span>.high_qc = high_qc;
 

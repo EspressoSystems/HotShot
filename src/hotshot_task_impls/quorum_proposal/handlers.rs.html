@@ -383,6 +383,7 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -394,11 +395,6 @@
 
 </span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
@@ -419,6 +415,12 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
+
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
 
 <span class="doccomment">/// Proposal dependency types. These types represent events that precipitate a proposal.
 </span><span class="attr">#[derive(PartialEq, Debug)]

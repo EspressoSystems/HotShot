@@ -755,6 +755,7 @@
 <a href="#753" id="753">753</a>
 <a href="#754" id="754">754</a>
 <a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind},
@@ -766,9 +767,10 @@
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result </span><span class="kw">as </span>AnyhowResult};
 <span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>futures::{future::poll_fn, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-<span class="kw">use </span>hotshot_types::traits::node_implementation::ConsensusTime;
 <span class="kw">use </span>hotshot_types::traits::{
-    election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
+    election::Membership,
+    node_implementation::{ConsensusTime, NodeType},
+    signature_key::SignatureKey,
 };
 <span class="kw">use </span>libp2p::{
     core::{muxing::StreamMuxerExt, transport::TransportEvent, StreamMuxer},
@@ -1276,6 +1278,7 @@
 </span><span class="kw">mod </span>test {
     <span class="kw">use </span>std::sync::Arc;
 
+    <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
     <span class="kw">use </span>hotshot_types::{
         light_client::StateVerKey,
         signature_key::BLSPubKey,
@@ -1286,7 +1289,6 @@
     <span class="kw">use </span>rand::Rng;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
 
     <span class="doccomment">/// A mock type to help with readability
     </span><span class="kw">type </span>MockStakeTableAuth = StakeTableAuthentication&lt;DummyTransport, TestTypes, Connection&gt;;
