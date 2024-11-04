@@ -62,6 +62,17 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -92,13 +103,24 @@
         signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AvailableBlockInfo&lt;TYPES&gt;&gt;, BuildError&gt;;
 
-    <span class="doccomment">/// to claim a block from the list of provided available blocks
+    <span class="doccomment">/// To claim a block from the list of provided available blocks
     </span><span class="kw">async fn </span>claim_block(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_hash: <span class="kw-2">&amp;</span>BuilderCommitment,
         view_number: u64,
         sender: TYPES::SignatureKey,
         signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuildError&gt;;
+
+    <span class="doccomment">/// To claim a block from the list of provided available blocks and provide the number of nodes
+    /// information to the builder for VID computation.
+    </span><span class="kw">async fn </span>claim_block_with_num_nodes(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        block_hash: <span class="kw-2">&amp;</span>BuilderCommitment,
+        view_number: u64,
+        sender: TYPES::SignatureKey,
+        signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
+        num_nodes: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuildError&gt;;
 
     <span class="doccomment">/// To claim a block header input

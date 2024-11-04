@@ -145,7 +145,10 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>async_trait::async_trait;
+<a href="#146" id="146">146</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::TryReserveError, convert::Infallible, io, marker::PhantomData};
+
+<span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>cbor4ii::core::error::DecodeError;
 <span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>libp2p::{
@@ -153,7 +156,6 @@
     StreamProtocol,
 };
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
-<span class="kw">use </span>std::{collections::TryReserveError, convert::Infallible, io, marker::PhantomData};
 
 <span class="doccomment">/// `Behaviour` type alias for the `Cbor` codec
 </span><span class="kw">pub type </span>Behaviour&lt;Req, Resp&gt; = request_response::Behaviour&lt;Cbor&lt;Req, Resp&gt;&gt;;
