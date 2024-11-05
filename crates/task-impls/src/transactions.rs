@@ -454,10 +454,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .await;
             }
             HotShotEvent::ViewChange(view) => {
-                let mut view = *view;
-                if *view == 0 {
-                    view += 1;
-                }
+                let view = TYPES::View::new(std::cmp::max(1, **view));
                 ensure!(
                     *view > *self.cur_view,
                     debug!(
