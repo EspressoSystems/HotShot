@@ -344,46 +344,6 @@
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
-<a href="#364" id="364">364</a>
-<a href="#365" id="365">365</a>
-<a href="#366" id="366">366</a>
-<a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -397,12 +357,8 @@
 
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_task::{
-    dependency::{Dependency, EventDependency},
-    dependency_task::HandleDepOutput,
-};
+<span class="kw">use </span>hotshot_task::dependency_task::HandleDepOutput;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
@@ -411,6 +367,7 @@
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
+    vote::HasViewNumber,
 };
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
@@ -418,7 +375,7 @@
 
 <span class="kw">use crate</span>::{
     events::HotShotEvent,
-    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+    helpers::{broadcast_event, parent_leaf_and_state},
     quorum_proposal::{UpgradeLock, Versions},
 };
 
@@ -500,6 +457,7 @@
         view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
         formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
+        parent_view_number: TYPES::View,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
             <span class="self">self</span>.view_number,
@@ -510,6 +468,7 @@
             <span class="self">self</span>.private_key.clone(),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+            parent_view_number,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -644,61 +603,17 @@
         <span class="prelude-val">Ok</span>(())
     }
 }
+
 <span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; HandleDepOutput <span class="kw">for </span>ProposalDependencyHandle&lt;TYPES, V&gt; {
     <span class="kw">type </span>Output = Vec&lt;Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;;
 
     <span class="attr">#[allow(clippy::no_effect_underscore_binding, clippy::too_many_lines)]
     </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
-        <span class="kw">let </span>high_qc_view_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number;
-        <span class="kw">let </span>event_receiver = <span class="self">self</span>.receiver.activate_cloned();
-        <span class="kw">if </span>!<span class="self">self
-            </span>.consensus
-            .read()
-            .<span class="kw">await
-            </span>.validated_state_map()
-            .contains_key(<span class="kw-2">&amp;</span>high_qc_view_number)
-        {
-            <span class="comment">// The proposal for the high qc view is missing, try to get it asynchronously
-            </span><span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership);
-            <span class="kw">let </span>event_sender = <span class="self">self</span>.sender.clone();
-            <span class="kw">let </span>sender_public_key = <span class="self">self</span>.public_key.clone();
-            <span class="kw">let </span>sender_private_key = <span class="self">self</span>.private_key.clone();
-            <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
-            <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
-            <span class="kw">let </span>rx = event_receiver.clone();
-            async_spawn(<span class="kw">async move </span>{
-                fetch_proposal(
-                    high_qc_view_number,
-                    event_sender,
-                    rx,
-                    membership,
-                    consensus,
-                    sender_public_key,
-                    sender_private_key,
-                    <span class="kw-2">&amp;</span>upgrade_lock,
-                )
-                .<span class="kw">await
-            </span>});
-            <span class="comment">// Block on receiving the event from the event stream.
-            </span>EventDependency::new(
-                event_receiver,
-                Box::new(<span class="kw">move </span>|event| {
-                    <span class="kw">let </span>event = event.as_ref();
-                    <span class="kw">if let </span>HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) = event {
-                        <span class="kw-2">*</span>view_number == high_qc_view_number
-                    } <span class="kw">else </span>{
-                        <span class="bool-val">false
-                    </span>}
-                }),
-            )
-            .completed()
-            .<span class="kw">await</span>;
-        }
-
         <span class="kw">let </span><span class="kw-2">mut </span>commit_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt; = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>timeout_certificate = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>view_sync_finalize_cert = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>vid_share = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>parent_view_number = <span class="prelude-val">None</span>;
         <span class="kw">for </span>event <span class="kw">in </span>res.iter().flatten().flatten() {
             <span class="kw">match </span>event.as_ref() {
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -722,9 +637,10 @@
                     either::Right(timeout) =&gt; {
                         timeout_certificate = <span class="prelude-val">Some</span>(timeout.clone());
                     }
-                    either::Left(<span class="kw">_</span>) =&gt; {
+                    either::Left(qc) =&gt; {
                         <span class="comment">// Handled by the UpdateHighQc event.
-                    </span>}
+                        </span>parent_view_number = <span class="prelude-val">Some</span>(qc.view_number());
+                    }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) =&gt; {
                     view_sync_finalize_cert = <span class="prelude-val">Some</span>(cert.clone());
@@ -735,6 +651,9 @@
                 <span class="kw">_ </span>=&gt; {}
             }
         }
+
+        <span class="kw">let </span>parent_view_number =
+            parent_view_number.unwrap_or(<span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number());
 
         <span class="kw">if </span>commit_and_metadata.is_none() {
             <span class="macro">tracing::error!</span>(
@@ -761,6 +680,7 @@
                 proposal_cert,
                 <span class="self">self</span>.formed_upgrade_certificate.clone(),
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock.decided_upgrade_certificate),
+                parent_view_number,
             )
             .<span class="kw">await
         </span>{

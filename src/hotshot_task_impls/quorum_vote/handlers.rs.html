@@ -325,6 +325,32 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -499,43 +525,69 @@
     storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
     proposed_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
     vid_share: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
+    parent_view_number: <span class="prelude-ty">Option</span>&lt;TYPES::View&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>justify_qc = <span class="kw-2">&amp;</span>proposed_leaf.justify_qc();
 
+    <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
+    <span class="comment">// Try to find the validated vview within the validasted state map. This will be present
+    // if we have the saved leaf, but if not we'll get it when we fetch_proposal.
+    </span><span class="kw">let </span><span class="kw-2">mut </span>maybe_validated_view = parent_view_number.and_then(|view_number| {
+        consensus_reader
+            .validated_state_map()
+            .get(<span class="kw-2">&amp;</span>view_number)
+            .cloned()
+    });
+
     <span class="comment">// Justify qc's leaf commitment should be the same as the parent's leaf commitment.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>maybe_parent = consensus
-        .read()
-        .<span class="kw">await
-        </span>.saved_leaves()
+    </span><span class="kw">let </span><span class="kw-2">mut </span>maybe_parent = consensus_reader
+        .saved_leaves()
         .get(<span class="kw-2">&amp;</span>justify_qc.data.leaf_commit)
         .cloned();
+
+    drop(consensus_reader);
+
     maybe_parent = <span class="kw">match </span>maybe_parent {
         <span class="prelude-val">Some</span>(p) =&gt; <span class="prelude-val">Some</span>(p),
-        <span class="prelude-val">None </span>=&gt; fetch_proposal(
-            justify_qc.view_number(),
-            sender.clone(),
-            receiver.activate_cloned(),
-            Arc::clone(<span class="kw-2">&amp;</span>quorum_membership),
-            OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
-            public_key.clone(),
-            private_key.clone(),
-            <span class="kw-2">&amp;</span>upgrade_lock,
-        )
-        .<span class="kw">await
-        </span>.ok(),
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="kw">match </span>fetch_proposal(
+                justify_qc.view_number(),
+                sender.clone(),
+                receiver.activate_cloned(),
+                Arc::clone(<span class="kw-2">&amp;</span>quorum_membership),
+                OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
+                public_key.clone(),
+                private_key.clone(),
+                <span class="kw-2">&amp;</span>upgrade_lock,
+            )
+            .<span class="kw">await
+            </span>.ok()
+            {
+                <span class="prelude-val">Some</span>((leaf, view)) =&gt; {
+                    maybe_validated_view = <span class="prelude-val">Some</span>(view);
+                    <span class="prelude-val">Some</span>(leaf)
+                }
+                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+            }
+        }
     };
+
     <span class="kw">let </span>parent = maybe_parent.context(<span class="macro">info!</span>(
         <span class="string">"Proposal's parent missing from storage with commitment: {:?}, proposal view {:?}"</span>,
         justify_qc.data.leaf_commit,
         proposed_leaf.view_number(),
     ))<span class="question-mark">?</span>;
-    <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
 
-    <span class="kw">let </span>(<span class="prelude-val">Some</span>(parent_state), <span class="kw">_</span>) = consensus_reader.state_and_delta(parent.view_number()) <span class="kw">else </span>{
-        <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
+    <span class="kw">let </span><span class="prelude-val">Some</span>(validated_view) = maybe_validated_view <span class="kw">else </span>{
+        <span class="macro">bail!</span>(
+            <span class="string">"Failed to fetch view for parent, parent view {:?}"</span>,
+            parent_view_number
+        );
     };
 
-    drop(consensus_reader);
+    <span class="kw">let </span>(<span class="prelude-val">Some</span>(parent_state), <span class="kw">_</span>) = validated_view.state_and_delta() <span class="kw">else </span>{
+        <span class="macro">bail!</span>(<span class="string">"Parent state not found! Consensus internally inconsistent"</span>);
+    };
 
     <span class="kw">let </span>version = upgrade_lock.version(view_number).<span class="kw">await</span><span class="question-mark">?</span>;
 

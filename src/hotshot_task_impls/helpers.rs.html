@@ -858,7 +858,7 @@
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, View&lt;TYPES&gt;)&gt; {
     <span class="comment">// We need to be able to sign this request before submitting it to the network. Compute the
     // payload first.
     </span><span class="kw">let </span>signed_proposal_request = ProposalRequestPayload {
@@ -963,11 +963,11 @@
         .<span class="kw">await</span>;
 
     broadcast_event(
-        HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
+        HotShotEvent::ValidatedStateUpdated(view_number, view.clone()).into(),
         <span class="kw-2">&amp;</span>event_sender,
     )
     .<span class="kw">await</span>;
-    <span class="prelude-val">Ok</span>(leaf)
+    <span class="prelude-val">Ok</span>((leaf, view))
 }
 
 <span class="doccomment">/// Helper type to give names and to the output values of the leaf chain traversal operation.
@@ -1172,6 +1172,7 @@
     private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     consensus: OuterConsensus&lt;TYPES&gt;,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    parent_view_number: TYPES::View,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(Leaf&lt;TYPES&gt;, Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;)&gt; {
     <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span>cur_epoch = consensus_reader.cur_epoch();
@@ -1182,7 +1183,6 @@
             next_proposal_view_number
         )
     );
-    <span class="kw">let </span>parent_view_number = consensus_reader.high_qc().view_number();
     <span class="kw">let </span>vsm_contains_parent_view = consensus_reader
         .validated_state_map()
         .contains_key(<span class="kw-2">&amp;</span>parent_view_number);
@@ -1204,8 +1204,8 @@
     }
 
     <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
-    <span class="kw">let </span>parent_view_number = consensus_reader.high_qc().view_number();
-    <span class="kw">let </span>parent_view = consensus_reader.validated_state_map().get(<span class="kw-2">&amp;</span>parent_view_number).context(
+    <span class="comment">//let parent_view_number = consensus_reader.high_qc().view_number();
+    </span><span class="kw">let </span>parent_view = consensus_reader.validated_state_map().get(<span class="kw-2">&amp;</span>parent_view_number).context(
         <span class="macro">debug!</span>(<span class="string">"Couldn't find parent view in state map, waiting for replica to see proposal; parent_view_number: {}"</span>, <span class="kw-2">*</span>parent_view_number)
     )<span class="question-mark">?</span>;
 

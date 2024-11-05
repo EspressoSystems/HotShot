@@ -724,28 +724,6 @@
 <a href="#722" id="722">722</a>
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -760,13 +738,13 @@
 </span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::{
-    dependency::{AndDependency, Dependency, EventDependency},
+    dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
     task::TaskState,
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, QuorumProposal, ViewNumber},
+    data::{Leaf, QuorumProposal},
     event::Event,
     message::{Proposal, UpgradeLock},
     traits::{
@@ -842,36 +820,10 @@
     <span class="attr">#[allow(clippy::too_many_lines)]
     #[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.view_number))]
     </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
-        <span class="kw">let </span>high_qc_view_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number;
-
-        <span class="comment">// The validated state of a non-genesis high QC should exist in the state map.
-        </span><span class="kw">if </span><span class="kw-2">*</span>high_qc_view_number != <span class="kw-2">*</span>ViewNumber::genesis()
-            &amp;&amp; !<span class="self">self
-                </span>.consensus
-                .read()
-                .<span class="kw">await
-                </span>.validated_state_map()
-                .contains_key(<span class="kw-2">&amp;</span>high_qc_view_number)
-        {
-            <span class="comment">// Block on receiving the event from the event stream.
-            </span>EventDependency::new(
-                <span class="self">self</span>.receiver.activate_cloned(),
-                Box::new(<span class="kw">move </span>|event| {
-                    <span class="kw">let </span>event = event.as_ref();
-                    <span class="kw">if let </span>HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) = event {
-                        <span class="kw-2">*</span>view_number == high_qc_view_number
-                    } <span class="kw">else </span>{
-                        <span class="bool-val">false
-                    </span>}
-                }),
-            )
-            .completed()
-            .<span class="kw">await</span>;
-        }
-
         <span class="kw">let </span><span class="kw-2">mut </span>payload_commitment = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>leaf = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>vid_share = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>parent_view_number = <span class="prelude-val">None</span>;
         <span class="kw">for </span>event <span class="kw">in </span>res {
             <span class="kw">match </span>event.as_ref() {
                 <span class="attr">#[allow(unused_assignments)]
@@ -916,6 +868,7 @@
                         <span class="kw">return</span>;
                     }
                     leaf = <span class="prelude-val">Some</span>(proposed_leaf);
+                    parent_view_number = <span class="prelude-val">Some</span>(parent_leaf.view_number());
                 }
                 HotShotEvent::DaCertificateValidated(cert) =&gt; {
                     <span class="kw">let </span>cert_payload_comm = <span class="kw-2">&amp;</span>cert.data().payload_commit;
@@ -943,6 +896,7 @@
                 <span class="kw">_ </span>=&gt; {}
             }
         }
+
         broadcast_event(
             Arc::new(HotShotEvent::QuorumVoteDependenciesValidated(
                 <span class="self">self</span>.view_number,
@@ -981,6 +935,7 @@
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             <span class="kw-2">&amp;</span>leaf,
             <span class="kw-2">&amp;</span>vid_share,
+            parent_view_number,
         )
         .<span class="kw">await
         </span>{
@@ -1442,6 +1397,7 @@
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             <span class="kw-2">&amp;</span>proposed_leaf,
             <span class="kw-2">&amp;</span>updated_vid,
+            <span class="prelude-val">Some</span>(parent_leaf.view_number()),
         )
         .<span class="kw">await
         </span>{
