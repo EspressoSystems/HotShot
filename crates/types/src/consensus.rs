@@ -27,15 +27,15 @@ use crate::{
     message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
-        block_contents::BuilderFee,
+        block_contents::{BlockHeader, BuilderFee},
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{BuilderCommitment, StateAndDelta, Terminator},
+    utils::{BuilderCommitment, StateAndDelta, Terminator, Terminator::Inclusive},
     vid::VidCommitment,
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 
 /// A type alias for `HashMap<Commitment<T>, T>`
@@ -317,6 +317,9 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -405,6 +408,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
         high_qc: QuorumCertificate<TYPES>,
         metrics: Arc<ConsensusMetricsValue>,
+        epoch_height: u64,
     ) -> Self {
         Consensus {
             validated_state_map,
@@ -420,6 +424,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             saved_payloads,
             high_qc,
             metrics,
+            epoch_height,
         }
     }
 
@@ -484,7 +489,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_view(&mut self, view_number: TYPES::View) -> Result<()> {
         ensure!(
             view_number > self.cur_view,
-            "New view isn't newer than the current view."
+            debug!("New view isn't newer than the current view.")
         );
         self.cur_view = view_number;
         Ok(())
@@ -496,7 +501,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_epoch(&mut self, epoch_number: TYPES::Epoch) -> Result<()> {
         ensure!(
             epoch_number > self.cur_epoch,
-            "New epoch isn't newer than the current epoch."
+            debug!("New epoch isn't newer than the current epoch.")
         );
         self.cur_epoch = epoch_number;
         Ok(())
@@ -548,7 +553,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                     .last_proposals
                     .last_key_value()
                     .map_or(TYPES::View::genesis(), |(k, _)| { *k }),
-            "New view isn't newer than the previously proposed view."
+            debug!("New view isn't newer than the previously proposed view.")
         );
         self.last_proposals
             .insert(proposal.data.view_number(), proposal);
@@ -562,7 +567,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_last_decided_view(&mut self, view_number: TYPES::View) -> Result<()> {
         ensure!(
             view_number > self.last_decided_view,
-            "New view isn't newer than the previously decided view."
+            debug!("New view isn't newer than the previously decided view.")
         );
         self.last_decided_view = view_number;
         Ok(())
@@ -575,7 +580,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_locked_view(&mut self, view_number: TYPES::View) -> Result<()> {
         ensure!(
             view_number > self.locked_view,
-            "New view isn't newer than the previously locked view."
+            debug!("New view isn't newer than the previously locked view.")
         );
         self.locked_view = view_number;
         Ok(())
@@ -604,7 +609,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                 {
                     ensure!(
                          new_delta.is_some() || existing_delta.is_none(),
-                         "Skipping the state update to not override a `Leaf` view with `Some` state delta."
+                         debug!("Skipping the state update to not override a `Leaf` view with `Some` state delta.")
                      );
                 } else {
                     bail!("Skipping the state update to not override a `Leaf` view with a non-`Leaf` view.");
@@ -648,7 +653,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
         ensure!(
             high_qc.view_number > self.high_qc.view_number || high_qc == self.high_qc,
-            "High QC with an equal or higher view exists."
+            debug!("High QC with an equal or higher view exists.")
         );
         tracing::debug!("Updating high QC");
         self.high_qc = high_qc;
@@ -834,6 +839,102 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             }
         }
         Some(())
+    }
+
+    /// Returns true if the current high qc is for the last block in the epoch
+    pub fn is_high_qc_for_last_block(&self) -> bool {
+        let high_qc = self.high_qc();
+        self.is_qc_for_last_block(high_qc)
+    }
+
+    /// Returns true if the given qc is for the last block in the epoch
+    pub fn is_qc_for_last_block(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+        let Some(leaf) = self.saved_leaves.get(&cert.data().leaf_commit) else {
+            return false;
+        };
+        let block_height = leaf.height();
+        if block_height == 0 || self.epoch_height == 0 {
+            false
+        } else {
+            block_height % self.epoch_height == 0
+        }
+    }
+
+    /// Returns true if the current high qc is an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    pub fn is_high_qc_extended(&self) -> bool {
+        let high_qc = self.high_qc();
+        let ret = self.is_qc_extended(high_qc);
+        if ret {
+            tracing::debug!("We have formed an eQC!");
+        };
+        ret
+    }
+
+    /// Returns true if the given qc is an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    pub fn is_qc_extended(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+        if !self.is_qc_for_last_block(cert) {
+            tracing::debug!("High QC is not for the last block in the epoch.");
+            return false;
+        }
+
+        let qc_view = cert.view_number();
+        let high_qc_block_number =
+            if let Some(leaf) = self.saved_leaves.get(&cert.data().leaf_commit) {
+                leaf.block_header().block_number()
+            } else {
+                return false;
+            };
+
+        let mut last_visited_view_number = qc_view;
+        let mut is_qc_extended = true;
+        if let Err(e) =
+            self.visit_leaf_ancestors(qc_view, Inclusive(qc_view - 2), true, |leaf, _, _| {
+                tracing::trace!(
+                    "last_visited_view_number = {}, leaf.view_number = {}",
+                    *last_visited_view_number,
+                    *leaf.view_number()
+                );
+
+                if leaf.view_number() == qc_view {
+                    return true;
+                }
+
+                if last_visited_view_number - 1 != leaf.view_number() {
+                    tracing::trace!("The chain is broken. Non consecutive views.");
+                    is_qc_extended = false;
+                    return false;
+                }
+                if high_qc_block_number != leaf.height() {
+                    tracing::trace!("The chain is broken. Block numbers do not match.");
+                    is_qc_extended = false;
+                    return false;
+                }
+                last_visited_view_number = leaf.view_number();
+                true
+            })
+        {
+            is_qc_extended = false;
+            tracing::trace!("The chain is broken. Leaf ascension failed.");
+            tracing::debug!("Leaf ascension failed; error={e}");
+        }
+        tracing::trace!("Is the given QC an eQC? {}", is_qc_extended);
+        is_qc_extended
+    }
+
+    /// Return true if the given Quorum Certificate takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    pub fn is_qc_forming_eqc(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+        self.is_qc_for_last_block(cert) && !self.is_qc_extended(cert)
+    }
+
+    /// Return true if the high QC takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    pub fn is_high_qc_forming_eqc(&self) -> bool {
+        self.is_high_qc_for_last_block() && !self.is_high_qc_extended()
     }
 }
 
