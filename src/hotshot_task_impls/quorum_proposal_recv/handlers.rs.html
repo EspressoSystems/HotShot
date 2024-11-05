@@ -272,6 +272,8 @@
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -304,11 +306,11 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
-<span class="kw">use </span><span class="kw">super</span>::QuorumProposalRecvTaskState;
+<span class="kw">use super</span>::{QuorumProposalRecvTaskState, ValidationInfo};
 <span class="kw">use crate</span>::{
     events::HotShotEvent,
     helpers::{
-        broadcast_event, fetch_proposal, update_view, validate_proposal_safety_and_liveness,
+        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
         validate_proposal_view_and_certs,
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
@@ -319,10 +321,10 @@
 </span><span class="kw">async fn </span>validate_proposal_liveness&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
+    validation_info: <span class="kw-2">&amp;</span>ValidationInfo&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = validation_info.consensus.write().<span class="kw">await</span>;
 
     <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
 
@@ -331,7 +333,7 @@
     );
     <span class="kw">let </span>view = View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(<span class="kw-2">&amp;</span>task_state.upgrade_lock).<span class="kw">await</span>,
+            leaf: leaf.commit(<span class="kw-2">&amp;</span>validation_info.upgrade_lock).<span class="kw">await</span>,
             state,
             delta: <span class="prelude-val">None</span>, <span class="comment">// May be updated to `Some` in the vote task.
         </span>},
@@ -341,10 +343,10 @@
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
     consensus_writer
-        .update_saved_leaves(leaf.clone(), <span class="kw-2">&amp;</span>task_state.upgrade_lock)
+        .update_saved_leaves(leaf.clone(), <span class="kw-2">&amp;</span>validation_info.upgrade_lock)
         .<span class="kw">await</span>;
 
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = validation_info
         .storage
         .write()
         .<span class="kw">await
@@ -368,10 +370,6 @@
         event_sender,
     )
     .<span class="kw">await</span>;
-
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES, I, V&gt;(view_number, event_sender, task_state).<span class="kw">await </span>{
-        <span class="macro">tracing::debug!</span>(<span class="string">"Liveness Branch - Failed to update view; error = {e:#}"</span>);
-    }
 
     <span class="kw">if </span>!liveness_check {
         <span class="macro">bail!</span>(<span class="string">"Quorum Proposal failed the liveness check"</span>);
@@ -427,11 +425,11 @@
     quorum_proposal_sender_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    task_state: <span class="kw-2">&amp;mut </span>QuorumProposalRecvTaskState&lt;TYPES, I, V&gt;,
+    validation_info: ValidationInfo&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
 
-    validate_proposal_view_and_certs(proposal, task_state)
+    validate_proposal_view_and_certs(proposal, <span class="kw-2">&amp;</span>validation_info)
         .<span class="kw">await
         </span>.context(<span class="macro">warn!</span>(<span class="string">"Failed to validate proposal view or attached certs"</span>))<span class="question-mark">?</span>;
 
@@ -440,13 +438,13 @@
 
     <span class="kw">if </span>!justify_qc
         .is_valid_cert(
-            task_state.quorum_membership.as_ref(),
-            task_state.cur_epoch,
-            <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+            validation_info.quorum_membership.as_ref(),
+            validation_info.cur_epoch,
+            <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
         )
         .<span class="kw">await
     </span>{
-        <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
+        <span class="kw">let </span>consensus_reader = validation_info.consensus.read().<span class="kw">await</span>;
         consensus_reader.metrics.invalid_qc.update(<span class="number">1</span>);
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
     }
@@ -460,7 +458,7 @@
     .<span class="kw">await</span>;
 
     <span class="comment">// Get the parent leaf and state.
-    </span><span class="kw">let </span>parent_leaf = task_state
+    </span><span class="kw">let </span>parent_leaf = validation_info
         .consensus
         .read()
         .<span class="kw">await
@@ -473,17 +471,17 @@
             justify_qc.view_number(),
             event_sender.clone(),
             event_receiver.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span>task_state.quorum_membership),
-            OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
+            Arc::clone(<span class="kw-2">&amp;</span>validation_info.quorum_membership),
+            OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>validation_info.consensus.inner_consensus)),
             <span class="comment">// Note that we explicitly use the node key here instead of the provided key in the signature.
             // This is because the key that we receive is for the prior leader, so the payload would be routed
             // incorrectly.
-            </span>task_state.public_key.clone(),
-            task_state.private_key.clone(),
-            task_state.upgrade_lock.clone(),
+            </span>validation_info.public_key.clone(),
+            validation_info.private_key.clone(),
+            validation_info.upgrade_lock.clone(),
         );
     }
-    <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
+    <span class="kw">let </span>consensus_reader = validation_info.consensus.read().<span class="kw">await</span>;
 
     <span class="kw">let </span>parent = <span class="kw">match </span>parent_leaf {
         <span class="prelude-val">Some</span>(leaf) =&gt; {
@@ -497,7 +495,7 @@
     };
 
     <span class="kw">if </span>justify_qc.view_number() &gt; consensus_reader.high_qc().view_number {
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_state
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = validation_info
             .storage
             .write()
             .<span class="kw">await
@@ -509,7 +507,7 @@
     }
     drop(consensus_reader);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = task_state.consensus.write().<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = validation_info.consensus.write().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_high_qc(justify_qc.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
@@ -526,23 +524,29 @@
             <span class="string">"Proposal's parent missing from storage with commitment: {:?}"</span>,
             justify_qc.data.leaf_commit
         );
-        <span class="kw">return </span>validate_proposal_liveness(proposal, event_sender, task_state).<span class="kw">await</span>;
+        validate_proposal_liveness(proposal, event_sender, <span class="kw-2">&amp;</span>validation_info).<span class="kw">await</span><span class="question-mark">?</span>;
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(view_number)),
+            event_sender,
+        )
+        .<span class="kw">await</span>;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
     };
 
     <span class="comment">// Validate the proposal
     </span>validate_proposal_safety_and_liveness::&lt;TYPES, I, V&gt;(
         proposal.clone(),
         parent_leaf,
-        task_state,
+        <span class="kw-2">&amp;</span>validation_info,
         event_sender.clone(),
         quorum_proposal_sender_key,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
-
-    <span class="comment">// NOTE: We could update our view with a valid TC but invalid QC, but that is not what we do here
-    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_view::&lt;TYPES, I, V&gt;(view_number, event_sender, task_state).<span class="kw">await </span>{
-        <span class="macro">tracing::debug!</span>(<span class="string">"Full Branch - Failed to update view; error = {e:#}"</span>);
-    }
+    broadcast_event(
+        Arc::new(HotShotEvent::ViewChange(view_number)),
+        event_sender,
+    )
+    .<span class="kw">await</span>;
 
     <span class="prelude-val">Ok</span>(())
 }

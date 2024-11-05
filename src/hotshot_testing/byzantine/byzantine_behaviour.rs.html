@@ -431,8 +431,9 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
@@ -784,6 +785,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
             consensus: Arc::clone(<span class="kw-2">&amp;</span>handle.consensus()),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            transmit_tasks: BTreeMap::new(),
         };
         <span class="kw">let </span>modified_network_state = NetworkEventTaskStateModifier {
             network_event_task_state: network_state,

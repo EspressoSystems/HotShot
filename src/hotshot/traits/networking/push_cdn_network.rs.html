@@ -577,6 +577,17 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1049,6 +1060,11 @@
         topic: HotShotTopic,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="comment">// If we're paused, don't send the message
+        </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+        </span><span class="kw">if </span><span class="self">self</span>.is_paused.load(Ordering::Relaxed) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
         <span class="self">self</span>.broadcast_message(message, topic.into())
             .<span class="kw">await
             </span>.inspect_err(|_e| {
@@ -1067,6 +1083,11 @@
         _recipients: Vec&lt;K&gt;,
         _broadcast_delay: BroadcastDelay,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="comment">// If we're paused, don't send the message
+        </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+        </span><span class="kw">if </span><span class="self">self</span>.is_paused.load(Ordering::Relaxed) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
         <span class="self">self</span>.broadcast_message(message, Topic::Da)
             .<span class="kw">await
             </span>.inspect_err(|_e| {
@@ -1112,6 +1133,7 @@
         <span class="comment">// If we're paused, receive but don't process messages
         </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
         </span><span class="kw">if </span><span class="self">self</span>.is_paused.load(Ordering::Relaxed) {
+            async_sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[]);
         }
 

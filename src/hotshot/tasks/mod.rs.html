@@ -577,6 +577,8 @@
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -587,6 +589,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 </span><span class="kw">pub mod </span>task_state;
+<span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::{fmt::Debug, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::{broadcast, RecvError};
@@ -779,6 +782,7 @@
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         consensus: Arc::clone(<span class="kw-2">&amp;</span>handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+        transmit_tasks: BTreeMap::new(),
     };
     <span class="kw">let </span>task = Task::new(
         network_state,

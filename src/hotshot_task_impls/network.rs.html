@@ -807,18 +807,54 @@
 <a href="#807" id="807">807</a>
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+</span><span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLock;
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
+</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
@@ -839,13 +875,10 @@
     },
     vote::{HasViewNumber, Vote},
 };
+<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
+</span><span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
-
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 
 <span class="doccomment">/// the network message task state
 </span><span class="attr">#[derive(Clone)]
@@ -1012,6 +1045,8 @@
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+    <span class="doccomment">/// map view number to transmit tasks
+    </span><span class="kw">pub </span>transmit_tasks: BTreeMap&lt;TYPES::View, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
 }
 
 <span class="attr">#[async_trait]
@@ -1138,6 +1173,18 @@
         } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(())
         }
+    }
+
+    <span class="doccomment">/// Cancel all tasks for previous views
+    </span><span class="kw">pub fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::View) {
+        <span class="kw">let </span>keep = <span class="self">self</span>.transmit_tasks.split_off(<span class="kw-2">&amp;</span>view);
+        <span class="kw">let </span><span class="kw-2">mut </span>cancel = Vec::new();
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, tasks)) = <span class="self">self</span>.transmit_tasks.pop_first() {
+            <span class="kw">let </span><span class="kw-2">mut </span>to_cancel = tasks.into_iter().map(cancel_task).collect();
+            cancel.append(<span class="kw-2">&amp;mut </span>to_cancel);
+        }
+        <span class="self">self</span>.transmit_tasks = keep;
+        async_spawn(<span class="kw">async move </span>{ join_all(cancel).<span class="kw">await </span>});
     }
 
     <span class="doccomment">/// Parses a `HotShotEvent` and returns a tuple of: (sender's public key, `MessageKind`, `TransmitType`)
@@ -1393,13 +1440,14 @@
             }
             HotShotEvent::ViewChange(view) =&gt; {
                 <span class="self">self</span>.view = view;
-                <span class="self">self</span>.network
-                    .update_view::&lt;TYPES&gt;(
-                        <span class="self">self</span>.view.u64(),
-                        <span class="self">self</span>.epoch.u64(),
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership,
-                    )
-                    .<span class="kw">await</span>;
+                <span class="self">self</span>.cancel_tasks(view);
+                <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
+                <span class="kw">let </span>epoch = <span class="self">self</span>.epoch.u64();
+                <span class="kw">let </span>mem = <span class="self">self</span>.quorum_membership.clone();
+                async_spawn(<span class="kw">async move </span>{
+                    net.update_view::&lt;TYPES&gt;(view.saturating_sub(<span class="number">1</span>), epoch, <span class="kw-2">&amp;</span>mem)
+                        .<span class="kw">await</span>;
+                });
                 <span class="prelude-val">None
             </span>}
             HotShotEvent::VidRequestSend(req, sender, to) =&gt; <span class="prelude-val">Some</span>((
@@ -1423,7 +1471,7 @@
 
     <span class="doccomment">/// Creates a network message and spawns a task that transmits it on the wire.
     </span><span class="kw">fn </span>spawn_transmit_task(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         message_kind: MessageKind&lt;TYPES&gt;,
         maybe_action: <span class="prelude-ty">Option</span>&lt;HotShotAction&gt;,
         transmit: TransmitType&lt;TYPES&gt;,
@@ -1449,7 +1497,7 @@
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
         <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
-        async_spawn(<span class="kw">async move </span>{
+        <span class="kw">let </span>handle = async_spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, V, NET, S&gt;::maybe_record_action(
                 maybe_action,
                 Arc::clone(<span class="kw-2">&amp;</span>storage),
@@ -1503,6 +1551,10 @@
                 <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">tracing::warn!</span>(<span class="string">"Failed to send message task: {:?}"</span>, e),
             }
         });
+        <span class="self">self</span>.transmit_tasks
+            .entry(view_number)
+            .or_default()
+            .push(handle);
     }
 }
 

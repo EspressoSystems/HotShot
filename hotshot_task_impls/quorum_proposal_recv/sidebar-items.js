@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["handlers"],"struct":["QuorumProposalRecvTaskState"]};
+window.SIDEBAR_ITEMS = {"mod":["handlers"],"struct":["QuorumProposalRecvTaskState","ValidationInfo"]};

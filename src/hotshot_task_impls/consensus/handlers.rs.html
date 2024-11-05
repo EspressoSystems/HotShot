@@ -292,6 +292,13 @@
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -420,8 +427,17 @@
     <span class="kw">let </span>old_view_number = task_state.cur_view;
     <span class="macro">tracing::debug!</span>(<span class="string">"Updating view from {old_view_number:?} to {new_view_number:?}"</span>);
 
+    <span class="kw">if </span><span class="kw-2">*</span>old_view_number / <span class="number">100 </span>!= <span class="kw-2">*</span>new_view_number / <span class="number">100 </span>{
+        <span class="macro">tracing::info!</span>(<span class="string">"Progress: entered view {:&gt;6}"</span>, <span class="kw-2">*</span>new_view_number);
+    }
     <span class="comment">// Move this node to the next view
     </span>task_state.cur_view = new_view_number;
+
+    task_state
+        .consensus
+        .write()
+        .<span class="kw">await
+        </span>.update_view(new_view_number)<span class="question-mark">?</span>;
 
     <span class="comment">// If we have a decided upgrade certificate, the protocol version may also have been upgraded.
     </span><span class="kw">let </span>decided_upgrade_certificate_read = task_state
@@ -443,9 +459,7 @@
     </span><span class="kw">let </span>timeout = task_state.timeout;
     <span class="kw">let </span>new_timeout_task = async_spawn({
         <span class="kw">let </span>stream = sender.clone();
-        <span class="comment">// Nuance: We timeout on the view + 1 here because that means that we have
-        // not seen evidence to transition to this new view
-        </span><span class="kw">let </span>view_number = new_view_number + <span class="number">1</span>;
+        <span class="kw">let </span>view_number = new_view_number;
         <span class="kw">async move </span>{
             async_sleep(Duration::from_millis(timeout)).<span class="kw">await</span>;
             broadcast_event(
@@ -517,7 +531,7 @@
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="macro">ensure!</span>(
-        task_state.cur_view &lt; view_number,
+        task_state.cur_view &lt;= view_number,
         <span class="string">"Timeout event is for an old view"
     </span>);
 
@@ -549,7 +563,7 @@
     )
     .<span class="kw">await</span>;
 
-    <span class="macro">tracing::debug!</span>(
+    <span class="macro">tracing::error!</span>(
         <span class="string">"We did not receive evidence for view {} in time, sending timeout vote for that view!"</span>,
         <span class="kw-2">*</span>view_number
     );

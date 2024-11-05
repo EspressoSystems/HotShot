@@ -340,12 +340,6 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -633,18 +627,12 @@
             private_key: handle.private_key().clone(),
             consensus: OuterConsensus::new(consensus),
             cur_view: handle.cur_view().<span class="kw">await</span>,
-            cur_view_time: Utc::now().timestamp(),
             cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
-            network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            timeout_task: async_spawn(<span class="kw">async </span>{}),
             timeout: handle.hotshot.config.next_view_timeout,
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
-            proposal_cert: <span class="prelude-val">None</span>,
             spawned_tasks: BTreeMap::new(),
-            instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         }

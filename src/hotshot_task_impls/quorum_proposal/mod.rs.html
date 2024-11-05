@@ -572,10 +572,6 @@
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -956,7 +952,6 @@
                     <span class="string">"Upgrade certificate received for view {}!"</span>,
                     <span class="kw-2">*</span>cert.view_number
                 );
-
                 <span class="comment">// Update our current upgrade_cert as long as we still have a chance of reaching a decide on it in time.
                 </span><span class="kw">if </span>cert.data.decide_by &gt;= <span class="self">self</span>.latest_proposed_view + <span class="number">3 </span>{
                     <span class="macro">tracing::debug!</span>(<span class="string">"Updating current formed_upgrade_certificate"</span>);
@@ -968,7 +963,6 @@
                 either::Right(timeout_cert) =&gt; {
                     <span class="kw">let </span>view_number = timeout_cert.view_number + <span class="number">1</span>;
                     <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
-
                     <span class="self">self</span>.create_dependency_task_if_new(
                         view_number,
                         epoch_number,
@@ -1039,7 +1033,6 @@
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) =&gt; {
                 <span class="kw">let </span>view_number = proposal.data.view_number();
-
                 <span class="comment">// All nodes get the latest proposed view as a proxy of `cur_view` of old.
                 </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view_number).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
@@ -1065,7 +1058,6 @@
             HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>view_number = vid_share.data.view_number();
                 <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
-
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
                     epoch_number,
