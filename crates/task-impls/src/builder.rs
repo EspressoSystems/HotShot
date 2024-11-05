@@ -237,7 +237,7 @@ pub mod v0_3 {
     pub type BuilderClient<TYPES> = super::BuilderClient<TYPES, StaticVersion<0, 3>>;
 
     impl<TYPES: NodeType> BuilderClient<TYPES> {
-        /// Claim block
+        /// Claim a bundle.
         ///
         /// # Errors
         /// - [`BuilderClientError::BlockNotFound`] if block isn't available
@@ -251,6 +251,27 @@ pub mod v0_3 {
             self.client
                 .get(&format!(
                     "{MARKETPLACE_BUILDER_MODULE}/bundle/{parent_view}/{parent_hash}/{view_number}"
+                ))
+                .send()
+                .await
+                .map_err(Into::into)
+        }
+
+        /// Claim a block and provide the number of nodes information to the builder for VID.
+        ///
+        /// # Errors
+        /// - [`BuilderClientError::BlockNotFound`] if block isn't available
+        /// - [`BuilderClientError::Api`] if API isn't responding or responds incorrectly
+        pub async fn bundle_with_num_nodes(
+            &self,
+            parent_view: u64,
+            parent_hash: VidCommitment,
+            view_number: u64,
+            num_nodes: usize,
+        ) -> Result<Bundle<TYPES>, BuilderClientError> {
+            self.client
+                .get(&format!(
+                    "{MARKETPLACE_BUILDER_MODULE}/bundlewithnumnodes/{parent_view}/{parent_hash}/{view_number}/{num_nodes}"
                 ))
                 .send()
                 .await

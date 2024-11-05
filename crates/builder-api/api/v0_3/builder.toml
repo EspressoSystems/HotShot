@@ -35,6 +35,16 @@ DOC = """
 Fetch the bundle from the builder for the specified view.
 """
 
+[route.bundle_with_num_nodes]
+PATH = ["bundlewithnumnodes/:parent_view/:parent_hash/:view_number/:num_nodes"]
+":parent_view" = "Integer"
+":parent_hash" = "TaggedBase64"
+":view_number" = "Integer"
+":num_nodes" = "Integer"
+DOC = """
+Fetch the bundle from the builder for the specified view and provide the number of nodes.
+"""
+
 [route.builder_address]
 PATH = ["builderaddress"]
 DOC = """

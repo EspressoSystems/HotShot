@@ -136,7 +136,6 @@ impl<TYPES: NodeType> v0_3::data_source::BuilderDataSource<TYPES> for SimpleBuil
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
-    /// To get the list of available blocks
     async fn bundle(
         &self,
         _parent_view: u64,
@@ -197,6 +196,16 @@ where
             signature,
             sequencing_fee,
         })
+    }
+
+    async fn bundle_with_num_nodes(
+        &self,
+        parent_view: u64,
+        parent_hash: &VidCommitment,
+        view_number: u64,
+        _num_nodes: usize,
+    ) -> Result<Bundle<TYPES>, BuildError> {
+        self.bundle(parent_view, parent_hash, view_number).await
     }
 
     /// To get the builder's address

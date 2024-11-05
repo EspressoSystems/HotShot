@@ -37,6 +37,24 @@ where
             }
             .boxed()
         })?
+        .get("bundle_with_num_nodes", |req, state| {
+            async move {
+                let parent_view = req.integer_param("parent_view")?;
+                let parent_hash = req.blob_param("parent_hash")?;
+                let view_number = req.integer_param("view_number")?;
+                let num_nodes = req.integer_param("num_nodes")?;
+                state
+                    .bundle_with_num_nodes(parent_view, &parent_hash, view_number, num_nodes)
+                    .await
+                    .map_err(|source| Error::BlockClaim {
+                        source,
+                        resource: format!(
+                            "Block for parent {parent_hash}@{parent_view} and view {view_number}"
+                        ),
+                    })
+            }
+            .boxed()
+        })?
         .get("builder_address", |_req, state| {
             async move { state.builder_address().await.map_err(Error::BuilderAddress) }.boxed()
         })?;
