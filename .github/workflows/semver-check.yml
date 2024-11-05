@@ -29,11 +29,7 @@ jobs:
           path: baseline
           ref: ${{ inputs.baseline }}
 
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
+      - uses: taiki-e/install-action@just
 
       - name: Install Rust
         uses: mkroening/rust-toolchain-toml@main

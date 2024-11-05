@@ -468,6 +468,11 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         topic: HotShotTopic,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
+        // If we're paused, don't send the message
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(());
+        }
         self.broadcast_message(message, topic.into())
             .await
             .inspect_err(|_e| {
@@ -486,6 +491,11 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         _recipients: Vec<K>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
+        // If we're paused, don't send the message
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(());
+        }
         self.broadcast_message(message, Topic::Da)
             .await
             .inspect_err(|_e| {
@@ -531,6 +541,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         // If we're paused, receive but don't process messages
         #[cfg(feature = "hotshot-testing")]
         if self.is_paused.load(Ordering::Relaxed) {
+            sleep(Duration::from_millis(100)).await;
             return Ok(vec![]);
         }
 

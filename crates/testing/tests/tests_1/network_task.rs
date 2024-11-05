@@ -32,6 +32,8 @@ use tokio::time::timeout;
 #[tokio::test(flavor = "multi_thread")]
 #[allow(clippy::too_many_lines)]
 async fn test_network_task() {
+    use std::collections::BTreeMap;
+
     use futures::StreamExt;
     use hotshot_types::traits::network::Topic;
 
@@ -67,6 +69,7 @@ async fn test_network_task() {
             upgrade_lock: upgrade_lock.clone(),
             storage,
             consensus,
+            transmit_tasks: BTreeMap::new(),
         };
     let (tx, rx) = async_broadcast::broadcast(10);
     let mut task_reg = ConsensusTaskRegistry::new();
@@ -200,6 +203,8 @@ async fn test_network_external_mnessages() {
 #[cfg(test)]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_network_storage_fail() {
+    use std::collections::BTreeMap;
+
     use futures::StreamExt;
     use hotshot_types::traits::network::Topic;
 
@@ -235,6 +240,7 @@ async fn test_network_storage_fail() {
             upgrade_lock: upgrade_lock.clone(),
             storage,
             consensus,
+            transmit_tasks: BTreeMap::new(),
         };
     let (tx, rx) = async_broadcast::broadcast(10);
     let mut task_reg = ConsensusTaskRegistry::new();
