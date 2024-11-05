@@ -249,8 +249,10 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     }
 }
 
-/// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` of `QuorumVotes`
+/// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` over `QuorumData`
 pub type QuorumCertificate<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
+/// Type alias for a `QuorumCertificate2`, which is a `SimpleCertificate` over `QuorumData2`
+pub type QuorumCertificate2<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
 /// Type alias for a DA certificate over `DaData`
 pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData, SuccessThreshold>;
 /// Type alias for a Timeout certificate over a view number

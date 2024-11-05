@@ -36,7 +36,8 @@ use vec1::Vec1;
 use crate::{
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+        QuorumCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -527,7 +528,6 @@ pub struct Leaf<TYPES: NodeType> {
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::BlockPayload`
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct Leaf2<TYPES: NodeType> {
@@ -560,6 +560,8 @@ pub struct Leaf2<TYPES: NodeType> {
 pub enum LeafCertificate<TYPES: NodeType> {
     /// a QC
     Quorum(QuorumCertificate<TYPES>),
+    /// a QC2
+    Quorum2(QuorumCertificate2<TYPES>),
     /// an eQC
     Epoch,
 }
@@ -568,6 +570,13 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
         match &self.justify_qc {
             LeafCertificate::Quorum(justify_qc) => RawCommitmentBuilder::new("leaf commitment")
+                .u64_field("view number", *self.view_number)
+                .field("parent leaf commitment", self.parent_commitment)
+                .field("block header", self.block_header.commit())
+                .field("justify qc", justify_qc.commit())
+                .optional("upgrade certificate", &self.upgrade_certificate)
+                .finalize(),
+            LeafCertificate::Quorum2(justify_qc) => RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
