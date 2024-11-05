@@ -14,7 +14,7 @@ use utils::anytrace::*;
 use vbs::version::Version;
 
 use crate::{
-    data::Leaf,
+    data::{Leaf, Leaf2},
     message::UpgradeLock,
     traits::{
         node_implementation::{NodeType, Versions},
@@ -30,6 +30,13 @@ use crate::{
 pub struct QuorumData<TYPES: NodeType> {
     /// Commitment to the leaf
     pub leaf_commit: Commitment<Leaf<TYPES>>,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a yes vote.
+#[serde(bound(deserialize = ""))]
+pub struct QuorumData2<TYPES: NodeType> {
+    /// Commitment to the leaf
+    pub leaf_commit: Commitment<Leaf2<TYPES>>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
@@ -257,6 +264,14 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        committable::RawCommitmentBuilder::new("Quorum data")
+            .var_size_bytes(self.leaf_commit.as_ref())
+            .finalize()
+    }
+}
+
 impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
@@ -334,6 +349,9 @@ impl<V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + H
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 /// Quorum vote Alias
 pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;
+// Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
+/// Quorum vote Alias
+pub type QuorumVote2<TYPES> = SimpleVote<TYPES, QuorumData2<TYPES>>;
 /// DA vote type alias
 pub type DaVote<TYPES> = SimpleVote<TYPES, DaData>;
 /// Timeout Vote type alias
