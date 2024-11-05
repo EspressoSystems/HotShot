@@ -197,6 +197,11 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -208,6 +213,7 @@
     sync::Arc,
 };
 
+<span class="kw">use </span><span class="kw">crate</span>::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay};
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -222,10 +228,10 @@
         storage::Storage,
     },
     utils::View,
+    vid::VidSchemeType,
     vote::HasViewNumber,
 };
-
-<span class="kw">use </span><span class="kw">crate</span>::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay};
+<span class="kw">use </span>jf_vid::VidScheme;
 
 <span class="kw">type </span>VidShares&lt;TYPES&gt; = HashMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
@@ -316,7 +322,11 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>append_da(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">async fn </span>append_da(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;,
+        _vid_commit: &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
             <span class="macro">bail!</span>(<span class="string">"Failed to append VID proposal to storage"</span>);
         }

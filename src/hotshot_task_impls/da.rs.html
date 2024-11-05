@@ -371,8 +371,6 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -558,21 +556,19 @@
                     )
                 );
 
-                <span class="self">self</span>.storage
-                    .write()
-                    .<span class="kw">await
-                    </span>.append_da(proposal)
-                    .<span class="kw">await
-                    </span>.wrap()
-                    .context(<span class="macro">error!</span>(<span class="string">"Failed to append DA proposal to storage"</span>))<span class="question-mark">?</span>;
-
                 <span class="kw">let </span>txns = Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
                 <span class="kw">let </span>num_nodes = <span class="self">self</span>.quorum_membership.total_nodes(<span class="self">self</span>.cur_epoch);
                 <span class="kw">let </span>payload_commitment =
                     spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
                 <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
                 </span><span class="kw">let </span>payload_commitment = payload_commitment.unwrap();
-
+                <span class="self">self</span>.storage
+                    .write()
+                    .<span class="kw">await
+                    </span>.append_da(proposal, payload_commitment)
+                    .<span class="kw">await
+                    </span>.wrap()
+                    .context(<span class="macro">error!</span>(<span class="string">"Failed to append DA proposal to storage"</span>))<span class="question-mark">?</span>;
                 <span class="kw">let </span>view_number = proposal.data.view_number();
                 <span class="comment">// Generate and send vote
                 </span><span class="kw">let </span>vote = DaVote::create_signed_vote(

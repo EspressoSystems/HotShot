@@ -52,6 +52,12 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -67,6 +73,7 @@
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>jf_vid::VidScheme;
 
 <span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 <span class="kw">use crate</span>::{
@@ -75,6 +82,7 @@
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    vid::VidSchemeType,
 };
 
 <span class="doccomment">/// Abstraction for storing a variety of consensus payload datum.
@@ -83,7 +91,11 @@
     <span class="doccomment">/// Add a proposal to the stored VID proposals.
     </span><span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Add a proposal to the stored DA proposals.
-    </span><span class="kw">async fn </span>append_da(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">async fn </span>append_da(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;,
+        vid_commit: &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Add a proposal we sent to the store
     </span><span class="kw">async fn </span>append_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
