@@ -40,17 +40,28 @@ pub(crate) async fn handle_quorum_vote_recv<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    // Are we the leader for this view?
-    ensure!(
-        task_state
-            .quorum_membership
-            .leader(vote.view_number() + 1, task_state.cur_epoch)?
-            == task_state.public_key,
-        info!(
-            "We are not the leader for view {:?}",
-            vote.view_number() + 1
-        )
-    );
+    let is_vote_leaf_extended = task_state
+        .consensus
+        .read()
+        .await
+        .is_leaf_extended(vote.data.leaf_commit);
+    if is_vote_leaf_extended {
+        // We do not check if we are the leader when receiving a vote for the last eQC proposal.
+        // Every node should receive the votes and form an eQC.
+        tracing::debug!("We have received a vote for the last eQC proposal");
+    } else {
+        // Are we the leader for this view?
+        ensure!(
+            task_state
+                .quorum_membership
+                .leader(vote.view_number() + 1, task_state.cur_epoch)?
+                == task_state.public_key,
+            info!(
+                "We are not the leader for view {:?}",
+                vote.view_number() + 1
+            )
+        );
+    }
 
     handle_vote(
         &mut task_state.vote_collectors,
@@ -62,6 +73,7 @@ pub(crate) async fn handle_quorum_vote_recv<
         &event,
         sender,
         &task_state.upgrade_lock,
+        !is_vote_leaf_extended,
     )
     .await?;
 
@@ -101,6 +113,7 @@ pub(crate) async fn handle_timeout_vote_recv<
         &event,
         sender,
         &task_state.upgrade_lock,
+        true,
     )
     .await?;
 

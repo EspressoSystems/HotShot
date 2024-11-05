@@ -695,6 +695,7 @@ pub(crate) async fn update_view<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
     task_state.cur_view = new_view;
     if epoch_number > task_state.cur_epoch {
+        tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
         task_state.cur_epoch = epoch_number;
     }
 

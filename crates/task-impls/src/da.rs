@@ -294,6 +294,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     &event,
                     &event_stream,
                     &self.upgrade_lock,
+                    true,
                 )
                 .await?;
             }
