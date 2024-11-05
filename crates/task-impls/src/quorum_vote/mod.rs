@@ -661,6 +661,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             &event_sender,
         )
         .await;
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(proposal.data.view_number() + 1)),
+            &event_sender,
+        )
+        .await;
 
         // Update internal state
         if let Err(e) = update_shared_state::<TYPES, I, V>(
