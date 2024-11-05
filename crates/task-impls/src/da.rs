@@ -183,8 +183,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     )
                 );
 
-
-
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let num_nodes = self.quorum_membership.total_nodes(self.cur_epoch);
                 let payload_commitment =
