@@ -12,7 +12,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
@@ -200,7 +200,7 @@ pub struct NetworkEventTaskState<
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
     /// Shared consensus state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
@@ -280,7 +280,7 @@ impl<
 
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
@@ -306,7 +306,7 @@ impl<
     async fn maybe_record_action(
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
-        consensus: Arc<RwLock<Consensus<TYPES>>>,
+        consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
     ) -> std::result::Result<(), ()> {
         if let Some(mut action) = maybe_action {
@@ -639,7 +639,7 @@ impl<
             .committee_members(view_number, self.epoch);
         let network = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let upgrade_lock = self.upgrade_lock.clone();
         async_spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(

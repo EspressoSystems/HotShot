@@ -18,6 +18,7 @@ use hotshot_testing::{
     test_task::add_network_message_test_task, view_generator::TestViewGenerator,
 };
 use hotshot_types::{
+    consensus::OuterConsensus,
     data::{EpochNumber, ViewNumber},
     message::UpgradeLock,
     traits::{
@@ -51,7 +52,7 @@ async fn test_network_task() {
     let network = (launcher.resource_generator.channel_generator)(node_id).await;
 
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
-    let consensus = handle.hotshot.consensus();
+    let consensus = OuterConsensus::new(handle.hotshot.consensus());
     let config = launcher.resource_generator.config.clone();
     let public_key = config.my_own_validator_config.public_key;
 
@@ -230,7 +231,7 @@ async fn test_network_storage_fail() {
 
     let network = (launcher.resource_generator.channel_generator)(node_id).await;
 
-    let consensus = handle.hotshot.consensus();
+    let consensus = OuterConsensus::new(handle.hotshot.consensus());
     let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
     storage.write().await.should_return_err = true;
     let config = launcher.resource_generator.config.clone();
