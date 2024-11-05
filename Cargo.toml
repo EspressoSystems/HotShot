@@ -36,7 +36,7 @@ ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-async-lock = "2"
+async-lock = "3"
 async-trait = "0.1"
 bincode = "1"
 bitvec = { version = "1", default-features = false, features = [

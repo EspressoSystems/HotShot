@@ -147,7 +147,7 @@ async fn run_gossip_round<T: NodeType>(
     msg: CounterMessage,
     new_state: CounterState,
     timeout_duration: Duration,
-) -> Result<(), TestError<CounterState>> {
+) -> Result<(), TestError> {
     let mut rng = rand::thread_rng();
     let msg_handle = random_handle(handles, &mut rng);
     *msg_handle.state.lock().await = new_state;

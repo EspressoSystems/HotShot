@@ -174,7 +174,7 @@ pub async fn print_connections<T: NodeType>(handles: &[Arc<NetworkNodeHandle<T>>
 pub async fn spin_up_swarms<S: Debug + Default + Send, T: NodeType>(
     num_of_nodes: usize,
     timeout_len: Duration,
-) -> Result<Vec<(HandleWithState<S, T>, NetworkNodeReceiver)>, TestError<S>> {
+) -> Result<Vec<(HandleWithState<S, T>, NetworkNodeReceiver)>, TestError> {
     let mut handles = Vec::new();
     let mut node_addrs = Vec::<(PeerId, Multiaddr)>::new();
     let mut connecting_futs = Vec::new();
@@ -250,7 +250,7 @@ pub async fn spin_up_swarms<S: Debug + Default + Send, T: NodeType>(
 }
 
 #[derive(Debug, Error)]
-pub enum TestError<S: Debug> {
+pub enum TestError {
     #[error("Error with network node handle: {0}")]
     HandleError(String),
 
