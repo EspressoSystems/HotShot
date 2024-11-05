@@ -38,7 +38,7 @@ async-broadcast = "0.7"
 async-compatibility-layer = { version = "1.2.1", default-features = false, features = [
   "logging-utils",
 ] }
-async-lock = "2"
+async-lock = "3"
 async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
 bincode = "1"
@@ -174,3 +174,6 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 # TODO change to deny
 missing_docs = "warn"
 warnings = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(async_executor_impl, values("tokio", "async-std"))',
+] }         
