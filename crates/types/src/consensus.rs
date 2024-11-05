@@ -850,8 +850,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         if is_high_qc_extended {
             tracing::debug!("We have formed an eQC!");
         }
-        self.is_leaf_for_last_block(high_qc_leaf_commit)
-            && !is_high_qc_extended
+        self.is_leaf_for_last_block(high_qc_leaf_commit) && !is_high_qc_extended
     }
 
     /// Return true if the given leaf takes part in forming an eQC, i.e.
