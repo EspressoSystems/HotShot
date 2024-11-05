@@ -59,6 +59,6 @@ tokio = { workspace = true }
 async-std = { workspace = true }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [
+unexpected_cfgs = { level = "allow", check-cfg = [
     'cfg(async_executor_impl, values("tokio", "async-std"))',
 ] }
