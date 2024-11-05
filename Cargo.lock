@@ -3164,6 +3164,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
+ "jf-vid",
  "rand 0.8.5",
  "reqwest",
  "serde",
