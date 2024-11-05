@@ -1,0 +1,1 @@
+searchState.loadedDescShard("whitelist_push_cdn", 0, "The whitelist is an adaptor that is able to update the …\nThe main component of the push CDN.\nThe discovery client endpoint (including scheme) to …\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nWhether or not to use the local discovery client\nThe URL the orchestrator is running on. This should be …")
