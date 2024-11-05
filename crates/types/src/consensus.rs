@@ -846,8 +846,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// it is one of the 3-chain certificates but not the eQC itself
     pub fn is_high_qc_forming_eqc(&self) -> bool {
         let high_qc_leaf_commit = self.high_qc().data.leaf_commit;
+        let is_high_qc_extended = self.is_leaf_extended(high_qc_leaf_commit);
+        if is_high_qc_extended {
+            tracing::debug!("We have formed an eQC!");
+        }
         self.is_leaf_for_last_block(high_qc_leaf_commit)
-            && !self.is_leaf_extended(high_qc_leaf_commit)
+            && !is_high_qc_extended
     }
 
     /// Return true if the given leaf takes part in forming an eQC, i.e.
