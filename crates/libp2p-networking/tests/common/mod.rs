@@ -259,9 +259,4 @@ pub enum TestError<S: Debug> {
 
     #[error("The following nodes timed out: {0:?} while {1}")]
     Timeout(Vec<usize>, String),
-
-    #[error(
-        "Inconsistent state while running test. Expected {expected:?}, got {actual:?} on node {id}"
-    )]
-    InconsistentState { id: usize, expected: S, actual: S },
 }
