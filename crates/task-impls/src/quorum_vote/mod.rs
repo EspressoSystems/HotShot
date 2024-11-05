@@ -145,7 +145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                             .consensus
                             .read()
                             .await
-                            .is_qc_forming_eqc(&proposal.data.justify_qc)
+                            .is_leaf_forming_eqc(proposal.data.justify_qc.data.leaf_commit)
                     {
                         tracing::debug!("Do not vote here. Voting for this case is handled in QuorumVoteTaskState");
                         return;
@@ -467,7 +467,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 let consensus_reader = self.consensus.read().await;
                 let cur_epoch = consensus_reader.cur_epoch();
                 let is_qc_forming_eqc =
-                    consensus_reader.is_qc_forming_eqc(&proposal.data.justify_qc);
+                    consensus_reader.is_leaf_forming_eqc(proposal.data.justify_qc.data.leaf_commit);
                 drop(consensus_reader);
 
                 if version >= V::Epochs::VERSION && is_qc_forming_eqc {
