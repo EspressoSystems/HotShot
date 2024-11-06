@@ -838,7 +838,7 @@ where
         // Initialize our Libp2p network
         let libp2p_network: Libp2pDaRun<TYPES> = <Libp2pDaRun<TYPES> as RunDa<
             TYPES,
-            Libp2pNetwork<TYPES::SignatureKey>,
+            Libp2pNetwork<TYPES>,
             Libp2pImpl,
             V,
         >>::initialize_networking(
