@@ -185,8 +185,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 self.cancel_tasks(oldest_view_to_keep);
             }
             HotShotEvent::QcFormed(Either::Left(cert)) => {
-                let new_view = cert.view_number();
-                let block_number = if let Some(leaf) = self
+                let new_view = cert.view_number() + 1;
+                let cert_block_number = if let Some(leaf) = self
                     .consensus
                     .read()
                     .await
@@ -199,10 +199,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     return;
                 };
 
-                let epoch_number =
-                    TYPES::Epoch::new(epoch_from_block_number(block_number, self.epoch_height));
+                let next_view_epoch = match self
+                    .consensus
+                    .read()
+                    .await
+                    .get_epoch_for_next_view(cert.view_number())
+                {
+                    Ok(epoch) => epoch,
+                    Err(e) => {
+                        tracing::error!("Error updating view, error: {:?}", e);
+                        return;
+                    }
+                };
+                tracing::trace!(
+                    "Sending ViewChange for view {} and epoch {}",
+                    *new_view,
+                    *next_view_epoch
+                );
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(new_view, epoch_number)),
+                    Arc::new(HotShotEvent::ViewChange(new_view, next_view_epoch)),
                     &event_sender,
                 )
                 .await;
