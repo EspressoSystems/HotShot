@@ -183,21 +183,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     )
                 );
 
-                self.storage
-                    .write()
-                    .await
-                    .append_da(proposal)
-                    .await
-                    .wrap()
-                    .context(error!("Failed to append DA proposal to storage"))?;
-
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let num_nodes = self.quorum_membership.total_nodes(self.cur_epoch);
                 let payload_commitment =
                     spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
                 #[cfg(async_executor_impl = "tokio")]
                 let payload_commitment = payload_commitment.unwrap();
-
+                self.storage
+                    .write()
+                    .await
+                    .append_da(proposal, payload_commitment)
+                    .await
+                    .wrap()
+                    .context(error!("Failed to append DA proposal to storage"))?;
                 let view_number = proposal.data.view_number();
                 // Generate and send vote
                 let vote = DaVote::create_signed_vote(
@@ -309,15 +307,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     tracing::info!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
-
-                // If we are not the next leader (DA leader for this view) immediately exit
-                ensure!(
-                    self.da_membership
-                        .leader(self.cur_view + 1, self.cur_epoch)?
-                        == self.public_key
-                );
-
-                tracing::debug!("Polling for DA votes for view {}", *self.cur_view + 1);
             }
             HotShotEvent::BlockRecv(packed_bundle) => {
                 let PackedBundle::<TYPES> {
