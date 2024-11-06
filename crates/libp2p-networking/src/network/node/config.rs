@@ -6,7 +6,7 @@
 
 use std::{collections::HashSet, num::NonZeroUsize, time::Duration};
 
-use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::node_implementation::NodeType;
 use libp2p::{identity::Keypair, Multiaddr};
 use libp2p_identity::PeerId;
 
@@ -17,7 +17,7 @@ pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(1
 
 /// describe the configuration of the network
 #[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
-pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
+pub struct NetworkNodeConfig<T: NodeType> {
     /// The keypair for the node
     #[builder(setter(into, strip_option), default)]
     #[debug(skip)]
@@ -33,6 +33,10 @@ pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
     /// Configuration for `GossipSub`
     pub gossip_config: GossipConfig,
 
+    #[builder(default)]
+    /// Configuration for `RequestResponse`
+    pub request_response_config: RequestResponseConfig,
+
     /// list of addresses to connect to at initialization
     pub to_connect_addrs: HashSet<(PeerId, Multiaddr)>,
     /// republication interval in DHT, must be much less than `ttl`
@@ -45,7 +49,7 @@ pub struct NetworkNodeConfig<K: SignatureKey + 'static> {
     /// The stake table. Used for authenticating other nodes. If not supplied
     /// we will not check other nodes against the stake table
     #[builder(default)]
-    pub stake_table: Option<HashSet<K>>,
+    pub stake_table: Option<T::Membership>,
 
     /// The signed authentication message sent to the remote peer
     /// If not supplied we will not send an authentication message during the handshake
@@ -148,6 +152,24 @@ impl Default for GossipConfig {
             gossip_lazy: 6,
 
             max_transmit_size: MAX_GOSSIP_MSG_SIZE, // The maximum gossip message size
+        }
+    }
+}
+
+/// Configuration for Libp2p's request-response
+#[derive(Clone, Debug)]
+pub struct RequestResponseConfig {
+    /// The maximum request size in bytes
+    pub request_size_maximum: u64,
+    /// The maximum response size in bytes
+    pub response_size_maximum: u64,
+}
+
+impl Default for RequestResponseConfig {
+    fn default() -> Self {
+        Self {
+            request_size_maximum: 20 * 1024 * 1024,
+            response_size_maximum: 20 * 1024 * 1024,
         }
     }
 }

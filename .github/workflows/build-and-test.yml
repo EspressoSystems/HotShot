@@ -45,11 +45,7 @@ jobs:
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.test_suites == 'test-ci-rest' }}
 
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
+      - uses: taiki-e/install-action@just
 
       - uses: taiki-e/install-action@nextest
 
@@ -83,11 +79,7 @@ jobs:
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
+      - uses: taiki-e/install-action@just
 
       - name: Test examples
         run: |
@@ -117,11 +109,7 @@ jobs:
           cache-on-failure: "true"
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
+      - uses: taiki-e/install-action@just
 
       - name: Build examples in release mode
         run: just ${{ matrix.just_variants }} build_release --examples --package hotshot-examples --no-default-features

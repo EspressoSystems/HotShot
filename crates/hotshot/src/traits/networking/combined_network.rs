@@ -95,7 +95,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
     #[must_use]
     pub fn new(
         primary_network: PushCdnNetwork<TYPES::SignatureKey>,
-        secondary_network: Libp2pNetwork<TYPES::SignatureKey>,
+        secondary_network: Libp2pNetwork<TYPES>,
         delay_duration: Option<Duration>,
     ) -> Self {
         // Create networks from the ones passed in
@@ -127,7 +127,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 
     /// Get a ref to the backup network
     #[must_use]
-    pub fn secondary(&self) -> &Libp2pNetwork<TYPES::SignatureKey> {
+    pub fn secondary(&self) -> &Libp2pNetwork<TYPES> {
         &self.networks.1
     }
 
@@ -251,7 +251,7 @@ impl<TYPES: NodeType> CombinedNetworks<TYPES> {
 #[derive(Clone)]
 pub struct UnderlyingCombinedNetworks<TYPES: NodeType>(
     pub PushCdnNetwork<TYPES::SignatureKey>,
-    pub Libp2pNetwork<TYPES::SignatureKey>,
+    pub Libp2pNetwork<TYPES>,
 );
 
 #[cfg(feature = "hotshot-testing")]
@@ -273,7 +273,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 None,
                 Duration::default(),
             ),
-            <Libp2pNetwork<TYPES::SignatureKey> as TestableNetworkingImplementation<TYPES>>::generator(
+            <Libp2pNetwork<TYPES> as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
                 num_bootstrap,
                 network_id,
@@ -297,7 +297,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
                 // Combine the two
                 let underlying_combined = UnderlyingCombinedNetworks(
                     cdn.clone(),
-                    Arc::<Libp2pNetwork<TYPES::SignatureKey>>::unwrap_or_clone(p2p),
+                    Arc::<Libp2pNetwork<TYPES>>::unwrap_or_clone(p2p),
                 );
 
                 // We want to use the same message cache between the two networks
@@ -462,11 +462,8 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
             // Calculate hash of the message
             let message_hash = calculate_hash_of(&message);
 
-            // Check if the hash is in the cache
-            if !self.message_cache.read().contains(&message_hash) {
-                // Add the hash to the cache
-                self.message_cache.write().put(message_hash, ());
-
+            // Check if the hash is in the cache and update the cache
+            if self.message_cache.write().put(message_hash, ()).is_none() {
                 break Ok(message);
             }
         }
