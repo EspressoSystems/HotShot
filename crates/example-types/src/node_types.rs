@@ -6,7 +6,9 @@
 
 use hotshot::traits::{
     election::{
-        randomized_committee::RandomizedCommittee, static_committee::StaticCommittee,
+        randomized_committee::RandomizedCommittee,
+        randomized_committee_members::RandomizedCommitteeMembers,
+        static_committee::StaticCommittee,
         static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews,
     },
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
@@ -102,6 +104,42 @@ impl NodeType for TestTypesRandomizedLeader {
 )]
 /// filler struct to implement node type and allow us
 /// to select our traits
+pub struct TestTypesRandomizedCommitteeMembers<const SEED: u64, const OVERLAP: u64>;
+impl<const SEED: u64, const OVERLAP: u64> NodeType
+    for TestTypesRandomizedCommitteeMembers<SEED, OVERLAP>
+{
+    type AuctionResult = TestAuctionResult;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
+    type BlockHeader = TestBlockHeader;
+    type BlockPayload = TestBlockPayload;
+    type SignatureKey = BLSPubKey;
+    type Transaction = TestTransaction;
+    type ValidatedState = TestValidatedState;
+    type InstanceState = TestInstanceState;
+    type Membership = RandomizedCommitteeMembers<
+        TestTypesRandomizedCommitteeMembers<SEED, OVERLAP>,
+        SEED,
+        OVERLAP,
+    >;
+    type BuilderSignatureKey = BuilderKey;
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+/// filler struct to implement node type and allow us
+/// to select our traits
 pub struct TestConsecutiveLeaderTypes;
 impl NodeType for TestConsecutiveLeaderTypes {
     type AuctionResult = TestAuctionResult;
@@ -133,7 +171,7 @@ pub struct Libp2pImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct WebImpl;
 
-/// Combined Network implementation (libp2p + web sever)
+/// Combined Network implementation (libp2p + web server)
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct CombinedImpl;
 

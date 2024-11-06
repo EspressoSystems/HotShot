@@ -21,14 +21,13 @@ use hotshot_testing::block_builder::{
 use hotshot_types::{
     network::RandomBuilderConfig,
     traits::{
-        block_contents::vid_commitment,
-        node_implementation::{NodeType, Versions},
-        signature_key::SignatureKey,
+        block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
         BlockPayload,
     },
 };
 use tide_disco::Url;
 use tokio::time::sleep;
+use vbs::version::StaticVersion;
 
 #[cfg(test)]
 #[tokio::test(flavor = "multi_thread")]
@@ -50,8 +49,7 @@ async fn test_random_block_builder() {
 
     let builder_started = Instant::now();
 
-    let client: BuilderClient<TestTypes, <TestVersions as Versions>::Base> =
-        BuilderClient::new(api_url);
+    let client: BuilderClient<TestTypes, StaticVersion<0, 1>> = BuilderClient::new(api_url);
     assert!(client.connect(Duration::from_millis(100)).await);
 
     let (pub_key, private_key) =
