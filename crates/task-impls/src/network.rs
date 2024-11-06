@@ -31,7 +31,7 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tracing::{error, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -55,7 +55,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
     #[instrument(skip_all, name = "Network message task", level = "trace")]
     /// Handles a (deserialized) message from the network
     pub async fn handle_message(&mut self, message: Message<TYPES>) {
-        tracing::trace!("Received message from network:\n\n{message:?}");
+        tracing::info!("Received message from network:\n\n{message:?}");
 
         // Match the message kind and send the appropriate event to the internal event stream
         let sender = message.sender;
@@ -601,13 +601,16 @@ impl<
 
             let transmit_result = match transmit {
                 TransmitType::Direct(recipient) => {
+                    info!("Sending direct message: {:?}", message);
                     net.direct_message(serialized_message, recipient).await
                 }
                 TransmitType::Broadcast => {
+                    info!("Sending broadcast message: {:?}", message);
                     net.broadcast_message(serialized_message, committee_topic, broadcast_delay)
                         .await
                 }
                 TransmitType::DaCommitteeBroadcast => {
+                    info!("Sending DA broadcast message: {:?}", message);
                     net.da_broadcast_message(
                         serialized_message,
                         da_committee.iter().cloned().collect(),

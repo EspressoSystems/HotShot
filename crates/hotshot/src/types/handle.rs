@@ -110,16 +110,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
 
         match recipients {
             RecipientList::Broadcast => {
+                tracing::info!("Sending broadcast message: {:?}", message);
                 self.network
                     .broadcast_message(serialized_message, Topic::Global, BroadcastDelay::None)
                     .await?;
             }
             RecipientList::Direct(recipient) => {
+                tracing::info!("Sending direct message: {:?}", message);
                 self.network
                     .direct_message(serialized_message, recipient)
                     .await?;
             }
             RecipientList::Many(recipients) => {
+                tracing::info!("Sending DA broadcast message: {:?}", message);
                 self.network
                     .da_broadcast_message(serialized_message, recipients, BroadcastDelay::None)
                     .await?;
