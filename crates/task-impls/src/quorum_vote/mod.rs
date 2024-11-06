@@ -38,6 +38,7 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
 
+use crate::helpers::epoch_from_block_number;
 use crate::{
     events::HotShotEvent,
     helpers::{broadcast_event, cancel_task},
@@ -74,8 +75,6 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     pub storage: Arc<RwLock<I::Storage>>,
     /// View number to vote on.
     pub view_number: TYPES::View,
-    /// Epoch number to vote on.
-    pub epoch_number: TYPES::Epoch,
     /// Event sender.
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
     /// Event receiver.
@@ -84,6 +83,8 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// The node's id
     pub id: u64,
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> HandleDepOutput
@@ -178,7 +179,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             &self.sender,
         )
         .await;
-
         let Some(vid_share) = vid_share else {
             tracing::error!(
                 "We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed.",
@@ -194,6 +194,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             );
             return;
         };
+
+        let block_number = leaf.height();
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(block_number, self.epoch_height));
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(self.view_number + 1, epoch)),
+            &self.sender,
+        )
+        .await;
 
         // Update internal state
         if let Err(e) = update_shared_state::<TYPES, I, V>(
@@ -224,7 +232,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             self.private_key.clone(),
             self.upgrade_lock.clone(),
             self.view_number,
-            self.epoch_number,
+            epoch,
             Arc::clone(&self.storage),
             leaf,
             vid_share,
@@ -278,6 +286,9 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
 
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskState<TYPES, I, V> {
@@ -331,7 +342,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::View,
-        epoch_number: TYPES::Epoch,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         event: Option<Arc<HotShotEvent<TYPES>>>,
@@ -370,11 +380,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 storage: Arc::clone(&self.storage),
                 view_number,
-                epoch_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
+                epoch_height: self.epoch_height,
             },
         );
         self.vote_dependencies
@@ -440,25 +450,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     .version(proposal.data.view_number())
                     .await?;
 
-                let consensus_reader = self.consensus.read().await;
-                let cur_epoch = consensus_reader.cur_epoch();
-                let is_qc_forming_eqc =
-                    consensus_reader.is_qc_forming_eqc(&proposal.data.justify_qc);
-                drop(consensus_reader);
+                let is_qc_forming_eqc = self
+                    .consensus
+                    .read()
+                    .await
+                    .is_qc_forming_eqc(&proposal.data.justify_qc);
 
                 if version >= V::Epochs::VERSION && is_qc_forming_eqc {
-                    self.handle_eqc_voting(
-                        proposal,
-                        parent_leaf,
-                        event_sender,
-                        event_receiver,
-                        cur_epoch,
-                    )
-                    .await;
+                    self.handle_eqc_voting(proposal, parent_leaf, event_sender, event_receiver)
+                        .await;
                 } else {
                     self.create_dependency_task_if_new(
                         proposal.data.view_number,
-                        cur_epoch,
                         event_receiver,
                         &event_sender,
                         Some(Arc::clone(&event)),
@@ -494,13 +497,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     &event_sender.clone(),
                 )
                 .await;
-                self.create_dependency_task_if_new(
-                    view,
-                    cur_epoch,
-                    event_receiver,
-                    &event_sender,
-                    None,
-                );
+                self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
             HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
@@ -558,13 +555,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     &event_sender.clone(),
                 )
                 .await;
-                self.create_dependency_task_if_new(
-                    view,
-                    cur_epoch,
-                    event_receiver,
-                    &event_sender,
-                    None,
-                );
+                self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
                 tracing::debug!("All vote dependencies verified for view {:?}", view_number);
@@ -573,8 +564,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 }
             }
             HotShotEvent::Timeout(view) => {
+                let view = TYPES::View::new(view.saturating_sub(1));
                 // cancel old tasks
-                let current_tasks = self.vote_dependencies.split_off(view);
+                let current_tasks = self.vote_dependencies.split_off(&view);
                 while let Some((_, task)) = self.vote_dependencies.pop_last() {
                     cancel_task(task).await;
                 }
@@ -601,7 +593,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         parent_leaf: &Leaf<TYPES>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-        epoch_number: TYPES::Epoch,
     ) {
         tracing::info!("Reached end of epoch. Justify QC is for the last block in the epoch.");
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
@@ -656,6 +647,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             &event_sender,
         )
         .await;
+        let block_number = proposed_leaf.height();
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(block_number, self.epoch_height));
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(
+                proposal.data.view_number() + 1,
+                epoch,
+            )),
+            &event_sender,
+        )
+        .await;
 
         // Update internal state
         if let Err(e) = update_shared_state::<TYPES, I, V>(
@@ -686,7 +687,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             self.private_key.clone(),
             self.upgrade_lock.clone(),
             proposal.data.view_number(),
-            epoch_number,
+            epoch,
             Arc::clone(&self.storage),
             proposed_leaf,
             updated_vid,
