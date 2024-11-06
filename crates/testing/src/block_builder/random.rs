@@ -19,16 +19,12 @@ use async_broadcast::{broadcast, Sender};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
-use committable::Commitment;
 use futures::{future::BoxFuture, Stream, StreamExt};
 use hotshot::types::{Event, EventType, SignatureKey};
-use hotshot_builder_api::{
-    v0_1::{
-        block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-        builder::BuildError,
-        data_source::BuilderDataSource,
-    },
-    v0_2::builder::TransactionStatus,
+use hotshot_builder_api::v0_1::{
+    block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
+    builder::BuildError,
+    data_source::BuilderDataSource,
 };
 use hotshot_example_types::block_types::TestTransaction;
 use hotshot_types::{
@@ -344,8 +340,4 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
         Ok(self.pub_key.clone())
     }
-
-    // async fn claim_tx_status(&self, _txn_hash: Commitment<TYPES::Transaction>) -> Result<TransactionStatus, BuildError> {
-    //     Ok(TransactionStatus::Unknown) // Sishan: place holder
-    // }
 }

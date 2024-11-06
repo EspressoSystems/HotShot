@@ -328,10 +328,6 @@ where
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
         Ok(self.pub_key.clone())
     }
-
-    // async fn claim_tx_status(&self, _txn_hash: Commitment<TYPES::Transaction>) -> Result<TransactionStatus, BuildError> {
-    //     Ok(TransactionStatus::Unknown) // Sishan: place holder
-    // }
 }
 
 impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {

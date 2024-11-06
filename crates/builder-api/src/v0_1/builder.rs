@@ -212,12 +212,6 @@ where
         .get("builder_address", |_req, state| {
             async move { state.builder_address().await.map_err(|e| e.into()) }.boxed()
         })?;
-    // .get("transaction_status", |req, state| {
-    //     async move {
-    //         let tx_hash = req.blob_param("transaction_hash")?;
-    //         state.claim_tx_status(tx_hash).await.map_err(|e| e.into())
-    //     }.boxed()
-    // })?
     Ok(api)
 }
 

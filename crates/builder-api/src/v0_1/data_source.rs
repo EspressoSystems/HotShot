@@ -59,9 +59,6 @@ pub trait BuilderDataSource<TYPES: NodeType> {
 
     /// To get the builder's address
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError>;
-
-    // To get the status of submitted transaction
-    // async fn claim_tx_status(&self, txn_hash: Commitment<TYPES::Transaction>) -> Result<TransactionStatus, BuildError>;
 }
 
 #[async_trait]
