@@ -579,6 +579,7 @@
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -700,6 +701,7 @@
 }
 
 <span class="doccomment">/// Add the network task to handle messages and publish events.
+</span><span class="attr">#[allow(clippy::missing_panics_doc)]
 </span><span class="kw">pub fn </span>add_network_message_task&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,

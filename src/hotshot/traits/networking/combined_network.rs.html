@@ -509,9 +509,6 @@
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -976,11 +973,8 @@
             <span class="comment">// Calculate hash of the message
             </span><span class="kw">let </span>message_hash = calculate_hash_of(<span class="kw-2">&amp;</span>message);
 
-            <span class="comment">// Check if the hash is in the cache
-            </span><span class="kw">if </span>!<span class="self">self</span>.message_cache.read().contains(<span class="kw-2">&amp;</span>message_hash) {
-                <span class="comment">// Add the hash to the cache
-                </span><span class="self">self</span>.message_cache.write().put(message_hash, ());
-
+            <span class="comment">// Check if the hash is in the cache and update the cache
+            </span><span class="kw">if </span><span class="self">self</span>.message_cache.write().put(message_hash, ()).is_none() {
                 <span class="kw">break </span><span class="prelude-val">Ok</span>(message);
             }
         }
