@@ -864,11 +864,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// consecutive views for the last block in the epoch.
     pub fn is_leaf_extended(&self, leaf_commit: LeafCommitment<TYPES>) -> bool {
         if !self.is_leaf_for_last_block(leaf_commit) {
-            tracing::debug!("The given leaf is not for the last block in the epoch.");
+            tracing::trace!("The given leaf is not for the last block in the epoch.");
             return false;
         }
 
         let Some(leaf) = self.saved_leaves.get(&leaf_commit) else {
+            tracing::trace!("We don't have a leaf corresponding to the leaf commit");
             return false;
         };
         let leaf_view = leaf.view_number();
@@ -916,6 +917,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Returns true if a given leaf is for the last block in the epoch
     pub fn is_leaf_for_last_block(&self, leaf_commit: LeafCommitment<TYPES>) -> bool {
         let Some(leaf) = self.saved_leaves.get(&leaf_commit) else {
+            tracing::trace!("We don't have a leaf corresponding to the leaf commit");
             return false;
         };
         let block_height = leaf.height();
