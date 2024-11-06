@@ -3343,6 +3343,7 @@ dependencies = [
  "hotshot-types",
  "jf-signature",
  "jf-vid",
+ "lru 0.12.5",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
