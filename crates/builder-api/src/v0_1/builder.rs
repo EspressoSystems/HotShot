@@ -50,6 +50,15 @@ pub enum BuildError {
     Error(String),
 }
 
+/// Enum to keep track on status of a transactions
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum TransactionStatus {
+    Pending,
+    Sequenced { block: u64, offset: u64 },
+    Rejected { reason: String }, // Rejection reason is in the String format
+    Unknown,
+}
+
 #[derive(Clone, Debug, Error, Deserialize, Serialize)]
 pub enum Error {
     #[error("Error processing request: {0}")]
@@ -70,6 +79,8 @@ pub enum Error {
     TxnSubmit(BuildError),
     #[error("Error getting builder address: {0}")]
     BuilderAddress(#[from] BuildError),
+    #[error("Error getting transaction status: {0}")]
+    TxnStatGet(BuildError),
     #[error("Custom error {status}: {message}")]
     Custom { message: String, status: StatusCode },
 }
@@ -95,6 +106,7 @@ impl tide_disco::error::Error for Error {
             Error::TxnSubmit { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Custom { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::BuilderAddress { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::TxnStatGet { .. } => StatusCode::BAD_REQUEST,
         }
     }
 }
@@ -200,6 +212,12 @@ where
         .get("builder_address", |_req, state| {
             async move { state.builder_address().await.map_err(|e| e.into()) }.boxed()
         })?;
+    // .get("transaction_status", |req, state| {
+    //     async move {
+    //         let tx_hash = req.blob_param("transaction_hash")?;
+    //         state.claim_tx_status(tx_hash).await.map_err(|e| e.into())
+    //     }.boxed()
+    // })?
     Ok(api)
 }
 
@@ -237,6 +255,20 @@ where
                 let hashes = txns.iter().map(|tx| tx.commit()).collect::<Vec<_>>();
                 state.submit_txns(txns).await.map_err(Error::TxnSubmit)?;
                 Ok(hashes)
+            }
+            .boxed()
+        })?
+        .at("get_txn_stat", |req: RequestParams, state| {
+            async move {
+                let tx = req
+                    .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
+                    .map_err(Error::TxnUnpack)?;
+                let hash = tx.commit();
+                state
+                    .claim_tx_status(hash)
+                    .await
+                    .map_err(Error::TxnStatGet)?;
+                Ok(hash)
             }
             .boxed()
         })?;

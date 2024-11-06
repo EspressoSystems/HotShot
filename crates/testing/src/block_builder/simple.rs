@@ -25,8 +25,8 @@ use hotshot::{
     types::{Event, EventType, SignatureKey},
 };
 use hotshot_builder_api::{
-    v0_1,
     v0_1::{
+        self,
         block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
         builder::{BuildError, Error, Options},
     },
@@ -328,6 +328,10 @@ where
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError> {
         Ok(self.pub_key.clone())
     }
+
+    // async fn claim_tx_status(&self, _txn_hash: Commitment<TYPES::Transaction>) -> Result<TransactionStatus, BuildError> {
+    //     Ok(TransactionStatus::Unknown) // Sishan: place holder
+    // }
 }
 
 impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {

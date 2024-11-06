@@ -14,7 +14,7 @@ use hotshot_types::{
 
 use super::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-    builder::BuildError,
+    builder::{BuildError, TransactionStatus},
 };
 
 #[async_trait]
@@ -59,6 +59,9 @@ pub trait BuilderDataSource<TYPES: NodeType> {
 
     /// To get the builder's address
     async fn builder_address(&self) -> Result<TYPES::BuilderSignatureKey, BuildError>;
+
+    // To get the status of submitted transaction
+    // async fn claim_tx_status(&self, txn_hash: Commitment<TYPES::Transaction>) -> Result<TransactionStatus, BuildError>;
 }
 
 #[async_trait]
@@ -70,4 +73,9 @@ where
         &self,
         txns: Vec<<I as NodeType>::Transaction>,
     ) -> Result<Vec<Commitment<<I as NodeType>::Transaction>>, BuildError>;
+
+    async fn claim_tx_status(
+        &self,
+        txn_hash: Commitment<<I as NodeType>::Transaction>,
+    ) -> Result<TransactionStatus, BuildError>;
 }
