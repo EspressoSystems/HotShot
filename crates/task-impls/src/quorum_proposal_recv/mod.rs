@@ -43,7 +43,6 @@ use crate::{
         parent_leaf_and_state,
     },
 };
-
 /// Event handlers for this task.
 mod handlers;
 
