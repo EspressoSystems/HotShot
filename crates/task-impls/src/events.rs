@@ -11,8 +11,8 @@ use either::Either;
 use hotshot_task::task::TaskEvent;
 use hotshot_types::{
     data::{
-        DaProposal, Leaf, PackedBundle, QuorumProposal, UpgradeProposal, VidDisperse,
-        VidDisperseShare,
+        DaProposal, Leaf, PackedBundle, QuorumProposal, QuorumProposal2, UpgradeProposal,
+        VidDisperse, VidDisperseShare,
     },
     message::Proposal,
     request_response::ProposalRequestPayload,
@@ -21,8 +21,8 @@ use hotshot_types::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-        ViewSyncPreCommitVote,
+        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
+        ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
     traits::{
         block_contents::BuilderFee, network::DataRequest, node_implementation::NodeType,
@@ -72,8 +72,12 @@ pub enum HotShotEvent<TYPES: NodeType> {
     Shutdown,
     /// A quorum proposal has been received from the network; handled by the consensus task
     QuorumProposalRecv(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
+    /// A quorum proposal has been received from the network; handled by the consensus task
+    QuorumProposal2Recv(Proposal<TYPES, QuorumProposal2<TYPES>>, TYPES::SignatureKey),
     /// A quorum vote has been received from the network; handled by the consensus task
     QuorumVoteRecv(QuorumVote<TYPES>),
+    /// A quorum vote has been received from the network; handled by the consensus task
+    QuorumVote2Recv(QuorumVote2<TYPES>),
     /// A timeout vote received from the network; handled by consensus task
     TimeoutVoteRecv(TimeoutVote<TYPES>),
     /// Send a timeout vote to the network; emitted by consensus task replicas
@@ -90,8 +94,12 @@ pub enum HotShotEvent<TYPES: NodeType> {
     DaCertificateValidated(DaCertificate<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
+    /// Send a quorum proposal to the network; emitted by the leader in the consensus task
+    QuorumProposal2Send(Proposal<TYPES, QuorumProposal2<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
+    /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
+    QuorumVote2Send(QuorumVote2<TYPES>),
     /// All dependencies for the quorum vote are validated.
     QuorumVoteDependenciesValidated(TYPES::View),
     /// A quorum proposal with the given parent leaf is validated.
@@ -113,8 +121,12 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ),
     /// A quorum proposal was missing for a view. As the leader, we send a reply to the recipient with their key.
     QuorumProposalResponseSend(TYPES::SignatureKey, Proposal<TYPES, QuorumProposal<TYPES>>),
+    /// A quorum proposal was missing for a view. As the leader, we send a reply to the recipient with their key.
+    QuorumProposal2ResponseSend(TYPES::SignatureKey, Proposal<TYPES, QuorumProposal2<TYPES>>),
     /// A quorum proposal was requested by a node for a view.
     QuorumProposalResponseRecv(Proposal<TYPES, QuorumProposal<TYPES>>),
+    /// A quorum proposal was requested by a node for a view.
+    QuorumProposal2ResponseRecv(Proposal<TYPES, QuorumProposal2<TYPES>>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     DaProposalSend(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
@@ -274,7 +286,16 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 Some(proposal.data.view_number())
             }
+            HotShotEvent::QuorumProposal2Recv(proposal, _)
+            | HotShotEvent::QuorumProposal2Send(proposal, _)
+            | HotShotEvent::QuorumProposal2ResponseSend(_, proposal)
+            | HotShotEvent::QuorumProposal2ResponseRecv(proposal) => {
+                Some(proposal.data.view_number())
+            }
             HotShotEvent::QuorumVoteSend(vote) => Some(vote.view_number()),
+            HotShotEvent::QuorumVote2Send(vote) | HotShotEvent::QuorumVote2Recv(vote) => {
+                Some(vote.view_number())
+            }
             HotShotEvent::DaProposalRecv(proposal, _)
             | HotShotEvent::DaProposalValidated(proposal, _)
             | HotShotEvent::DaProposalSend(proposal, _) => Some(proposal.data.view_number()),
@@ -351,8 +372,16 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 "QuorumProposalRecv(view_number={:?})",
                 proposal.data.view_number()
             ),
+            HotShotEvent::QuorumProposal2Recv(proposal, _) => write!(
+                f,
+                "QuorumProposal2Recv(view_number={:?})",
+                proposal.data.view_number()
+            ),
             HotShotEvent::QuorumVoteRecv(v) => {
                 write!(f, "QuorumVoteRecv(view_number={:?})", v.view_number())
+            }
+            HotShotEvent::QuorumVote2Recv(v) => {
+                write!(f, "QuorumVote2Recv(view_number={:?})", v.view_number())
             }
             HotShotEvent::TimeoutVoteRecv(v) => {
                 write!(f, "TimeoutVoteRecv(view_number={:?})", v.view_number())
@@ -386,8 +415,16 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 "QuorumProposalSend(view_number={:?})",
                 proposal.data.view_number()
             ),
+            HotShotEvent::QuorumProposal2Send(proposal, _) => write!(
+                f,
+                "QuorumProposal2Send(view_number={:?})",
+                proposal.data.view_number()
+            ),
             HotShotEvent::QuorumVoteSend(vote) => {
                 write!(f, "QuorumVoteSend(view_number={:?})", vote.view_number())
+            }
+            HotShotEvent::QuorumVote2Send(vote) => {
+                write!(f, "QuorumVote2Send(view_number={:?})", vote.view_number())
             }
             HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
                 write!(
@@ -565,10 +602,24 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     proposal.data.view_number
                 )
             }
+            HotShotEvent::QuorumProposal2ResponseSend(_, proposal) => {
+                write!(
+                    f,
+                    "QuorumProposal2ResponseSend(view_number={:?})",
+                    proposal.data.view_number
+                )
+            }
             HotShotEvent::QuorumProposalResponseRecv(proposal) => {
                 write!(
                     f,
                     "QuorumProposalResponseRecv(view_number={:?})",
+                    proposal.data.view_number
+                )
+            }
+            HotShotEvent::QuorumProposal2ResponseRecv(proposal) => {
+                write!(
+                    f,
+                    "QuorumProposal2ResponseRecv(view_number={:?})",
                     proposal.data.view_number
                 )
             }

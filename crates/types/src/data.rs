@@ -391,8 +391,6 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// certificate that the proposal is chaining from
     pub justify_qc: LeafCertificate<TYPES>,
 
-    /// a secondary certificate
-
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
