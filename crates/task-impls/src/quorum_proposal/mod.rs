@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, num::NonZeroU64, sync::Arc, time::Instant};
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -48,7 +48,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub instance_state: Arc<TYPES::InstanceState>,
 
     /// Membership for Quorum Certs/votes
-    pub quorum_membership: Arc<TYPES::Membership>,
+    pub membership: Arc<TYPES::Membership>,
 
     /// Our public key
     pub public_key: TYPES::SignatureKey,
@@ -277,7 +277,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ) -> Result<()> {
         // Don't even bother making the task if we are not entitled to propose anyway.
         ensure!(
-            self.quorum_membership.leader(view_number, epoch_number)? == self.public_key,
+            self.membership.leader(view_number, epoch_number)? == self.public_key,
             debug!("We are not the leader of the next view")
         );
 
@@ -306,7 +306,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 view_number,
                 sender: event_sender,
                 receiver: event_receiver,
-                quorum_membership: Arc::clone(&self.quorum_membership),
+                quorum_membership: Arc::clone(&self.membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 instance_state: Arc::clone(&self.instance_state),
@@ -441,18 +441,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let epoch_number = self.consensus.read().await.cur_epoch();
 
                 ensure!(
-                    certificate
-                        .is_valid_cert(
-                            self.quorum_membership.stake_table(epoch_number),
-                            self.quorum_membership.success_threshold(),
-                            &self.upgrade_lock
-                        )
-                        .await,
-                    warn!(
-                        "View Sync Finalize certificate {:?} was invalid",
-                        certificate.data()
-                    )
-                );
+                                    certificate
+                                        .is_valid_cert(
+                <<<<<<< HEAD
+                                            self.quorum_membership.stake_table(epoch_number),
+                                            self.quorum_membership.success_threshold(),
+                =======
+                                            self.membership.stake_table(epoch_number),
+                                            self.membership.success_threshold(),
+                >>>>>>> 5f41f111dd (replace calls to Memberships)
+                                            &self.upgrade_lock
+                                        )
+                                        .await,
+                                    warn!(
+                                        "View Sync Finalize certificate {:?} was invalid",
+                                        certificate.data()
+                                    )
+                                );
 
                 let view_number = certificate.view_number;
 

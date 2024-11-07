@@ -184,7 +184,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 .ok_or(anyhow!("Event dependency failed to get event"))?;
 
                 // Then, if it's `Some`, make sure that the data is correct
-
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     // Make sure that the quorum_proposal is valid
@@ -197,7 +196,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                     if commit == leaf_commitment {
                         return Ok(quorum_proposal.clone());
                     }
-                    tracing::warn!("Proposal received from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
+                    tracing::warn!("Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
                 }
             }
         })
