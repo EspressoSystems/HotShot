@@ -15,7 +15,7 @@ use async_lock::RwLock;
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use either::Either;
-use futures::future::join_all;
+use futures::future::{err, join_all};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
@@ -38,8 +38,12 @@ use vbs::version::Version;
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
     events::{HotShotEvent, ProposalMissing},
-    helpers::{broadcast_event, cancel_task, epoch_from_block_number, parent_leaf_and_state},
+    helpers::{
+        broadcast_event, cancel_task, epoch_from_block_number, fetch_proposal,
+        parent_leaf_and_state,
+    },
 };
+
 /// Event handlers for this task.
 mod handlers;
 
@@ -195,8 +199,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 {
                     leaf.height()
                 } else {
-                    error!("No leaf corresponding to the newly formed QC. Consensus inconsistent!");
-                    return;
+                    match fetch_proposal(
+                        cert.view_number(),
+                        event_sender.clone(),
+                        event_receiver.clone(),
+                        Arc::clone(&self.quorum_membership),
+                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                        self.public_key.clone(),
+                        self.private_key.clone(),
+                        &self.upgrade_lock,
+                    )
+                    .await
+                    {
+                        Ok((leaf, _)) => leaf.height(),
+                        Err(e) => {
+                            tracing::error!("Error fetching a leaf when trying to change view after forming QC; error = {}", e);
+                            return;
+                        }
+                    }
                 };
 
                 let next_view_epoch = match self
