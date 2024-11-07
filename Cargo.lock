@@ -181,9 +181,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.92"
+version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74f37166d7d48a0284b99dd824694c26119c700b53bf0d1540cdb147dbdaaf13"
+checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
 
 [[package]]
 name = "arbitrary"
@@ -1317,7 +1317,7 @@ dependencies = [
  "console-subscriber 0.3.0",
  "dashmap",
  "derivative",
- "jf-signature",
+ "jf-signature 0.1.0",
  "lazy_static",
  "local-ip-address",
  "parking_lot",
@@ -1338,7 +1338,7 @@ dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
- "jf-signature",
+ "jf-signature 0.1.0",
  "parking_lot",
  "rand 0.8.5",
  "tokio",
@@ -1354,7 +1354,7 @@ dependencies = [
  "async-std",
  "cdn-proto",
  "clap",
- "jf-signature",
+ "jf-signature 0.1.0",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -1371,7 +1371,7 @@ dependencies = [
  "capnp",
  "capnpc",
  "derivative",
- "jf-signature",
+ "jf-signature 0.1.0",
  "kanal",
  "lazy_static",
  "mnemonic",
@@ -3105,7 +3105,7 @@ dependencies = [
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-signature",
+ "jf-signature 0.2.0",
  "libp2p-identity",
  "libp2p-networking",
  "lru 0.12.5",
@@ -3299,7 +3299,7 @@ dependencies = [
  "hotshot-types",
  "jf-crhf",
  "jf-rescue",
- "jf-signature",
+ "jf-signature 0.2.0",
  "jf-utils",
  "rand_chacha 0.3.1",
  "serde",
@@ -3341,7 +3341,7 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-task",
  "hotshot-types",
- "jf-signature",
+ "jf-signature 0.2.0",
  "jf-vid",
  "lru 0.12.5",
  "rand 0.8.5",
@@ -3385,7 +3385,7 @@ dependencies = [
  "hotshot-task-impls",
  "hotshot-types",
  "itertools 0.13.0",
- "jf-signature",
+ "jf-signature 0.2.0",
  "jf-vid",
  "lru 0.12.5",
  "portpicker",
@@ -3435,7 +3435,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "jf-pcs",
- "jf-signature",
+ "jf-signature 0.2.0",
  "jf-utils",
  "jf-vid",
  "lazy_static",
@@ -4225,6 +4225,35 @@ dependencies = [
 name = "jf-signature"
 version = "0.1.0"
 source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
+dependencies = [
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
+ "blst",
+ "derivative",
+ "digest 0.10.7",
+ "displaydoc",
+ "hashbrown 0.14.5",
+ "itertools 0.12.1",
+ "jf-crhf",
+ "jf-relation",
+ "jf-rescue",
+ "jf-utils",
+ "num-bigint",
+ "num-traits",
+ "serde",
+ "sha3",
+ "tagged-base64",
+ "zeroize",
+]
+
+[[package]]
+name = "jf-signature"
+version = "0.2.0"
+source = "git+https://github.com/EspressoSystems/jellyfish?tag=jf-signature-v0.2.0#ca160ce3452b560cad512b750a742a87c48c5881"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
