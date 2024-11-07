@@ -47,7 +47,7 @@
           ])
           (fenix.packages.${system}.fromToolchainFile {
             dir = ./.;
-            sha256 = "sha256-opUgs6ckUQCyDxcB9Wy51pqhd0MPGHUVbwRKKPGiwZU=";
+            sha256 = "sha256-yMuSb5eQPO/bHv+Bcf/US8LVMbf/G/0MSfiPwBhiPpk=";
           })
         ];
         # needed for compiling static binary

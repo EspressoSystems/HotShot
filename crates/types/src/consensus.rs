@@ -489,7 +489,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_view(&mut self, view_number: TYPES::View) -> Result<()> {
         ensure!(
             view_number > self.cur_view,
-            "New view isn't newer than the current view."
+            debug!("New view isn't newer than the current view.")
         );
         self.cur_view = view_number;
         Ok(())
@@ -501,7 +501,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_epoch(&mut self, epoch_number: TYPES::Epoch) -> Result<()> {
         ensure!(
             epoch_number > self.cur_epoch,
-            "New epoch isn't newer than the current epoch."
+            debug!("New epoch isn't newer than the current epoch.")
         );
         tracing::trace!("Updating epoch from {} to {}", self.cur_epoch, epoch_number);
         self.cur_epoch = epoch_number;
@@ -554,7 +554,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                     .last_proposals
                     .last_key_value()
                     .map_or(TYPES::View::genesis(), |(k, _)| { *k }),
-            "New view isn't newer than the previously proposed view."
+            debug!("New view isn't newer than the previously proposed view.")
         );
         self.last_proposals
             .insert(proposal.data.view_number(), proposal);
@@ -568,7 +568,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_last_decided_view(&mut self, view_number: TYPES::View) -> Result<()> {
         ensure!(
             view_number > self.last_decided_view,
-            "New view isn't newer than the previously decided view."
+            debug!("New view isn't newer than the previously decided view.")
         );
         self.last_decided_view = view_number;
         Ok(())
@@ -581,7 +581,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_locked_view(&mut self, view_number: TYPES::View) -> Result<()> {
         ensure!(
             view_number > self.locked_view,
-            "New view isn't newer than the previously locked view."
+            debug!("New view isn't newer than the previously locked view.")
         );
         self.locked_view = view_number;
         Ok(())
@@ -610,7 +610,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                 {
                     ensure!(
                          new_delta.is_some() || existing_delta.is_none(),
-                         "Skipping the state update to not override a `Leaf` view with `Some` state delta."
+                         debug!("Skipping the state update to not override a `Leaf` view with `Some` state delta.")
                      );
                 } else {
                     bail!("Skipping the state update to not override a `Leaf` view with a non-`Leaf` view.");
@@ -654,7 +654,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
         ensure!(
             high_qc.view_number > self.high_qc.view_number || high_qc == self.high_qc,
-            "High QC with an equal or higher view exists."
+            debug!("High QC with an equal or higher view exists.")
         );
         tracing::debug!("Updating high QC");
         self.high_qc = high_qc;
@@ -926,6 +926,47 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         } else {
             block_height % self.epoch_height == 0
         }
+    }
+
+    /// Returns an `Epoch` for the view following the given view.
+    /// There are three cases:
+    /// 1. The leaf from the given view is not for the last block.
+    ///    The epoch should be calculated based on the next block number.
+    /// 2. The leaf from the given view is for the last block but it is not the last in the 3-chain.
+    ///    The next leaf will be for the same block number.
+    /// 3. The leaf from the given view is for the last block and it is the last in the 3-chain.
+    ///    The next leaf will be for the next block number.
+    /// # Errors
+    /// Returns error when there is no state corresponding to the given view.
+    pub fn get_epoch_for_next_view(&self, view: TYPES::View) -> Result<TYPES::Epoch> {
+        if self.epoch_height == 0 {
+            return Ok(TYPES::Epoch::new(0));
+        }
+        let Some(validated_view) = self.validated_state_map.get(&view) else {
+            bail!("Could not find a validated state corresponding to the given view.");
+        };
+        let ViewInner::Leaf {
+            leaf: leaf_commit, ..
+        } = validated_view.view_inner
+        else {
+            bail!("Could not find a proposed leaf corresponding to the given view.");
+        };
+        let Some(leaf) = self.saved_leaves.get(&leaf_commit) else {
+            bail!("Could not find a leaf corresponding to the given view.");
+        };
+        let next_block_number = if self.is_leaf_forming_eqc(leaf_commit) {
+            // Covers the second case.
+            leaf.height()
+        } else {
+            // Covers the first and third case.
+            leaf.height() + 1
+        };
+        let epoch_number = if next_block_number % self.epoch_height == 0 {
+            next_block_number / self.epoch_height
+        } else {
+            next_block_number / self.epoch_height + 1
+        };
+        Ok(TYPES::Epoch::new(epoch_number))
     }
 }
 

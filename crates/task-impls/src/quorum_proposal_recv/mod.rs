@@ -9,12 +9,13 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_broadcast::{broadcast, Receiver, Sender};
+use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 #[cfg(async_executor_impl = "async-std")]
 use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use either::Either;
-use futures::future::join_all;
+use futures::future::{err, join_all};
 use hotshot_task::task::{Task, TaskState};
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
@@ -38,7 +39,8 @@ use self::handlers::handle_quorum_proposal_recv;
 use crate::{
     events::{HotShotEvent, ProposalMissing},
     helpers::{
-        broadcast_event, cancel_task, epoch_from_block_number, parent_leaf_and_state, update_view,
+        broadcast_event, cancel_task, epoch_from_block_number, fetch_proposal,
+        parent_leaf_and_state,
     },
 };
 
@@ -60,23 +62,11 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// View number this view is executing in.
     pub cur_view: TYPES::View,
 
-    /// Timestamp this view starts at.
-    pub cur_view_time: i64,
-
     /// Epoch number this node is executing in.
     pub cur_epoch: TYPES::Epoch,
 
-    /// The underlying network
-    pub network: Arc<I::Network>,
-
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
-
-    /// Membership for Timeout votes/certs
-    pub timeout_membership: Arc<TYPES::Membership>,
-
-    /// timeout task handle
-    pub timeout_task: JoinHandle<()>,
 
     /// View timeout from config.
     pub timeout: u64,
@@ -87,15 +77,9 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
-    /// last View Sync Certificate or Timeout Certificate this node formed.
-    pub proposal_cert: Option<ViewChangeEvidence<TYPES>>,
-
     /// Spawned tasks related to a specific view, so we can cancel them when
     /// they are stale
     pub spawned_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
-
-    /// Immutable instance state
-    pub instance_state: Arc<TYPES::InstanceState>,
 
     /// The node's id
     pub id: u64,
@@ -107,11 +91,36 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     pub epoch_height: u64,
 }
 
+/// all the info we need to validate a proposal.  This makes it easy to spawn an effemeral task to
+/// do all the proposal validation without blocking the long running one
+pub(crate) struct ValidationInfo<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
+    /// The node's id
+    pub id: u64,
+    /// Our public key
+    pub(crate) public_key: TYPES::SignatureKey,
+    /// Our Private Key
+    pub(crate) private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// Epoch number this node is executing in.
+    pub cur_epoch: TYPES::Epoch,
+    /// Reference to consensus. The replica will require a write lock on this.
+    pub(crate) consensus: OuterConsensus<TYPES>,
+    /// Membership for Quorum Certs/votes
+    pub quorum_membership: Arc<TYPES::Membership>,
+    /// Output events to application
+    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
+    /// This node's storage ref
+    pub(crate) storage: Arc<RwLock<I::Storage>>,
+    /// Lock for a decided upgrade
+    pub(crate) upgrade_lock: UpgradeLock<TYPES, V>,
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
+}
+
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     QuorumProposalRecvTaskState<TYPES, I, V>
 {
     /// Cancel all tasks the consensus tasks has spawned before the given view
-    pub async fn cancel_tasks(&mut self, view: TYPES::View) {
+    pub fn cancel_tasks(&mut self, view: TYPES::View) {
         let keep = self.spawned_tasks.split_off(&view);
         let mut cancel = Vec::new();
         while let Some((_, tasks)) = self.spawned_tasks.pop_first() {
@@ -119,7 +128,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             cancel.append(&mut to_cancel);
         }
         self.spawned_tasks = keep;
-        join_all(cancel).await;
+        async_spawn(async move { join_all(cancel).await });
     }
 
     /// Handles all consensus events relating to propose and vote-enabling events.
@@ -133,24 +142,55 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ) {
         match event.as_ref() {
             HotShotEvent::QuorumProposalRecv(proposal, sender) => {
+                if self.consensus.read().await.cur_view() > proposal.data.view_number()
+                    || self.cur_view > proposal.data.view_number()
+                {
+                    tracing::error!("Throwing away old proposal");
+                    return;
+                }
+                let validation_info = ValidationInfo::<TYPES, I, V> {
+                    id: self.id,
+                    public_key: self.public_key.clone(),
+                    private_key: self.private_key.clone(),
+                    cur_epoch: self.cur_epoch,
+                    consensus: self.consensus.clone(),
+                    quorum_membership: Arc::clone(&self.quorum_membership),
+                    output_event_stream: self.output_event_stream.clone(),
+                    storage: Arc::clone(&self.storage),
+                    upgrade_lock: self.upgrade_lock.clone(),
+                    epoch_height: self.epoch_height,
+                };
                 match handle_quorum_proposal_recv(
                     proposal,
                     sender,
                     &event_sender,
                     &event_receiver,
-                    self,
+                    validation_info,
                 )
                 .await
                 {
-                    Ok(()) => {
-                        self.cancel_tasks(proposal.data.view_number()).await;
-                    }
+                    Ok(()) => {}
                     Err(e) => debug!(?e, "Failed to validate the proposal"),
                 }
             }
+            HotShotEvent::ViewChange(view, epoch) => {
+                if self.cur_view >= *view {
+                    return;
+                }
+                self.cur_view = *view;
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
+                // cancel task for any view 2 views prior or more.  The view here is the oldest
+                // view we want to KEEP tasks for.  We keep the view prior to this because
+                // we might still be processing the proposal from view V which caused us
+                // to enter view V + 1.
+                let oldest_view_to_keep = TYPES::View::new(view.saturating_sub(1));
+                self.cancel_tasks(oldest_view_to_keep);
+            }
             HotShotEvent::QcFormed(Either::Left(cert)) => {
-                let new_view = cert.view_number();
-                let block_number = if let Some(leaf) = self
+                let new_view = cert.view_number() + 1;
+                let cert_block_number = if let Some(leaf) = self
                     .consensus
                     .read()
                     .await
@@ -159,15 +199,48 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 {
                     leaf.height()
                 } else {
-                    error!("No leaf corresponding to the newly formed QC. Consensus inconsistent!");
-                    return;
+                    match fetch_proposal(
+                        cert.view_number(),
+                        event_sender.clone(),
+                        event_receiver.clone(),
+                        Arc::clone(&self.quorum_membership),
+                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                        self.public_key.clone(),
+                        self.private_key.clone(),
+                        &self.upgrade_lock,
+                    )
+                    .await
+                    {
+                        Ok((leaf, _)) => leaf.height(),
+                        Err(e) => {
+                            tracing::error!("Error fetching a leaf when trying to change view after forming QC; error = {}", e);
+                            return;
+                        }
+                    }
                 };
-                let epoch = epoch_from_block_number(block_number, self.epoch_height);
-                if let Err(e) =
-                    update_view(new_view, TYPES::Epoch::new(epoch), &event_sender, self).await
+
+                let next_view_epoch = match self
+                    .consensus
+                    .read()
+                    .await
+                    .get_epoch_for_next_view(cert.view_number())
                 {
-                    debug!("Failed to update view; error = {e:#}");
-                }
+                    Ok(epoch) => epoch,
+                    Err(e) => {
+                        tracing::error!("Error updating view, error: {:?}", e);
+                        return;
+                    }
+                };
+                tracing::trace!(
+                    "Sending ViewChange for view {} and epoch {}",
+                    *new_view,
+                    *next_view_epoch
+                );
+                broadcast_event(
+                    Arc::new(HotShotEvent::ViewChange(new_view, next_view_epoch)),
+                    &event_sender,
+                )
+                .await;
             }
             _ => {}
         }

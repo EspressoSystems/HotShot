@@ -34,6 +34,7 @@ async-lock = { workspace = true }
 bitvec = { workspace = true }
 ethereum-types = { workspace = true }
 hotshot-task = { path = "../task" }
+jf-vid = { workspace = true }
 vbs = { workspace = true }
 url = { workspace = true }
 reqwest = { workspace = true }
@@ -42,3 +43,8 @@ reqwest = { workspace = true }
 tokio = { workspace = true }
 [target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
 async-std = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(async_executor_impl, values("tokio", "async-std"))',
+] }
