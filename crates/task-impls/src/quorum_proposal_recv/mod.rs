@@ -190,15 +190,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::QcFormed(Either::Left(cert)) => {
                 let new_view = cert.view_number() + 1;
-                let cert_block_number = if let Some(leaf) = self
+                let leaf_height_option = self
                     .consensus
                     .read()
                     .await
                     .saved_leaves()
                     .get(&cert.data().leaf_commit)
-                {
-                    leaf.height()
-                } else {
+                    .map(Leaf::height);
+                let cert_block_number = if leaf_height_option.is_none() {
                     match fetch_proposal(
                         cert.view_number(),
                         event_sender.clone(),
@@ -217,6 +216,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                             return;
                         }
                     }
+                } else {
+                    leaf_height_option.unwrap()
                 };
 
                 let next_view_epoch = match self
