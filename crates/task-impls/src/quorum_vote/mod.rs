@@ -243,7 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             )),
             &self.sender,
         )
-            .await;
+        .await;
 
         if let Err(e) = submit_vote::<TYPES, I, V>(
             self.sender.clone(),
@@ -720,7 +720,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             )),
             &event_sender,
         )
-            .await;
+        .await;
 
         if let Err(e) = submit_vote::<TYPES, I, V>(
             event_sender.clone(),
