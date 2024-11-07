@@ -34,13 +34,13 @@ pub struct BenchResults {
     /// Whether it's partial collected results
     pub partial_results: String,
     /// The average latency of the transactions
-    pub avg_latency_in_sec: i64,
+    pub avg_latency_in_sec: f64,
     /// The number of transactions that were latency measured
     pub num_latency: i64,
     /// The minimum latency of the transactions
-    pub minimum_latency_in_sec: i64,
+    pub minimum_latency_in_sec: f64,
     /// The maximum latency of the transactions
-    pub maximum_latency_in_sec: i64,
+    pub maximum_latency_in_sec: f64,
     /// The throughput of the consensus protocol = number of transactions committed per second * transaction size in bytes
     pub throughput_bytes_per_sec: u64,
     /// The number of transactions committed during benchmarking
@@ -106,11 +106,11 @@ pub struct BenchResultsDownloadConfig {
     /// "Full" if the results are successfully collected from all nodes
     pub partial_results: String,
     /// The average latency of the transactions
-    pub avg_latency_in_sec: i64,
+    pub avg_latency_in_sec: f64,
     /// The minimum latency of the transactions
-    pub minimum_latency_in_sec: i64,
+    pub minimum_latency_in_sec: f64,
     /// The maximum latency of the transactions
-    pub maximum_latency_in_sec: i64,
+    pub maximum_latency_in_sec: f64,
     /// The throughput of the consensus protocol = number of transactions committed per second * transaction size in bytes
     pub throughput_bytes_per_sec: u64,
     /// The number of transactions committed during benchmarking
@@ -510,7 +510,7 @@ impl OrchestratorClient {
                 Ok(x) => break x,
                 Err(err) => {
                     tracing::info!("{err}");
-                    async_sleep(Duration::from_millis(250)).await;
+                    async_sleep(Duration::from_secs(1)).await;
                 }
             }
         }

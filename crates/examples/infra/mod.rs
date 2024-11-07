@@ -430,6 +430,7 @@ pub trait RunDa<
 
     /// Starts HotShot consensus, returns when consensus has finished
     #[allow(clippy::too_many_lines)]
+    #[allow(clippy::cast_precision_loss)]
     async fn run_hotshot(
         &self,
         context: SystemContextHandle<TYPES, NODE, V>,
@@ -473,7 +474,7 @@ pub trait RunDa<
                             qc: _,
                             block_size,
                         } => {
-                            let current_timestamp = Utc::now().timestamp();
+                            let current_timestamp = Utc::now().timestamp_millis();
                             // this might be a obob
                             if let Some(leaf_info) = leaf_chain.first() {
                                 let leaf = &leaf_info.leaf;
@@ -507,7 +508,7 @@ pub trait RunDa<
                                 // send transactions
                                 for _ in 0..transactions_to_send_per_round {
                                     // append current timestamp to the tx to calc latency
-                                    let timestamp = Utc::now().timestamp();
+                                    let timestamp = Utc::now().timestamp_millis();
                                     let mut tx = transactions.remove(0).into_bytes();
                                     let mut timestamp_vec = timestamp.to_be_bytes().to_vec();
                                     tx.append(&mut timestamp_vec);
@@ -569,15 +570,15 @@ pub trait RunDa<
             let throughput_bytes_per_sec = total_transactions_committed
                 * (transaction_size_in_bytes + 8)
                 / total_time_elapsed_sec;
-            let avg_latency_in_sec = total_latency / num_latency;
+            let avg_latency_in_sec = (total_latency / num_latency) as f64 / 1000.0;
             println!("[{node_index}]: throughput: {throughput_bytes_per_sec} bytes/sec, avg_latency: {avg_latency_in_sec} sec.");
 
             BenchResults {
                 partial_results: "Unset".to_string(),
                 avg_latency_in_sec,
                 num_latency,
-                minimum_latency_in_sec: minimum_latency,
-                maximum_latency_in_sec: maximum_latency,
+                minimum_latency_in_sec: minimum_latency as f64 / 1000.0,
+                maximum_latency_in_sec: maximum_latency as f64 / 1000.0,
                 throughput_bytes_per_sec,
                 total_transactions_committed,
                 transaction_size_in_bytes: transaction_size_in_bytes + 8, // extra 8 bytes for timestamp

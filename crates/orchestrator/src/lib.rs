@@ -463,10 +463,7 @@ where
 
     fn peer_pub_ready(&self) -> Result<bool, ServerError> {
         if !self.peer_pub_ready {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BAD_REQUEST,
-                message: "Peer's public configs are not ready".to_string(),
-            });
+            return Ok(false);
         }
         Ok(self.peer_pub_ready)
     }
@@ -575,6 +572,7 @@ where
     }
 
     // Aggregates results of the run from all nodes
+    #[allow(clippy::cast_precision_loss)]
     fn post_run_results(&mut self, metrics: BenchResults) -> Result<(), ServerError> {
         if metrics.total_transactions_committed != 0 {
             // Deal with the bench results
@@ -584,9 +582,9 @@ where
                 // Deal with the bench results from different nodes
                 let cur_metrics = self.bench_results.clone();
                 self.bench_results.avg_latency_in_sec = (metrics.avg_latency_in_sec
-                    * metrics.num_latency
-                    + cur_metrics.avg_latency_in_sec * cur_metrics.num_latency)
-                    / (metrics.num_latency + cur_metrics.num_latency);
+                    * (metrics.num_latency as f64)
+                    + cur_metrics.avg_latency_in_sec * (cur_metrics.num_latency as f64))
+                    / (metrics.num_latency + cur_metrics.num_latency) as f64;
                 self.bench_results.num_latency += metrics.num_latency;
                 self.bench_results.minimum_latency_in_sec = metrics
                     .minimum_latency_in_sec
