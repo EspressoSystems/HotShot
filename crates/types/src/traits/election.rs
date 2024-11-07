@@ -9,7 +9,7 @@ use std::{collections::BTreeSet, fmt::Debug, num::NonZeroU64};
 
 use utils::anytrace::Result;
 
-use super::{network::Topic, node_implementation::NodeType};
+use super::node_implementation::NodeType;
 use crate::{traits::signature_key::SignatureKey, PeerConfig};
 
 /// A protocol for determining membership in and participating in a committee.
@@ -21,9 +21,8 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
     fn new(
         // Note: eligible_leaders is currently a hack because the DA leader == the quorum leader
         // but they should not have voting power.
-        eligible_leaders: Vec<PeerConfig<TYPES::SignatureKey>>,
-        committee_members: Vec<PeerConfig<TYPES::SignatureKey>>,
-        committee_topic: Topic,
+        stake_committee_members: Vec<PeerConfig<TYPES::SignatureKey>>,
+        da_committee_members: Vec<PeerConfig<TYPES::SignatureKey>>,
     ) -> Self;
 
     /// Get all participants in the committee (including their stake) for a specific epoch
@@ -32,8 +31,21 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         epoch: TYPES::Epoch,
     ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
+    /// Get all participants in the committee (including their stake) for a specific epoch
+    fn da_stake_table(
+        &self,
+        epoch: TYPES::Epoch,
+    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+
     /// Get all participants in the committee for a specific view for a specific epoch
     fn committee_members(
+        &self,
+        view_number: TYPES::View,
+        epoch: TYPES::Epoch,
+    ) -> BTreeSet<TYPES::SignatureKey>;
+
+    /// Get all participants in the committee for a specific view for a specific epoch
+    fn da_committee_members(
         &self,
         view_number: TYPES::View,
         epoch: TYPES::Epoch,
@@ -54,8 +66,19 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         epoch: TYPES::Epoch,
     ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
 
+    /// Get the DA stake table entry for a public key, returns `None` if the
+    /// key is not in the table for a specific epoch
+    fn da_stake(
+        &self,
+        pub_key: &TYPES::SignatureKey,
+        epoch: TYPES::Epoch,
+    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+
     /// See if a node has stake in the committee in a specific epoch
     fn has_stake(&self, pub_key: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool;
+
+    /// See if a node has stake in the committee in a specific epoch
+    fn has_da_stake(&self, pub_key: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool;
 
     /// The leader of the committee for view `view_number` in `epoch`.
     ///
@@ -72,6 +95,21 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         ))
     }
 
+    /// The DA leader of the committee for view `view_number` in `epoch`.
+    ///
+    /// Note: this function uses a HotShot-internal error type.
+    /// You should implement `lookup_leader`, rather than implementing this function directly.
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated.
+    fn da_leader(&self, view: TYPES::View, epoch: TYPES::Epoch) -> Result<TYPES::SignatureKey> {
+        use utils::anytrace::*;
+
+        self.lookup_da_leader(view, epoch).wrap().context(info!(
+            "Failed to get leader for view {view} in epoch {epoch}"
+        ))
+    }
+
     /// The leader of the committee for view `view_number` in `epoch`.
     ///
     /// # Errors
@@ -82,14 +120,27 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         epoch: TYPES::Epoch,
     ) -> std::result::Result<TYPES::SignatureKey, Self::Error>;
 
-    /// Get the network topic for the committee
-    fn committee_topic(&self) -> Topic;
+    /// The leader of the DA committee for view `view_number` in `epoch`.
+    ///
+    /// # Errors
+    /// Returns an error if the leader cannot be calculated
+    fn lookup_da_leader(
+        &self,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
+    ) -> std::result::Result<TYPES::SignatureKey, Self::Error>;
 
     /// Returns the number of total nodes in the committee in an epoch `epoch`
     fn total_nodes(&self, epoch: TYPES::Epoch) -> usize;
 
+    /// Returns the number of total DA nodes in the committee in an epoch `epoch`
+    fn da_total_nodes(&self, epoch: TYPES::Epoch) -> usize;
+
     /// Returns the threshold for a specific `Membership` implementation
     fn success_threshold(&self) -> NonZeroU64;
+
+    /// Returns the DA threshold for a specific `Membership` implementation
+    fn da_success_threshold(&self) -> NonZeroU64;
 
     /// Returns the threshold for a specific `Membership` implementation
     fn failure_threshold(&self) -> NonZeroU64;

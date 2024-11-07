@@ -47,14 +47,8 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     /// The underlying network
     pub network: Arc<I::Network>,
 
-    /// Membership for Timeout votes/certs
-    pub timeout_membership: Arc<TYPES::Membership>,
-
     /// Membership for Quorum Certs/votes
-    pub quorum_membership: Arc<TYPES::Membership>,
-
-    /// Membership for DA committee Votes/certs
-    pub committee_membership: Arc<TYPES::Membership>,
+    pub membership: Arc<TYPES::Membership>,
 
     /// A map of `QuorumVote` collector tasks.
     pub vote_collectors: VoteCollectorsMap<TYPES, QuorumVote2<TYPES>, QuorumCertificate2<TYPES>, V>,

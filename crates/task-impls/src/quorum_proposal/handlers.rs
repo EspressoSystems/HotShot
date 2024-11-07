@@ -9,6 +9,7 @@
 
 use std::{
     marker::PhantomData,
+    num::NonZeroU64,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -25,6 +26,7 @@ use hotshot_types::{
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -124,8 +126,11 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
                 if qc
                     .is_valid_cert(
-                        self.quorum_membership.as_ref(),
-                        TYPES::Epoch::new(0),
+                        self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
+                        NonZeroU64::new(QuorumCertificate::<TYPES>::threshold(
+                            self.quorum_membership.as_ref(),
+                        ))
+                        .unwrap(),
                         &self.upgrade_lock,
                     )
                     .await

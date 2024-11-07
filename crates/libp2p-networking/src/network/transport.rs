@@ -524,7 +524,7 @@ mod test {
     use hotshot_types::{
         light_client::StateVerKey,
         signature_key::BLSPubKey,
-        traits::{network::Topic, signature_key::SignatureKey},
+        traits::signature_key::SignatureKey,
         PeerConfig,
     };
     use libp2p::{core::transport::dummy::DummyTransport, quic::Connection};
@@ -643,11 +643,8 @@ mod test {
             stake_table_entry: keypair.0.stake_table_entry(1),
             state_ver_key: StateVerKey::default(),
         };
-        let stake_table = <TestTypes as NodeType>::Membership::new(
-            vec![peer_config.clone()],
-            vec![peer_config],
-            Topic::Global,
-        );
+        let stake_table =
+            <TestTypes as NodeType>::Membership::new(vec![peer_config.clone()], vec![peer_config]);
 
         // Verify the authentication message
         let result = MockStakeTableAuth::verify_peer_authentication(
@@ -672,7 +669,7 @@ mod test {
         let mut stream = cursor_from!(auth_message);
 
         // Create an empty stake table
-        let stake_table = <TestTypes as NodeType>::Membership::new(vec![], vec![], Topic::Global);
+        let stake_table = <TestTypes as NodeType>::Membership::new(vec![], vec![]);
 
         // Verify the authentication message
         let result = MockStakeTableAuth::verify_peer_authentication(
@@ -708,11 +705,8 @@ mod test {
             stake_table_entry: keypair.0.stake_table_entry(1),
             state_ver_key: StateVerKey::default(),
         };
-        let stake_table = <TestTypes as NodeType>::Membership::new(
-            vec![peer_config.clone()],
-            vec![peer_config],
-            Topic::Global,
-        );
+        let stake_table =
+            <TestTypes as NodeType>::Membership::new(vec![peer_config.clone()], vec![peer_config]);
 
         // Check against the malicious peer ID
         let result = MockStakeTableAuth::verify_peer_authentication(
