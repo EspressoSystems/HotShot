@@ -38,7 +38,7 @@ async-broadcast = "0.7"
 async-compatibility-layer = { version = "1.2.1", default-features = false, features = [
   "logging-utils",
 ] }
-async-lock = "2"
+async-lock = "3"
 async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
 bincode = "1"
@@ -61,7 +61,7 @@ derive_more = { version = "1.0", features = ["from"] }
 futures = { version = "0.3", default-features = false }
 jf-crhf = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
-jf-signature = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
+jf-signature = { git = "https://github.com/EspressoSystems/jellyfish", tag = "jf-signature-v0.2.0" }
 jf-rescue = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-pcs = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-utils = { version = "0.4.4", git = "https://github.com/espressosystems/jellyfish", tag = "0.4.5" }
@@ -174,3 +174,6 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 # TODO change to deny
 missing_docs = "warn"
 warnings = "warn"
+unexpected_cfgs = { level = "allow", check-cfg = [
+    'cfg(async_executor_impl, values("tokio", "async-std"))',
+] }    

@@ -40,7 +40,7 @@ typenum = { workspace = true }
 derivative = "2"
 jf-vid = { workspace = true }
 jf-pcs = { workspace = true }
-jf-signature = { workspace = true, features = ["schnorr"] }
+jf-signature = { workspace = true, features = ["bls", "schnorr"] }
 jf-utils = { workspace = true }
 rand_chacha = { workspace = true }
 serde = { workspace = true }
@@ -48,7 +48,7 @@ serde_bytes = { workspace = true }
 tagged-base64 = { workspace = true }
 vbs = { workspace = true }
 displaydoc = { version = "0.2.5", default-features = false }
-dyn-clone = { git = "https://github.com/dtolnay/dyn-clone", tag = "1.0.17" }
+dyn-clone = "1.0.17"
 url = { workspace = true }
 utils = { path = "../utils" }
 vec1 = { workspace = true }
