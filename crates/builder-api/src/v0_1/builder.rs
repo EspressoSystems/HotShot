@@ -51,7 +51,7 @@ pub enum BuildError {
 }
 
 /// Enum to keep track on status of a transactions
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum TransactionStatus {
     Pending,
     Sequenced { block: u64, offset: u64 },
