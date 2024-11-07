@@ -25,6 +25,7 @@ members = [
   "crates/builder-api",
   "crates/fakeapi",
   "crates/utils",
+  "crates/orchestrator"
 ]
 resolver = "2"
 
