@@ -65,7 +65,13 @@ use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
 use tokio::{
     select, spawn,
-    sync::mpsc::{channel, error::TrySendError, Receiver, Sender},
+    sync::{
+        mpsc::{
+            channel, error::TrySendError, unbounded_channel, Receiver, Sender, UnboundedReceiver,
+            UnboundedSender,
+        },
+        Mutex,
+    },
     time::sleep,
 };
 use tracing::{error, info, instrument, trace, warn};
@@ -143,10 +149,10 @@ struct Libp2pNetworkInner<T: NodeType> {
     pk: T::SignatureKey,
     /// handle to control the network
     handle: Arc<NetworkNodeHandle<T>>,
+    /// Message Receiver
+    receiver: Mutex<UnboundedReceiver<Vec<u8>>>,
     /// Sender for broadcast messages
-    sender: async_broadcast::Sender<Vec<u8>>,
-    /// Receiver for broadcast messages
-    receiver: async_broadcast::Receiver<Vec<u8>>,
+    sender: UnboundedSender<Vec<u8>>,
     /// Sender for node lookup (relevant view number, key of node) (None for shutdown)
     node_lookup_send: Sender<Option<(ViewNumber, T::SignatureKey)>>,
     /// this is really cheating to enable local tests
@@ -532,10 +538,7 @@ impl<T: NodeType> Libp2pNetwork<T> {
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
-        let (mut sender, mut receiver) = async_broadcast::broadcast(1000);
-        sender.set_overflow(true);
-        receiver.set_overflow(true);
-
+        let (sender, receiver) = unbounded_channel();
         let (node_lookup_send, node_lookup_recv) = channel(10);
         let (kill_tx, kill_rx) = channel(1);
         rx.set_kill_switch(kill_rx);
@@ -543,7 +546,7 @@ impl<T: NodeType> Libp2pNetwork<T> {
         let mut result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: Arc::new(network_handle),
-                receiver,
+                receiver: Mutex::new(receiver),
                 sender: sender.clone(),
                 pk,
                 bootstrap_addrs,
@@ -664,16 +667,16 @@ impl<T: NodeType> Libp2pNetwork<T> {
     fn handle_recvd_events(
         &self,
         msg: NetworkEvent,
-        sender: &async_broadcast::Sender<Vec<u8>>,
+        sender: &UnboundedSender<Vec<u8>>,
     ) -> Result<(), NetworkError> {
         match msg {
             GossipMsg(msg) => {
-                sender.try_broadcast(msg).map_err(|err| {
+                sender.send(msg).map_err(|err| {
                     NetworkError::ChannelSendError(format!("failed to send gossip message: {err}"))
                 })?;
             }
             DirectRequest(msg, _pid, chan) => {
-                sender.try_broadcast(msg).map_err(|err| {
+                sender.send(msg).map_err(|err| {
                     NetworkError::ChannelSendError(format!(
                         "failed to send direct request message: {err}"
                     ))
@@ -707,7 +710,7 @@ impl<T: NodeType> Libp2pNetwork<T> {
     /// terminates on shut down of network
     fn handle_event_generator(
         &self,
-        sender: async_broadcast::Sender<Vec<u8>>,
+        sender: UnboundedSender<Vec<u8>>,
         mut network_rx: NetworkNodeReceiver,
     ) {
         let handle = self.clone();
@@ -797,13 +800,10 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
         let topic = topic.to_string();
         if self.inner.subscribed_topics.contains(&topic) {
             // Short-circuit-send the message to ourselves
-            self.inner
-                .sender
-                .try_broadcast(message.clone())
-                .map_err(|_| {
-                    self.inner.metrics.num_failed_messages.add(1);
-                    NetworkError::ShutDown
-                })?;
+            self.inner.sender.send(message.clone()).map_err(|_| {
+                self.inner.metrics.num_failed_messages.add(1);
+                NetworkError::ShutDown
+            })?;
         }
 
         // NOTE: metrics is threadsafe, so clone is fine (and lightweight)
@@ -888,7 +888,7 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
         // short circuit if we're dming ourselves
         if recipient == self.inner.pk {
             // panic if we already shut down?
-            self.inner.sender.try_broadcast(message).map_err(|_x| {
+            self.inner.sender.send(message).map_err(|_x| {
                 self.inner.metrics.num_failed_messages.add(1);
                 NetworkError::ShutDown
             })?;
@@ -949,9 +949,14 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
     /// If there is a network-related failure.
     #[instrument(name = "Libp2pNetwork::recv_message", skip_all)]
     async fn recv_message(&self) -> Result<Vec<u8>, NetworkError> {
-        let result = self.inner.receiver.clone().recv().await.map_err(|e| {
-            NetworkError::ChannelReceiveError(format!("failed to receive message: {e}"))
-        })?;
+        let result = self
+            .inner
+            .receiver
+            .lock()
+            .await
+            .recv()
+            .await
+            .ok_or(NetworkError::ShutDown)?;
 
         Ok(result)
     }
