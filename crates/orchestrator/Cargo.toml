@@ -4,7 +4,7 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-async-std = { version = "1", default-features = false }
+async-lock = { workspace = true }
 clap.workspace = true
 futures = { workspace = true }
 libp2p = { workspace = true }

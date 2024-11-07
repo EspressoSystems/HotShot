@@ -17,7 +17,7 @@ use std::{
     time::Duration,
 };
 
-use async_std::sync::RwLock;
+use async_lock::RwLock;
 use client::{BenchResults, BenchResultsDownloadConfig};
 use csv::Writer;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};

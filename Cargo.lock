@@ -3091,7 +3091,7 @@ name = "hotshot-orchestrator"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-std",
+ "async-lock 3.4.0",
  "bincode",
  "blake3",
  "clap",
