@@ -195,6 +195,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             return;
         };
 
+        // Update internal state
+        if let Err(e) = update_shared_state::<TYPES, I, V>(
+            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+            self.sender.clone(),
+            self.receiver.clone(),
+            Arc::clone(&self.quorum_membership),
+            self.public_key.clone(),
+            self.private_key.clone(),
+            self.upgrade_lock.clone(),
+            self.view_number,
+            Arc::clone(&self.instance_state),
+            Arc::clone(&self.storage),
+            &leaf,
+            &vid_share,
+            parent_view_number,
+        )
+        .await
+        {
+            tracing::error!("Failed to update shared consensus state; error = {e:#}");
+            return;
+        }
+
         let current_epoch =
             TYPES::Epoch::new(epoch_from_block_number(leaf.height(), self.epoch_height));
         let next_leaf_epoch = match self
@@ -221,29 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             )),
             &self.sender,
         )
-        .await;
-
-        // Update internal state
-        if let Err(e) = update_shared_state::<TYPES, I, V>(
-            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
-            self.sender.clone(),
-            self.receiver.clone(),
-            Arc::clone(&self.quorum_membership),
-            self.public_key.clone(),
-            self.private_key.clone(),
-            self.upgrade_lock.clone(),
-            self.view_number,
-            Arc::clone(&self.instance_state),
-            Arc::clone(&self.storage),
-            &leaf,
-            &vid_share,
-            parent_view_number,
-        )
-        .await
-        {
-            tracing::error!("Failed to update shared consensus state; error = {e:#}");
-            return;
-        }
+            .await;
 
         if let Err(e) = submit_vote::<TYPES, I, V>(
             self.sender.clone(),
@@ -668,6 +668,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             &event_sender,
         )
         .await;
+
+        // Update internal state
+        if let Err(e) = update_shared_state::<TYPES, I, V>(
+            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+            event_sender.clone(),
+            event_receiver.clone().deactivate(),
+            Arc::clone(&self.quorum_membership),
+            self.public_key.clone(),
+            self.private_key.clone(),
+            self.upgrade_lock.clone(),
+            proposal.data.view_number(),
+            Arc::clone(&self.instance_state),
+            Arc::clone(&self.storage),
+            &proposed_leaf,
+            &updated_vid,
+            Some(parent_leaf.view_number()),
+        )
+        .await
+        {
+            tracing::error!("Failed to update shared consensus state; error = {e:#}");
+            return;
+        }
+
         let current_block_number = proposed_leaf.height();
         let current_epoch = TYPES::Epoch::new(epoch_from_block_number(
             current_block_number,
@@ -697,29 +720,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             )),
             &event_sender,
         )
-        .await;
-
-        // Update internal state
-        if let Err(e) = update_shared_state::<TYPES, I, V>(
-            OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
-            event_sender.clone(),
-            event_receiver.clone().deactivate(),
-            Arc::clone(&self.quorum_membership),
-            self.public_key.clone(),
-            self.private_key.clone(),
-            self.upgrade_lock.clone(),
-            proposal.data.view_number(),
-            Arc::clone(&self.instance_state),
-            Arc::clone(&self.storage),
-            &proposed_leaf,
-            &updated_vid,
-            Some(parent_leaf.view_number()),
-        )
-        .await
-        {
-            tracing::error!("Failed to update shared consensus state; error = {e:#}");
-            return;
-        }
+            .await;
 
         if let Err(e) = submit_vote::<TYPES, I, V>(
             event_sender.clone(),

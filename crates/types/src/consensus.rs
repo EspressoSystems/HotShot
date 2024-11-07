@@ -929,7 +929,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 
     /// Returns an `Epoch` for the view following the given view.
     /// There are three cases:
-    /// 1. The leaf from the given is not for the last block.
+    /// 1. The leaf from the given view is not for the last block.
     ///    The epoch should be calculated based on the next block number.
     /// 2. The leaf from the given view is for the last block but it is not the last in the 3-chain.
     ///    The next leaf will be for the same block number.
