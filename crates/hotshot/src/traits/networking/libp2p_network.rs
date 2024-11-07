@@ -532,7 +532,10 @@ impl<T: NodeType> Libp2pNetwork<T> {
 
         // unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
-        let (sender, receiver) = async_broadcast::broadcast(1000);
+        let (mut sender, mut receiver) = async_broadcast::broadcast(1000);
+        sender.set_overflow(true);
+        receiver.set_overflow(true);
+
         let (node_lookup_send, node_lookup_recv) = channel(10);
         let (kill_tx, kill_rx) = channel(1);
         rx.set_kill_switch(kill_rx);
