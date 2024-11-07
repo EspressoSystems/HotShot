@@ -291,11 +291,15 @@
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
 </pre></div><pre class="rust"><code><span class="attr">#[macro_export]
 </span><span class="doccomment">/// Print the file and line number of the location this macro is invoked
+///
+/// Note: temporarily prints only a null string to reduce verbosity of logging
 </span><span class="macro">macro_rules!</span> line_info {
     () =&gt; {
-        <span class="macro">format!</span>(<span class="string">"{}:{}"</span>, <span class="macro">file!</span>(), <span class="macro">line!</span>())
+        <span class="macro">format!</span>(<span class="string">""</span>)
     };
 }
 <span class="kw">pub use </span>line_info;

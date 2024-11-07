@@ -202,6 +202,7 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -213,7 +214,6 @@
     sync::Arc,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay};
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -232,6 +232,8 @@
     vote::HasViewNumber,
 };
 <span class="kw">use </span>jf_vid::VidScheme;
+
+<span class="kw">use </span><span class="kw">crate</span>::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay};
 
 <span class="kw">type </span>VidShares&lt;TYPES&gt; = HashMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
