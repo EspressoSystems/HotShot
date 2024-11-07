@@ -221,12 +221,6 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -237,7 +231,6 @@
 </span><span class="kw">use </span>std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
 
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>displaydoc::Display;
 <span class="kw">use </span>light_client::StateVerKey;
 <span class="kw">use </span>tracing::error;
@@ -293,15 +286,12 @@
     assert_future::&lt;F::Output, <span class="kw">_</span>&gt;(Box::pin(fut))
 }
 
-<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Derivative, Display)]
-#[serde(bound(deserialize = <span class="string">""</span>))]
-#[derivative(Debug(bound = <span class="string">""</span>))]
+<span class="attr">#[derive(Clone, Debug, Display)]
 </span><span class="doccomment">/// config for validator, including public key, private key, stake value
 </span><span class="kw">pub struct </span>ValidatorConfig&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// The validator's public key and stake value
     </span><span class="kw">pub </span>public_key: KEY,
     <span class="doccomment">/// The validator's private key, should be in the mempool, not public
-    </span><span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span><span class="kw">pub </span>private_key: KEY::PrivateKey,
     <span class="doccomment">/// The validator's stake
     </span><span class="kw">pub </span>stake_value: u64,
@@ -405,8 +395,6 @@
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
     <span class="doccomment">/// All public keys known to be DA nodes
     </span><span class="kw">pub </span>known_da_nodes: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
-    <span class="doccomment">/// My own validator config, including my public key, private key, stake value, serving as private parameter
-    </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
     <span class="doccomment">/// List of DA committee (staking)nodes for static DA committee
     </span><span class="kw">pub </span>da_staked_committee_size: usize,
     <span class="doccomment">/// Number of fixed leaders for GPU VID, normally it will be 0, it's only used when running GPU VID

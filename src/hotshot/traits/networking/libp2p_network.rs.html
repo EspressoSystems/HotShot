@@ -1148,7 +1148,7 @@
         metrics::{Counter, Gauge, Metrics, NoMetrics},
         network::{ConnectedNetwork, NetworkError, Topic},
         node_implementation::{ConsensusTime, NodeType},
-        signature_key::SignatureKey,
+        signature_key::{PrivateSignatureKey, SignatureKey},
     },
     BoxSyncFuture,
 };
@@ -1407,7 +1407,7 @@
     private_key: <span class="kw-2">&amp;</span>K::PrivateKey,
 ) -&gt; anyhow::Result&lt;Keypair&gt; {
     <span class="comment">// Derive a secondary key from our primary private key
-    </span><span class="kw">let </span>derived_key = blake3::derive_key(<span class="string">"libp2p key"</span>, <span class="kw-2">&amp;</span>(bincode::serialize(<span class="kw-2">&amp;</span>private_key)<span class="question-mark">?</span>));
+    </span><span class="kw">let </span>derived_key = blake3::derive_key(<span class="string">"libp2p key"</span>, <span class="kw-2">&amp;</span>private_key.to_bytes());
     <span class="kw">let </span>derived_key = SecretKey::try_from_bytes(derived_key)<span class="question-mark">?</span>;
 
     <span class="comment">// Create an `ed25519` keypair from the derived key

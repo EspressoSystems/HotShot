@@ -73,6 +73,8 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -91,7 +93,7 @@
         network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{NodeType, Versions},
     },
-    HotShotConfig,
+    HotShotConfig, ValidatorConfig,
 };
 
 <span class="kw">use super</span>::{test_builder::TestDescription, test_runner::TestRunner};
@@ -111,6 +113,8 @@
     </span><span class="kw">pub </span>storage: Generator&lt;TestStorage&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// configuration used to generate each hotshot node
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
+    <span class="doccomment">/// config that contains the signature keys
+    </span><span class="kw">pub </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// generate a new marketplace config for each node
     </span><span class="kw">pub </span>marketplace_config: Generator&lt;MarketplaceConfig&lt;TYPES, I&gt;&gt;,
 }

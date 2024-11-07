@@ -516,6 +516,9 @@
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -686,14 +689,14 @@
 /// If we are unable to get the configuration from the orchestrator
 </span><span class="kw">pub async fn </span>get_complete_config&lt;K: SignatureKey&gt;(
     client: <span class="kw-2">&amp;</span>OrchestratorClient,
-    my_own_validator_config: ValidatorConfig&lt;K&gt;,
+    <span class="kw-2">mut </span>validator_config: ValidatorConfig&lt;K&gt;,
     libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;Multiaddr&gt;,
     libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
-) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K&gt;, NetworkConfigSource)&gt; {
+) -&gt; anyhow::Result&lt;(NetworkConfig&lt;K&gt;, ValidatorConfig&lt;K&gt;, NetworkConfigSource)&gt; {
     <span class="comment">// get the configuration from the orchestrator
     </span><span class="kw">let </span>run_config: NetworkConfig&lt;K&gt; = client
         .post_and_wait_all_public_keys::&lt;K&gt;(
-            my_own_validator_config,
+            <span class="kw-2">&amp;mut </span>validator_config,
             libp2p_advertise_address,
             libp2p_public_key,
         )
@@ -701,9 +704,13 @@
 
     <span class="macro">info!</span>(
         <span class="string">"Retrieved config; our node index is {}. DA committee member: {}"</span>,
-        run_config.node_index, run_config.config.my_own_validator_config.is_da
+        run_config.node_index, validator_config.is_da
     );
-    <span class="prelude-val">Ok</span>((run_config, NetworkConfigSource::Orchestrator))
+    <span class="prelude-val">Ok</span>((
+        run_config,
+        validator_config,
+        NetworkConfigSource::Orchestrator,
+    ))
 }
 
 <span class="kw">impl </span>ValidatorArgs {
@@ -911,7 +918,7 @@
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">"orchestrator public keys"</span>)]
     </span><span class="kw">pub async fn </span>post_and_wait_all_public_keys&lt;K: SignatureKey&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut </span>validator_config: ValidatorConfig&lt;K&gt;,
+        validator_config: <span class="kw-2">&amp;mut </span>ValidatorConfig&lt;K&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;Multiaddr&gt;,
         libp2p_public_key: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
     ) -&gt; NetworkConfig&lt;K&gt; {
@@ -963,7 +970,6 @@
         <span class="kw">let </span><span class="kw-2">mut </span>network_config = <span class="self">self</span>.get_config_after_collection().<span class="kw">await</span>;
 
         network_config.node_index = node_index;
-        network_config.config.my_own_validator_config = validator_config;
 
         network_config
     }

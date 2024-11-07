@@ -367,6 +367,8 @@
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -389,7 +391,7 @@
 <span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>jf_vid::VidScheme;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
-<span class="kw">use </span>tagged_base64::TaggedBase64;
+<span class="kw">use </span>tagged_base64::{TaggedBase64, Tb64Error};
 
 <span class="kw">use </span><span class="kw">super</span>::EncodeBytes;
 <span class="kw">use crate</span>::{
@@ -403,6 +405,24 @@
     </span><span class="kw">fn </span>stake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256;
     <span class="doccomment">/// Get the public key
     </span><span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; K;
+}
+
+<span class="doccomment">/// Trait for abstracting private signature key
+</span><span class="kw">pub trait </span>PrivateSignatureKey:
+    Send + Sync + Sized + Clone + Debug + Eq + Hash + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>TaggedBase64&gt;
+{
+    <span class="doccomment">/// Serialize the private key into bytes
+    </span><span class="kw">fn </span>to_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt;;
+
+    <span class="doccomment">/// Deserialize the private key from bytes
+    /// # Errors
+    /// If deserialization fails.
+    </span><span class="kw">fn </span>from_bytes(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt;;
+
+    <span class="doccomment">/// Serialize the private key into TaggedBase64 blob.
+    /// # Errors
+    /// If serialization fails.
+    </span><span class="kw">fn </span>to_tagged_base64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TaggedBase64, Tb64Error&gt;;
 }
 
 <span class="doccomment">/// Trait for abstracting public key signatures
@@ -425,15 +445,7 @@
     + Into&lt;TaggedBase64&gt;
 {
     <span class="doccomment">/// The private key type for this signature algorithm
-    </span><span class="kw">type </span>PrivateKey: Send
-        + Sync
-        + Sized
-        + Clone
-        + Debug
-        + Eq
-        + Serialize
-        + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;
-        + Hash;
+    </span><span class="kw">type </span>PrivateKey: PrivateSignatureKey;
     <span class="doccomment">/// The type of the entry that contain both public key and stake value
     </span><span class="kw">type </span>StakeTableEntry: StakeTableEntryType&lt;<span class="self">Self</span>&gt;
         + Send
@@ -548,15 +560,7 @@
     + Display
 {
     <span class="doccomment">/// The type of the keys builder would use to sign its messages
-    </span><span class="kw">type </span>BuilderPrivateKey: Send
-        + Sync
-        + Sized
-        + Clone
-        + Debug
-        + Eq
-        + Serialize
-        + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; Deserialize&lt;<span class="lifetime">'a</span>&gt;
-        + Hash;
+    </span><span class="kw">type </span>BuilderPrivateKey: PrivateSignatureKey;
 
     <span class="doccomment">/// The type of the signature builder would use to sign its messages
     </span><span class="kw">type </span>BuilderSignature: Send

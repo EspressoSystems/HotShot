@@ -1042,7 +1042,7 @@
             })
             .collect();
         <span class="comment">// But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.
-        </span><span class="kw">let </span>my_own_validator_config = ValidatorConfig::generated_from_seed_indexed(
+        </span><span class="kw">let </span>validator_config = ValidatorConfig::&lt;TYPES::SignatureKey&gt;::generated_from_seed_indexed(
             [<span class="number">0u8</span>; <span class="number">32</span>],
             node_id,
             <span class="number">1</span>,
@@ -1057,7 +1057,6 @@
             </span>known_da_nodes,
             num_bootstrap: num_bootstrap_nodes,
             known_nodes_with_stake,
-            my_own_validator_config,
             da_staked_committee_size,
             fixed_leader_for_gpuvid: <span class="number">1</span>,
             next_view_timeout: <span class="number">500</span>,
@@ -1109,6 +1108,7 @@
                     storage
                 }),
                 config,
+                validator_config,
                 marketplace_config: Box::new(|<span class="kw">_</span>| MarketplaceConfig::&lt;TYPES, I&gt; {
                     auction_results_provider: TestAuctionResultsProvider::&lt;TYPES&gt;::default().into(),
                     fallback_builder_url: Url::parse(<span class="string">"http://localhost:9999"</span>).unwrap(),

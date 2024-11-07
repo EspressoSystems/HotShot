@@ -1106,6 +1106,41 @@
 <a href="#1106" id="1106">1106</a>
 <a href="#1107" id="1107">1107</a>
 <a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1366,9 +1401,6 @@
 /// This derived config is used for initialization of orchestrator,
 /// therefore `known_nodes_with_stake` will be an initialized
 /// vector full of the node's own config.
-/// `my_own_validator_config` will be generated from seed here
-/// for loading config from orchestrator,
-/// or else it will be loaded from file.
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>load_config_from_file&lt;TYPES: NodeType&gt;(
     config_file: <span class="kw-2">&amp;</span>str,
@@ -1381,11 +1413,6 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt; = config_toml.into();
 
-    <span class="comment">// my_own_validator_config would be best to load from file,
-    // but its type is too complex to load so we'll generate it from seed now.
-    // Also this function is only used for orchestrator initialization now, so this value doesn't matter
-    </span>config.config.my_own_validator_config =
-        ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, <span class="number">1</span>, <span class="bool-val">true</span>);
     <span class="comment">// initialize it with size for better assignment of peers' config
     </span>config.config.known_nodes_with_stake =
         <span class="macro">vec!</span>[PeerConfig::default(); config.config.num_nodes_with_stake.get() <span class="kw">as </span>usize];
@@ -1465,6 +1492,7 @@
     <span class="doccomment">/// Initializes networking, returns self
     </span><span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
+        validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
     ) -&gt; <span class="self">Self</span>;
 
@@ -1479,10 +1507,11 @@
                 </span>.expect(<span class="string">"Couldn't generate genesis block"</span>);
 
         <span class="kw">let </span>config = <span class="self">self</span>.config();
+        <span class="kw">let </span>validator_config = <span class="self">self</span>.validator_config();
 
         <span class="comment">// Get KeyPair for certificate Aggregation
-        </span><span class="kw">let </span>pk = config.config.my_own_validator_config.public_key.clone();
-        <span class="kw">let </span>sk = config.config.my_own_validator_config.private_key.clone();
+        </span><span class="kw">let </span>pk = validator_config.public_key.clone();
+        <span class="kw">let </span>sk = validator_config.private_key.clone();
 
         <span class="kw">let </span>network = <span class="self">self</span>.network();
 
@@ -1708,6 +1737,9 @@
 
     <span class="doccomment">/// Returns the config for this run
     </span><span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt;;
+
+    <span class="doccomment">/// Returns the validator config with private signature keys for this run.
+    </span><span class="kw">fn </span>validator_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValidatorConfig&lt;TYPES::SignatureKey&gt;;
 }
 
 <span class="comment">// Push CDN
@@ -1716,6 +1748,8 @@
 </span><span class="kw">pub struct </span>PushCdnDaRun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The underlying configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
+    <span class="doccomment">/// The private validator config
+    </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// The underlying network
     </span>network: PushCdnNetwork&lt;TYPES::SignatureKey&gt;,
 }
@@ -1744,20 +1778,18 @@
 {
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
+        validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         _libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
     ) -&gt; PushCdnDaRun&lt;TYPES&gt; {
-        <span class="comment">// Get our own key
-        </span><span class="kw">let </span>key = config.config.my_own_validator_config.clone();
-
         <span class="comment">// Convert to the Push-CDN-compatible type
         </span><span class="kw">let </span>keypair = KeyPair {
-            public_key: WrappedSignatureKey(key.public_key),
-            private_key: key.private_key,
+            public_key: WrappedSignatureKey(validator_config.public_key.clone()),
+            private_key: validator_config.private_key.clone(),
         };
 
         <span class="comment">// See if we should be DA, subscribe to the DA topic if so
         </span><span class="kw">let </span><span class="kw-2">mut </span>topics = <span class="macro">vec!</span>[CdnTopic::Global];
-        <span class="kw">if </span>config.config.my_own_validator_config.is_da {
+        <span class="kw">if </span>validator_config.is_da {
             topics.push(CdnTopic::Da);
         }
 
@@ -1776,7 +1808,11 @@
         <span class="comment">// Wait for the network to be ready
         </span>network.wait_for_ready().<span class="kw">await</span>;
 
-        PushCdnDaRun { config, network }
+        PushCdnDaRun {
+            config,
+            validator_config,
+            network,
+        }
     }
 
     <span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PushCdnNetwork&lt;TYPES::SignatureKey&gt; {
@@ -1786,6 +1822,10 @@
     <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
+
+    <span class="kw">fn </span>validator_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValidatorConfig&lt;TYPES::SignatureKey&gt; {
+        <span class="self">self</span>.validator_config.clone()
+    }
 }
 
 <span class="comment">// Libp2p
@@ -1794,6 +1834,8 @@
 </span><span class="kw">pub struct </span>Libp2pDaRun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The underlying network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
+    <span class="doccomment">/// The private validator config
+    </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// The underlying network
     </span>network: Libp2pNetwork&lt;TYPES&gt;,
 }
@@ -1822,12 +1864,12 @@
 {
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
+        validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
     ) -&gt; Libp2pDaRun&lt;TYPES&gt; {
         <span class="comment">// Extrapolate keys for ease of use
-        </span><span class="kw">let </span>keys = config.clone().config.my_own_validator_config;
-        <span class="kw">let </span>public_key = keys.public_key;
-        <span class="kw">let </span>private_key = keys.private_key;
+        </span><span class="kw">let </span>public_key = <span class="kw-2">&amp;</span>validator_config.public_key;
+        <span class="kw">let </span>private_key = <span class="kw-2">&amp;</span>validator_config.private_key;
 
         <span class="comment">// In an example, we can calculate the libp2p bind address as a function
         // of the advertise address.
@@ -1867,8 +1909,8 @@
             GossipConfig::default(),
             RequestResponseConfig::default(),
             bind_address,
-            <span class="kw-2">&amp;</span>public_key,
-            <span class="kw-2">&amp;</span>private_key,
+            public_key,
+            private_key,
             Libp2pMetricsValue::default(),
         )
         .<span class="kw">await
@@ -1879,6 +1921,7 @@
 
         Libp2pDaRun {
             config,
+            validator_config,
             network: libp2p_network,
         }
     }
@@ -1890,6 +1933,10 @@
     <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
     }
+
+    <span class="kw">fn </span>validator_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValidatorConfig&lt;TYPES::SignatureKey&gt; {
+        <span class="self">self</span>.validator_config.clone()
+    }
 }
 
 <span class="comment">// Combined network
@@ -1898,6 +1945,8 @@
 </span><span class="kw">pub struct </span>CombinedDaRun&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The underlying network configuration
     </span>config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
+    <span class="doccomment">/// The private validator config
+    </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// The underlying network
     </span>network: CombinedNetworks&lt;TYPES&gt;,
 }
@@ -1926,6 +1975,7 @@
 {
     <span class="kw">async fn </span>initialize_networking(
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
+        validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
     ) -&gt; CombinedDaRun&lt;TYPES&gt; {
         <span class="comment">// Initialize our Libp2p network
@@ -1935,19 +1985,24 @@
             Libp2pImpl,
             V,
         &gt;&gt;::initialize_networking(
-            config.clone(), libp2p_advertise_address.clone()
+            config.clone(),
+            validator_config.clone(),
+            libp2p_advertise_address.clone(),
         )
         .<span class="kw">await</span>;
 
         <span class="comment">// Initialize our CDN network
-        </span><span class="kw">let </span>cdn_network: PushCdnDaRun&lt;TYPES&gt; =
-            &lt;PushCdnDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
-                TYPES,
-                PushCdnNetwork&lt;TYPES::SignatureKey&gt;,
-                PushCdnImpl,
-                V,
-            &gt;&gt;::initialize_networking(config.clone(), libp2p_advertise_address)
-            .<span class="kw">await</span>;
+        </span><span class="kw">let </span>cdn_network: PushCdnDaRun&lt;TYPES&gt; = &lt;PushCdnDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
+            TYPES,
+            PushCdnNetwork&lt;TYPES::SignatureKey&gt;,
+            PushCdnImpl,
+            V,
+        &gt;&gt;::initialize_networking(
+            config.clone(),
+            validator_config.clone(),
+            libp2p_advertise_address,
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// Create our combined network config
         </span><span class="kw">let </span>delay_duration = config
@@ -1960,7 +2015,11 @@
             CombinedNetworks::new(cdn_network.network, libp2p_network.network, delay_duration);
 
         <span class="comment">// Return the run configuration
-        </span>CombinedDaRun { config, network }
+        </span>CombinedDaRun {
+            config,
+            validator_config,
+            network,
+        }
     }
 
     <span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CombinedNetworks&lt;TYPES&gt; {
@@ -1969,6 +2028,10 @@
 
     <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetworkConfig&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.config.clone()
+    }
+
+    <span class="kw">fn </span>validator_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValidatorConfig&lt;TYPES::SignatureKey&gt; {
+        <span class="self">self</span>.validator_config.clone()
     }
 }
 
@@ -2005,24 +2068,22 @@
     <span class="kw">let </span>orchestrator_client: OrchestratorClient = OrchestratorClient::new(args.url.clone());
 
     <span class="comment">// We assume one node will not call this twice to generate two validator_config-s with same identity.
-    </span><span class="kw">let </span>my_own_validator_config =
-        NetworkConfig::&lt;TYPES::SignatureKey&gt;::generate_init_validator_config(
-            orchestrator_client
-                .get_node_index_for_init_validator_config()
-                .<span class="kw">await</span>,
-            <span class="comment">// we assign nodes to the DA committee by default
-            </span><span class="bool-val">true</span>,
-        );
+    </span><span class="kw">let </span>validator_config = NetworkConfig::&lt;TYPES::SignatureKey&gt;::generate_init_validator_config(
+        orchestrator_client
+            .get_node_index_for_init_validator_config()
+            .<span class="kw">await</span>,
+        <span class="comment">// we assign nodes to the DA committee by default
+        </span><span class="bool-val">true</span>,
+    );
 
     <span class="comment">// Derives our Libp2p private key from our private key, and then returns the public key of that key
     </span><span class="kw">let </span>libp2p_public_key =
-        derive_libp2p_peer_id::&lt;TYPES::SignatureKey&gt;(<span class="kw-2">&amp;</span>my_own_validator_config.private_key)
+        derive_libp2p_peer_id::&lt;TYPES::SignatureKey&gt;(<span class="kw-2">&amp;</span>validator_config.private_key)
             .expect(<span class="string">"failed to derive Libp2p keypair"</span>);
 
     <span class="comment">// We need this to be able to register our node
     </span><span class="kw">let </span>peer_config =
-        PeerConfig::&lt;TYPES::SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>my_own_validator_config.public_config())
-            .clone();
+        PeerConfig::&lt;TYPES::SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>validator_config.public_config()).clone();
 
     <span class="comment">// Derive the advertise multiaddress from the supplied string
     </span><span class="kw">let </span>advertise_multiaddress = args.advertise_address.clone().map(|advertise_address| {
@@ -2036,16 +2097,22 @@
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
 
-    </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, source) = get_complete_config(
+    </span><span class="kw">let </span>(<span class="kw-2">mut </span>run_config, validator_config, source) = get_complete_config(
         <span class="kw-2">&amp;</span>orchestrator_client,
-        my_own_validator_config,
+        validator_config,
         advertise_multiaddress,
         <span class="prelude-val">Some</span>(libp2p_public_key),
     )
     .<span class="kw">await
     </span>.expect(<span class="string">"failed to get config"</span>);
 
-    <span class="kw">let </span>builder_task = initialize_builder(<span class="kw-2">&amp;mut </span>run_config, <span class="kw-2">&amp;</span>args, <span class="kw-2">&amp;</span>orchestrator_client).<span class="kw">await</span>;
+    <span class="kw">let </span>builder_task = initialize_builder(
+        <span class="kw-2">&amp;mut </span>run_config,
+        <span class="kw-2">&amp;</span>validator_config,
+        <span class="kw-2">&amp;</span>args,
+        <span class="kw-2">&amp;</span>orchestrator_client,
+    )
+    .<span class="kw">await</span>;
 
     run_config.config.builder_urls = orchestrator_client
         .get_builder_addresses()
@@ -2065,7 +2132,9 @@
     );
 
     <span class="macro">info!</span>(<span class="string">"Initializing networking"</span>);
-    <span class="kw">let </span>run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).<span class="kw">await</span>;
+    <span class="kw">let </span>run =
+        RUNDA::initialize_networking(run_config.clone(), validator_config, args.advertise_address)
+            .<span class="kw">await</span>;
     <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot().<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = builder_task {
@@ -2126,6 +2195,7 @@
     &gt;,
 &gt;(
     run_config: <span class="kw-2">&amp;mut </span>NetworkConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+    validator_config: <span class="kw-2">&amp;</span>ValidatorConfig&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
     args: <span class="kw-2">&amp;</span>ValidatorArgs,
     orchestrator_client: <span class="kw-2">&amp;</span>OrchestratorClient,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;&gt;
@@ -2134,7 +2204,7 @@
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload: TestableBlock&lt;TYPES&gt;,
     Leaf&lt;TYPES&gt;: TestableLeaf,
 {
-    <span class="kw">if </span>!run_config.config.my_own_validator_config.is_da {
+    <span class="kw">if </span>!validator_config.is_da {
         <span class="kw">return </span><span class="prelude-val">None</span>;
     }
 

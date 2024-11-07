@@ -457,7 +457,6 @@
 <a href="#457" id="457">457</a>
 <a href="#458" id="458">458</a>
 <a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -552,7 +551,7 @@
     <span class="kw">let </span>network = (launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
     <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
     <span class="kw">let </span>marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
-    <span class="kw">let </span><span class="kw-2">mut </span>config = launcher.resource_generator.config.clone();
+    <span class="kw">let </span>config = launcher.resource_generator.config.clone();
 
     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(TestInstanceState::new(
         launcher.metadata.async_delay_config.clone(),
@@ -564,11 +563,10 @@
     </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
 
     <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
-    </span><span class="kw">let </span>validator_config =
+    </span><span class="kw">let </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt; =
         ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], node_id, <span class="number">1</span>, is_da);
-    config.my_own_validator_config = validator_config;
-    <span class="kw">let </span>private_key = config.my_own_validator_config.private_key.clone();
-    <span class="kw">let </span>public_key = config.my_own_validator_config.public_key.clone();
+    <span class="kw">let </span>private_key = validator_config.private_key.clone();
+    <span class="kw">let </span>public_key = validator_config.public_key.clone();
 
     <span class="kw">let </span>all_nodes = config.known_nodes_with_stake.clone();
     <span class="kw">let </span>da_nodes = config.known_da_nodes.clone();

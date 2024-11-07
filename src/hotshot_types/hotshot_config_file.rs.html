@@ -131,11 +131,6 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -166,9 +161,6 @@
     </span><span class="kw">pub </span>start_threshold: (u64, u64),
     <span class="doccomment">/// Total number of staked nodes in the network
     </span><span class="kw">pub </span>num_nodes_with_stake: NonZeroUsize,
-    <span class="attr">#[serde(skip)]
-    </span><span class="doccomment">/// My own public key, secret key, stake value
-    </span><span class="kw">pub </span>my_own_validator_config: ValidatorConfig&lt;KEY&gt;,
     <span class="attr">#[serde(skip)]
     </span><span class="doccomment">/// The known nodes' public key and stake value
     </span><span class="kw">pub </span>known_nodes_with_stake: Vec&lt;PeerConfig&lt;KEY&gt;&gt;,
@@ -205,7 +197,6 @@
             num_nodes_with_stake: val.num_nodes_with_stake,
             known_da_nodes: val.known_da_nodes,
             known_nodes_with_stake: val.known_nodes_with_stake,
-            my_own_validator_config: val.my_own_validator_config,
             da_staked_committee_size: val.staked_da_nodes,
             fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
@@ -258,7 +249,6 @@
         <span class="self">Self </span>{
             num_nodes_with_stake: NonZeroUsize::new(<span class="number">10</span>).unwrap(),
             start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
-            my_own_validator_config: ValidatorConfig::default(),
             known_nodes_with_stake: gen_known_nodes_with_stake,
             staked_da_nodes,
             known_da_nodes,
