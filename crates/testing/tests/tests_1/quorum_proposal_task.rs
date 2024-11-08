@@ -281,11 +281,11 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(all_predicates![]),
-        Expectations::from_outputs(all_predicates![]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
         Expectations::from_outputs(all_predicates![quorum_proposal_send(),]),
-        Expectations::from_outputs(all_predicates![]),
-        Expectations::from_outputs(all_predicates![]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
     ];
 
     let quorum_proposal_task_state =
@@ -619,11 +619,11 @@ async fn test_quorum_proposal_task_liveness_check() {
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(all_predicates![]),
-        Expectations::from_outputs(all_predicates![]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
         Expectations::from_outputs(all_predicates![quorum_proposal_send(),]),
-        Expectations::from_outputs(all_predicates![]),
-        Expectations::from_outputs(all_predicates![]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
     ];
 
     let quorum_proposal_task_state =
