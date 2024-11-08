@@ -54,7 +54,7 @@ pub enum BuildError {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum TransactionStatus {
     Pending,
-    Sequenced { block: u64 },
+    Sequenced { leaf: u64 },
     Rejected { reason: String }, // Rejection reason is in the String format
     Unknown,
 }
@@ -252,14 +252,14 @@ where
             }
             .boxed()
         })?
-        .at("status", |req: RequestParams, state| {
+        .at("get_status", |req: RequestParams, state| {
             async move {
                 let tx = req
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
                     .map_err(Error::TxnUnpack)?;
                 let hash = tx.commit();
                 state
-                    .claim_tx_status(hash)
+                    .get_tx_status(hash)
                     .await
                     .map_err(Error::TxnStatGet)?;
                 Ok(hash)

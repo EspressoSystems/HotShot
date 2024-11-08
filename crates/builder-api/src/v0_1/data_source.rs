@@ -71,7 +71,7 @@ where
         txns: Vec<<I as NodeType>::Transaction>,
     ) -> Result<Vec<Commitment<<I as NodeType>::Transaction>>, BuildError>;
 
-    async fn claim_tx_status(
+    async fn get_tx_status(
         &self,
         txn_hash: Commitment<<I as NodeType>::Transaction>,
     ) -> Result<TransactionStatus, BuildError>;
