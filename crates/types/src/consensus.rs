@@ -966,6 +966,25 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         let epoch_number = epoch_from_block_number(next_block_number, self.epoch_height);
         Ok(TYPES::Epoch::new(epoch_number))
     }
+
+    /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`
+    pub fn check_eqc(&self, proposed_leaf: &Leaf<TYPES>, parent_leaf: &Leaf<TYPES>) -> bool {
+        if parent_leaf.height() == 0 {
+            return true;
+        }
+        let new_epoch = epoch_from_block_number(proposed_leaf.height(), self.epoch_height);
+        let old_epoch = epoch_from_block_number(parent_leaf.height(), self.epoch_height);
+        let Some(View {
+            view_inner: ViewInner::Leaf {
+                leaf: leaf_commit, ..
+            },
+        }) = self.validated_state_map.get(&parent_leaf.view_number())
+        else {
+            tracing::error!("Couldn't find the provided old leaf in the consensus");
+            return false;
+        };
+        new_epoch - 1 == old_epoch && self.is_leaf_extended(*leaf_commit)
+    }
 }
 
 /// Alias for the block payload commitment and the associated metadata. The primary data
