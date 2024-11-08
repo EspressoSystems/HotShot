@@ -136,17 +136,6 @@ where
     Box::new(EventPredicate { check, info })
 }
 
-pub fn leaf_decided<TYPES>() -> Box<EventPredicate<TYPES>>
-where
-    TYPES: NodeType,
-{
-    let info = "LeafDecided".to_string();
-    let check: EventCallback<TYPES> =
-        Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), LeafDecided(_)));
-
-    Box::new(EventPredicate { check, info })
-}
-
 pub fn quorum_vote_send<TYPES>() -> Box<EventPredicate<TYPES>>
 where
     TYPES: NodeType,
@@ -301,16 +290,5 @@ where
     let info = "HighQcUpdated".to_string();
     let check: EventCallback<TYPES> =
         Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), HighQcUpdated(..)));
-    Box::new(EventPredicate { check, info })
-}
-
-pub fn quorum_vote_dependencies_validated<TYPES>() -> Box<EventPredicate<TYPES>>
-where
-    TYPES: NodeType,
-{
-    let info = "QuorumVoteDependenciesValidated".to_string();
-    let check: EventCallback<TYPES> = Arc::new(move |e: Arc<HotShotEvent<TYPES>>| {
-        matches!(e.as_ref(), QuorumVoteDependenciesValidated(..))
-    });
     Box::new(EventPredicate { check, info })
 }

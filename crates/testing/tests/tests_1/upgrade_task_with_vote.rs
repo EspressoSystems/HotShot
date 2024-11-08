@@ -137,16 +137,13 @@ async fn test_upgrade_task_with_vote() {
         Expectations::from_outputs(all_predicates![
             exact(DaCertificateValidated(dacs[1].clone())),
             exact(VidShareValidated(vids[1].0[0].clone())),
-            exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
             exact(ViewChange(ViewNumber::new(3))),
             quorum_vote_send(),
         ]),
         Expectations::from_outputs_and_task_states(
             all_predicates![
-                exact(LockedViewUpdated(ViewNumber::new(1))),
                 exact(DaCertificateValidated(dacs[2].clone())),
                 exact(VidShareValidated(vids[2].0[0].clone())),
-                exact(QuorumVoteDependenciesValidated(ViewNumber::new(3))),
                 exact(ViewChange(ViewNumber::new(4))),
                 quorum_vote_send(),
             ],
@@ -154,12 +151,8 @@ async fn test_upgrade_task_with_vote() {
         ),
         Expectations::from_outputs_and_task_states(
             all_predicates![
-                exact(LockedViewUpdated(ViewNumber::new(2))),
-                exact(LastDecidedViewUpdated(ViewNumber::new(1))),
-                leaf_decided(),
                 exact(DaCertificateValidated(dacs[3].clone())),
                 exact(VidShareValidated(vids[3].0[0].clone())),
-                exact(QuorumVoteDependenciesValidated(ViewNumber::new(4))),
                 exact(ViewChange(ViewNumber::new(5))),
                 quorum_vote_send(),
             ],
@@ -167,23 +160,15 @@ async fn test_upgrade_task_with_vote() {
         ),
         Expectations::from_outputs_and_task_states(
             all_predicates![
-                exact(LockedViewUpdated(ViewNumber::new(3))),
-                exact(LastDecidedViewUpdated(ViewNumber::new(2))),
-                leaf_decided(),
                 exact(DaCertificateValidated(dacs[4].clone())),
                 exact(VidShareValidated(vids[4].0[0].clone())),
-                exact(QuorumVoteDependenciesValidated(ViewNumber::new(5))),
                 exact(ViewChange(ViewNumber::new(6))),
                 quorum_vote_send(),
             ],
             vec![no_decided_upgrade_certificate()],
         ),
         Expectations::from_outputs_and_task_states(
-            all_predicates![
-                exact(LockedViewUpdated(ViewNumber::new(4))),
-                exact(LastDecidedViewUpdated(ViewNumber::new(3))),
-                leaf_decided(),
-            ],
+            all_predicates![],
             vec![decided_upgrade_certificate()],
         ),
     ];
