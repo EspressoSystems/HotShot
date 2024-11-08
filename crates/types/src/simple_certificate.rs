@@ -249,6 +249,27 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     }
 }
 
+/// Convert a QC into a QC2
+pub fn convert_quorum_certificate<TYPES: NodeType>(
+    quorum_certificate: QuorumCertificate<TYPES>,
+) -> QuorumCertificate2<TYPES> {
+    let bytes: [u8; 32] = quorum_certificate.data.leaf_commit.into();
+    let data = QuorumData2 {
+        leaf_commit: Commitment::from_raw(bytes),
+    };
+
+    let bytes: [u8; 32] = quorum_certificate.vote_commitment.into();
+    let vote_commitment = Commitment::from_raw(bytes);
+
+    SimpleCertificate {
+        data,
+        vote_commitment,
+        view_number: quorum_certificate.view_number,
+        signatures: quorum_certificate.signatures.clone(),
+        _pd: PhantomData,
+    }
+}
+
 /// Type alias for a `QuorumCertificate`, which is a `SimpleCertificate` over `QuorumData`
 pub type QuorumCertificate<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
 /// Type alias for a `QuorumCertificate2`, which is a `SimpleCertificate` over `QuorumData2`

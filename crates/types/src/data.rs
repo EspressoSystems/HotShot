@@ -33,8 +33,8 @@ use vec1::Vec1;
 use crate::{
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        QuorumCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        convert_quorum_certificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
     simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -384,7 +384,7 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     pub view_number: TYPES::View,
 
     /// certificate that the proposal is chaining from
-    pub justify_qc: LeafCertificate<TYPES>,
+    pub justify_qc: QuorumCertificate2<TYPES>,
 
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
@@ -406,7 +406,7 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
         Self {
             block_header: quorum_proposal.block_header,
             view_number: quorum_proposal.view_number,
-            justify_qc: LeafCertificate::Quorum(quorum_proposal.justify_qc),
+            justify_qc: convert_quorum_certificate(quorum_proposal.justify_qc),
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             proposal_certificate: quorum_proposal.proposal_certificate,
             drb_seed: [0; 96],
@@ -421,7 +421,7 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
 
         Self {
             view_number: leaf.view_number,
-            justify_qc: LeafCertificate::Quorum(leaf.justify_qc),
+            justify_qc: convert_quorum_certificate(leaf.justify_qc),
             parent_commitment: Commitment::from_raw(bytes),
             block_header: leaf.block_header,
             upgrade_certificate: leaf.upgrade_certificate,
@@ -528,7 +528,7 @@ pub struct Leaf2<TYPES: NodeType> {
     view_number: TYPES::View,
 
     /// Per spec, justification
-    justify_qc: LeafCertificate<TYPES>,
+    justify_qc: QuorumCertificate2<TYPES>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
@@ -546,44 +546,15 @@ pub struct Leaf2<TYPES: NodeType> {
     block_payload: Option<TYPES::BlockPayload>,
 }
 
-#[derive(Hash, Eq, Clone, PartialEq, Debug, Serialize, Deserialize)]
-#[serde(bound(deserialize = ""))]
-/// Certificates for the new `QuorumProposal2` type,
-/// which may include either a QC or an eQC.
-pub enum LeafCertificate<TYPES: NodeType> {
-    /// a QC
-    Quorum(QuorumCertificate<TYPES>),
-    /// a QC2
-    Quorum2(QuorumCertificate2<TYPES>),
-    /// an eQC
-    Epoch,
-}
-
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-        match &self.justify_qc {
-            LeafCertificate::Quorum(justify_qc) => RawCommitmentBuilder::new("leaf commitment")
-                .u64_field("view number", *self.view_number)
-                .field("parent leaf commitment", self.parent_commitment)
-                .field("block header", self.block_header.commit())
-                .field("justify qc", justify_qc.commit())
-                .optional("upgrade certificate", &self.upgrade_certificate)
-                .finalize(),
-            LeafCertificate::Quorum2(justify_qc) => RawCommitmentBuilder::new("leaf commitment")
-                .u64_field("view number", *self.view_number)
-                .field("parent leaf commitment", self.parent_commitment)
-                .field("block header", self.block_header.commit())
-                .field("justify qc", justify_qc.commit())
-                .optional("upgrade certificate", &self.upgrade_certificate)
-                .finalize(),
-            LeafCertificate::Epoch => RawCommitmentBuilder::new("leaf commitment")
-                .u64_field("view number", *self.view_number)
-                .field("parent leaf commitment", self.parent_commitment)
-                .field("block header", self.block_header.commit())
-                .u64_field("eqc", 0)
-                .optional("upgrade certificate", &self.upgrade_certificate)
-                .finalize(),
-        }
+        RawCommitmentBuilder::new("leaf commitment")
+            .u64_field("view number", *self.view_number)
+            .field("parent leaf commitment", self.parent_commitment)
+            .field("block header", self.block_header.commit())
+            .field("justify qc", self.justify_qc.commit())
+            .optional("upgrade certificate", &self.upgrade_certificate)
+            .finalize()
     }
 }
 
@@ -895,6 +866,32 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> Leaf2<TYPES> {
+    /// Constructs a leaf from a given quorum proposal.
+    pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal2<TYPES>) -> Self {
+        // WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
+        // The point of this match is that we will get a compile-time error if we add a field without updating this.
+        let QuorumProposal2 {
+            view_number,
+            justify_qc,
+            block_header,
+            upgrade_certificate,
+            proposal_certificate: _,
+            drb_seed: _,
+            drb_result: _,
+        } = quorum_proposal;
+
+        Self {
+            view_number: *view_number,
+            justify_qc: justify_qc.clone(),
+            parent_commitment: justify_qc.data().leaf_commit,
+            block_header: block_header.clone(),
+            upgrade_certificate: upgrade_certificate.clone(),
+            block_payload: None,
+        }
+    }
+}
+
 impl<TYPES: NodeType> Leaf<TYPES> {
     /// Constructs a leaf from a given quorum proposal.
     pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal<TYPES>) -> Self {
@@ -907,7 +904,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             upgrade_certificate,
             proposal_certificate: _,
         } = quorum_proposal;
-        Leaf {
+
+        Self {
             view_number: *view_number,
             justify_qc: justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,
