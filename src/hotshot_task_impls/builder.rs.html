@@ -258,6 +258,7 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -314,6 +315,7 @@
                 BuildError::Missing =&gt; <span class="self">Self</span>::BlockMissing,
                 BuildError::Error(message) =&gt; <span class="self">Self</span>::Api(message),
             },
+            BuilderApiError::TxnStat(source) =&gt; <span class="self">Self</span>::Api(source.to_string()),
         }
     }
 }
