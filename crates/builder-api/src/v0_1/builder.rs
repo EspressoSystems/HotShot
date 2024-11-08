@@ -106,7 +106,7 @@ impl tide_disco::error::Error for Error {
             Error::TxnSubmit { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Custom { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::BuilderAddress { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::TxnStatGet { .. } => StatusCode::BAD_REQUEST,
+            Error::TxnStatGet { .. } => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
