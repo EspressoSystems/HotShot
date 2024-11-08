@@ -9,10 +9,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_broadcast::{broadcast, Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::{Task, TaskState};
@@ -23,12 +20,11 @@ use hotshot_types::{
     message::UpgradeLock,
     simple_certificate::UpgradeCertificate,
     traits::{
-        node_implementation::{NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::HasViewNumber,
 };
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use utils::anytrace::{bail, Result};
@@ -39,7 +35,6 @@ use crate::{
     events::{HotShotEvent, ProposalMissing},
     helpers::{broadcast_event, cancel_task, parent_leaf_and_state},
 };
-use hotshot_types::traits::node_implementation::ConsensusTime;
 /// Event handlers for this task.
 mod handlers;
 
@@ -119,7 +114,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             cancel.append(&mut to_cancel);
         }
         self.spawned_tasks = keep;
-        async_spawn(async move { join_all(cancel).await });
+        tokio::spawn(async move { join_all(cancel).await });
     }
 
     /// Handles all consensus events relating to propose and vote-enabling events.
@@ -203,9 +198,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
                 break;
             };
             for handle in handles {
-                #[cfg(async_executor_impl = "async-std")]
-                handle.cancel().await;
-                #[cfg(async_executor_impl = "tokio")]
                 handle.abort();
             }
         }

@@ -31,16 +31,16 @@ jobs:
 
       - name: Test Docs
         run: |
-          just async-std doc_test
+          just doc_test
 
       - name: Build Docs
         run: |
-          just async-std doc
+          just doc
 
       - name: Create documentation
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
-          cp -R target/async-std/doc public
+          cp -R target/doc public
           echo '<meta http-equiv="refresh" content="0; url=hotshot">' > public/index.html
 
       - name: Deploy

@@ -9,15 +9,8 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
-};
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use futures::future::join_all;
 use hotshot_task::task::TaskState;
@@ -40,10 +33,15 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-#[cfg(async_executor_impl = "tokio")]
+use tokio::spawn;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
+
+use crate::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::{broadcast_event, cancel_task},
+};
 
 /// the network message task state
 #[derive(Clone)]
@@ -290,7 +288,7 @@ impl<
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
         let consensus = Arc::clone(&self.consensus);
-        async_spawn(async move {
+        spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
                 storage,
@@ -349,7 +347,7 @@ impl<
             cancel.append(&mut to_cancel);
         }
         self.transmit_tasks = keep;
-        async_spawn(async move { join_all(cancel).await });
+        spawn(async move { join_all(cancel).await });
     }
 
     /// Parses a `HotShotEvent` and returns a tuple of: (sender's public key, `MessageKind`, `TransmitType`)
@@ -609,7 +607,7 @@ impl<
                 let net = Arc::clone(&self.network);
                 let epoch = self.epoch.u64();
                 let mem = self.quorum_membership.clone();
-                async_spawn(async move {
+                spawn(async move {
                     net.update_view::<TYPES>(view.saturating_sub(1), epoch, &mem)
                         .await;
                 });
@@ -662,7 +660,7 @@ impl<
         let storage = Arc::clone(&self.storage);
         let consensus = Arc::clone(&self.consensus);
         let upgrade_lock = self.upgrade_lock.clone();
-        let handle = async_spawn(async move {
+        let handle = spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 maybe_action,
                 Arc::clone(&storage),

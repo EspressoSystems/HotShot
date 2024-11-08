@@ -12,7 +12,7 @@ fi
 echo "Argument 1: $1"
 keydb_address="$1"
 
-just async_std example cdn-broker -- -d $keydb_address \
+just example cdn-broker -- -d $keydb_address \
                                     --public-bind-endpoint 0.0.0.0:1740 \
                                     --public-advertise-endpoint local_ip:1740 \
                                     --private-bind-endpoint 0.0.0.0:1741 \
