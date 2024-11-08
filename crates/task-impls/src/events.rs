@@ -203,6 +203,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Upgrade certificate has been sent to the network
     UpgradeCertificateFormed(UpgradeCertificate<TYPES>),
 
+    /* Consensus State Update Events */
     /// A new locked view has been created (2-chain)
     LockedViewUpdated(TYPES::View),
 
