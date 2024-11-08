@@ -40,8 +40,7 @@ use hotshot_types::{
 use std::sync::Arc;
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_recv_task() {
     use std::time::Duration;
 
@@ -50,8 +49,7 @@ async fn test_quorum_proposal_recv_task() {
         script::{Expectations, TaskScript},
     };
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -117,8 +115,7 @@ async fn test_quorum_proposal_recv_task() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_recv_task_liveness_check() {
     use std::time::Duration;
 
@@ -131,8 +128,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
     };
     use hotshot_types::{data::Leaf, vote::HasViewNumber};
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(4)
         .await

@@ -20,7 +20,7 @@ Closes #<ISSUE_NUMBER>
 <!-- ### How to test this PR:  -->
 <!-- Optional, uncomment the above line if this is relevant to your PR -->
 <!-- If your PR can be tested through CI there is no need to add this section -->
-<!-- * E.g. `just async_std test` -->
+<!-- * E.g. `just test` -->
 
 <!-- Complete the following items before creating this PR
 * Are the proper people tagged to review it?
