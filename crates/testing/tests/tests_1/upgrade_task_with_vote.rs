@@ -167,10 +167,7 @@ async fn test_upgrade_task_with_vote() {
             ],
             vec![no_decided_upgrade_certificate()],
         ),
-        Expectations::from_outputs_and_task_states(
-            vec![],
-            vec![decided_upgrade_certificate()],
-        ),
+        Expectations::from_outputs_and_task_states(vec![], vec![decided_upgrade_certificate()]),
     ];
 
     let vote_state =
