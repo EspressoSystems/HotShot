@@ -54,7 +54,7 @@ pub enum BuildError {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum TransactionStatus {
     Pending,
-    Sequenced { block: u64, offset: u64 },
+    Sequenced { block: u64 },
     Rejected { reason: String }, // Rejection reason is in the String format
     Unknown,
 }
