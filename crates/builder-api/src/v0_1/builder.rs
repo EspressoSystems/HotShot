@@ -258,10 +258,7 @@ where
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
                     .map_err(Error::TxnUnpack)?;
                 let hash = tx.commit();
-                state
-                    .txn_status(hash)
-                    .await
-                    .map_err(Error::TxnStatGet)?;
+                state.txn_status(hash).await.map_err(Error::TxnStatGet)?;
                 Ok(hash)
             }
             .boxed()
