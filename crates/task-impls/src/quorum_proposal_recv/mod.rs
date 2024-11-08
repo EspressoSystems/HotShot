@@ -9,10 +9,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_broadcast::{broadcast, Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use either::Either;
 use futures::future::{err, join_all};
@@ -29,7 +26,6 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber},
 };
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use utils::anytrace::{bail, Result};
@@ -127,7 +123,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             cancel.append(&mut to_cancel);
         }
         self.spawned_tasks = keep;
-        async_spawn(async move { join_all(cancel).await });
+        tokio::spawn(async move { join_all(cancel).await });
     }
 
     /// Handles all consensus events relating to propose and vote-enabling events.
@@ -270,9 +266,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
                 break;
             };
             for handle in handles {
-                #[cfg(async_executor_impl = "async-std")]
-                handle.cancel().await;
-                #[cfg(async_executor_impl = "tokio")]
                 handle.abort();
             }
         }
