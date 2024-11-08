@@ -75,7 +75,7 @@ serde = { version = "1", features = ["derive"] }
 serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0" }
 sha2 = "0.10"
-thiserror = "1"
+thiserror = "2"
 surf-disco = "0.9"
 tagged-base64 = "0.4"
 tide-disco = "0.9"
