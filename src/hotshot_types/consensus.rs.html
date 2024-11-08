@@ -955,6 +955,47 @@
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1548,7 +1589,48 @@
     /// # Errors
     /// Can return an error when the new view contains less information than the exisiting view
     /// with the same view number.
-    </span><span class="kw">pub fn </span>update_validated_state_map(
+    </span><span class="kw">pub fn </span>update_da_view(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        view_number: TYPES::View,
+        payload_commitment: VidCommitment,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>view = View {
+            view_inner: ViewInner::Da { payload_commitment },
+        };
+        <span class="self">self</span>.update_validated_state_map(view_number, view)
+    }
+
+    <span class="doccomment">/// Update the validated state map with a new view_number/view combo.
+    ///
+    /// # Errors
+    /// Can return an error when the new view contains less information than the exisiting view
+    /// with the same view number.
+    </span><span class="kw">pub async fn </span>update_leaf&lt;V: Versions&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        leaf: Leaf&lt;TYPES&gt;,
+        state: Arc&lt;TYPES::ValidatedState&gt;,
+        delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>view_number = leaf.view_number();
+        <span class="kw">let </span>view = View {
+            view_inner: ViewInner::Leaf {
+                leaf: leaf.commit(upgrade_lock).<span class="kw">await</span>,
+                state,
+                delta,
+            },
+        };
+        <span class="self">self</span>.update_validated_state_map(view_number, view)<span class="question-mark">?</span>;
+        <span class="self">self</span>.update_saved_leaves(leaf, upgrade_lock).<span class="kw">await</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Update the validated state map with a new view_number/view combo.
+    ///
+    /// # Errors
+    /// Can return an error when the new view contains less information than the exisiting view
+    /// with the same view number.
+    </span><span class="kw">fn </span>update_validated_state_map(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
         new_view: View&lt;TYPES&gt;,
@@ -1578,7 +1660,7 @@
     }
 
     <span class="doccomment">/// Update the saved leaves with a new leaf.
-    </span><span class="kw">pub async fn </span>update_saved_leaves&lt;V: Versions&gt;(
+    </span><span class="kw">async fn </span>update_saved_leaves&lt;V: Versions&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         leaf: Leaf&lt;TYPES&gt;,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,

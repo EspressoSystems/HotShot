@@ -610,13 +610,6 @@
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
 <a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -647,7 +640,7 @@
         block_contents::BuilderFee, network::DataRequest, node_implementation::NodeType,
         signature_key::SignatureKey, BlockPayload,
     },
-    utils::{BuilderCommitment, View},
+    utils::BuilderCommitment,
     vid::VidCommitment,
     vote::HasViewNumber,
 };
@@ -823,10 +816,7 @@
     </span>UpgradeCertificateFormed(UpgradeCertificate&lt;TYPES&gt;),
 
     <span class="comment">/* Consensus State Update Events */
-    </span><span class="doccomment">/// A undecided view has been created and added to the validated state storage.
-    </span>ValidatedStateUpdated(TYPES::View, View&lt;TYPES&gt;),
-
-    <span class="doccomment">/// A new locked view has been created (2-chain)
+    </span><span class="doccomment">/// A new locked view has been created (2-chain)
     </span>LockedViewUpdated(TYPES::View),
 
     <span class="doccomment">/// A new anchor view has been successfully reached by this node (3-chain).
@@ -942,8 +932,7 @@
             | HotShotEvent::Timeout(view_number)
             | HotShotEvent::BlockReady(<span class="kw">_</span>, view_number)
             | HotShotEvent::LockedViewUpdated(view_number)
-            | HotShotEvent::LastDecidedViewUpdated(view_number)
-            | HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>view_number),
+            | HotShotEvent::LastDecidedViewUpdated(view_number) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>view_number),
             HotShotEvent::DaCertificateRecv(cert) | HotShotEvent::DacSend(cert, <span class="kw">_</span>) =&gt; {
                 <span class="prelude-val">Some</span>(cert.view_number())
             }
@@ -1190,9 +1179,6 @@
                     <span class="string">"QuorumProposalResponseRecv(view_number={:?})"</span>,
                     proposal.data.view_number
                 )
-            }
-            HotShotEvent::ValidatedStateUpdated(view_number, <span class="kw">_</span>) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"ValidatedStateUpdated(view_number={view_number:?})"</span>)
             }
             HotShotEvent::LockedViewUpdated(view_number) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"LockedViewUpdated(view_number={view_number:?})"</span>)
