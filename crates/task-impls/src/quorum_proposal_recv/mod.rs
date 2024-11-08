@@ -34,10 +34,7 @@ use vbs::version::Version;
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
     events::{HotShotEvent, ProposalMissing},
-    helpers::{
-        broadcast_event, cancel_task, epoch_from_block_number, fetch_proposal,
-        parent_leaf_and_state,
-    },
+    helpers::{broadcast_event, cancel_task, fetch_proposal, parent_leaf_and_state},
 };
 /// Event handlers for this task.
 mod handlers;

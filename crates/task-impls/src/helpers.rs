@@ -679,15 +679,3 @@ pub async fn broadcast_event<E: Clone + std::fmt::Debug>(event: E, sender: &Send
         }
     }
 }
-
-/// Returns an epoch number given a block number and an epoch height
-#[must_use]
-pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
-    if epoch_height == 0 {
-        0
-    } else if block_number % epoch_height == 0 {
-        block_number / epoch_height
-    } else {
-        block_number / epoch_height + 1
-    }
-}

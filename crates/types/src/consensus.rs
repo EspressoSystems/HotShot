@@ -19,7 +19,7 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
-use crate::utils::LeafCommitment;
+use crate::utils::{epoch_from_block_number, LeafCommitment};
 pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
@@ -960,11 +960,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             // Covers the first and third case.
             leaf.height() + 1
         };
-        let epoch_number = if next_block_number % self.epoch_height == 0 {
-            next_block_number / self.epoch_height
-        } else {
-            next_block_number / self.epoch_height + 1
-        };
+        let epoch_number = epoch_from_block_number(next_block_number, self.epoch_height);
         Ok(TYPES::Epoch::new(epoch_number))
     }
 }

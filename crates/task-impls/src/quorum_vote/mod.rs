@@ -6,6 +6,11 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+    quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
+};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -26,6 +31,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::epoch_from_block_number,
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
@@ -34,13 +40,6 @@ use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use crate::helpers::epoch_from_block_number;
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-    quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
-};
 
 /// Event handlers for `QuorumProposalValidated`.
 mod handlers;

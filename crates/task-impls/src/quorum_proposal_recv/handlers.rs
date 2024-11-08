@@ -24,7 +24,7 @@ use hotshot_types::{
         storage::Storage,
         ValidatedState,
     },
-    utils::{View, ViewInner},
+    utils::{epoch_from_block_number, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 use tokio::spawn;
@@ -35,8 +35,8 @@ use super::{QuorumProposalRecvTaskState, ValidationInfo};
 use crate::{
     events::HotShotEvent,
     helpers::{
-        broadcast_event, epoch_from_block_number, fetch_proposal,
-        validate_proposal_safety_and_liveness, validate_proposal_view_and_certs,
+        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
+        validate_proposal_view_and_certs,
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
 };
