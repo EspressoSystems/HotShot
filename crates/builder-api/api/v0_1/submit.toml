@@ -45,8 +45,8 @@ Submit a list of transactions to builder's private mempool."
 Returns the corresponding list of transaction hashes
 """
 
-[route.get_txn_stat]
-PATH = ["get_txn_stat/:transaction_hash"]
+[route.status]
+PATH = ["status/:transaction_hash"]
 METHOD = "GET"
 ":transaction_hash" = "TaggedBase64"
 DOC = """

@@ -252,7 +252,7 @@ where
             }
             .boxed()
         })?
-        .at("get_txn_stat", |req: RequestParams, state| {
+        .at("status", |req: RequestParams, state| {
             async move {
                 let tx = req
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
