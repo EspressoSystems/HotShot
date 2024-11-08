@@ -7,7 +7,6 @@
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use chrono::Utc;
 use hotshot_types::{
     event::{Event, EventType},
@@ -18,6 +17,7 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
+use tokio::{spawn, time::sleep};
 use tracing::instrument;
 use utils::anytrace::*;
 
@@ -132,6 +132,11 @@ pub(crate) async fn handle_view_change<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    if epoch_number > task_state.cur_epoch {
+        task_state.cur_epoch = epoch_number;
+        tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
+    }
+
     ensure!(
         new_view_number > task_state.cur_view,
         "New view is not larger than the current view"
@@ -145,11 +150,6 @@ pub(crate) async fn handle_view_change<
     }
     // Move this node to the next view
     task_state.cur_view = new_view_number;
-    if epoch_number > task_state.cur_epoch {
-        task_state.cur_epoch = epoch_number;
-        tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
-    }
-
     task_state
         .consensus
         .write()
@@ -174,11 +174,11 @@ pub(crate) async fn handle_view_change<
 
     // Spawn a timeout task if we did actually update view
     let timeout = task_state.timeout;
-    let new_timeout_task = async_spawn({
+    let new_timeout_task = spawn({
         let stream = sender.clone();
         let view_number = new_view_number;
         async move {
-            async_sleep(Duration::from_millis(timeout)).await;
+            sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
                 Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
                 &stream,

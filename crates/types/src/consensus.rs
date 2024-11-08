@@ -33,7 +33,9 @@ use crate::{
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{BuilderCommitment, LeafCommitment, StateAndDelta, Terminator},
+    utils::{
+        epoch_from_block_number, BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
+    },
     vid::VidCommitment,
     vote::HasViewNumber,
 };
@@ -942,18 +944,18 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         if self.epoch_height == 0 {
             return Ok(TYPES::Epoch::new(0));
         }
-        let Some(validated_view) = self.validated_state_map.get(&view) else {
-            bail!("Could not find a validated state corresponding to the given view.");
-        };
+        let validated_view = self.validated_state_map.get(&view).context(error!(
+            "Could not find a validated state corresponding to the given view."
+        ))?;
         let ViewInner::Leaf {
             leaf: leaf_commit, ..
         } = validated_view.view_inner
         else {
             bail!("Could not find a proposed leaf corresponding to the given view.");
         };
-        let Some(leaf) = self.saved_leaves.get(&leaf_commit) else {
-            bail!("Could not find a leaf corresponding to the given view.");
-        };
+        let leaf = self.saved_leaves.get(&leaf_commit).context(error!(
+            "Could not find a leaf corresponding to the given view."
+        ))?;
         let next_block_number = if self.is_leaf_forming_eqc(leaf_commit) {
             // Covers the second case.
             leaf.height()
@@ -961,11 +963,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             // Covers the first and third case.
             leaf.height() + 1
         };
-        let epoch_number = if next_block_number % self.epoch_height == 0 {
-            next_block_number / self.epoch_height
-        } else {
-            next_block_number / self.epoch_height + 1
-        };
+        let epoch_number = epoch_from_block_number(next_block_number, self.epoch_height);
         Ok(TYPES::Epoch::new(epoch_number))
     }
 }

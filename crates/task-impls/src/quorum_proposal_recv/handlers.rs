@@ -9,7 +9,6 @@
 use std::sync::Arc;
 
 use async_broadcast::{broadcast, Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
 use hotshot_types::traits::block_contents::BlockHeader;
@@ -25,9 +24,10 @@ use hotshot_types::{
         storage::Storage,
         ValidatedState,
     },
-    utils::{View, ViewInner},
+    utils::{epoch_from_block_number, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
 
@@ -35,8 +35,8 @@ use super::{QuorumProposalRecvTaskState, ValidationInfo};
 use crate::{
     events::HotShotEvent,
     helpers::{
-        broadcast_event, epoch_from_block_number, fetch_proposal,
-        validate_proposal_safety_and_liveness, validate_proposal_view_and_certs,
+        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
+        validate_proposal_view_and_certs,
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
 };
@@ -115,7 +115,7 @@ fn spawn_fetch_proposal<TYPES: NodeType, V: Versions>(
     sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: UpgradeLock<TYPES, V>,
 ) {
-    async_spawn(async move {
+    spawn(async move {
         let lock = upgrade_lock;
 
         let _ = fetch_proposal(
@@ -255,6 +255,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
             block_number,
             validation_info.epoch_height,
         ));
+        tracing::trace!(
+            "Sending ViewChange for view {} and epoch {}",
+            view_number,
+            *epoch
+        );
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(view_number, epoch)),
             event_sender,
@@ -278,6 +283,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
         validation_info.epoch_height,
     ));
 
+    tracing::trace!(
+        "Sending ViewChange for view {} and epoch {}",
+        view_number,
+        *epoch_number
+    );
     broadcast_event(
         Arc::new(HotShotEvent::ViewChange(view_number, epoch_number)),
         event_sender,

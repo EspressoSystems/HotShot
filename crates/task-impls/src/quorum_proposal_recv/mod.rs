@@ -9,10 +9,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use async_broadcast::{broadcast, Receiver, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use either::Either;
 use futures::future::{err, join_all};
@@ -29,7 +26,6 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber},
 };
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use utils::anytrace::{bail, Result};
@@ -38,12 +34,8 @@ use vbs::version::Version;
 use self::handlers::handle_quorum_proposal_recv;
 use crate::{
     events::{HotShotEvent, ProposalMissing},
-    helpers::{
-        broadcast_event, cancel_task, epoch_from_block_number, fetch_proposal,
-        parent_leaf_and_state,
-    },
+    helpers::{broadcast_event, cancel_task, fetch_proposal, parent_leaf_and_state},
 };
-
 /// Event handlers for this task.
 mod handlers;
 
@@ -128,7 +120,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             cancel.append(&mut to_cancel);
         }
         self.spawned_tasks = keep;
-        async_spawn(async move { join_all(cancel).await });
+        tokio::spawn(async move { join_all(cancel).await });
     }
 
     /// Handles all consensus events relating to propose and vote-enabling events.
@@ -174,13 +166,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
             }
             HotShotEvent::ViewChange(view, epoch) => {
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
                 if self.cur_view >= *view {
                     return;
                 }
                 self.cur_view = *view;
-                if *epoch > self.cur_epoch {
-                    self.cur_epoch = *epoch;
-                }
                 // cancel task for any view 2 views prior or more.  The view here is the oldest
                 // view we want to KEEP tasks for.  We keep the view prior to this because
                 // we might still be processing the proposal from view V which caused us
@@ -271,9 +263,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
                 break;
             };
             for handle in handles {
-                #[cfg(async_executor_impl = "async-std")]
-                handle.cancel().await;
-                #[cfg(async_executor_impl = "tokio")]
                 handle.abort();
             }
         }

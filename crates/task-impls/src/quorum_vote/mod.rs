@@ -6,10 +6,13 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, cancel_task},
+    quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
+};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency},
@@ -28,22 +31,15 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::epoch_from_block_number,
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use crate::helpers::epoch_from_block_number;
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-    quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
-};
 
 /// Event handlers for `QuorumProposalValidated`.
 mod handlers;
@@ -219,27 +215,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
 
         let current_epoch =
             TYPES::Epoch::new(epoch_from_block_number(leaf.height(), self.epoch_height));
-        let next_leaf_epoch = match self
-            .consensus
-            .read()
-            .await
-            .get_epoch_for_next_view(leaf.view_number())
-        {
-            Ok(epoch) => epoch,
-            Err(e) => {
-                tracing::error!("Error when handling a vote, not voting, error: {:?}", e);
-                return;
-            }
-        };
         tracing::trace!(
             "Sending ViewChange for view {} and epoch {}",
             self.view_number + 1,
-            *next_leaf_epoch
+            *current_epoch
         );
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(
                 self.view_number + 1,
-                next_leaf_epoch,
+                current_epoch,
             )),
             &self.sender,
         )
@@ -696,27 +680,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             current_block_number,
             self.epoch_height,
         ));
-        let next_leaf_epoch = match self
-            .consensus
-            .read()
-            .await
-            .get_epoch_for_next_view(proposal.data.view_number())
-        {
-            Ok(epoch) => epoch,
-            Err(e) => {
-                tracing::error!("Error when handling eQC vote, not voting, error: {:?}", e);
-                return;
-            }
-        };
         tracing::trace!(
             "Sending ViewChange for view {} and epoch {}",
             proposal.data.view_number() + 1,
-            *next_leaf_epoch
+            *current_epoch
         );
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(
                 proposal.data.view_number() + 1,
-                next_leaf_epoch,
+                current_epoch,
             )),
             &event_sender,
         )
@@ -758,9 +730,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
 
     async fn cancel_subtasks(&mut self) {
         while let Some((_, handle)) = self.vote_dependencies.pop_last() {
-            #[cfg(async_executor_impl = "async-std")]
-            handle.cancel().await;
-            #[cfg(async_executor_impl = "tokio")]
             handle.abort();
         }
     }

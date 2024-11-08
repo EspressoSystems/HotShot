@@ -25,6 +25,7 @@ members = [
   "crates/builder-api",
   "crates/fakeapi",
   "crates/utils",
+  "crates/orchestrator"
 ]
 resolver = "2"
 
@@ -35,11 +36,8 @@ ark-ff = "0.4"
 ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7"
-async-compatibility-layer = { version = "1.2.1", default-features = false, features = [
-  "logging-utils",
-] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 async-lock = "3"
-async-std = { version = "1", features = ["attributes"] }
 async-trait = "0.1"
 bincode = "1"
 bitvec = { version = "1", default-features = false, features = [
@@ -174,6 +172,3 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 # TODO change to deny
 missing_docs = "warn"
 warnings = "warn"
-unexpected_cfgs = { level = "allow", check-cfg = [
-    'cfg(async_executor_impl, values("tokio", "async-std"))',
-] }    
