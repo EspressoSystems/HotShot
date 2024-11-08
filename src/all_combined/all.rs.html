@@ -159,9 +159,6 @@
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -174,12 +171,9 @@
 
 <span class="kw">use </span>std::path::Path;
 
-<span class="kw">use </span>async_compatibility_layer::{
-    art::async_spawn,
-    logging::{setup_backtrace, setup_logging},
-};
 <span class="kw">use </span>cdn_broker::Broker;
 <span class="kw">use </span>cdn_marshal::Marshal;
+<span class="kw">use </span>hotshot::helpers::initialize_logging;
 <span class="kw">use </span>hotshot::{
     traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey},
     types::SignatureKey,
@@ -189,6 +183,7 @@
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>infra::{gen_local_address, BUILDER_BASE_PORT, VALIDATOR_BASE_PORT};
 <span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
+<span class="kw">use </span>tokio::spawn;
 <span class="kw">use </span>tracing::{error, instrument};
 
 <span class="kw">use crate</span>::{
@@ -200,12 +195,11 @@
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]
 </span><span class="kw">pub mod </span>infra;
 
-<span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main(flavor = <span class="string">"multi_thread"</span>))]
-#[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::main)]
+<span class="attr">#[tokio::main]
 #[instrument]
 </span><span class="kw">async fn </span>main() {
-    setup_logging();
-    setup_backtrace();
+    <span class="comment">// Initialize logging
+    </span>initialize_logging();
 
     <span class="kw">let </span>(config, orchestrator_url) = read_orchestrator_init_config::&lt;TestTypes&gt;();
 
@@ -256,7 +250,7 @@
             };
 
         <span class="comment">// Create and spawn the broker
-        </span>async_spawn(<span class="kw">async move </span>{
+        </span>spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>broker: Broker&lt;TestingDef&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
                 Broker::new(config).<span class="kw">await</span>.expect(<span class="string">"broker failed to start"</span>);
 
@@ -284,7 +278,7 @@
     };
 
     <span class="comment">// Spawn the marshal
-    </span>async_spawn(<span class="kw">async move </span>{
+    </span>spawn(<span class="kw">async move </span>{
         <span class="kw">let </span>marshal: Marshal&lt;TestingDef&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;&gt; =
             Marshal::new(marshal_config)
                 .<span class="kw">await
@@ -297,7 +291,7 @@
     });
 
     <span class="comment">// orchestrator
-    </span>async_spawn(run_orchestrator::&lt;TestTypes&gt;(OrchestratorArgs {
+    </span>spawn(run_orchestrator::&lt;TestTypes&gt;(OrchestratorArgs {
         url: orchestrator_url.clone(),
         config: config.clone(),
     }));
@@ -311,7 +305,7 @@
         <span class="kw">let </span>orchestrator_url = orchestrator_url.clone();
         <span class="kw">let </span>builder_address = gen_local_address::&lt;BUILDER_BASE_PORT&gt;(i);
 
-        <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
+        <span class="kw">let </span>node = spawn(<span class="kw">async move </span>{
             infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, TestVersions, ThisRun&gt;(
                 ValidatorArgs {
                     url: orchestrator_url,

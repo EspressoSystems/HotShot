@@ -820,7 +820,6 @@
 };
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_timeout};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 <span class="kw">use </span>hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
@@ -841,6 +840,7 @@
     utils::ViewInner,
     vid::{VidCommitment, VidPrecomputeData},
 };
+<span class="kw">use </span>tokio::time::{sleep, timeout};
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
@@ -1084,7 +1084,7 @@
 
         <span class="kw">let </span>start = Instant::now();
 
-        <span class="kw">let </span>maybe_auction_result = async_timeout(
+        <span class="kw">let </span>maybe_auction_result = timeout(
             <span class="self">self</span>.builder_timeout,
             <span class="self">self</span>.auction_results_provider
                 .fetch_auction_result(block_view),
@@ -1103,7 +1103,7 @@
         builder_urls.push(<span class="self">self</span>.fallback_builder_url.clone());
 
         <span class="kw">for </span>url <span class="kw">in </span>builder_urls {
-            futures.push(async_timeout(
+            futures.push(timeout(
                 <span class="self">self</span>.builder_timeout.saturating_sub(start.elapsed()),
                 <span class="kw">async </span>{
                     <span class="kw">let </span>client = BuilderClientMarketplace::new(url);
@@ -1312,7 +1312,7 @@
                 <span class="prelude-val">Err</span>(e) <span class="kw">if </span>task_start_time.elapsed() &gt;= <span class="self">self</span>.builder_timeout =&gt; <span class="kw">break </span><span class="prelude-val">Err</span>(e),
                 <span class="kw">_ </span>=&gt; {
                     <span class="comment">// We still have time, will re-try in a bit
-                    </span>async_sleep(RETRY_DELAY).<span class="kw">await</span>;
+                    </span>sleep(RETRY_DELAY).<span class="kw">await</span>;
                     <span class="kw">continue</span>;
                 }
             }
@@ -1387,7 +1387,7 @@
         };
 
         <span class="kw">while </span>task_start_time.elapsed() &lt; <span class="self">self</span>.builder_timeout {
-            <span class="kw">match </span>async_timeout(
+            <span class="kw">match </span>timeout(
                 <span class="self">self</span>.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
                 <span class="self">self</span>.block_from_builder(parent_comm, parent_view, <span class="kw-2">&amp;</span>parent_comm_sig),
@@ -1403,7 +1403,7 @@
                 </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
                     <span class="macro">tracing::info!</span>(<span class="string">"Couldn't get a block: {err:#}"</span>);
                     <span class="comment">// pause a bit
-                    </span>async_sleep(RETRY_DELAY).<span class="kw">await</span>;
+                    </span>sleep(RETRY_DELAY).<span class="kw">await</span>;
                     <span class="kw">continue</span>;
                 }
 
@@ -1458,7 +1458,7 @@
                 <span class="kw">break</span>;
             }
         }
-        <span class="kw">let </span>timeout = async_sleep(std::cmp::max(
+        <span class="kw">let </span>timeout = sleep(std::cmp::max(
             query_start
                 .elapsed()
                 .mul_f32(BUILDER_ADDITIONAL_TIME_MULTIPLIER),

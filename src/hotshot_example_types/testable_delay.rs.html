@@ -132,9 +132,9 @@
 <a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, time::Duration};
 
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>rand::Rng;
+<span class="kw">use </span>tokio::time::sleep;
 
 <span class="attr">#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 </span><span class="doccomment">/// What type of delay we want to apply to
@@ -219,13 +219,13 @@
         <span class="kw">match </span>settings.delay_option {
             DelayOptions::None =&gt; {}
             DelayOptions::Fixed =&gt; {
-                async_sleep(Duration::from_millis(settings.fixed_time_in_milliseconds)).<span class="kw">await</span>;
+                sleep(Duration::from_millis(settings.fixed_time_in_milliseconds)).<span class="kw">await</span>;
             }
             DelayOptions::Random =&gt; {
                 <span class="kw">let </span>sleep_in_millis = rand::thread_rng().gen_range(
                     settings.min_time_in_milliseconds..=settings.max_time_in_milliseconds,
                 );
-                async_sleep(Duration::from_millis(sleep_in_millis)).<span class="kw">await</span>;
+                sleep(Duration::from_millis(sleep_in_millis)).<span class="kw">await</span>;
             }
         }
     }

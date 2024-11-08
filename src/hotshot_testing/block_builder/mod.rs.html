@@ -235,12 +235,6 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -250,7 +244,6 @@
 </span><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>async_broadcast::Receiver;
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::Stream;
 <span class="kw">use </span>hotshot::{traits::BlockPayload, types::Event};
@@ -271,6 +264,7 @@
     },
 };
 <span class="kw">use </span>tide_disco::{method::ReadState, App, Url};
+<span class="kw">use </span>tokio::spawn;
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_builder::BuilderChange;
@@ -328,7 +322,7 @@
         + v0_1::data_source::BuilderDataSource&lt;TYPES&gt;
         + v0_3::data_source::BuilderDataSource&lt;TYPES&gt;,
 {
-    async_spawn(<span class="kw">async move </span>{
+    spawn(<span class="kw">async move </span>{
         <span class="kw">let </span>start_builder = |url: Url, source: Source| -&gt; <span class="kw">_ </span>{
             <span class="kw">let </span>builder_api_0_1 = hotshot_builder_api::v0_1::builder::define_api::&lt;Source, TYPES&gt;(
                 <span class="kw-2">&amp;</span>Options::default(),
@@ -343,7 +337,7 @@
                 .expect(<span class="string">"Failed to register the builder API 0.1"</span>)
                 .register_module(MARKETPLACE_BUILDER_MODULE, builder_api_0_3)
                 .expect(<span class="string">"Failed to register the builder API 0.3"</span>);
-            async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
+            spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>handle = <span class="prelude-val">Some</span>(start_builder(url.clone(), source.clone()));
@@ -355,10 +349,7 @@
                 }
                 BuilderChange::Down =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle.take() {
-                        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-                        </span>handle.abort();
-                        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-                        </span>handle.cancel().<span class="kw">await</span>;
+                        handle.abort();
                     }
                 }
                 <span class="kw">_ </span>=&gt; {}
@@ -381,7 +372,7 @@
     Source: Clone + Send + Sync + tide_disco::method::ReadState + <span class="lifetime">'static</span>,
     &lt;Source <span class="kw">as </span>ReadState&gt;::State: Sync + Send + v0_1::data_source::BuilderDataSource&lt;TYPES&gt;,
 {
-    async_spawn(<span class="kw">async move </span>{
+    spawn(<span class="kw">async move </span>{
         <span class="kw">let </span>start_builder = |url: Url, source: Source| -&gt; <span class="kw">_ </span>{
             <span class="kw">let </span>builder_api = hotshot_builder_api::v0_1::builder::define_api::&lt;Source, TYPES&gt;(
                 <span class="kw-2">&amp;</span>Options::default(),
@@ -390,7 +381,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>app: App&lt;Source, Error&gt; = App::with_state(source);
             app.register_module(LEGACY_BUILDER_MODULE, builder_api)
                 .expect(<span class="string">"Failed to register the builder API"</span>);
-            async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
+            spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>handle = <span class="prelude-val">Some</span>(start_builder(url.clone(), source.clone()));
@@ -402,10 +393,7 @@
                 }
                 BuilderChange::Down =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle.take() {
-                        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-                        </span>handle.abort();
-                        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-                        </span>handle.cancel().<span class="kw">await</span>;
+                        handle.abort();
                     }
                 }
                 <span class="kw">_ </span>=&gt; {}

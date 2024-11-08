@@ -527,7 +527,6 @@
 
 </span><span class="kw">use </span>std::{net::SocketAddr, time::Duration};
 
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::{Future, FutureExt};
 <span class="kw">use </span>hotshot_types::{
@@ -538,6 +537,7 @@
 <span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
+<span class="kw">use </span>tokio::time::sleep;
 <span class="kw">use </span>tracing::{info, instrument};
 <span class="kw">use </span>vbs::BinarySerializer;
 
@@ -948,7 +948,7 @@
                 <span class="kw">break </span>(index, is_da);
             }
 
-            async_sleep(Duration::from_millis(<span class="number">250</span>)).<span class="kw">await</span>;
+            sleep(Duration::from_millis(<span class="number">250</span>)).<span class="kw">await</span>;
         };
 
         validator_config.is_da = is_da;
@@ -1034,7 +1034,7 @@
                 <span class="prelude-val">Ok</span>(x) =&gt; <span class="kw">break </span>x,
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">tracing::info!</span>(<span class="string">"{err}"</span>);
-                    async_sleep(Duration::from_millis(<span class="number">250</span>)).<span class="kw">await</span>;
+                    sleep(Duration::from_millis(<span class="number">250</span>)).<span class="kw">await</span>;
                 }
             }
         }

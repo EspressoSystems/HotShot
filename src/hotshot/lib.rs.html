@@ -1060,6 +1060,9 @@
 <a href="#1060" id="1060">1060</a>
 <a href="#1061" id="1061">1061</a>
 <a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1088,6 +1091,9 @@
 
 <span class="kw">pub mod </span>tasks;
 
+<span class="doccomment">/// Contains helper functions for the crate
+</span><span class="kw">pub mod </span>helpers;
+
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     num::NonZeroUsize,
@@ -1096,12 +1102,12 @@
 };
 
 <span class="kw">use </span>async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::join;
 <span class="kw">use </span>hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
 <span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
+<span class="kw">use </span>tokio::{spawn, time::sleep};
 <span class="comment">// Internal
 </span><span class="doccomment">/// Reexport error type
 </span><span class="kw">pub use </span>hotshot_types::error::HotShotError;
@@ -1450,9 +1456,9 @@
 
         <span class="comment">// Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
-        </span>async_spawn({
+        </span>spawn({
             <span class="kw">async move </span>{
-                async_sleep(Duration::from_millis(next_view_timeout)).<span class="kw">await</span>;
+                sleep(Duration::from_millis(next_view_timeout)).<span class="kw">await</span>;
                 broadcast_event(
                     Arc::new(HotShotEvent::Timeout(start_view + <span class="number">1</span>)),
                     <span class="kw-2">&amp;</span>event_stream,
@@ -1558,7 +1564,7 @@
             HotShotError::FailedToSerialize(<span class="macro">format!</span>(<span class="string">"failed to serialize transaction: {err}"</span>))
         })<span class="question-mark">?</span>;
 
-        async_spawn(<span class="kw">async move </span>{
+        spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>da_membership = <span class="kw-2">&amp;</span>api.memberships.da_membership.clone();
             <span class="macro">join!</span> {
                 <span class="comment">// TODO We should have a function that can return a network error if there is one
@@ -1769,7 +1775,7 @@
         </span><span class="kw">let </span>(network_task_sender, <span class="kw-2">mut </span>receiver_from_network): Channel&lt;HotShotEvent&lt;TYPES&gt;&gt; =
             broadcast(EVENT_CHANNEL_SIZE);
 
-        <span class="kw">let </span>_recv_loop_handle = async_spawn(<span class="kw">async move </span>{
+        <span class="kw">let </span>_recv_loop_handle = spawn(<span class="kw">async move </span>{
             <span class="kw">loop </span>{
                 <span class="kw">let </span>msg = <span class="kw">match </span>select(left_receiver.recv(), right_receiver.recv()).<span class="kw">await </span>{
                     Either::Left(msg) =&gt; Either::Left(msg.<span class="number">0</span>.unwrap().as_ref().clone()),
@@ -1785,7 +1791,7 @@
             }
         });
 
-        <span class="kw">let </span>_send_loop_handle = async_spawn(<span class="kw">async move </span>{
+        <span class="kw">let </span>_send_loop_handle = spawn(<span class="kw">async move </span>{
             <span class="kw">loop </span>{
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = receiver_from_network.recv().<span class="kw">await </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>state = send_state.write().<span class="kw">await</span>;

@@ -308,7 +308,6 @@
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::Sender;
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>hotshot_types::{
     event::{Event, EventType},
@@ -319,6 +318,7 @@
     },
     vote::HasViewNumber,
 };
+<span class="kw">use </span>tokio::{spawn, time::sleep};
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
@@ -457,11 +457,11 @@
 
     <span class="comment">// Spawn a timeout task if we did actually update view
     </span><span class="kw">let </span>timeout = task_state.timeout;
-    <span class="kw">let </span>new_timeout_task = async_spawn({
+    <span class="kw">let </span>new_timeout_task = spawn({
         <span class="kw">let </span>stream = sender.clone();
         <span class="kw">let </span>view_number = new_view_number;
         <span class="kw">async move </span>{
-            async_sleep(Duration::from_millis(timeout)).<span class="kw">await</span>;
+            sleep(Duration::from_millis(timeout)).<span class="kw">await</span>;
             broadcast_event(
                 Arc::new(HotShotEvent::Timeout(TYPES::View::new(<span class="kw-2">*</span>view_number))),
                 <span class="kw-2">&amp;</span>stream,

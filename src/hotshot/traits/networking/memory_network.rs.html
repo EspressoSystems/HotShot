@@ -382,8 +382,6 @@
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -404,14 +402,9 @@
     },
 };
 
-<span class="kw">use </span>async_compatibility_layer::{
-    art::async_spawn,
-    channel::{bounded, BoundedStream, Receiver, SendError, Sender},
-};
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>dashmap::DashMap;
-<span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
     boxed_sync,
     traits::{
@@ -425,6 +418,10 @@
     BoxSyncFuture,
 };
 <span class="kw">use </span>rand::Rng;
+<span class="kw">use </span>tokio::{
+    spawn,
+    sync::mpsc::{channel, error::SendError, Receiver, Sender},
+};
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 <span class="kw">use super</span>::{NetworkError, NetworkReliability};
@@ -505,17 +502,16 @@
         reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; MemoryNetwork&lt;K&gt; {
         <span class="macro">info!</span>(<span class="string">"Attaching new MemoryNetwork"</span>);
-        <span class="kw">let </span>(input, task_recv) = bounded(<span class="number">128</span>);
-        <span class="kw">let </span>(task_send, output) = bounded(<span class="number">128</span>);
+        <span class="kw">let </span>(input, <span class="kw-2">mut </span>task_recv) = channel(<span class="number">128</span>);
+        <span class="kw">let </span>(task_send, output) = channel(<span class="number">128</span>);
         <span class="kw">let </span>in_flight_message_count = AtomicUsize::new(<span class="number">0</span>);
         <span class="macro">trace!</span>(<span class="string">"Channels open, spawning background task"</span>);
 
-        async_spawn(
+        spawn(
             <span class="kw">async move </span>{
                 <span class="macro">debug!</span>(<span class="string">"Starting background task"</span>);
-                <span class="kw">let </span><span class="kw-2">mut </span>task_stream: BoundedStream&lt;Vec&lt;u8&gt;&gt; = task_recv.into_stream();
                 <span class="macro">trace!</span>(<span class="string">"Entering processing loop"</span>);
-                <span class="kw">while let </span><span class="prelude-val">Some</span>(vec) = task_stream.next().<span class="kw">await </span>{
+                <span class="kw">while let </span><span class="prelude-val">Some</span>(vec) = task_recv.recv().<span class="kw">await </span>{
                     <span class="macro">trace!</span>(<span class="question-mark">?</span>vec, <span class="string">"Incoming message"</span>);
                     <span class="comment">// Attempt to decode message
                     </span><span class="kw">let </span>ts = task_send.clone();
@@ -668,7 +664,7 @@
                             </span>})
                         }),
                     );
-                    async_spawn(fut);
+                    spawn(fut);
                 }
             } <span class="kw">else </span>{
                 <span class="kw">let </span>res = node.input(message.clone()).<span class="kw">await</span>;
@@ -728,7 +724,7 @@
                             </span>})
                         }),
                     );
-                    async_spawn(fut);
+                    spawn(fut);
                 }
                 <span class="prelude-val">Ok</span>(())
             } <span class="kw">else </span>{
@@ -763,7 +759,7 @@
             .<span class="kw">await
             </span>.recv()
             .<span class="kw">await
-            </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+            </span>.ok_or(NetworkError::ShutDown)<span class="question-mark">?</span>;
         <span class="self">self</span>.inner
             .in_flight_message_count
             .fetch_sub(<span class="number">1</span>, Ordering::Relaxed);

@@ -285,7 +285,6 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
@@ -303,6 +302,7 @@
     utils::{View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
+<span class="kw">use </span>tokio::spawn;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
@@ -390,7 +390,7 @@
     sender_private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 ) {
-    async_spawn(<span class="kw">async move </span>{
+    spawn(<span class="kw">async move </span>{
         <span class="kw">let </span>lock = upgrade_lock;
 
         <span class="kw">let _ </span>= fetch_proposal(

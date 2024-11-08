@@ -726,12 +726,6 @@
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -742,8 +736,6 @@
 
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::{
     dependency::{AndDependency, EventDependency},
@@ -766,8 +758,7 @@
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>jf_vid::VidScheme;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
@@ -1459,10 +1450,7 @@
 
     <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handle)) = <span class="self">self</span>.vote_dependencies.pop_last() {
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-            </span>handle.cancel().<span class="kw">await</span>;
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-            </span>handle.abort();
+            handle.abort();
         }
     }
 }

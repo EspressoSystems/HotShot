@@ -209,10 +209,7 @@
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::future::select_all;
 <span class="kw">use </span>hotshot::{
@@ -227,8 +224,11 @@
         node_implementation::{NodeType, Versions},
     },
 };
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::{spawn, JoinHandle};
+<span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tokio::{
+    spawn,
+    time::{sleep, timeout},
+};
 <span class="kw">use </span>tracing::error;
 
 <span class="kw">use </span><span class="kw">crate</span>::test_runner::Node;
@@ -335,7 +335,7 @@
                     messages.push(receiver.recv());
                 }
 
-                <span class="kw">match </span>async_timeout(Duration::from_millis(<span class="number">2500</span>), select_all(messages)).<span class="kw">await </span>{
+                <span class="kw">match </span>timeout(Duration::from_millis(<span class="number">2500</span>), select_all(messages)).<span class="kw">await </span>{
                     <span class="prelude-val">Ok</span>((<span class="prelude-val">Ok</span>(input), id, <span class="kw">_</span>)) =&gt; {
                         <span class="kw">let _ </span>= S::handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, (input, id))
                             .<span class="kw">await
@@ -343,7 +343,7 @@
                     }
                     <span class="prelude-val">Ok</span>((<span class="prelude-val">Err</span>(e), _id, <span class="kw">_</span>)) =&gt; {
                         <span class="macro">error!</span>(<span class="string">"Error from one channel in test task {:?}"</span>, e);
-                        async_sleep(Duration::from_millis(<span class="number">4000</span>)).<span class="kw">await</span>;
+                        sleep(Duration::from_millis(<span class="number">4000</span>)).<span class="kw">await</span>;
                     }
                     <span class="kw">_ </span>=&gt; {}
                 };
@@ -374,7 +374,7 @@
     <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>net);
     <span class="kw">let </span><span class="kw-2">mut </span>state = network_state.clone();
 
-    async_spawn(<span class="kw">async move </span>{
+    spawn(<span class="kw">async move </span>{
         <span class="kw">loop </span>{
             <span class="comment">// Get the next message from the network
             </span><span class="kw">let </span>message = <span class="kw">match </span>network.recv_message().<span class="kw">await </span>{

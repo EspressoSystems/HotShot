@@ -190,14 +190,12 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     io::{<span class="self">self</span>, ErrorKind},
     time,
 };
 
 <span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>hotshot_example_types::auction_results_provider_types::TestAuctionResult;
@@ -288,7 +286,7 @@
                 }
                 FakeSolverFaultType::TimeoutFault =&gt; {
                     <span class="comment">// Sleep for the preconfigured 1 second timeout interval
-                    </span>async_sleep(SOLVER_MAX_TIMEOUT_S).<span class="kw">await</span>;
+                    </span>tokio::time::sleep(SOLVER_MAX_TIMEOUT_S).<span class="kw">await</span>;
                 }
             }
         }

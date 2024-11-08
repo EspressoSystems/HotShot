@@ -72,8 +72,6 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -90,8 +88,6 @@
 <span class="kw">use </span>thiserror::Error;
 
 <span class="kw">use crate</span>::{data::Leaf, traits::node_implementation::NodeType};
-<span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
-</span><span class="macro">compile_error!</span> {<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 
 <span class="doccomment">/// Error type for `HotShot`
 </span><span class="attr">#[derive(Debug, Error)]

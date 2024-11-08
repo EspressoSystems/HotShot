@@ -183,23 +183,6 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -209,15 +192,9 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::{Receiver, RecvError, Sender};
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::{spawn, JoinHandle};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>futures::future::join_all;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>futures::future::try_join_all;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::{spawn, JoinHandle};
+<span class="kw">use </span>futures::future::try_join_all;
+<span class="kw">use </span>tokio::task::{spawn, JoinHandle};
 <span class="kw">use </span>utils::anytrace::Result;
 
 <span class="doccomment">/// Trait for events that long-running tasks handle
@@ -335,10 +312,7 @@
         <span class="kw">let </span>handles = <span class="kw-2">&amp;mut </span><span class="self">self</span>.task_handles;
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(handle) = handles.pop() {
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-            </span><span class="kw">let </span><span class="kw-2">mut </span>task_state = handle.<span class="kw">await</span>;
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-            </span><span class="kw">let </span><span class="kw-2">mut </span>task_state = handle.<span class="kw">await</span>.unwrap();
+            <span class="kw">let </span><span class="kw-2">mut </span>task_state = handle.<span class="kw">await</span>.unwrap();
 
             task_state.cancel_subtasks().<span class="kw">await</span>;
         }
@@ -355,12 +329,7 @@
     /// # Panics
     /// Panics if one of the tasks panicked
     </span><span class="kw">pub async fn </span>join_all(<span class="self">self</span>) -&gt; Vec&lt;Box&lt;<span class="kw">dyn </span>TaskState&lt;Event = EVENT&gt;&gt;&gt; {
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-        </span><span class="kw">let </span>states = join_all(<span class="self">self</span>.task_handles).<span class="kw">await</span>;
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-        </span><span class="kw">let </span>states = try_join_all(<span class="self">self</span>.task_handles).<span class="kw">await</span>.unwrap();
-
-        states
+        try_join_all(<span class="self">self</span>.task_handles).<span class="kw">await</span>.unwrap()
     }
 }
 
@@ -389,10 +358,7 @@
     /// tasks being joined return an error.
     </span><span class="kw">pub async fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">let </span>handles = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.handles);
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-        </span>join_all(handles).<span class="kw">await</span>;
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-        </span>try_join_all(handles)
+        try_join_all(handles)
             .<span class="kw">await
             </span>.expect(<span class="string">"Failed to join all tasks during shutdown"</span>);
     }

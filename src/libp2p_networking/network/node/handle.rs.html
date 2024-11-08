@@ -464,9 +464,6 @@
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -475,13 +472,13 @@
 
 </span><span class="kw">use </span>std::{collections::HashSet, fmt::Debug, time::Duration};
 
-<span class="kw">use </span>async_compatibility_layer::{
-    art::{async_sleep, async_timeout},
-    channel::{Receiver, UnboundedReceiver, UnboundedSender},
-};
 <span class="kw">use </span>hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 <span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
+<span class="kw">use </span>tokio::{
+    sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender},
+    time::{sleep, timeout},
+};
 <span class="kw">use </span>tracing::{debug, info, instrument};
 
 <span class="kw">use </span><span class="kw">crate</span>::network::{
@@ -524,11 +521,13 @@
     <span class="doccomment">/// recv a network event
     /// # Errors
     /// Errors if the receiver channel is closed
-    </span><span class="kw">pub async fn </span>recv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkEvent, NetworkError&gt; {
+    </span><span class="kw">pub async fn </span>recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkEvent, NetworkError&gt; {
         <span class="self">self</span>.receiver
             .recv()
             .<span class="kw">await
-            </span>.map_err(|e| NetworkError::ChannelReceiveError(e.to_string()))
+            </span>.ok_or(NetworkError::ChannelReceiveError(
+                <span class="string">"Receiver channel closed"</span>.to_string(),
+            ))
     }
     <span class="doccomment">/// Add a kill switch to the receiver
     </span><span class="kw">pub fn </span>set_kill_switch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kill_switch: Receiver&lt;()&gt;) {
@@ -586,17 +585,17 @@
     /// the swarm itself to spin down
     </span><span class="attr">#[instrument]
     </span><span class="kw">pub async fn </span>shutdown(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.send_request(ClientRequest::Shutdown).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(ClientRequest::Shutdown)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
     <span class="doccomment">/// Notify the network to begin the bootstrap process
     /// # Errors
     /// If unable to send via `send_network`. This should only happen
     /// if the network is shut down.
-    </span><span class="kw">pub async fn </span>begin_bootstrap(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">pub fn </span>begin_bootstrap(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>req = ClientRequest::BeginBootstrap;
-        <span class="self">self</span>.send_request(req).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.send_request(req)
+    }
 
     <span class="doccomment">/// Get a reference to the network node handle's listen addr.
     </span><span class="attr">#[must_use]
@@ -611,7 +610,7 @@
     </span><span class="kw">pub async fn </span>print_routing_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::GetRoutingTable(s);
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
         r.<span class="kw">await
             </span>.map_err(|e| NetworkError::ChannelReceiveError(e.to_string()))
     }
@@ -639,7 +638,7 @@
             );
 
             <span class="comment">// Sleep for a second before checking again
-            </span>async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
+            </span>sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -652,7 +651,7 @@
     </span><span class="kw">pub async fn </span>lookup_pid(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::LookupPeer(peer_id, s);
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
         r.<span class="kw">await
             </span>.map_err(|err| NetworkError::ChannelReceiveError(err.to_string()))
     }
@@ -698,7 +697,7 @@
             notify: s,
         };
 
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
 
         r.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| NetworkError::RequestCancelled)
     }
@@ -722,7 +721,7 @@
             notify: s,
             retry_count,
         };
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
 
         <span class="comment">// Map the error
         </span><span class="kw">let </span>result = r.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| NetworkError::RequestCancelled)<span class="question-mark">?</span>;
@@ -742,9 +741,9 @@
     </span><span class="kw">pub async fn </span>get_record_timeout(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: RecordKey,
-        timeout: Duration,
+        timeout_duration: Duration,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
-        async_timeout(timeout, <span class="self">self</span>.get_record(key, <span class="number">3</span>))
+        timeout(timeout_duration, <span class="self">self</span>.get_record(key, <span class="number">3</span>))
             .<span class="kw">await
             </span>.map_err(|err| NetworkError::Timeout(err.to_string()))<span class="question-mark">?
     </span>}
@@ -758,9 +757,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: RecordKey,
         value: RecordValue&lt;T::SignatureKey&gt;,
-        timeout: Duration,
+        timeout_duration: Duration,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        async_timeout(timeout, <span class="self">self</span>.put_record(key, value))
+        timeout(timeout_duration, <span class="self">self</span>.put_record(key, value))
             .<span class="kw">await
             </span>.map_err(|err| NetworkError::Timeout(err.to_string()))<span class="question-mark">?
     </span>}
@@ -771,7 +770,7 @@
     </span><span class="kw">pub async fn </span>subscribe(<span class="kw-2">&amp;</span><span class="self">self</span>, topic: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::Subscribe(topic, <span class="prelude-val">Some</span>(s));
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
         r.<span class="kw">await
             </span>.map_err(|err| NetworkError::ChannelReceiveError(err.to_string()))
     }
@@ -782,7 +781,7 @@
     </span><span class="kw">pub async fn </span>unsubscribe(<span class="kw-2">&amp;</span><span class="self">self</span>, topic: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::Unsubscribe(topic, <span class="prelude-val">Some</span>(s));
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
         r.<span class="kw">await
             </span>.map_err(|err| NetworkError::ChannelReceiveError(err.to_string()))
     }
@@ -791,24 +790,24 @@
     /// e.g. maintain their connection
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
-    </span><span class="kw">pub async fn </span>ignore_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, peers: Vec&lt;PeerId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">pub fn </span>ignore_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, peers: Vec&lt;PeerId&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>req = ClientRequest::IgnorePeers(peers);
-        <span class="self">self</span>.send_request(req).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.send_request(req)
+    }
 
     <span class="doccomment">/// Make a direct request to `peer_id` containing `msg`
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>direct_request(<span class="kw-2">&amp;</span><span class="self">self</span>, pid: PeerId, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.direct_request_no_serialize(pid, msg.to_vec()).<span class="kw">await
-    </span>}
+    </span><span class="kw">pub fn </span>direct_request(<span class="kw-2">&amp;</span><span class="self">self</span>, pid: PeerId, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="self">self</span>.direct_request_no_serialize(pid, msg.to_vec())
+    }
 
     <span class="doccomment">/// Make a direct request to `peer_id` containing `msg` without serializing
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>direct_request_no_serialize(
+    </span><span class="kw">pub fn </span>direct_request_no_serialize(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pid: PeerId,
         contents: Vec&lt;u8&gt;,
@@ -818,21 +817,21 @@
             contents,
             retry_count: <span class="number">1</span>,
         };
-        <span class="self">self</span>.send_request(req).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.send_request(req)
+    }
 
     <span class="doccomment">/// Reply with `msg` to a request over `chan`
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>direct_response(
+    </span><span class="kw">pub fn </span>direct_response(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         chan: ResponseChannel&lt;Vec&lt;u8&gt;&gt;,
         msg: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>req = ClientRequest::DirectResponse(chan, msg.to_vec());
-        <span class="self">self</span>.send_request(req).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.send_request(req)
+    }
 
     <span class="doccomment">/// Forcefully disconnect from a peer
     /// # Errors
@@ -841,53 +840,48 @@
     /// # Panics
     /// If channel errors out
     /// shouldn't happen.
-    </span><span class="kw">pub async fn </span>prune_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, pid: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">pub fn </span>prune_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, pid: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>req = ClientRequest::Prune(pid);
-        <span class="self">self</span>.send_request(req).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.send_request(req)
+    }
 
     <span class="doccomment">/// Gossip a message to peers
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>gossip(<span class="kw-2">&amp;</span><span class="self">self</span>, topic: String, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="self">self</span>.gossip_no_serialize(topic, msg.to_vec()).<span class="kw">await
-    </span>}
+    </span><span class="kw">pub fn </span>gossip(<span class="kw-2">&amp;</span><span class="self">self</span>, topic: String, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="self">self</span>.gossip_no_serialize(topic, msg.to_vec())
+    }
 
     <span class="doccomment">/// Gossip a message to peers without serializing
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    </span><span class="kw">pub async fn </span>gossip_no_serialize(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        topic: String,
-        msg: Vec&lt;u8&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">pub fn </span>gossip_no_serialize(<span class="kw-2">&amp;</span><span class="self">self</span>, topic: String, msg: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>req = ClientRequest::GossipMsg(topic, msg);
-        <span class="self">self</span>.send_request(req).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.send_request(req)
+    }
 
     <span class="doccomment">/// Tell libp2p about known network nodes
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
-    </span><span class="kw">pub async fn </span>add_known_peers(
+    </span><span class="kw">pub fn </span>add_known_peers(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         known_peers: Vec&lt;(PeerId, Multiaddr)&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="macro">debug!</span>(<span class="string">"Adding {} known peers"</span>, known_peers.len());
         <span class="kw">let </span>req = ClientRequest::AddKnownPeers(known_peers);
-        <span class="self">self</span>.send_request(req).<span class="kw">await
-    </span>}
+        <span class="self">self</span>.send_request(req)
+    }
 
     <span class="doccomment">/// Send a client request to the network
     ///
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
-    </span><span class="kw">async fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, req: ClientRequest) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, req: ClientRequest) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.send_network
             .send(req)
-            .<span class="kw">await
-            </span>.map_err(|err| NetworkError::ChannelSendError(err.to_string()))
+            .map_err(|err| NetworkError::ChannelSendError(err.to_string()))
     }
 
     <span class="doccomment">/// Returns number of peers this node is connected to
@@ -900,7 +894,7 @@
     </span><span class="kw">pub async fn </span>num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, NetworkError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::GetConnectedPeerNum(s);
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(r.<span class="kw">await</span>.unwrap())
     }
 
@@ -914,7 +908,7 @@
     </span><span class="kw">pub async fn </span>connected_pids(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HashSet&lt;PeerId&gt;, NetworkError&gt; {
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::GetConnectedPeers(s);
-        <span class="self">self</span>.send_request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(r.<span class="kw">await</span>.unwrap())
     }
 

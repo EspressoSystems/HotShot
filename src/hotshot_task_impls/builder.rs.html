@@ -266,7 +266,6 @@
 
 </span><span class="kw">use </span>std::time::{Duration, Instant};
 
-<span class="kw">use </span>async_compatibility_layer::art::async_sleep;
 <span class="kw">use </span>hotshot_builder_api::v0_1::{
     block_info::AvailableBlockInfo,
     builder::{BuildError, Error <span class="kw">as </span>BuilderApiError},
@@ -280,6 +279,7 @@
 <span class="kw">use </span>surf_disco::{client::HealthStatus, Client, Url};
 <span class="kw">use </span>tagged_base64::TaggedBase64;
 <span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>tokio::time::sleep;
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="attr">#[derive(Debug, Error, Serialize, Deserialize)]
@@ -356,7 +356,7 @@
             ) {
                 <span class="kw">return </span><span class="bool-val">true</span>;
             }
-            async_sleep(backoff).<span class="kw">await</span>;
+            sleep(backoff).<span class="kw">await</span>;
             backoff <span class="kw-2">*</span>= <span class="number">2</span>;
         }
         <span class="bool-val">false

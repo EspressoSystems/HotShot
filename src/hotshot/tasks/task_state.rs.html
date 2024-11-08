@@ -351,7 +351,6 @@
     sync::{atomic::AtomicBool, Arc},
 };
 
-<span class="kw">use </span>async_compatibility_layer::art::async_spawn;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>hotshot_task_impls::{
@@ -368,6 +367,7 @@
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+<span class="kw">use </span>tokio::spawn;
 
 <span class="kw">use crate</span>::{types::SystemContextHandle, Versions};
 
@@ -661,7 +661,7 @@
             cur_view_time: Utc::now().timestamp(),
             cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
-            timeout_task: async_spawn(<span class="kw">async </span>{}),
+            timeout_task: spawn(<span class="kw">async </span>{}),
             timeout: handle.hotshot.config.next_view_timeout,
             consensus: OuterConsensus::new(consensus),
             last_decided_view: handle.cur_view().<span class="kw">await</span>,

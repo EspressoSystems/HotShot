@@ -338,9 +338,6 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -359,7 +356,6 @@
 };
 
 <span class="kw">use </span>async_broadcast::{broadcast, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::{future::BoxFuture, Stream, StreamExt};
@@ -379,6 +375,7 @@
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 <span class="kw">use </span>tide_disco::{method::ReadState, Url};
+<span class="kw">use </span>tokio::{spawn, time::sleep};
 
 <span class="kw">use super</span>::{
     build_block, run_builder_source_0_1, BlockEntry, BuilderTask, TestBuilderImplementation,
@@ -499,7 +496,7 @@
                     time_per_block.as_millis(),
                 );
             }
-            async_sleep(time_per_block.saturating_sub(start.elapsed())).<span class="kw">await</span>;
+            sleep(time_per_block.saturating_sub(start.elapsed())).<span class="kw">await</span>;
         }
     }
 }
@@ -512,7 +509,7 @@
         <span class="kw-2">mut </span><span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;,
         <span class="kw-2">mut </span>stream: Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; + std::marker::Unpin + Send + <span class="lifetime">'static</span>&gt;,
     ) {
-        <span class="kw">let </span><span class="kw-2">mut </span>task = <span class="prelude-val">Some</span>(async_spawn(<span class="self">Self</span>::build_blocks(
+        <span class="kw">let </span><span class="kw-2">mut </span>task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks(
             <span class="self">self</span>.config.clone(),
             <span class="self">self</span>.num_storage_nodes,
             <span class="self">self</span>.pub_key.clone(),
@@ -520,7 +517,7 @@
             <span class="self">self</span>.blocks.clone(),
         )));
 
-        async_spawn(<span class="kw">async move </span>{
+        spawn(<span class="kw">async move </span>{
             <span class="kw">loop </span>{
                 <span class="kw">match </span>stream.next().<span class="kw">await </span>{
                     <span class="prelude-val">None </span>=&gt; {
@@ -532,7 +529,7 @@
                                 <span class="kw">match </span>change {
                                     BuilderChange::Up =&gt; {
                                         <span class="kw">if </span>task.is_none() {
-                                            task = <span class="prelude-val">Some</span>(async_spawn(<span class="self">Self</span>::build_blocks(
+                                            task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks(
                                                 <span class="self">self</span>.config.clone(),
                                                 <span class="self">self</span>.num_storage_nodes,
                                                 <span class="self">self</span>.pub_key.clone(),
@@ -543,10 +540,7 @@
                                     }
                                     BuilderChange::Down =&gt; {
                                         <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = task.take() {
-                                            <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-                                            </span>handle.abort();
-                                            <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-                                            </span>handle.cancel().<span class="kw">await</span>;
+                                            handle.abort();
                                         }
                                     }
                                     BuilderChange::FailClaims(<span class="kw">_</span>) =&gt; {}

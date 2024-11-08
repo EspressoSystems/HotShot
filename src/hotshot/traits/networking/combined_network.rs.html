@@ -506,9 +506,6 @@
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -530,10 +527,6 @@
 };
 
 <span class="kw">use </span>async_broadcast::{broadcast, InactiveReceiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
-    channel::TrySendError,
-};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::{join, select, FutureExt};
@@ -556,6 +549,7 @@
 };
 <span class="kw">use </span>lru::LruCache;
 <span class="kw">use </span>parking_lot::RwLock <span class="kw">as </span>PlRwLock;
+<span class="kw">use </span>tokio::{spawn, sync::mpsc::error::TrySendError, time::sleep};
 <span class="kw">use </span>tracing::{debug, info, warn};
 
 <span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
@@ -694,8 +688,8 @@
                 .<span class="number">1
                 </span>.activate_cloned();
             <span class="comment">// Spawn a task that sleeps for `duration` and then sends the message if it wasn't cancelled
-            </span>async_spawn(<span class="kw">async move </span>{
-                async_sleep(duration).<span class="kw">await</span>;
+            </span>spawn(<span class="kw">async move </span>{
+                sleep(duration).<span class="kw">await</span>;
                 <span class="kw">if </span>receiver.try_recv().is_ok() {
                     <span class="comment">// The task has been cancelled because the view progressed, it means the primary is working fine
                     </span><span class="macro">debug!</span>(
@@ -994,7 +988,7 @@
         </span>T: NodeType&lt;SignatureKey = TYPES::SignatureKey&gt; + <span class="lifetime">'a</span>,
     {
         <span class="kw">let </span>delayed_tasks_channels = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.delayed_tasks_channels);
-        async_spawn(<span class="kw">async move </span>{
+        spawn(<span class="kw">async move </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>map_lock = delayed_tasks_channels.write().<span class="kw">await</span>;
             <span class="kw">while let </span><span class="prelude-val">Some</span>((first_view, <span class="kw">_</span>)) = map_lock.first_key_value() {
                 <span class="comment">// Broadcast a cancelling signal to all the tasks related to each view older than the new one

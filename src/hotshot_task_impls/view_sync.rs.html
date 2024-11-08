@@ -862,9 +862,6 @@
 <a href="#862" id="862">862</a>
 <a href="#863" id="863">863</a>
 <a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -879,10 +876,7 @@
 };
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
-<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::JoinHandle;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
@@ -901,8 +895,8 @@
     },
     vote::{Certificate, HasViewNumber, Vote},
 };
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tokio::task::JoinHandle;
+<span class="kw">use </span>tokio::{spawn, time::sleep};
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
@@ -1446,14 +1440,14 @@
                     cancel_task(timeout_task).<span class="kw">await</span>;
                 }
 
-                <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
+                <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(spawn({
                     <span class="kw">let </span>stream = event_stream.clone();
                     <span class="kw">let </span>phase = last_seen_certificate;
                     <span class="kw">let </span>relay = <span class="self">self</span>.relay;
                     <span class="kw">let </span>next_view = <span class="self">self</span>.next_view;
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
-                        async_sleep(timeout).<span class="kw">await</span>;
+                        sleep(timeout).<span class="kw">await</span>;
                         <span class="macro">tracing::warn!</span>(<span class="string">"Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}"</span>, relay);
 
                         broadcast_event(
@@ -1538,14 +1532,14 @@
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
                     cancel_task(timeout_task).<span class="kw">await</span>;
                 }
-                <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
+                <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(spawn({
                     <span class="kw">let </span>stream = event_stream.clone();
                     <span class="kw">let </span>phase = last_seen_certificate;
                     <span class="kw">let </span>relay = <span class="self">self</span>.relay;
                     <span class="kw">let </span>next_view = <span class="self">self</span>.next_view;
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
-                        async_sleep(timeout).<span class="kw">await</span>;
+                        sleep(timeout).<span class="kw">await</span>;
                         <span class="macro">tracing::warn!</span>(
                             <span class="string">"Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}"</span>,
                             relay
@@ -1635,13 +1629,13 @@
                     .<span class="kw">await</span>;
                 }
 
-                <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
+                <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(spawn({
                     <span class="kw">let </span>stream = event_stream.clone();
                     <span class="kw">let </span>relay = <span class="self">self</span>.relay;
                     <span class="kw">let </span>next_view = <span class="self">self</span>.next_view;
                     <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                     <span class="kw">async move </span>{
-                        async_sleep(timeout).<span class="kw">await</span>;
+                        sleep(timeout).<span class="kw">await</span>;
                         <span class="macro">tracing::warn!</span>(<span class="string">"Vote sending timed out in ViewSyncTrigger"</span>);
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
@@ -1700,14 +1694,14 @@
                         }
                     }
 
-                    <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(async_spawn({
+                    <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(spawn({
                         <span class="kw">let </span>stream = event_stream.clone();
                         <span class="kw">let </span>relay = <span class="self">self</span>.relay;
                         <span class="kw">let </span>next_view = <span class="self">self</span>.next_view;
                         <span class="kw">let </span>timeout = <span class="self">self</span>.view_sync_timeout;
                         <span class="kw">let </span>last_cert = last_seen_certificate.clone();
                         <span class="kw">async move </span>{
-                            async_sleep(timeout).<span class="kw">await</span>;
+                            sleep(timeout).<span class="kw">await</span>;
                             <span class="macro">tracing::warn!</span>(
                                 <span class="string">"Vote sending timed out in ViewSyncTimeout relay = {}"</span>,
                                 relay

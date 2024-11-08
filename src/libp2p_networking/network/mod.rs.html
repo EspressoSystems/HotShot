@@ -185,20 +185,6 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -221,10 +207,7 @@
 
 <span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>libp2p::dns::async_std::Transport <span class="kw">as </span>DnsTransport;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>libp2p::dns::tokio::Transport <span class="kw">as </span>DnsTransport;
+<span class="kw">use </span>libp2p::dns::tokio::Transport <span class="kw">as </span>DnsTransport;
 <span class="kw">use </span>libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
@@ -236,10 +219,7 @@
     Multiaddr, Transport,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>quic::async_std::Transport <span class="kw">as </span>QuicTransport;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>quic::tokio::Transport <span class="kw">as </span>QuicTransport;
+<span class="kw">use </span>quic::tokio::Transport <span class="kw">as </span>QuicTransport;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>transport::StakeTableAuthentication;
 
@@ -251,8 +231,6 @@
         RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
     },
 };
-<span class="attr">#[cfg(not(any(async_executor_impl = <span class="string">"async-std"</span>, async_executor_impl = <span class="string">"tokio"</span>)))]
-</span><span class="macro">compile_error!</span> {<span class="string">"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."</span>}
 
 <span class="doccomment">/// Actions to send from the client to the swarm
 </span><span class="attr">#[derive(Debug)]
@@ -384,13 +362,7 @@
 
     <span class="comment">// Support DNS resolution
     </span><span class="kw">let </span>transport = {
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-        </span>{
-            DnsTransport::system(transport).<span class="kw">await
-        </span>}
-
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-        </span>{
+        {
             DnsTransport::system(transport)
         }
     }

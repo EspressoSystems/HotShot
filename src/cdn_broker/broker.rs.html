@@ -189,8 +189,8 @@
     </span><span class="attr">#[arg(long, default_value_t = <span class="number">1_073_741_824</span>)]
     </span>global_memory_pool_size: usize,
 }
-<span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main)]
-#[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::main)]
+
+<span class="attr">#[tokio::main]
 </span><span class="kw">async fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Parse command line arguments
     </span><span class="kw">let </span>args = Args::parse();

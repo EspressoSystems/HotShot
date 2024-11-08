@@ -116,8 +116,6 @@
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -127,9 +125,9 @@
 </span><span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_broadcast::broadcast;
-<span class="kw">use </span>async_compatibility_layer::art::async_timeout;
 <span class="kw">use </span>hotshot_task::task::{ConsensusTaskRegistry, Task, TaskState};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
+<span class="kw">use </span>tokio::time::timeout;
 
 <span class="kw">use </span><span class="kw">crate</span>::events::{HotShotEvent, HotShotTaskCompleted};
 
@@ -189,12 +187,10 @@
         to_task.broadcast_direct(Arc::new(event)).<span class="kw">await</span>.unwrap();
     }
 
-    <span class="kw">if </span>async_timeout(Duration::from_secs(<span class="number">2</span>), test_future)
-        .<span class="kw">await
-        </span>.is_err()
-    {
-        <span class="macro">panic!</span>(<span class="string">"Test timeout out before all all expected outputs received"</span>);
-    }
+    <span class="macro">assert!</span>(
+        timeout(Duration::from_secs(<span class="number">2</span>), test_future).<span class="kw">await</span>.is_ok(),
+        <span class="string">"Test timeout out before all all expected outputs received"
+    </span>);
 }
 
 <span class="doccomment">/// Handles an event for the Test Harness Task.  If the event is expected, remove it from

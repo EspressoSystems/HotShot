@@ -910,11 +910,6 @@
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
-<a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -935,8 +930,6 @@
 };
 
 <span class="kw">use </span>async_lock::RwLock;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-</span><span class="kw">use </span>async_std::task::spawn_blocking;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>derivative::Derivative;
@@ -944,8 +937,7 @@
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>thiserror::Error;
-<span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-</span><span class="kw">use </span>tokio::task::spawn_blocking;
+<span class="kw">use </span>tokio::task::spawn_blocking;
 <span class="kw">use </span>tracing::error;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vec1::Vec1;
@@ -1143,9 +1135,7 @@
                 )
                 .unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()))
         }).<span class="kw">await</span>;
-        <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-        </span><span class="comment">// Tokio's JoinHandle's `Output` is `Result&lt;T, JoinError&gt;`, while in async-std it's just `T`
-        // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
+        <span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
 
         <span class="self">Self</span>::from_membership(view, vid_disperse, membership.as_ref(), epoch)

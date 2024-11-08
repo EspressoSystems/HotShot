@@ -759,14 +759,6 @@
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -787,11 +779,7 @@
     time::Duration,
 };
 
-<span class="kw">use </span>async_compatibility_layer::{
-    art::async_spawn,
-    channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
-};
-<span class="kw">use </span>futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
+<span class="kw">use </span>futures::{channel::mpsc, SinkExt, StreamExt};
 <span class="kw">use </span>hotshot_types::{
     constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::node_implementation::NodeType,
 };
@@ -816,6 +804,10 @@
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
+<span class="kw">use </span>tokio::{
+    select, spawn,
+    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+};
 <span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 <span class="kw">pub use </span><span class="self">self</span>::{
@@ -1069,10 +1061,7 @@
 
             <span class="comment">// build swarm
             </span><span class="kw">let </span>swarm = SwarmBuilder::with_existing_identity(keypair.clone());
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"async-std"</span>)]
-            </span><span class="kw">let </span>swarm = swarm.with_async_std();
-            <span class="attr">#[cfg(async_executor_impl = <span class="string">"tokio"</span>)]
-            </span><span class="kw">let </span>swarm = swarm.with_tokio();
+            <span class="kw">let </span>swarm = swarm.with_tokio();
 
             swarm
                 .with_other_transport(|<span class="kw">_</span>| transport)
@@ -1146,11 +1135,11 @@
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>))]
     </span><span class="kw">async fn </span>handle_client_requests(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        msg: <span class="prelude-ty">Result</span>&lt;ClientRequest, UnboundedRecvError&gt;,
+        msg: <span class="prelude-ty">Option</span>&lt;ClientRequest&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, NetworkError&gt; {
         <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
         <span class="kw">match </span>msg {
-            <span class="prelude-val">Ok</span>(msg) =&gt; {
+            <span class="prelude-val">Some</span>(msg) =&gt; {
                 <span class="kw">match </span>msg {
                     ClientRequest::BeginBootstrap =&gt; {
                         <span class="macro">debug!</span>(<span class="string">"Beginning Libp2p bootstrap"</span>);
@@ -1260,8 +1249,8 @@
                     }
                 }
             }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">error!</span>(<span class="string">"Error receiving msg in main behaviour loop: {:?}"</span>, e);
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="macro">error!</span>(<span class="string">"Error receiving msg in main behaviour loop: channel closed"</span>);
             }
         }
         <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
@@ -1303,8 +1292,7 @@
                 <span class="comment">// Send the number of connected peers to the client
                 </span>send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(<span class="self">self</span>.num_connected()))
-                    .<span class="kw">await
-                    </span>.map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
+                    .map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
             }
             SwarmEvent::ConnectionClosed {
                 connection_id: <span class="kw">_</span>,
@@ -1328,8 +1316,7 @@
                 <span class="comment">// Send the number of connected peers to the client
                 </span>send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(<span class="self">self</span>.num_connected()))
-                    .<span class="kw">await
-                    </span>.map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
+                    .map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
             }
             SwarmEvent::Dialing {
                 peer_id,
@@ -1437,8 +1424,7 @@
                     <span class="comment">// forward messages directly to Client
                     </span>send_to_client
                         .send(event)
-                        .<span class="kw">await
-                        </span>.map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
+                        .map_err(|err| NetworkError::ChannelSendError(err.to_string()))<span class="question-mark">?</span>;
                 }
             }
             SwarmEvent::OutgoingConnectionError {
@@ -1494,16 +1480,15 @@
         ),
         NetworkError,
     &gt; {
-        <span class="kw">let </span>(s_input, s_output) = unbounded::&lt;ClientRequest&gt;();
-        <span class="kw">let </span>(r_input, r_output) = unbounded::&lt;NetworkEvent&gt;();
+        <span class="kw">let </span>(s_input, <span class="kw-2">mut </span>s_output) = unbounded_channel::&lt;ClientRequest&gt;();
+        <span class="kw">let </span>(r_input, r_output) = unbounded_channel::&lt;NetworkEvent&gt;();
         <span class="kw">let </span>(<span class="kw-2">mut </span>bootstrap_tx, bootstrap_rx) = mpsc::channel(<span class="number">100</span>);
         <span class="self">self</span>.resend_tx = <span class="prelude-val">Some</span>(s_input.clone());
         <span class="self">self</span>.dht_handler.set_bootstrap_sender(bootstrap_tx.clone());
 
         DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
-        async_spawn(
+        spawn(
             <span class="kw">async move </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>fuse = s_output.recv().boxed().fuse();
                 <span class="kw">loop </span>{
                     <span class="macro">select!</span> {
                         event = <span class="self">self</span>.swarm.next() =&gt; {
@@ -1513,14 +1498,13 @@
                                 <span class="self">self</span>.handle_swarm_events(event, <span class="kw-2">&amp;</span>r_input).<span class="kw">await</span><span class="question-mark">?</span>;
                             }
                         },
-                        msg = fuse =&gt; {
+                        msg = s_output.recv() =&gt; {
                             <span class="macro">debug!</span>(<span class="string">"peerid {:?}\t\thandling msg {:?}"</span>, <span class="self">self</span>.peer_id, msg);
                             <span class="kw">let </span>shutdown = <span class="self">self</span>.handle_client_requests(msg).<span class="kw">await</span><span class="question-mark">?</span>;
                             <span class="kw">if </span>shutdown {
                                 <span class="kw">let _ </span>= bootstrap_tx.send(InputEvent::ShutdownBootstrap).<span class="kw">await</span>;
                                 <span class="kw">break
                             </span>}
-                            fuse = s_output.recv().boxed().fuse();
                         }
                     }
                 }

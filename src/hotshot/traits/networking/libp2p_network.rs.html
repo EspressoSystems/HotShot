@@ -1085,16 +1085,6 @@
 <a href="#1085" id="1085">1085</a>
 <a href="#1086" id="1086">1086</a>
 <a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1120,20 +1110,10 @@
 };
 
 <span class="kw">use </span>anyhow::{anyhow, Context};
-<span class="kw">use </span>async_compatibility_layer::{
-    art::{async_sleep, async_spawn},
-    channel::{
-        <span class="self">self</span>, bounded, unbounded, Receiver <span class="kw">as </span>BoundedReceiver, Sender <span class="kw">as </span>BoundedSender,
-        TrySendError, UnboundedReceiver, UnboundedSender,
-    },
-};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
-<span class="kw">use </span>futures::{
-    future::{join_all, Either},
-    FutureExt,
-};
+<span class="kw">use </span>futures::future::join_all;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>hotshot_types::traits::network::{
     AsyncGenerator, NetworkReliability, TestableNetworkingImplementation,
@@ -1170,6 +1150,14 @@
 };
 <span class="kw">use </span>rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 <span class="kw">use </span>serde::Serialize;
+<span class="kw">use </span>tokio::{
+    select, spawn,
+    sync::{
+        mpsc::{channel, error::TrySendError, Receiver, Sender},
+        Mutex,
+    },
+    time::sleep,
+};
 <span class="kw">use </span>tracing::{error, info, instrument, trace, warn};
 
 <span class="kw">use </span><span class="kw">crate</span>::BroadcastDelay;
@@ -1246,11 +1234,11 @@
     <span class="doccomment">/// handle to control the network
     </span>handle: Arc&lt;NetworkNodeHandle&lt;T&gt;&gt;,
     <span class="doccomment">/// Message Receiver
-    </span>receiver: UnboundedReceiver&lt;Vec&lt;u8&gt;&gt;,
+    </span>receiver: Mutex&lt;Receiver&lt;Vec&lt;u8&gt;&gt;&gt;,
     <span class="doccomment">/// Sender for broadcast messages
-    </span>sender: UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
+    </span>sender: Sender&lt;Vec&lt;u8&gt;&gt;,
     <span class="doccomment">/// Sender for node lookup (relevant view number, key of node) (None for shutdown)
-    </span>node_lookup_send: BoundedSender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, T::SignatureKey)&gt;&gt;,
+    </span>node_lookup_send: Sender&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, T::SignatureKey)&gt;&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     </span>bootstrap_addrs: PeerInfoVec,
@@ -1272,7 +1260,7 @@
     </span><span class="doccomment">/// reliability_config
     </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     <span class="doccomment">/// Killswitch sender
-    </span>kill_switch: channel::Sender&lt;()&gt;,
+    </span>kill_switch: Sender&lt;()&gt;,
 }
 
 <span class="doccomment">/// Networking implementation that uses libp2p
@@ -1591,7 +1579,7 @@
             <span class="kw">if </span><span class="self">self</span>.is_ready() {
                 <span class="kw">break</span>;
             }
-            async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
+            sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
         }
     }
 
@@ -1634,15 +1622,15 @@
 
         <span class="comment">// unbounded channels may not be the best choice (spammed?)
         // if bounded figure out a way to log dropped msgs
-        </span><span class="kw">let </span>(sender, receiver) = unbounded();
-        <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = bounded(<span class="number">10</span>);
-        <span class="kw">let </span>(kill_tx, kill_rx) = bounded(<span class="number">1</span>);
+        </span><span class="kw">let </span>(sender, receiver) = channel(<span class="number">1000</span>);
+        <span class="kw">let </span>(node_lookup_send, node_lookup_recv) = channel(<span class="number">10</span>);
+        <span class="kw">let </span>(kill_tx, kill_rx) = channel(<span class="number">1</span>);
         rx.set_kill_switch(kill_rx);
 
         <span class="kw">let </span><span class="kw-2">mut </span>result = Libp2pNetwork {
             inner: Arc::new(Libp2pNetworkInner {
                 handle: Arc::new(network_handle),
-                receiver,
+                receiver: Mutex::new(receiver),
                 sender: sender.clone(),
                 pk,
                 bootstrap_addrs,
@@ -1677,16 +1665,16 @@
     </span><span class="attr">#[allow(clippy::cast_sign_loss, clippy::cast_precision_loss)]
     </span><span class="kw">fn </span>spawn_node_lookup(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut </span>node_lookup_recv: BoundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, T::SignatureKey)&gt;&gt;,
+        <span class="kw-2">mut </span>node_lookup_recv: Receiver&lt;<span class="prelude-ty">Option</span>&lt;(ViewNumber, T::SignatureKey)&gt;&gt;,
     ) {
         <span class="kw">let </span>handle = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.handle);
         <span class="kw">let </span>dht_timeout = <span class="self">self</span>.inner.dht_timeout;
         <span class="kw">let </span>latest_seen_view = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.latest_seen_view);
 
         <span class="comment">// deals with handling lookup queue. should be infallible
-        </span>async_spawn(<span class="kw">async move </span>{
+        </span>spawn(<span class="kw">async move </span>{
             <span class="comment">// cancels on shutdown
-            </span><span class="kw">while let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((view_number, pk))) = node_lookup_recv.recv().<span class="kw">await </span>{
+            </span><span class="kw">while let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>((view_number, pk))) = node_lookup_recv.recv().<span class="kw">await </span>{
                 <span class="doccomment">/// defines lookahead threshold based on the constant
                 </span><span class="attr">#[allow(clippy::cast_possible_truncation)]
                 </span><span class="kw">const </span>THRESHOLD: u64 = (LOOK_AHEAD <span class="kw">as </span>f64 * <span class="number">0.8</span>) <span class="kw">as </span>u64;
@@ -1712,19 +1700,19 @@
         <span class="kw">let </span>is_bootstrapped = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_bootstrapped);
         <span class="kw">let </span>inner = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner);
 
-        async_spawn({
+        spawn({
             <span class="kw">let </span>is_ready = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_ready);
             <span class="kw">async move </span>{
                 <span class="kw">let </span>bs_addrs = bootstrap_ref.read().<span class="kw">await</span>.clone();
 
                 <span class="comment">// Add known peers to the network
-                </span>handle.add_known_peers(bs_addrs).<span class="kw">await</span>.unwrap();
+                </span>handle.add_known_peers(bs_addrs).unwrap();
 
                 <span class="comment">// Begin the bootstrap process
-                </span>handle.begin_bootstrap().<span class="kw">await</span><span class="question-mark">?</span>;
+                </span>handle.begin_bootstrap()<span class="question-mark">?</span>;
                 <span class="kw">while </span>!is_bootstrapped.load(Ordering::Relaxed) {
-                    async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
-                    handle.begin_bootstrap().<span class="kw">await</span><span class="question-mark">?</span>;
+                    sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
+                    handle.begin_bootstrap()<span class="question-mark">?</span>;
                 }
 
                 <span class="comment">// Subscribe to the QC topic
@@ -1740,7 +1728,7 @@
                     .<span class="kw">await
                     </span>.is_err()
                 {
-                    async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
+                    sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
                 }
 
                 <span class="comment">// Wait for the network to connect to the required number of peers
@@ -1760,19 +1748,19 @@
     }
 
     <span class="doccomment">/// Handle events
-    </span><span class="kw">async fn </span>handle_recvd_events(
+    </span><span class="kw">fn </span>handle_recvd_events(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         msg: NetworkEvent,
-        sender: <span class="kw-2">&amp;</span>UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
+        sender: <span class="kw-2">&amp;</span>Sender&lt;Vec&lt;u8&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">match </span>msg {
             GossipMsg(msg) =&gt; {
-                sender.send(msg).<span class="kw">await</span>.map_err(|err| {
+                sender.try_send(msg).map_err(|err| {
                     NetworkError::ChannelSendError(<span class="macro">format!</span>(<span class="string">"failed to send gossip message: {err}"</span>))
                 })<span class="question-mark">?</span>;
             }
             DirectRequest(msg, _pid, chan) =&gt; {
-                sender.send(msg).<span class="kw">await</span>.map_err(|err| {
+                sender.try_send(msg).map_err(|err| {
                     NetworkError::ChannelSendError(<span class="macro">format!</span>(
                         <span class="string">"failed to send direct request message: {err}"
                     </span>))
@@ -1788,8 +1776,7 @@
                             </span>))
                         })<span class="question-mark">?</span>,
                     )
-                    .<span class="kw">await
-                    </span>.is_err()
+                    .is_err()
                 {
                     <span class="macro">error!</span>(<span class="string">"failed to ack!"</span>);
                 };
@@ -1805,48 +1792,39 @@
 
     <span class="doccomment">/// task to propagate messages to handlers
     /// terminates on shut down of network
-    </span><span class="kw">fn </span>handle_event_generator(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        sender: UnboundedSender&lt;Vec&lt;u8&gt;&gt;,
-        <span class="kw-2">mut </span>network_rx: NetworkNodeReceiver,
-    ) {
+    </span><span class="kw">fn </span>handle_event_generator(<span class="kw-2">&amp;</span><span class="self">self</span>, sender: Sender&lt;Vec&lt;u8&gt;&gt;, <span class="kw-2">mut </span>network_rx: NetworkNodeReceiver) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
         <span class="kw">let </span>is_bootstrapped = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner.is_bootstrapped);
-        async_spawn(<span class="kw">async move </span>{
+        spawn(<span class="kw">async move </span>{
             <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>kill_switch) = network_rx.take_kill_switch() <span class="kw">else </span>{
                 <span class="macro">tracing::error!</span>(
                     <span class="string">"`spawn_handle` was called on a network handle that was already closed"
                 </span>);
                 <span class="kw">return</span>;
             };
-            <span class="kw">let </span><span class="kw-2">mut </span>kill_switch = kill_switch.recv().boxed();
-            <span class="kw">let </span><span class="kw-2">mut </span>next_msg = network_rx.recv().boxed();
 
             <span class="kw">loop </span>{
-                <span class="kw">let </span>msg_or_killed = futures::future::select(next_msg, kill_switch).<span class="kw">await</span>;
-                <span class="kw">match </span>msg_or_killed {
-                    Either::Left((<span class="prelude-val">Ok</span>(message), other_stream)) =&gt; {
-                        <span class="kw">match </span><span class="kw-2">&amp;</span>message {
+                <span class="macro">select!</span> {
+                    msg = network_rx.recv() =&gt; {
+                        <span class="kw">let </span><span class="prelude-val">Ok</span>(message) = msg <span class="kw">else </span>{
+                            <span class="macro">warn!</span>(<span class="string">"Network receiver shut down!"</span>);
+                            <span class="kw">return</span>;
+                        };
+
+                        <span class="kw">match </span>message {
                             NetworkEvent::IsBootstrapped =&gt; {
                                 is_bootstrapped.store(<span class="bool-val">true</span>, Ordering::Relaxed);
                             }
                             GossipMsg(<span class="kw">_</span>) | DirectRequest(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) | DirectResponse(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
-                                <span class="kw">let _ </span>= handle.handle_recvd_events(message, <span class="kw-2">&amp;</span>sender).<span class="kw">await</span>;
+                                <span class="kw">let _ </span>= handle.handle_recvd_events(message, <span class="kw-2">&amp;</span>sender);
                             }
                             NetworkEvent::ConnectedPeersUpdate(num_peers) =&gt; {
-                                handle.inner.metrics.num_connected_peers.set(<span class="kw-2">*</span>num_peers);
+                                handle.inner.metrics.num_connected_peers.set(num_peers);
                             }
                         }
-                        <span class="comment">// re-set the `kill_switch` for the next loop
-                        </span>kill_switch = other_stream;
-                        <span class="comment">// re-set `receiver.recv()` for the next loop
-                        </span>next_msg = network_rx.recv().boxed();
                     }
-                    Either::Left((<span class="prelude-val">Err</span>(<span class="kw">_</span>), <span class="kw">_</span>)) =&gt; {
-                        <span class="macro">warn!</span>(<span class="string">"Network receiver shut down!"</span>);
-                        <span class="kw">return</span>;
-                    }
-                    Either::Right(<span class="kw">_</span>) =&gt; {
+
+                    _kill_switch = kill_switch.recv() =&gt; {
                         <span class="macro">warn!</span>(<span class="string">"Event Handler shutdown"</span>);
                         <span class="kw">return</span>;
                     }
@@ -1902,7 +1880,7 @@
         </span><span class="kw">let </span>topic = topic.to_string();
         <span class="kw">if </span><span class="self">self</span>.inner.subscribed_topics.contains(<span class="kw-2">&amp;</span>topic) {
             <span class="comment">// Short-circuit-send the message to ourselves
-            </span><span class="self">self</span>.inner.sender.send(message.clone()).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| {
+            </span><span class="self">self</span>.inner.sender.try_send(message.clone()).map_err(|<span class="kw">_</span>| {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
                 NetworkError::ShutDown
             })<span class="question-mark">?</span>;
@@ -1922,19 +1900,19 @@
                         <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
                         <span class="kw">let </span>metrics_2 = metrics.clone();
                         boxed_sync(<span class="kw">async move </span>{
-                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_2.gossip_no_serialize(topic_2, msg).<span class="kw">await </span>{
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_2.gossip_no_serialize(topic_2, msg) {
                                 metrics_2.num_failed_messages.add(<span class="number">1</span>);
                                 <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
                             }
                         })
                     }),
                 );
-                async_spawn(fut);
+                spawn(fut);
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(());
             }
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.inner.handle.gossip(topic, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.inner.handle.gossip(topic, <span class="kw-2">&amp;</span>message) {
             <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
             <span class="kw">return </span><span class="prelude-val">Err</span>(e);
         }
@@ -1990,7 +1968,7 @@
         <span class="comment">// short circuit if we're dming ourselves
         </span><span class="kw">if </span>recipient == <span class="self">self</span>.inner.pk {
             <span class="comment">// panic if we already shut down?
-            </span><span class="self">self</span>.inner.sender.send(message).<span class="kw">await</span>.map_err(|_x| {
+            </span><span class="self">self</span>.inner.sender.try_send(message).map_err(|_x| {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
                 NetworkError::ShutDown
             })<span class="question-mark">?</span>;
@@ -2024,19 +2002,19 @@
                         <span class="kw">let </span>handle_2 = Arc::clone(<span class="kw-2">&amp;</span>handle);
                         <span class="kw">let </span>metrics_2 = metrics.clone();
                         boxed_sync(<span class="kw">async move </span>{
-                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_2.direct_request_no_serialize(pid, msg).<span class="kw">await </span>{
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_2.direct_request_no_serialize(pid, msg) {
                                 metrics_2.num_failed_messages.add(<span class="number">1</span>);
                                 <span class="macro">warn!</span>(<span class="string">"Failed to broadcast to libp2p: {:?}"</span>, e);
                             }
                         })
                     }),
                 );
-                async_spawn(fut);
+                spawn(fut);
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(());
             }
         }
 
-        <span class="kw">match </span><span class="self">self</span>.inner.handle.direct_request(pid, <span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
+        <span class="kw">match </span><span class="self">self</span>.inner.handle.direct_request(pid, <span class="kw-2">&amp;</span>message) {
             <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="self">self</span>.inner.metrics.num_failed_messages.add(<span class="number">1</span>);
@@ -2054,9 +2032,11 @@
         <span class="kw">let </span>result = <span class="self">self
             </span>.inner
             .receiver
-            .recv()
+            .lock()
             .<span class="kw">await
-            </span>.map_err(|_x| NetworkError::ShutDown)<span class="question-mark">?</span>;
+            </span>.recv()
+            .<span class="kw">await
+            </span>.ok_or(NetworkError::ShutDown)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(result)
     }

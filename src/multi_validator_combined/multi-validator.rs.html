@@ -43,8 +43,6 @@
 <a href="#43" id="43">43</a>
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
-<a href="#46" id="46">46</a>
-<a href="#47" id="47">47</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -52,13 +50,11 @@
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
 </span><span class="doccomment">//! A multi-validator using both the web server libp2p
-</span><span class="kw">use </span>async_compatibility_layer::{
-    art::async_spawn,
-    logging::{setup_backtrace, setup_logging},
-};
-<span class="kw">use </span>clap::Parser;
+</span><span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>hotshot::helpers::initialize_logging;
 <span class="kw">use </span>hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
 <span class="kw">use </span>hotshot_orchestrator::client::{MultiValidatorArgs, ValidatorArgs};
+<span class="kw">use </span>tokio::spawn;
 <span class="kw">use </span>tracing::instrument;
 
 <span class="kw">use </span><span class="kw">crate</span>::types::{Network, NodeImpl, ThisRun};
@@ -70,19 +66,19 @@
 </span><span class="attr">#[path = <span class="string">"../infra/mod.rs"</span>]
 </span><span class="kw">pub mod </span>infra;
 
-<span class="attr">#[cfg_attr(async_executor_impl = <span class="string">"tokio"</span>, tokio::main(flavor = <span class="string">"multi_thread"</span>))]
-#[cfg_attr(async_executor_impl = <span class="string">"async-std"</span>, async_std::main)]
+<span class="attr">#[tokio::main]
 #[instrument]
 </span><span class="kw">async fn </span>main() {
-    setup_logging();
-    setup_backtrace();
+    <span class="comment">// Initialize logging
+    </span>initialize_logging();
+
     <span class="kw">let </span>args = MultiValidatorArgs::parse();
     <span class="macro">tracing::debug!</span>(<span class="string">"connecting to orchestrator at {:?}"</span>, args.url);
     <span class="kw">let </span><span class="kw-2">mut </span>nodes = Vec::new();
     <span class="kw">for </span>node_index <span class="kw">in </span><span class="number">0</span>..args.num_nodes {
         <span class="kw">let </span>args = args.clone();
 
-        <span class="kw">let </span>node = async_spawn(<span class="kw">async move </span>{
+        <span class="kw">let </span>node = spawn(<span class="kw">async move </span>{
             infra::main_entry_point::&lt;TestTypes, Network, NodeImpl, TestVersions, ThisRun&gt;(
                 ValidatorArgs::from_multi_args(args, node_index),
             )
