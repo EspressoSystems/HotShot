@@ -54,7 +54,7 @@ impl From<BuilderApiError> for BuilderClientError {
                 BuildError::Missing => Self::BlockMissing,
                 BuildError::Error(message) => Self::Api(message),
             },
-            BuilderApiError::TxnStatGet(source) => Self::Api(source.to_string()),
+            BuilderApiError::TxnStat(source) => Self::Api(source.to_string()),
         }
     }
 }

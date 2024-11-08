@@ -80,7 +80,7 @@ pub enum Error {
     #[error("Error getting builder address: {0}")]
     BuilderAddress(#[from] BuildError),
     #[error("Error getting transaction status: {0}")]
-    TxnStatGet(BuildError),
+    TxnStat(BuildError),
     #[error("Custom error {status}: {message}")]
     Custom { message: String, status: StatusCode },
 }
@@ -106,7 +106,7 @@ impl tide_disco::error::Error for Error {
             Error::TxnSubmit { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Custom { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Error::BuilderAddress { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::TxnStatGet { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::TxnStat { .. } => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -258,7 +258,7 @@ where
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
                     .map_err(Error::TxnUnpack)?;
                 let hash = tx.commit();
-                state.txn_status(hash).await.map_err(Error::TxnStatGet)?;
+                state.txn_status(hash).await.map_err(Error::TxnStat)?;
                 Ok(hash)
             }
             .boxed()
