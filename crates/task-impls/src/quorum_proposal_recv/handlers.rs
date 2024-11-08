@@ -284,10 +284,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
     ));
 
     tracing::trace!(
-            "Sending ViewChange for view {} and epoch {}",
-            view_number,
-            *epoch_number
-        );
+        "Sending ViewChange for view {} and epoch {}",
+        view_number,
+        *epoch_number
+    );
     broadcast_event(
         Arc::new(HotShotEvent::ViewChange(view_number, epoch_number)),
         event_sender,
