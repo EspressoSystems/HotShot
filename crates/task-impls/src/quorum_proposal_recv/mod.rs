@@ -174,13 +174,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
             }
             HotShotEvent::ViewChange(view, epoch) => {
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
                 if self.cur_view >= *view {
                     return;
                 }
                 self.cur_view = *view;
-                if *epoch > self.cur_epoch {
-                    self.cur_epoch = *epoch;
-                }
                 // cancel task for any view 2 views prior or more.  The view here is the oldest
                 // view we want to KEEP tasks for.  We keep the view prior to this because
                 // we might still be processing the proposal from view V which caused us

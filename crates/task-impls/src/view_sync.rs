@@ -425,6 +425,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
             }
 
             &HotShotEvent::ViewChange(new_view, epoch) => {
+                if epoch > self.cur_epoch {
+                    self.cur_epoch = epoch;
+                }
                 let new_view = TYPES::View::new(*new_view);
                 if self.cur_view < new_view {
                     tracing::debug!(
@@ -434,9 +437,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     );
 
                     self.cur_view = new_view;
-                    if epoch > self.cur_epoch {
-                        self.cur_epoch = epoch;
-                    }
                     self.next_view = self.cur_view;
                     self.num_timeouts_tracked = 0;
 

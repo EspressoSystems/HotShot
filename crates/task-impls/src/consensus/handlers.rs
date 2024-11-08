@@ -119,6 +119,11 @@ pub(crate) async fn handle_view_change<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    if epoch_number > task_state.cur_epoch {
+        task_state.cur_epoch = epoch_number;
+        tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
+    }
+
     ensure!(
         new_view_number > task_state.cur_view,
         "New view is not larger than the current view"
@@ -132,11 +137,6 @@ pub(crate) async fn handle_view_change<
     }
     // Move this node to the next view
     task_state.cur_view = new_view_number;
-    if epoch_number > task_state.cur_epoch {
-        task_state.cur_epoch = epoch_number;
-        tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
-    }
-
     task_state
         .consensus
         .write()

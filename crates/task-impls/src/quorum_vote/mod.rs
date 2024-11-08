@@ -219,27 +219,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
 
         let current_epoch =
             TYPES::Epoch::new(epoch_from_block_number(leaf.height(), self.epoch_height));
-        let next_leaf_epoch = match self
-            .consensus
-            .read()
-            .await
-            .get_epoch_for_next_view(leaf.view_number())
-        {
-            Ok(epoch) => epoch,
-            Err(e) => {
-                tracing::error!("Error when handling a vote, not voting, error: {:?}", e);
-                return;
-            }
-        };
         tracing::trace!(
             "Sending ViewChange for view {} and epoch {}",
             self.view_number + 1,
-            *next_leaf_epoch
+            *current_epoch
         );
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(
                 self.view_number + 1,
-                next_leaf_epoch,
+                current_epoch,
             )),
             &self.sender,
         )
@@ -696,27 +684,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             current_block_number,
             self.epoch_height,
         ));
-        let next_leaf_epoch = match self
-            .consensus
-            .read()
-            .await
-            .get_epoch_for_next_view(proposal.data.view_number())
-        {
-            Ok(epoch) => epoch,
-            Err(e) => {
-                tracing::error!("Error when handling eQC vote, not voting, error: {:?}", e);
-                return;
-            }
-        };
         tracing::trace!(
             "Sending ViewChange for view {} and epoch {}",
             proposal.data.view_number() + 1,
-            *next_leaf_epoch
+            *current_epoch
         );
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(
                 proposal.data.view_number() + 1,
-                next_leaf_epoch,
+                current_epoch,
             )),
             &event_sender,
         )

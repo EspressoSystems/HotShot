@@ -470,6 +470,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .await;
             }
             HotShotEvent::ViewChange(view, epoch) => {
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
                 let view = TYPES::View::new(std::cmp::max(1, **view));
                 ensure!(
                     *view > *self.cur_view,
@@ -478,9 +481,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     )
                 );
                 self.cur_view = view;
-                if *epoch > self.cur_epoch {
-                    self.cur_epoch = *epoch;
-                }
                 if self.membership.leader(view, self.cur_epoch)? == self.public_key {
                     self.handle_view_change(&event_stream, view).await;
                     return Ok(());

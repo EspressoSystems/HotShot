@@ -255,6 +255,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
             block_number,
             validation_info.epoch_height,
         ));
+        tracing::trace!(
+            "Sending ViewChange for view {} and epoch {}",
+            view_number,
+            *epoch
+        );
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(view_number, epoch)),
             event_sender,
@@ -278,6 +283,11 @@ pub(crate) async fn handle_quorum_proposal_recv<
         validation_info.epoch_height,
     ));
 
+    tracing::trace!(
+            "Sending ViewChange for view {} and epoch {}",
+            view_number,
+            *epoch_number
+        );
     broadcast_event(
         Arc::new(HotShotEvent::ViewChange(view_number, epoch_number)),
         event_sender,

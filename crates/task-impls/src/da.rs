@@ -296,8 +296,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 .await?;
             }
             HotShotEvent::ViewChange(view, epoch) => {
-                let view = *view;
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
 
+                let view = *view;
                 ensure!(
                     *self.cur_view < *view,
                     info!("Received a view change to an older view.")
@@ -307,9 +310,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     tracing::info!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
-                if *epoch > self.cur_epoch {
-                    self.cur_epoch = *epoch;
-                }
             }
             HotShotEvent::BlockRecv(packed_bundle) => {
                 let PackedBundle::<TYPES> {
