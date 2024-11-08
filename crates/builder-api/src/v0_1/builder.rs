@@ -50,7 +50,7 @@ pub enum BuildError {
     Error(String),
 }
 
-/// Enum to keep track on status of a transactions
+/// Enum to keep track on status of a transaction
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum TransactionStatus {
     Pending,
