@@ -259,7 +259,7 @@ where
                     .map_err(Error::TxnUnpack)?;
                 let hash = tx.commit();
                 state
-                    .get_tx_status(hash)
+                    .txn_status(hash)
                     .await
                     .map_err(Error::TxnStatGet)?;
                 Ok(hash)
