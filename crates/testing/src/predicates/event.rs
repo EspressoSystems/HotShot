@@ -282,13 +282,3 @@ where
     });
     Box::new(EventPredicate { check, info })
 }
-
-pub fn high_qc_updated<TYPES>() -> Box<EventPredicate<TYPES>>
-where
-    TYPES: NodeType,
-{
-    let info = "HighQcUpdated".to_string();
-    let check: EventCallback<TYPES> =
-        Arc::new(move |e: Arc<HotShotEvent<TYPES>>| matches!(e.as_ref(), HighQcUpdated(..)));
-    Box::new(EventPredicate { check, info })
-}

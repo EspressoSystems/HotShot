@@ -111,7 +111,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::Qc => {
-                        if let HotShotEvent::HighQcUpdated(qc) = event {
+                        if let HotShotEvent::QcFormed(either::Left(qc)) = event {
                             qc.view_number() + 1
                         } else {
                             return false;
@@ -230,7 +230,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     timeout_dependency.mark_as_completed(event);
                 }
                 Either::Left(_) => {
-                    // qc_dependency.mark_as_completed(event);
+                    qc_dependency.mark_as_completed(event);
                 }
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
@@ -238,9 +238,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::VidDisperseSend(_, _) => {
                 vid_share_dependency.mark_as_completed(event);
-            }
-            HotShotEvent::HighQcUpdated(_) => {
-                qc_dependency.mark_as_completed(event);
             }
             _ => {}
         };

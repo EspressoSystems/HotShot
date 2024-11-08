@@ -528,9 +528,6 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     proposal.data.view_number
                 )
             }
-            HotShotEvent::HighQcUpdated(cert) => {
-                write!(f, "HighQcUpdated(view_number={:?})", cert.view_number())
-            }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 write!(
                     f,
