@@ -236,8 +236,7 @@ pub(crate) async fn update_shared_state<
     let state = Arc::new(validated_state);
     let delta = Arc::new(state_delta);
 
-    // Now that we've rounded everyone up, we need to update the shared state and broadcast our events.
-    // We will defer broadcast until all states are updated to avoid holding onto the lock during a network call.
+    // Now that we've rounded everyone up, we need to update the shared state
     let mut consensus_writer = consensus.write().await;
 
     if let Err(e) = consensus_writer
