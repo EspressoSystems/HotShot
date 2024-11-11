@@ -252,6 +252,9 @@ pub enum HotShotEvent<TYPES: NodeType> {
         TYPES::SignatureKey,
         Proposal<TYPES, VidDisperseShare<TYPES>>,
     ),
+
+    /// A replica send us a High QC
+    HighQcRecv(QuorumCertificate<TYPES>),
 }
 
 impl<TYPES: NodeType> HotShotEvent<TYPES> {
@@ -333,6 +336,7 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::VidRequestRecv(request, _) => Some(request.view),
             HotShotEvent::VidResponseSend(_, _, proposal)
             | HotShotEvent::VidResponseRecv(_, proposal) => Some(proposal.data.view_number),
+            HotShotEvent::HighQcRecv(qc) => Some(qc.view_number()),
         }
     }
 }
@@ -606,6 +610,9 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     "VidResponseRecv(view_number={:?}",
                     proposal.data.view_number
                 )
+            }
+            HotShotEvent::HighQcRecv(qc) => {
+                write!(f, "HighQcRecv(view_number={:?}", qc.view_number())
             }
         }
     }
