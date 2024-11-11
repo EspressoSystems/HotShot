@@ -56,16 +56,16 @@
 
     <span class="comment">// Conditionally initialize in `json` mode
     </span><span class="kw">if </span>std::env::var(<span class="string">"RUST_LOG_FORMAT"</span>) == <span class="prelude-val">Ok</span>(<span class="string">"json"</span>.to_string()) {
-        tracing_subscriber::fmt()
+        <span class="kw">let _ </span>= tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
             .with_span_events(span_event_filter)
             .json()
-            .init();
+            .try_init();
     } <span class="kw">else </span>{
-        tracing_subscriber::fmt()
+        <span class="kw">let _ </span>= tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
             .with_span_events(span_event_filter)
-            .init();
+            .try_init();
     };
 }
 </code></pre></div></section></main></body></html>
