@@ -25,6 +25,7 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
+use hotshot_types::data::Leaf;
 use hotshot_types::{
     data::ViewNumber,
     request_response::ProposalRequestPayload,
@@ -36,9 +37,10 @@ use hotshot_types::{
     },
 };
 
+use std::sync::Arc;
+
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_recv_task() {
     use std::time::Duration;
 
@@ -46,10 +48,8 @@ async fn test_quorum_proposal_recv_task() {
         helpers::build_fake_view_with_leaf,
         script::{Expectations, TaskScript},
     };
-    use hotshot_types::data::Leaf;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -74,19 +74,16 @@ async fn test_quorum_proposal_recv_task() {
         vids.push(view.vid_proposal.clone());
         leaves.push(view.leaf.clone());
 
-        // These are both updated when we vote. Since we don't have access
+        // This is updated when we vote. Since we don't have access
         // to that, we'll just put them in here.
         consensus_writer
-            .update_saved_leaves(
+            .update_leaf(
                 Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Arc::new(TestValidatedState::default()),
+                None,
                 &handle.hotshot.upgrade_lock,
             )
-            .await;
-        consensus_writer
-            .update_validated_state_map(
-                view.quorum_proposal.data.view_number,
-                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
-            )
+            .await
             .unwrap();
     }
     drop(consensus_writer);
@@ -99,17 +96,6 @@ async fn test_quorum_proposal_recv_task() {
     let expectations = vec![Expectations::from_outputs(vec![
         exact(QuorumProposalPreliminarilyValidated(proposals[1].clone())),
         exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
-        exact(ValidatedStateUpdated(
-            ViewNumber::new(2),
-            build_fake_view_with_leaf_and_state(
-                leaves[1].clone(),
-                <TestValidatedState as ValidatedState<TestTypes>>::from_header(
-                    &proposals[1].data.block_header,
-                ),
-                &handle.hotshot.upgrade_lock,
-            )
-            .await,
-        )),
         exact(QuorumProposalValidated(
             proposals[1].clone(),
             leaves[0].clone(),
@@ -129,8 +115,7 @@ async fn test_quorum_proposal_recv_task() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_recv_task_liveness_check() {
     use std::time::Duration;
 
@@ -143,8 +128,7 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
     };
     use hotshot_types::{data::Leaf, vote::HasViewNumber};
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(4)
         .await
@@ -172,17 +156,6 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
         // It's not explicitly required to insert an entry for every generated view, but
         // there's no reason not to.
         let inserted_view_number = view.quorum_proposal.data.view_number();
-
-        // These are both updated when we'd have voted previously. However, since
-        // we don't have access to that, we'll just put them in here. We
-        // specifically ignore writing the saved leaves so that way
-        // the parent lookup fails and we trigger a view liveness check.
-        consensus_writer
-            .update_validated_state_map(
-                inserted_view_number,
-                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
-            )
-            .unwrap();
 
         // The index here is important. Since we're proposing for view 4, we need the
         // value from entry 2 to align the public key from the shares map.
@@ -222,17 +195,6 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
     let expectations = vec![Expectations::from_outputs(all_predicates![
         exact(QuorumProposalPreliminarilyValidated(proposals[2].clone())),
         exact(ViewChange(ViewNumber::new(3))),
-        exact(ValidatedStateUpdated(
-            ViewNumber::new(3),
-            build_fake_view_with_leaf_and_state(
-                leaves[2].clone(),
-                <TestValidatedState as ValidatedState<TestTypes>>::from_header(
-                    &proposals[2].data.block_header,
-                ),
-                &handle.hotshot.upgrade_lock
-            )
-            .await,
-        )),
         exact(QuorumProposalRequestSend(req, signature)),
         exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
     ])];

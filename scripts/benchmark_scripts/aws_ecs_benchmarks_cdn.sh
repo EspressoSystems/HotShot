@@ -22,7 +22,7 @@ REMOTE_USER="$1"
 # this is to prevent "Error: Too many open files (os error 24). Pausing for 500ms"
 ulimit -n 65536 
 # build to get the bin in advance, uncomment the following if built first time
-# just async_std example validator-push-cdn -- http://localhost:4444 &
+# just example validator-push-cdn -- http://localhost:4444 &
 # # remember to sleep enough time if it's built first time
 # sleep 3m
 # for pid in $(ps -ef | grep "validator" | awk '{print $2}'); do kill -9 $pid; done
@@ -39,7 +39,7 @@ ecs deploy --region us-east-2 hotshot hotshot_centralized -c centralized ${orche
 # docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb &
 # server1: marshal
 echo -e "\e[35mGoing to start cdn-marshal on local server\e[0m"
-just async_std example cdn-marshal -- -d redis://localhost:6379 -b 9000 &
+just example cdn-marshal -- -d redis://localhost:6379 -b 9000 &
 # remember to sleep enough time if it's built first time
 
 # Function to round up to the nearest integer
@@ -67,7 +67,7 @@ do
                             do
                                 # server1: broker
                                 echo -e "\e[35mGoing to start cdn-broker on local server\e[0m"
-                                just async_std example cdn-broker -- -d redis://localhost:6379 \
+                                just example cdn-broker -- -d redis://localhost:6379 \
                                     --public-bind-endpoint 0.0.0.0:1740 \
                                     --public-advertise-endpoint local_ip:1740 \
                                     --private-bind-endpoint 0.0.0.0:1741 \
@@ -90,7 +90,7 @@ EOF
 
                                 # start orchestrator
                                 echo -e "\e[35mGoing to start orchestrator on local server\e[0m"
-                                just async_std example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
+                                just example orchestrator -- --config_file ./crates/orchestrator/run-config.toml \
                                                                                 --orchestrator_url http://0.0.0.0:4444 \
                                                                                 --total_nodes ${total_nodes} \
                                                                                 --da_committee_size ${da_committee_size} \

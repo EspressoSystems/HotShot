@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use futures::StreamExt;
 use hotshot::{tasks::task_state::CreateTaskState, types::SystemContextHandle};
+use hotshot_example_types::state_types::TestValidatedState;
 use hotshot_example_types::{
     block_types::{TestMetadata, TestTransaction},
     node_types::{MemoryImpl, TestTypes, TestVersions},
@@ -28,25 +29,24 @@ use hotshot_testing::{
     script::{Expectations, InputOrder, TaskScript},
     view_generator::TestViewGenerator,
 };
+use hotshot_types::data::Leaf;
 use hotshot_types::{
     data::{null_block, ViewNumber},
     simple_vote::UpgradeProposalData,
     traits::{election::Membership, node_implementation::ConsensusTime},
     vote::HasViewNumber,
 };
+use std::sync::Arc;
 use vbs::version::Version;
-
 const TIMEOUT: Duration = Duration::from_millis(65);
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 /// Tests that we correctly update our internal quorum vote state when reaching a decided upgrade
 /// certificate.
 async fn test_upgrade_task_with_vote() {
     use hotshot_testing::helpers::build_system_handle;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -84,14 +84,14 @@ async fn test_upgrade_task_with_vote() {
         leaders.push(view.leader_public_key);
         leaves.push(view.leaf.clone());
         consensus_writer
-            .update_validated_state_map(
-                view.quorum_proposal.data.view_number(),
-                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
+            .update_leaf(
+                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Arc::new(TestValidatedState::default()),
+                None,
+                &handle.hotshot.upgrade_lock,
             )
+            .await
             .unwrap();
-        consensus_writer
-            .update_saved_leaves(view.leaf.clone(), &handle.hotshot.upgrade_lock)
-            .await;
     }
     drop(consensus_writer);
 
@@ -139,7 +139,6 @@ async fn test_upgrade_task_with_vote() {
             exact(VidShareValidated(vids[1].0[0].clone())),
             exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
             exact(ViewChange(ViewNumber::new(3))),
-            validated_state_updated(),
             quorum_vote_send(),
         ]),
         Expectations::from_outputs_and_task_states(
@@ -149,7 +148,6 @@ async fn test_upgrade_task_with_vote() {
                 exact(VidShareValidated(vids[2].0[0].clone())),
                 exact(QuorumVoteDependenciesValidated(ViewNumber::new(3))),
                 exact(ViewChange(ViewNumber::new(4))),
-                validated_state_updated(),
                 quorum_vote_send(),
             ],
             vec![no_decided_upgrade_certificate()],
@@ -163,7 +161,6 @@ async fn test_upgrade_task_with_vote() {
                 exact(VidShareValidated(vids[3].0[0].clone())),
                 exact(QuorumVoteDependenciesValidated(ViewNumber::new(4))),
                 exact(ViewChange(ViewNumber::new(5))),
-                validated_state_updated(),
                 quorum_vote_send(),
             ],
             vec![no_decided_upgrade_certificate()],
@@ -177,7 +174,6 @@ async fn test_upgrade_task_with_vote() {
                 exact(VidShareValidated(vids[4].0[0].clone())),
                 exact(QuorumVoteDependenciesValidated(ViewNumber::new(5))),
                 exact(ViewChange(ViewNumber::new(6))),
-                validated_state_updated(),
                 quorum_vote_send(),
             ],
             vec![no_decided_upgrade_certificate()],

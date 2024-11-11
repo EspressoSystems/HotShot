@@ -15,7 +15,6 @@ use std::{
 };
 
 use async_broadcast::{broadcast, Sender};
-use async_compatibility_layer::art::async_spawn;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::{Commitment, Committable};
@@ -25,8 +24,8 @@ use hotshot::{
     types::{Event, EventType, SignatureKey},
 };
 use hotshot_builder_api::{
-    v0_1,
     v0_1::{
+        self,
         block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
         builder::{BuildError, Error, Options},
     },
@@ -45,6 +44,7 @@ use hotshot_types::{
 };
 use lru::LruCache;
 use tide_disco::{method::ReadState, App, Url};
+use tokio::spawn;
 use vbs::version::StaticVersionType;
 
 use super::{build_block, run_builder_source, BlockEntry, BuilderTask, TestBuilderImplementation};
@@ -354,7 +354,7 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
             .register_module::<Error, _>(MARKETPLACE_BUILDER_MODULE, builder_api_0_3)
             .expect("Failed to register builder API 0.3");
 
-        async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()));
+        spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()));
     }
 }
 
@@ -380,7 +380,7 @@ impl<TYPES: NodeType> BuilderTask<TYPES> for SimpleBuilderTask<TYPES> {
         mut self: Box<Self>,
         mut stream: Box<dyn Stream<Item = Event<TYPES>> + std::marker::Unpin + Send + 'static>,
     ) {
-        async_spawn(async move {
+        spawn(async move {
             let mut should_build_blocks = true;
             loop {
                 match stream.next().await {

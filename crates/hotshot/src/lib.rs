@@ -26,6 +26,9 @@ pub mod types;
 
 pub mod tasks;
 
+/// Contains helper functions for the crate
+pub mod helpers;
+
 use std::{
     collections::{BTreeMap, HashMap},
     num::NonZeroUsize,
@@ -34,7 +37,6 @@ use std::{
 };
 
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::join;
@@ -65,6 +67,7 @@ use hotshot_types::{
 // External
 /// Reexport rand crate
 pub use rand;
+use tokio::{spawn, time::sleep};
 use tracing::{debug, instrument, trace};
 
 use crate::{
@@ -357,7 +360,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         inner
     }
 
-    /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
+    /// "Starts" consensus by sending a `QcFormed`, `ViewChange` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
@@ -388,9 +391,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
 
         // Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
-        async_spawn({
+        spawn({
             async move {
-                async_sleep(Duration::from_millis(next_view_timeout)).await;
+                sleep(Duration::from_millis(next_view_timeout)).await;
                 broadcast_event(
                     Arc::new(HotShotEvent::Timeout(start_view + 1)),
                     &event_stream,
@@ -398,24 +401,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 .await;
             }
         });
-        {
-            if let Some(validated_state) = consensus.validated_state_map().get(&self.start_view) {
-                #[allow(clippy::panic)]
-                self.internal_event_stream
-                    .0
-                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
-                        TYPES::View::new(*self.start_view),
-                        validated_state.clone(),
-                    )))
-                    .await
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
-                            self.start_view,
-                        )
-                    });
-            }
-        }
         #[allow(clippy::panic)]
         self.internal_event_stream
             .0
@@ -496,7 +481,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             HotShotError::FailedToSerialize(format!("failed to serialize transaction: {err}"))
         })?;
 
-        async_spawn(async move {
+        spawn(async move {
             let da_membership = &api.memberships.da_membership.clone();
             join! {
                 // TODO We should have a function that can return a network error if there is one
@@ -707,7 +692,7 @@ where
         let (network_task_sender, mut receiver_from_network): Channel<HotShotEvent<TYPES>> =
             broadcast(EVENT_CHANNEL_SIZE);
 
-        let _recv_loop_handle = async_spawn(async move {
+        let _recv_loop_handle = spawn(async move {
             loop {
                 let msg = match select(left_receiver.recv(), right_receiver.recv()).await {
                     Either::Left(msg) => Either::Left(msg.0.unwrap().as_ref().clone()),
@@ -723,7 +708,7 @@ where
             }
         });
 
-        let _send_loop_handle = async_spawn(async move {
+        let _send_loop_handle = spawn(async move {
             loop {
                 if let Ok(msg) = receiver_from_network.recv().await {
                     let mut state = send_state.write().await;
