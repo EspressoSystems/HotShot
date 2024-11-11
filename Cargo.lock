@@ -1739,9 +1739,9 @@ dependencies = [
 
 [[package]]
 name = "csv"
-version = "1.3.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac574ff4d437a7b5ad237ef331c17ccca63c46479e5b5453eb8e10bb99a759fe"
+checksum = "acdc4883a9c96732e4733212c01447ebd805833b7275a73ca3ee080fd77afdaf"
 dependencies = [
  "csv-core",
  "itoa",
@@ -2942,7 +2942,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "surf-disco",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
  "toml",
@@ -2965,7 +2965,7 @@ dependencies = [
  "hotshot-types",
  "serde",
  "tagged-base64",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "tide-disco",
  "toml",
  "vbs",
@@ -2995,7 +2995,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3040,7 +3040,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "surf-disco",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
  "toml",
@@ -3097,7 +3097,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surf-disco",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "tide-disco",
  "tokio",
  "toml",
@@ -3166,7 +3166,7 @@ dependencies = [
  "sha2 0.10.8",
  "surf-disco",
  "tagged-base64",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
  "tracing",
@@ -3210,7 +3210,7 @@ dependencies = [
  "sha2 0.10.8",
  "sha3",
  "tagged-base64",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "tide-disco",
  "tokio",
  "tracing",
@@ -3264,7 +3264,7 @@ dependencies = [
  "sha2 0.10.8",
  "surf-disco",
  "tagged-base64",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
  "toml",
@@ -4505,7 +4505,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "thiserror 2.0.0",
+ "thiserror 2.0.3",
  "tide",
  "tokio",
  "tokio-stream",
@@ -7457,11 +7457,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.0"
+version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15291287e9bff1bc6f9ff3409ed9af665bec7a5fc8ac079ea96be07bca0e2668"
+checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
 dependencies = [
- "thiserror-impl 2.0.0",
+ "thiserror-impl 2.0.3",
 ]
 
 [[package]]
@@ -7477,9 +7477,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.0"
+version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22efd00f33f93fa62848a7cab956c3d38c8d43095efda1decfc2b3a5dc0b8972"
+checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
 dependencies = [
  "proc-macro2",
  "quote",
