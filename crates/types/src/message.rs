@@ -17,6 +17,7 @@ use std::{
 
 use async_lock::RwLock;
 use cdn_proto::util::mnemonic;
+use committable::Committable;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use utils::anytrace::*;
@@ -26,7 +27,9 @@ use vbs::{
 };
 
 use crate::{
-    data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    data::{
+        DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal, VidDisperseShare,
+    },
     request_response::ProposalRequestPayload,
     simple_certificate::{
         DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
@@ -401,6 +404,32 @@ where
                 &self.signature,
                 proposed_leaf.commit(upgrade_lock).await.as_ref()
             ),
+            "Proposal signature is invalid."
+        );
+
+        Ok(())
+    }
+}
+
+impl<TYPES> Proposal<TYPES, QuorumProposal2<TYPES>>
+where
+    TYPES: NodeType,
+{
+    /// Checks that the signature of the quorum proposal is valid.
+    /// # Errors
+    /// Returns an error when the proposal signature is invalid.
+    pub async fn validate_signature<V: Versions>(
+        &self,
+        quorum_membership: &TYPES::Membership,
+        epoch: TYPES::Epoch,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
+    ) -> Result<()> {
+        let view_number = self.data.view_number();
+        let view_leader_key = quorum_membership.leader(view_number, epoch)?;
+        let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
+
+        ensure!(
+            view_leader_key.validate(&self.signature, proposed_leaf.commit().as_ref()),
             "Proposal signature is invalid."
         );
 

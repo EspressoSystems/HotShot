@@ -15,11 +15,11 @@ use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, QuorumProposal, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal2, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     request_response::ProposalRequestPayload,
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -48,7 +48,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
-) -> Result<(Leaf<TYPES>, View<TYPES>)> {
+) -> Result<(Leaf2<TYPES>, View<TYPES>)> {
     // We need to be able to sign this request before submitting it to the network. Compute the
     // payload first.
     let signed_proposal_request = ProposalRequestPayload {
@@ -131,7 +131,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
     let mut consensus_writer = consensus.write().await;
-    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+    let leaf = Leaf2::from_quorum_proposal(&proposal.data);
     let state = Arc::new(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
@@ -144,7 +144,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     }
     let view = View {
         view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(upgrade_lock).await,
+            leaf: leaf.commit(),
             state,
             delta: None,
         },
@@ -162,13 +162,13 @@ pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     pub new_decided_view_number: Option<TYPES::View>,
 
     /// The qc for the decided chain.
-    pub new_decide_qc: Option<QuorumCertificate<TYPES>>,
+    pub new_decide_qc: Option<QuorumCertificate2<TYPES>>,
 
     /// The decided leaves with corresponding validated state and VID info.
     pub leaf_views: Vec<LeafInfo<TYPES>>,
 
     /// The decided leaves.
-    pub leaves_decided: Vec<Leaf<TYPES>>,
+    pub leaves_decided: Vec<Leaf2<TYPES>>,
 
     /// The transactions in the block payload for each leaf.
     pub included_txns: Option<HashSet<Commitment<<TYPES as NodeType>::Transaction>>>,
@@ -223,7 +223,7 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
 pub async fn decide_from_proposal<TYPES: NodeType>(
-    proposal: &QuorumProposal<TYPES>,
+    proposal: &QuorumProposal2<TYPES>,
     consensus: OuterConsensus<TYPES>,
     existing_upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     public_key: &TYPES::SignatureKey,
@@ -355,7 +355,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     consensus: OuterConsensus<TYPES>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
     parent_view_number: TYPES::View,
-) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
+) -> Result<(Leaf2<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     let consensus_reader = consensus.read().await;
     let cur_epoch = consensus_reader.cur_epoch();
     ensure!(
@@ -425,18 +425,17 @@ pub async fn validate_proposal_safety_and_liveness<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
-    parent_leaf: Leaf<TYPES>,
+    proposal: Proposal<TYPES, QuorumProposal2<TYPES>>,
+    parent_leaf: Leaf2<TYPES>,
     validation_info: &ValidationInfo<TYPES, I, V>,
     event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     sender: TYPES::SignatureKey,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();
 
-    let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+    let proposed_leaf = Leaf2::from_quorum_proposal(&proposal.data);
     ensure!(
-        proposed_leaf.parent_commitment()
-            == parent_leaf.commit(&validation_info.upgrade_lock).await,
+        proposed_leaf.parent_commitment() == parent_leaf.commit(),
         "Proposed leaf does not extend the parent leaf."
     );
 
@@ -558,7 +557,7 @@ pub(crate) async fn validate_proposal_view_and_certs<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+    proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
     validation_info: &ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
     let view_number = proposal.data.view_number();

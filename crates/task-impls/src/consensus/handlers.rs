@@ -10,7 +10,7 @@ use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
     event::{Event, EventType},
-    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote2, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -35,7 +35,7 @@ pub(crate) async fn handle_quorum_vote_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    vote: &QuorumVote<TYPES>,
+    vote: &QuorumVote2<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,

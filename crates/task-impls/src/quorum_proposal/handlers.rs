@@ -12,10 +12,11 @@ use std::{marker::PhantomData, sync::Arc};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{InactiveReceiver, Sender};
 use async_lock::RwLock;
+use committable::Committable;
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
     traits::{
@@ -217,23 +218,22 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,
-            justify_qc: high_qc,
+            justify_qc: high_qc.to_qc(),
             upgrade_certificate,
             proposal_certificate,
-        };
+        }
+        .into();
 
-        let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
+        let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);
         ensure!(
-            proposed_leaf.parent_commitment() == parent_leaf.commit(&self.upgrade_lock).await,
+            proposed_leaf.parent_commitment() == parent_leaf.commit(),
             "Proposed leaf parent does not equal high qc"
         );
 
-        let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
-            proposed_leaf.commit(&self.upgrade_lock).await.as_ref(),
-        )
-        .wrap()
-        .context(error!("Failed to compute proposed_leaf.commit()"))?;
+        let signature =
+            TYPES::SignatureKey::sign(&self.private_key, proposed_leaf.commit().as_ref())
+                .wrap()
+                .context(error!("Failed to compute proposed_leaf.commit()"))?;
 
         let message = Proposal {
             data: proposal,

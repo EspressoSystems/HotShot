@@ -249,24 +249,45 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     }
 }
 
-/// Convert a QC into a QC2
-pub fn convert_quorum_certificate<TYPES: NodeType>(
-    quorum_certificate: QuorumCertificate<TYPES>,
-) -> QuorumCertificate2<TYPES> {
-    let bytes: [u8; 32] = quorum_certificate.data.leaf_commit.into();
-    let data = QuorumData2 {
-        leaf_commit: Commitment::from_raw(bytes),
-    };
+impl<TYPES: NodeType> QuorumCertificate<TYPES> {
+    /// Convert a `QuorumCertificate` into a `QuorumCertificate2`
+    pub fn to_qc2(self) -> QuorumCertificate2<TYPES> {
+        let bytes: [u8; 32] = self.data.leaf_commit.into();
+        let data = QuorumData2 {
+            leaf_commit: Commitment::from_raw(bytes),
+        };
 
-    let bytes: [u8; 32] = quorum_certificate.vote_commitment.into();
-    let vote_commitment = Commitment::from_raw(bytes);
+        let bytes: [u8; 32] = self.vote_commitment.into();
+        let vote_commitment = Commitment::from_raw(bytes);
 
-    SimpleCertificate {
-        data,
-        vote_commitment,
-        view_number: quorum_certificate.view_number,
-        signatures: quorum_certificate.signatures.clone(),
-        _pd: PhantomData,
+        SimpleCertificate {
+            data,
+            vote_commitment,
+            view_number: self.view_number,
+            signatures: self.signatures.clone(),
+            _pd: PhantomData,
+        }
+    }
+}
+
+impl<TYPES: NodeType> QuorumCertificate2<TYPES> {
+    /// Convert a `QuorumCertificate2` into a `QuorumCertificate`
+    pub fn to_qc(self) -> QuorumCertificate<TYPES> {
+        let bytes: [u8; 32] = self.data.leaf_commit.into();
+        let data = QuorumData {
+            leaf_commit: Commitment::from_raw(bytes),
+        };
+
+        let bytes: [u8; 32] = self.vote_commitment.into();
+        let vote_commitment = Commitment::from_raw(bytes);
+
+        SimpleCertificate {
+            data,
+            vote_commitment,
+            view_number: self.view_number,
+            signatures: self.signatures.clone(),
+            _pd: PhantomData,
+        }
     }
 }
 

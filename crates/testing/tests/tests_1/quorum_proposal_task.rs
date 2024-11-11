@@ -25,7 +25,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{null_block, EpochNumber, Leaf, ViewChangeEvidence, ViewNumber},
+    data::{null_block, EpochNumber, Leaf2, ViewChangeEvidence, ViewNumber},
     simple_vote::{TimeoutData, ViewSyncFinalizeData},
     traits::{
         election::Membership,
@@ -79,7 +79,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         // to make sure they show up during tests.
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
                 &handle.hotshot.upgrade_lock,
@@ -104,7 +104,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
             handle.public_key()
         )],
         random![
-            QcFormed(either::Left(genesis_cert.clone())),
+            Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
@@ -172,7 +172,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         // to make sure they show up during tests.
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
                 &handle.hotshot.upgrade_lock,
@@ -196,7 +196,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     let inputs = vec![
         random![
-            QcFormed(either::Left(genesis_cert.clone())),
+            Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -215,7 +215,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
-            QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -232,7 +232,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
-            QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -249,7 +249,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
-            QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -266,7 +266,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
-            QcFormed(either::Left(proposals[4].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[4].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -373,7 +373,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     };
 
     let inputs = vec![random![
-        QcFormed(either::Right(cert.clone())),
+        Qc2Formed(either::Right(cert.clone())),
         SendPayloadCommitmentAndMetadata(
             payload_commitment,
             builder_commitment,
@@ -527,7 +527,7 @@ async fn test_quorum_proposal_task_liveness_check() {
         // to make sure they show up during tests.
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
                 &handle.hotshot.upgrade_lock,
@@ -550,7 +550,7 @@ async fn test_quorum_proposal_task_liveness_check() {
 
     let inputs = vec![
         random![
-            QcFormed(either::Left(genesis_cert.clone())),
+            Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -569,7 +569,7 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
-            QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -586,7 +586,7 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
-            QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -603,7 +603,7 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
-            QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,
@@ -620,7 +620,7 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
-            QcFormed(either::Left(proposals[4].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[4].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
                     &quorum_membership,

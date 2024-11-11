@@ -9,6 +9,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
+use committable::Committable;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -16,7 +17,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, QuorumProposal},
+    data::{Leaf2, QuorumProposal2},
     event::Event,
     message::{Proposal, UpgradeLock},
     traits::{
@@ -107,8 +108,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                         }
                     };
                     let proposal_payload_comm = proposal.data.block_header.payload_commitment();
-                    let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
-                    let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
+                    let parent_commitment = parent_leaf.commit();
+                    let proposed_leaf = Leaf2::from_quorum_proposal(&proposal.data);
 
                     if version >= V::Epochs::VERSION
                         && self
@@ -134,7 +135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     }
                     // Update our persistent storage of the proposal. If we cannot store the proposal return
                     // and error so we don't vote
-                    if let Err(e) = self.storage.write().await.append_proposal(proposal).await {
+                    if let Err(e) = self.storage.write().await.append_proposal2(proposal).await {
                         tracing::error!("failed to store proposal, not voting.  error = {e:#}");
                         return;
                     }
@@ -599,15 +600,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     /// Handles voting for the last block in the epoch to form the Extended QC.
     async fn handle_eqc_voting(
         &self,
-        proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-        parent_leaf: &Leaf<TYPES>,
+        proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
+        parent_leaf: &Leaf2<TYPES>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         epoch_number: TYPES::Epoch,
     ) {
         tracing::info!("Reached end of epoch. Justify QC is for the last block in the epoch.");
-        let proposed_leaf = Leaf::from_quorum_proposal(&proposal.data);
-        let parent_commitment = parent_leaf.commit(&self.upgrade_lock).await;
+        let proposed_leaf = Leaf2::from_quorum_proposal(&proposal.data);
+        let parent_commitment = parent_leaf.commit();
         if proposed_leaf.height() != parent_leaf.height()
             || proposed_leaf.payload_commitment() != parent_leaf.payload_commitment()
         {
@@ -646,7 +647,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         }
         // Update our persistent storage of the proposal. If we cannot store the proposal return
         // and error so we don't vote
-        if let Err(e) = self.storage.write().await.append_proposal(proposal).await {
+        if let Err(e) = self.storage.write().await.append_proposal2(proposal).await {
             tracing::error!("failed to store proposal, not voting.  error = {e:#}");
             return;
         }

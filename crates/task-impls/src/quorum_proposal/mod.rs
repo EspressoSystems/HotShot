@@ -382,7 +382,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
-            HotShotEvent::QcFormed(cert) => match cert.clone() {
+            HotShotEvent::Qc2Formed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
                     let view_number = timeout_cert.view_number + 1;
                     let epoch_number = self.consensus.read().await.cur_epoch();
@@ -504,7 +504,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 self.storage
                     .write()
                     .await
-                    .update_high_qc(qc.clone())
+                    .update_high_qc2(qc.clone())
                     .await
                     .wrap()
                     .context(error!("Failed to update high QC in storage!"))?;

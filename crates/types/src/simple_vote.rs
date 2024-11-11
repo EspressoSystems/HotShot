@@ -346,6 +346,44 @@ impl<V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + H
 {
 }
 
+impl<TYPES: NodeType> QuorumVote<TYPES> {
+    /// Convert a `QuorumVote` to a `QuorumVote2`
+    pub fn to_vote2(self) -> QuorumVote2<TYPES> {
+        let bytes: [u8; 32] = self.data.leaf_commit.into();
+
+        let signature = self.signature;
+        let data = QuorumData2 {
+            leaf_commit: Commitment::from_raw(bytes),
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> QuorumVote2<TYPES> {
+    /// Convert a `QuorumVote2` to a `QuorumVote`
+    pub fn to_vote(self) -> QuorumVote<TYPES> {
+        let bytes: [u8; 32] = self.data.leaf_commit.into();
+
+        let signature = self.signature;
+        let data = QuorumData {
+            leaf_commit: Commitment::from_raw(bytes),
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 /// Quorum vote Alias
 pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;

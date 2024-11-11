@@ -14,18 +14,18 @@ use std::{
 };
 
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
-use committable::Commitment;
+use committable::{Commitment, Committable};
 use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     error::HotShotError,
     event::HotShotAction,
     message::{Proposal, UpgradeLock},
-    simple_certificate::{DaCertificate, QuorumCertificate},
+    simple_certificate::{DaCertificate, QuorumCertificate2},
     traits::{
         block_contents::{BlockHeader, BuilderFee},
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -289,7 +289,7 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
-    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
+    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
 
     /// last view had a successful decide event
     last_decided_view: TYPES::View,
@@ -300,7 +300,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    saved_leaves: CommitmentMap<Leaf<TYPES>>,
+    saved_leaves: CommitmentMap<Leaf2<TYPES>>,
 
     /// Bundle of views which we performed the most recent action
     /// visibible to the network.  Actions are votes and proposals
@@ -313,7 +313,7 @@ pub struct Consensus<TYPES: NodeType> {
     saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
 
     /// the highqc per spec
-    high_qc: QuorumCertificate<TYPES>,
+    high_qc: QuorumCertificate2<TYPES>,
 
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
@@ -403,10 +403,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         locked_view: TYPES::View,
         last_decided_view: TYPES::View,
         last_actioned_view: TYPES::View,
-        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
-        saved_leaves: CommitmentMap<Leaf<TYPES>>,
+        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+        saved_leaves: CommitmentMap<Leaf2<TYPES>>,
         saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
-        high_qc: QuorumCertificate<TYPES>,
+        high_qc: QuorumCertificate2<TYPES>,
         metrics: Arc<ConsensusMetricsValue>,
         epoch_height: u64,
     ) -> Self {
@@ -449,7 +449,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the high QC.
-    pub fn high_qc(&self) -> &QuorumCertificate<TYPES> {
+    pub fn high_qc(&self) -> &QuorumCertificate2<TYPES> {
         &self.high_qc
     }
 
@@ -459,7 +459,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the saved leaves.
-    pub fn saved_leaves(&self) -> &CommitmentMap<Leaf<TYPES>> {
+    pub fn saved_leaves(&self) -> &CommitmentMap<Leaf2<TYPES>> {
         &self.saved_leaves
     }
 
@@ -479,7 +479,9 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the map of our recent proposals
-    pub fn last_proposals(&self) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>> {
+    pub fn last_proposals(
+        &self,
+    ) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>> {
         &self.last_proposals
     }
 
@@ -545,7 +547,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
     pub fn update_proposed_view(
         &mut self,
-        proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
+        proposal: Proposal<TYPES, QuorumProposal2<TYPES>>,
     ) -> Result<()> {
         ensure!(
             proposal.data.view_number()
@@ -609,7 +611,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// with the same view number.
     pub async fn update_leaf<V: Versions>(
         &mut self,
-        leaf: Leaf<TYPES>,
+        leaf: Leaf2<TYPES>,
         state: Arc<TYPES::ValidatedState>,
         delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
         upgrade_lock: &UpgradeLock<TYPES, V>,
@@ -617,7 +619,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         let view_number = leaf.view_number();
         let view = View {
             view_inner: ViewInner::Leaf {
-                leaf: leaf.commit(upgrade_lock).await,
+                leaf: leaf.commit(),
                 state,
                 delta,
             },
@@ -664,11 +666,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Update the saved leaves with a new leaf.
     async fn update_saved_leaves<V: Versions>(
         &mut self,
-        leaf: Leaf<TYPES>,
-        upgrade_lock: &UpgradeLock<TYPES, V>,
+        leaf: Leaf2<TYPES>,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
     ) {
-        self.saved_leaves
-            .insert(leaf.commit(upgrade_lock).await, leaf);
+        self.saved_leaves.insert(leaf.commit(), leaf);
     }
 
     /// Update the saved payloads with a new encoded transaction.
@@ -691,7 +692,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Update the high QC if given a newer one.
     /// # Errors
     /// Can return an error when the provided high_qc is not newer than the existing entry.
-    pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
+    pub fn update_high_qc(&mut self, high_qc: QuorumCertificate2<TYPES>) -> Result<()> {
         ensure!(
             high_qc.view_number > self.high_qc.view_number || high_qc == self.high_qc,
             debug!("High QC with an equal or higher view exists.")
@@ -731,7 +732,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) -> std::result::Result<(), HotShotError<TYPES>>
     where
         F: FnMut(
-            &Leaf<TYPES>,
+            &Leaf2<TYPES>,
             Arc<<TYPES as NodeType>::ValidatedState>,
             Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
         ) -> bool,
@@ -817,7 +818,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// if the last decided view's leaf does not exist in the state map or saved leaves, which
     /// should never happen.
     #[must_use]
-    pub fn decided_leaf(&self) -> Leaf<TYPES> {
+    pub fn decided_leaf(&self) -> Leaf2<TYPES> {
         let decided_view_num = self.last_decided_view;
         let view = self.validated_state_map.get(&decided_view_num).unwrap();
         let leaf = view
@@ -889,7 +890,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Returns true if the given qc is for the last block in the epoch
-    pub fn is_qc_for_last_block(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+    pub fn is_qc_for_last_block(&self, cert: &QuorumCertificate2<TYPES>) -> bool {
         let Some(leaf) = self.saved_leaves.get(&cert.data().leaf_commit) else {
             return false;
         };
@@ -916,7 +917,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Returns true if the given qc is an extended Quorum Certificate
     /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
     /// consecutive views for the last block in the epoch.
-    pub fn is_qc_extended(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+    pub fn is_qc_extended(&self, cert: &QuorumCertificate2<TYPES>) -> bool {
         if !self.is_qc_for_last_block(cert) {
             tracing::debug!("High QC is not for the last block in the epoch.");
             return false;
@@ -968,7 +969,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 
     /// Return true if the given Quorum Certificate takes part in forming an eQC, i.e.
     /// it is one of the 3-chain certificates but not the eQC itself
-    pub fn is_qc_forming_eqc(&self, cert: &QuorumCertificate<TYPES>) -> bool {
+    pub fn is_qc_forming_eqc(&self, cert: &QuorumCertificate2<TYPES>) -> bool {
         self.is_qc_for_last_block(cert) && !self.is_qc_extended(cert)
     }
 

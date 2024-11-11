@@ -13,7 +13,7 @@ use committable::Commitment;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{data::Leaf, traits::node_implementation::NodeType};
+use crate::{data::Leaf2, traits::node_implementation::NodeType};
 
 /// Error type for `HotShot`
 #[derive(Debug, Error)]
@@ -25,7 +25,7 @@ pub enum HotShotError<TYPES: NodeType> {
 
     /// Leaf was not present in storage
     #[error("Missing leaf with commitment: {0}")]
-    MissingLeaf(Commitment<Leaf<TYPES>>),
+    MissingLeaf(Commitment<Leaf2<TYPES>>),
 
     /// Failed to serialize data
     #[error("Failed to serialize: {0}")]

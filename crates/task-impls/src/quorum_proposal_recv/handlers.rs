@@ -13,7 +13,7 @@ use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, QuorumProposal},
+    data::{Leaf2, QuorumProposal, QuorumProposal2},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
@@ -43,12 +43,12 @@ use crate::{
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+    proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
     validation_info: &ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
     let mut consensus_writer = validation_info.consensus.write().await;
 
-    let leaf = Leaf::from_quorum_proposal(&proposal.data);
+    let leaf = Leaf2::from_quorum_proposal(&proposal.data);
 
     let state = Arc::new(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
@@ -65,7 +65,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         .storage
         .write()
         .await
-        .update_undecided_state(
+        .update_undecided_state2(
             consensus_writer.saved_leaves().clone(),
             consensus_writer.validated_state_map().clone(),
         )
@@ -129,7 +129,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
+    proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
     quorum_proposal_sender_key: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
@@ -207,7 +207,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             .storage
             .write()
             .await
-            .update_high_qc(justify_qc.clone())
+            .update_high_qc2(justify_qc.clone())
             .await
         {
             bail!("Failed to store High QC, not voting; error = {:?}", e);

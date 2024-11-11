@@ -63,14 +63,10 @@ fn version_number_at_start_of_serialization() {
 async fn test_certificate2_validity() {
     use futures::StreamExt;
     use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
-    use hotshot_testing::{
-        helpers::{build_payload_commitment, build_system_handle},
-        view_generator::TestViewGenerator,
-    };
+    use hotshot_testing::{helpers::build_system_handle, view_generator::TestViewGenerator};
     use hotshot_types::{
-        data::{EpochNumber, Leaf, Leaf2, ViewNumber},
-        simple_certificate::convert_quorum_certificate,
-        traits::{election::Membership, node_implementation::ConsensusTime},
+        data::{EpochNumber, Leaf, Leaf2},
+        traits::node_implementation::ConsensusTime,
         vote::Certificate,
     };
 
@@ -83,12 +79,6 @@ async fn test_certificate2_validity() {
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
     let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let payload_commitment = build_payload_commitment::<TestTypes>(
-        &quorum_membership,
-        ViewNumber::new(node_id),
-        EpochNumber::new(1),
-    );
-
     let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
 
     let mut proposals = Vec::new();
@@ -96,8 +86,7 @@ async fn test_certificate2_validity() {
     let mut leaves = Vec::new();
     let mut vids = Vec::new();
     let mut vid_dispersals = Vec::new();
-    let consensus = handle.hotshot.consensus();
-    let mut consensus_writer = consensus.write().await;
+
     for view in (&mut generator).take(4).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         leaders.push(view.leader_public_key);
@@ -110,8 +99,8 @@ async fn test_certificate2_validity() {
     let parent_proposal = proposals[2].clone();
 
     // ensure that we don't break certificate validation
-    let qc = proposal.data.justify_qc.clone();
-    let qc2 = convert_quorum_certificate(qc);
+    let qc2 = proposal.data.justify_qc.clone();
+    let qc = qc2.clone().to_qc();
 
     assert!(
         qc.is_valid_cert(
@@ -132,11 +121,11 @@ async fn test_certificate2_validity() {
     );
 
     // ensure that we don't break the leaf commitment chain
-    let leaf = Leaf::from_quorum_proposal(&proposal.data);
-    let parent_leaf = Leaf::from_quorum_proposal(&parent_proposal.data);
+    let leaf2 = Leaf2::from_quorum_proposal(&proposal.data);
+    let parent_leaf2 = Leaf2::from_quorum_proposal(&parent_proposal.data);
 
-    let leaf2 = Leaf2::from_quorum_proposal(&proposal.data.into());
-    let parent_leaf2 = Leaf2::from_quorum_proposal(&parent_proposal.data.into());
+    let leaf = Leaf::from_quorum_proposal(&proposal.data.into());
+    let parent_leaf = Leaf::from_quorum_proposal(&parent_proposal.data.into());
 
     assert!(leaf.parent_commitment() == parent_leaf.commit(&handle.hotshot.upgrade_lock).await);
 

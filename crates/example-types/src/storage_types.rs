@@ -17,7 +17,7 @@ use hotshot_types::{
     data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         node_implementation::{ConsensusTime, NodeType},
         storage::Storage,
@@ -41,6 +41,7 @@ pub struct TestStorageState<TYPES: NodeType> {
     proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
     proposals2: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
     high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
+    high_qc2: Option<hotshot_types::simple_certificate::QuorumCertificate2<TYPES>>,
     action: TYPES::View,
 }
 
@@ -52,6 +53,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
             proposals: BTreeMap::new(),
             proposals2: BTreeMap::new(),
             high_qc: None,
+            high_qc2: None,
             action: TYPES::View::genesis(),
         }
     }
@@ -90,11 +92,11 @@ impl<TYPES: NodeType> TestableDelay for TestStorage<TYPES> {
 impl<TYPES: NodeType> TestStorage<TYPES> {
     pub async fn proposals_cloned(
         &self,
-    ) -> BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>> {
-        self.inner.read().await.proposals.clone()
+    ) -> BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>> {
+        self.inner.read().await.proposals2.clone()
     }
-    pub async fn high_qc_cloned(&self) -> Option<QuorumCertificate<TYPES>> {
-        self.inner.read().await.high_qc.clone()
+    pub async fn high_qc_cloned(&self) -> Option<QuorumCertificate2<TYPES>> {
+        self.inner.read().await.high_qc2.clone()
     }
     pub async fn decided_upgrade_certificate(&self) -> Option<UpgradeCertificate<TYPES>> {
         self.decided_upgrade_certificate.read().await.clone()
@@ -195,6 +197,25 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
             }
         } else {
             inner.high_qc = Some(new_high_qc);
+        }
+        Ok(())
+    }
+
+    async fn update_high_qc2(
+        &self,
+        new_high_qc: hotshot_types::simple_certificate::QuorumCertificate2<TYPES>,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to update high qc to storage");
+        }
+        Self::run_delay_settings_from_config(&self.delay_config).await;
+        let mut inner = self.inner.write().await;
+        if let Some(ref current_high_qc) = inner.high_qc2 {
+            if new_high_qc.view_number() > current_high_qc.view_number() {
+                inner.high_qc2 = Some(new_high_qc);
+            }
+        } else {
+            inner.high_qc2 = Some(new_high_qc);
         }
         Ok(())
     }
