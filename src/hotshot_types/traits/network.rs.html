@@ -605,8 +605,6 @@
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -617,13 +615,7 @@
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
 
-</span><span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>dyn_clone::DynClone;
-<span class="kw">use </span>futures::Future;
-<span class="kw">use </span>thiserror::Error;
-<span class="kw">use </span>tokio::{sync::mpsc::error::TrySendError, time::sleep};
-
-<span class="kw">use </span>std::{
+</span><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
@@ -633,12 +625,16 @@
 };
 
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>futures::future::join_all;
+<span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>dyn_clone::DynClone;
+<span class="kw">use </span>futures::{future::join_all, Future};
 <span class="kw">use </span>rand::{
     distributions::{Bernoulli, Uniform},
     prelude::Distribution,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>tokio::{sync::mpsc::error::TrySendError, time::sleep};
 
 <span class="kw">use super</span>::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use crate</span>::{

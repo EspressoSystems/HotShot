@@ -207,10 +207,10 @@
 
 <span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
-<span class="kw">use </span>libp2p::dns::tokio::Transport <span class="kw">as </span>DnsTransport;
 <span class="kw">use </span>libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
+    dns::tokio::Transport <span class="kw">as </span>DnsTransport,
     gossipsub::Event <span class="kw">as </span>GossipEvent,
     identify::Event <span class="kw">as </span>IdentifyEvent,
     identity::Keypair,

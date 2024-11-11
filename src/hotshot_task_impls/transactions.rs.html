@@ -808,6 +808,22 @@
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
 <a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1516,6 +1532,13 @@
             <span class="macro">bail!</span>(<span class="string">"No available blocks"</span>);
         }
 
+        <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(view_number).<span class="kw">await </span>{
+            <span class="prelude-val">Ok</span>(v) =&gt; v,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">bail!</span>(<span class="string">"Upgrade certificate requires unsupported version, refusing to request blocks: {}"</span>, err);
+            }
+        };
+
         <span class="kw">for </span>(block_info, builder_idx) <span class="kw">in </span>available_blocks {
             <span class="comment">// Verify signature over chosen block.
             </span><span class="kw">if </span>!block_info.sender.validate_block_info_signature(
@@ -1542,9 +1565,18 @@
             <span class="kw">let </span>response = {
                 <span class="kw">let </span>client = <span class="kw-2">&amp;</span><span class="self">self</span>.builder_clients[builder_idx];
 
-                <span class="kw">let </span>(block, header_input) = <span class="macro">futures::join!</span> {
-                    client.claim_block(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature),
-                    client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
+                <span class="comment">// If epochs are supported, provide the latest `num_nodes` information to the
+                // builder for VID computation.
+                </span><span class="kw">let </span>(block, header_input) = <span class="kw">if </span>version &gt;= V::Epochs::VERSION {
+                    <span class="macro">futures::join!</span> {
+                        client.claim_block_with_num_nodes(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature, <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch)) ,
+                        client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
+                    }
+                } <span class="kw">else </span>{
+                    <span class="macro">futures::join!</span> {
+                        client.claim_block(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature),
+                        client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), <span class="self">self</span>.public_key.clone(), <span class="kw-2">&amp;</span>request_signature)
+                    }
                 };
 
                 <span class="kw">let </span>block_data = <span class="kw">match </span>block {

@@ -235,15 +235,17 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::collections::HashMap;
+</span><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::Receiver;
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>futures::Stream;
 <span class="kw">use </span>hotshot::{traits::BlockPayload, types::Event};
@@ -405,7 +407,7 @@
 <span class="doccomment">/// Helper function to construct all builder data structures from a list of transactions
 </span><span class="kw">async fn </span>build_block&lt;TYPES: NodeType&gt;(
     transactions: Vec&lt;TYPES::Transaction&gt;,
-    num_storage_nodes: usize,
+    num_storage_nodes: Arc&lt;RwLock&lt;usize&gt;&gt;,
     pub_key: TYPES::BuilderSignatureKey,
     priv_key: &lt;TYPES::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
 ) -&gt; BlockEntry&lt;TYPES&gt;
@@ -423,7 +425,7 @@
     <span class="kw">let </span>commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
 
     <span class="kw">let </span>(vid_commitment, precompute_data) =
-        precompute_vid_commitment(<span class="kw-2">&amp;</span>block_payload.encode(), num_storage_nodes);
+        precompute_vid_commitment(<span class="kw-2">&amp;</span>block_payload.encode(), <span class="kw-2">*</span>num_storage_nodes.read_arc().<span class="kw">await</span>);
 
     <span class="comment">// Get block size from the encoded payload
     </span><span class="kw">let </span>block_size = block_payload.encode().len() <span class="kw">as </span>u64;

@@ -338,6 +338,11 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -386,7 +391,7 @@
 
 <span class="kw">impl </span>RandomBuilderImplementation {
     <span class="kw">pub async fn </span>create&lt;TYPES: NodeType&lt;Transaction = TestTransaction&gt;&gt;(
-        num_storage_nodes: usize,
+        num_nodes: usize,
         config: RandomBuilderConfig,
         changes: HashMap&lt;u64, BuilderChange&gt;,
         change_sender: Sender&lt;BuilderChange&gt;,
@@ -397,15 +402,17 @@
         <span class="kw">let </span>(pub_key, priv_key) =
             TYPES::BuilderSignatureKey::generated_from_seed_indexed([<span class="number">1</span>; <span class="number">32</span>], <span class="number">0</span>);
         <span class="kw">let </span>blocks = Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(<span class="number">256</span>).unwrap())));
+        <span class="kw">let </span>num_nodes = Arc::new(RwLock::new(num_nodes));
         <span class="kw">let </span>source = RandomBuilderSource {
             blocks: Arc::clone(<span class="kw-2">&amp;</span>blocks),
             pub_key: pub_key.clone(),
+            num_nodes: num_nodes.clone(),
             should_fail_claims: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
         };
         <span class="kw">let </span>task = RandomBuilderTask {
             blocks,
             config,
-            num_storage_nodes,
+            num_nodes: num_nodes.clone(),
             changes,
             change_sender,
             pub_key,
@@ -424,21 +431,21 @@
     <span class="kw">type </span>Config = RandomBuilderConfig;
 
     <span class="kw">async fn </span>start(
-        num_storage_nodes: usize,
+        num_nodes: usize,
         url: Url,
         config: RandomBuilderConfig,
         changes: HashMap&lt;u64, BuilderChange&gt;,
     ) -&gt; Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>(change_sender, change_receiver) = broadcast(<span class="number">128</span>);
 
-        <span class="kw">let </span>(task, source) = <span class="self">Self</span>::create(num_storage_nodes, config, changes, change_sender).<span class="kw">await</span>;
+        <span class="kw">let </span>(task, source) = <span class="self">Self</span>::create(num_nodes, config, changes, change_sender).<span class="kw">await</span>;
         run_builder_source_0_1(url, change_receiver, source);
         Box::new(task)
     }
 }
 
 <span class="kw">pub struct </span>RandomBuilderTask&lt;TYPES: NodeType&lt;Transaction = TestTransaction&gt;&gt; {
-    num_storage_nodes: usize,
+    num_nodes: Arc&lt;RwLock&lt;usize&gt;&gt;,
     config: RandomBuilderConfig,
     changes: HashMap&lt;u64, BuilderChange&gt;,
     change_sender: Sender&lt;BuilderChange&gt;,
@@ -450,7 +457,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&lt;Transaction = TestTransaction&gt;&gt; RandomBuilderTask&lt;TYPES&gt; {
     <span class="kw">async fn </span>build_blocks(
         options: RandomBuilderConfig,
-        num_storage_nodes: usize,
+        num_nodes: Arc&lt;RwLock&lt;usize&gt;&gt;,
         pub_key: &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey,
         priv_key: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey <span class="kw">as </span>BuilderSignatureKey&gt;::BuilderPrivateKey,
         blocks: Arc&lt;RwLock&lt;LruCache&lt;BuilderCommitment, BlockEntry&lt;TYPES&gt;&gt;&gt;&gt;,
@@ -476,7 +483,7 @@
 
             <span class="kw">let </span>block = build_block(
                 transactions,
-                num_storage_nodes,
+                num_nodes.clone(),
                 pub_key.clone(),
                 priv_key.clone(),
             )
@@ -511,7 +518,7 @@
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks(
             <span class="self">self</span>.config.clone(),
-            <span class="self">self</span>.num_storage_nodes,
+            <span class="self">self</span>.num_nodes.clone(),
             <span class="self">self</span>.pub_key.clone(),
             <span class="self">self</span>.priv_key.clone(),
             <span class="self">self</span>.blocks.clone(),
@@ -531,7 +538,7 @@
                                         <span class="kw">if </span>task.is_none() {
                                             task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks(
                                                 <span class="self">self</span>.config.clone(),
-                                                <span class="self">self</span>.num_storage_nodes,
+                                                <span class="self">self</span>.num_nodes.clone(),
                                                 <span class="self">self</span>.pub_key.clone(),
                                                 <span class="self">self</span>.priv_key.clone(),
                                                 <span class="self">self</span>.blocks.clone(),
@@ -569,6 +576,7 @@
         &gt;,
     &gt;,
     pub_key: TYPES::BuilderSignatureKey,
+    num_nodes: Arc&lt;RwLock&lt;usize&gt;&gt;,
     should_fail_claims: Arc&lt;AtomicBool&gt;,
 }
 
@@ -580,10 +588,11 @@
     <span class="doccomment">/// Create new [`RandomBuilderSource`]
     </span><span class="attr">#[must_use]
     #[allow(clippy::missing_panics_doc)] </span><span class="comment">// ony panics if 256 == 0
-    </span><span class="kw">pub fn </span>new(pub_key: TYPES::BuilderSignatureKey) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(pub_key: TYPES::BuilderSignatureKey, num_nodes: Arc&lt;RwLock&lt;usize&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             blocks: Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(<span class="number">256</span>).unwrap()))),
             pub_key,
+            num_nodes,
             should_fail_claims: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
         }
     }
@@ -647,8 +656,9 @@
         view_number: u64,
         sender: TYPES::SignatureKey,
         signature: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType,
-        _num_nodes: usize,
+        num_nodes: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableBlockData&lt;TYPES&gt;, BuildError&gt; {
+        <span class="kw-2">*</span><span class="self">self</span>.num_nodes.write().<span class="kw">await </span>= num_nodes;
         <span class="self">self</span>.claim_block(block_hash, view_number, sender, signature)
             .<span class="kw">await
     </span>}

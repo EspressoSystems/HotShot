@@ -224,9 +224,9 @@
         node_implementation::{NodeType, Versions},
     },
 };
-<span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tokio::{
     spawn,
+    task::JoinHandle,
     time::{sleep, timeout},
 };
 <span class="kw">use </span>tracing::error;
