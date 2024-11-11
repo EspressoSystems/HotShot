@@ -546,6 +546,40 @@ pub struct Leaf2<TYPES: NodeType> {
     block_payload: Option<TYPES::BlockPayload>,
 }
 
+impl<TYPES: NodeType> Leaf2<TYPES> {
+    /// Time when this leaf was created.
+    pub fn view_number(&self) -> TYPES::View {
+        self.view_number
+    }
+    /// Height of this leaf in the chain.
+    ///
+    /// Equivalently, this is the number of leaves before this one in the chain.
+    pub fn height(&self) -> u64 {
+        self.block_header.block_number()
+    }
+    /// The QC linking this leaf to its parent in the chain.
+    pub fn justify_qc(&self) -> QuorumCertificate2<TYPES> {
+        self.justify_qc.clone()
+    }
+    /// The QC linking this leaf to its parent in the chain.
+    pub fn upgrade_certificate(&self) -> Option<UpgradeCertificate<TYPES>> {
+        self.upgrade_certificate.clone()
+    }
+    /// Commitment to this leaf's parent.
+    pub fn parent_commitment(&self) -> Commitment<Self> {
+        self.parent_commitment
+    }
+    /// The block header contained in this leaf.
+    pub fn block_header(&self) -> &<TYPES as NodeType>::BlockHeader {
+        &self.block_header
+    }
+
+    /// Get a mutable reference to the block header contained in this leaf.
+    pub fn block_header_mut(&mut self) -> &mut <TYPES as NodeType>::BlockHeader {
+        &mut self.block_header
+    }
+}
+
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
         RawCommitmentBuilder::new("leaf commitment")
