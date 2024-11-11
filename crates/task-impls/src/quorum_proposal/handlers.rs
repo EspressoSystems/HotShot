@@ -7,12 +7,22 @@
 //! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+    marker::PhantomData,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
 use anyhow::{ensure, Context, Result};
-use async_broadcast::{InactiveReceiver, Sender};
+use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
 use hotshot_task::dependency_task::HandleDepOutput;
+use hotshot_types::simple_certificate::QuorumCertificate;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
@@ -26,12 +36,6 @@ use hotshot_types::{
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -97,9 +101,62 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
 
     /// The node's id
     pub id: u64,
+
+    /// The time this view started
+    pub view_start_time: Instant,
 }
 
 impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
+    /// Return the next HighQC we get from the event stream
+    async fn wait_for_qc_event(
+        &self,
+        rx: &mut Receiver<Arc<HotShotEvent<TYPES>>>,
+    ) -> Option<QuorumCertificate<TYPES>> {
+        while let Ok(event) = rx.recv_direct().await {
+            if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
+                return Some(qc.clone());
+            }
+        }
+        None
+    }
+    /// Waits for the ocnfigured timeout for nodes to send HighQC messages to us.  We'll
+    /// then propose with the higest QC from among these proposals.
+    async fn wait_for_highest_qc(&mut self) -> QuorumCertificate<TYPES> {
+        let mut highest_qc = self.consensus.read().await.high_qc().clone();
+        // If we haven't upgraded to Hotstuff 2 just return the high qc right away
+        if self
+            .upgrade_lock
+            .version(self.view_number)
+            .await
+            .is_ok_and(|version| version < V::Epochs::VERSION)
+        {
+            return highest_qc;
+        }
+        let mut rx = self.receiver.activate_cloned();
+
+        // TODO configure timeout
+        while self.view_start_time.elapsed() < Duration::from_secs(1) {
+            let Some(time_spent) = self.view_start_time.checked_duration_since(Instant::now())
+            else {
+                return highest_qc;
+            };
+            let Some(time_left) = Duration::from_secs(1).checked_sub(time_spent) else {
+                return highest_qc;
+            };
+            let Ok(maybe_qc) =
+                tokio::time::timeout(time_left, self.wait_for_qc_event(&mut rx)).await
+            else {
+                return highest_qc;
+            };
+            let Some(qc) = maybe_qc else {
+                continue;
+            };
+            if qc.view_number() > highest_qc.view_number() {
+                highest_qc = qc;
+            }
+        }
+        highest_qc
+    }
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
@@ -111,7 +168,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
         formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
         decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
-        parent_view_number: TYPES::View,
+        parent_qc: QuorumCertificate<TYPES>,
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
             self.view_number,
@@ -122,7 +179,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             self.private_key.clone(),
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             &self.upgrade_lock,
-            parent_view_number,
+            parent_qc.view_number(),
         )
         .await?;
 
@@ -165,8 +222,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         );
 
         let version = self.upgrade_lock.version(self.view_number).await?;
-
-        let high_qc = self.consensus.read().await.high_qc().clone();
 
         let builder_commitment = commitment_and_metadata.builder_commitment.clone();
         let metadata = commitment_and_metadata.metadata.clone();
@@ -217,7 +272,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,
-            justify_qc: high_qc,
+            justify_qc: parent_qc,
             upgrade_certificate,
             proposal_certificate,
         };
@@ -262,12 +317,12 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
     type Output = Vec<Vec<Vec<Arc<HotShotEvent<TYPES>>>>>;
 
     #[allow(clippy::no_effect_underscore_binding, clippy::too_many_lines)]
-    async fn handle_dep_result(self, res: Self::Output) {
+    async fn handle_dep_result(mut self, res: Self::Output) {
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         let mut vid_share = None;
-        let mut parent_view_number = None;
+        let mut parent_qc = None;
         for event in res.iter().flatten().flatten() {
             match event.as_ref() {
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -293,7 +348,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                     }
                     either::Left(qc) => {
                         // Handled by the UpdateHighQc event.
-                        parent_view_number = Some(qc.view_number());
+                        parent_qc = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
@@ -306,8 +361,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             }
         }
 
-        let parent_view_number =
-            parent_view_number.unwrap_or(self.consensus.read().await.high_qc().view_number());
+        let parent_qc = parent_qc.unwrap_or(self.wait_for_highest_qc().await);
 
         if commit_and_metadata.is_none() {
             tracing::error!(
@@ -334,7 +388,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                 proposal_cert,
                 self.formed_upgrade_certificate.clone(),
                 Arc::clone(&self.upgrade_lock.decided_upgrade_certificate),
-                parent_view_number,
+                parent_qc,
             )
             .await
         {

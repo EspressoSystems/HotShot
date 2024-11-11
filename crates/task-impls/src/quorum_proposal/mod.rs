@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -328,6 +328,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
+                view_start_time: Instant::now(),
             },
         );
         self.proposal_dependencies
