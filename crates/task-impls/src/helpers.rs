@@ -33,6 +33,7 @@ use hotshot_types::{
 use tokio::{task::JoinHandle, time::timeout};
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use crate::{events::HotShotEvent, quorum_proposal_recv::ValidationInfo, request::REQUEST_TIMEOUT};
 
@@ -340,6 +341,33 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
     }
 
     res
+}
+
+/// Send an event to the next leader containing the highest QC we have
+/// This is a necessary part of HotStuff 2 but not the original HotStuff
+///
+/// #Errors
+/// Returns and error if we can't get the version or the version doesn't
+/// yet support HS 2
+pub async fn send_high_qc<TYPES: NodeType, V: Versions>(
+    event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+    leader: TYPES::SignatureKey,
+    view: TYPES::View,
+    consensus: OuterConsensus<TYPES>,
+    upgrade_lock: &UpgradeLock<TYPES, V>,
+) -> Result<()> {
+    let version = upgrade_lock.version(view).await?;
+    ensure!(
+        version >= V::Epochs::VERSION,
+        debug!("HotStuff 2 updgrade not yet in effect")
+    );
+    let high_qc = consensus.read().await.high_qc().clone();
+    broadcast_event(
+        Arc::new(HotShotEvent::HighQcSend(high_qc, leader)),
+        event_sender,
+    )
+    .await;
+    Ok(())
 }
 
 /// Gets the parent leaf and state from the parent of a proposal, returning an [`utils::anytrace::Error`] if not.
