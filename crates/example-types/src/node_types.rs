@@ -4,9 +4,14 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use std::marker::PhantomData;
+
+pub use hotshot::traits::election::helpers::{
+    RandomOverlapQuorumFilterConfig, StableQuorumFilterConfig,
+};
 use hotshot::traits::{
     election::{
-        randomized_committee::RandomizedCommittee,
+        helpers::QuorumFilterConfig, randomized_committee::RandomizedCommittee,
         randomized_committee_members::RandomizedCommitteeMembers,
         static_committee::StaticCommittee,
         static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews,
@@ -104,10 +109,11 @@ impl NodeType for TestTypesRandomizedLeader {
 )]
 /// filler struct to implement node type and allow us
 /// to select our traits
-pub struct TestTypesRandomizedCommitteeMembers<const SEED: u64, const OVERLAP: u64>;
-impl<const SEED: u64, const OVERLAP: u64> NodeType
-    for TestTypesRandomizedCommitteeMembers<SEED, OVERLAP>
-{
+pub struct TestTypesRandomizedCommitteeMembers<CONFIG: QuorumFilterConfig> {
+    _pd: PhantomData<CONFIG>,
+}
+
+impl<CONFIG: QuorumFilterConfig> NodeType for TestTypesRandomizedCommitteeMembers<CONFIG> {
     type AuctionResult = TestAuctionResult;
     type View = ViewNumber;
     type Epoch = EpochNumber;
@@ -117,11 +123,8 @@ impl<const SEED: u64, const OVERLAP: u64> NodeType
     type Transaction = TestTransaction;
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
-    type Membership = RandomizedCommitteeMembers<
-        TestTypesRandomizedCommitteeMembers<SEED, OVERLAP>,
-        SEED,
-        OVERLAP,
-    >;
+    type Membership =
+        RandomizedCommitteeMembers<TestTypesRandomizedCommitteeMembers<CONFIG>, CONFIG>;
     type BuilderSignatureKey = BuilderKey;
 }
 
@@ -261,7 +264,7 @@ impl Versions for EpochsTestVersions {
         0, 0,
     ];
 
-    type Marketplace = StaticVersion<0, 3>;
+    type Marketplace = StaticVersion<0, 99>;
 
     type Epochs = StaticVersion<0, 4>;
 }

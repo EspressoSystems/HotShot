@@ -12,7 +12,7 @@ use std::{
 use hotshot_builder_api::v0_1::block_info::AvailableBlockData;
 use hotshot_example_types::{
     block_types::{TestBlockPayload, TestMetadata, TestTransaction},
-    node_types::{TestTypes, TestVersions},
+    node_types::TestTypes,
 };
 use hotshot_task_impls::builder::{BuilderClient, BuilderClientError};
 use hotshot_testing::block_builder::{

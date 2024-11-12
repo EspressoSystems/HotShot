@@ -512,7 +512,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         &self.upgrade_lock
                     )
                     .await,
-                    warn!("Qurom certificate {:?} was invalid", qc.data())
+                    warn!("Quorum certificate {:?} was invalid", qc.data())
                 );
                 self.highest_qc = qc.clone();
             }
