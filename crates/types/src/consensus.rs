@@ -1010,7 +1010,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 
     /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`
     pub fn check_eqc(&self, proposed_leaf: &Leaf<TYPES>, parent_leaf: &Leaf<TYPES>) -> bool {
-        if parent_leaf.height() == 0 {
+        if parent_leaf.view_number() == TYPES::View::genesis() {
             return true;
         }
         let new_epoch = epoch_from_block_number(proposed_leaf.height(), self.epoch_height);
