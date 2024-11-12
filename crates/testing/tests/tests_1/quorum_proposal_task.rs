@@ -92,6 +92,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
         quorum_membership.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
+        *ViewNumber::new(1),
     )
     .unwrap();
     drop(consensus_writer);
@@ -202,6 +203,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
         quorum_membership.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
+        *ViewNumber::new(1),
     )
     .unwrap();
 
@@ -414,7 +416,8 @@ async fn test_quorum_proposal_task_qc_timeout() {
             ViewNumber::new(3),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                 quorum_membership.total_nodes(EpochNumber::new(1)),
-                <TestVersions as Versions>::Base::VERSION
+                <TestVersions as Versions>::Base::VERSION,
+                *ViewNumber::new(3),
             )
             .unwrap()],
             None,
@@ -507,7 +510,8 @@ async fn test_quorum_proposal_task_view_sync() {
             ViewNumber::new(2),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                 quorum_membership.total_nodes(EpochNumber::new(1)),
-                <TestVersions as Versions>::Base::VERSION
+                <TestVersions as Versions>::Base::VERSION,
+                *ViewNumber::new(2),
             )
             .unwrap()],
             None,
@@ -583,6 +587,7 @@ async fn test_quorum_proposal_task_liveness_check() {
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
         quorum_membership.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
+        *ViewNumber::new(1),
     )
     .unwrap();
 
