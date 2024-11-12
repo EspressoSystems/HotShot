@@ -103,7 +103,7 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
     pub async fn last_actioned_view(&self) -> TYPES::View {
         self.inner.read().await.action
     }
-    pub async fn last_epoch(&self) -> TYPES::Epoch {
+    pub async fn last_actioned_epoch(&self) -> TYPES::Epoch {
         self.inner.read().await.epoch
     }
 }
