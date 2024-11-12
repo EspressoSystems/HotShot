@@ -830,6 +830,15 @@
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
 <a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -838,6 +847,7 @@
 
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
+    hash::{DefaultHasher, Hash, Hasher},
     sync::Arc,
 };
 
@@ -884,6 +894,9 @@
 
     <span class="doccomment">/// This nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
+
+    <span class="doccomment">/// Transaction Cache to ignore previously seen transatctions
+    </span><span class="kw">pub </span>transactions_cache: lru::LruCache&lt;u64, ()&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkMessageTaskState&lt;TYPES&gt; {
@@ -962,6 +975,11 @@
             <span class="comment">// Handle data messages
             </span>MessageKind::Data(message) =&gt; <span class="kw">match </span>message {
                 DataMessage::SubmitTransaction(transaction, <span class="kw">_</span>) =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>hasher = DefaultHasher::new();
+                    transaction.hash(<span class="kw-2">&amp;mut </span>hasher);
+                    <span class="kw">if </span><span class="self">self</span>.transactions_cache.put(hasher.finish(), ()).is_some() {
+                        <span class="kw">return</span>;
+                    }
                     broadcast_event(
                         Arc::new(HotShotEvent::TransactionsRecv(<span class="macro">vec!</span>[transaction])),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream,

@@ -653,11 +653,6 @@
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -827,9 +822,6 @@
     <span class="doccomment">/// The decided leaves with corresponding validated state and VID info.
     </span><span class="kw">pub </span>leaf_views: Vec&lt;LeafInfo&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// The decided leaves.
-    </span><span class="kw">pub </span>leaves_decided: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
-
     <span class="doccomment">/// The transactions in the block payload for each leaf.
     </span><span class="kw">pub </span>included_txns: <span class="prelude-ty">Option</span>&lt;HashSet&lt;Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Transaction&gt;&gt;&gt;,
 
@@ -848,7 +840,6 @@
             new_decided_view_number: <span class="prelude-val">None</span>,
             new_decide_qc: <span class="prelude-val">None</span>,
             leaf_views: Vec::new(),
-            leaves_decided: Vec::new(),
             included_txns: <span class="prelude-val">None</span>,
             decided_upgrade_cert: <span class="prelude-val">None</span>,
         }
@@ -983,7 +974,6 @@
                     delta.clone(),
                     vid_share,
                 ));
-                res.leaves_decided.push(leaf.clone());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf.block_payload() {
                     res.included_txns = <span class="prelude-val">Some</span>(
                         payload

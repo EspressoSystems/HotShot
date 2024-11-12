@@ -707,25 +707,6 @@
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -896,13 +877,6 @@
             }
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumVoteDependenciesValidated(
-                <span class="self">self</span>.view_number,
-            )),
-            <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
-        )
-        .<span class="kw">await</span>;
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.view_number + <span class="number">1</span>)),
             <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
@@ -1151,9 +1125,7 @@
                 );
 
                 <span class="comment">// Handle the event before creating the dependency task.
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
-                    handle_quorum_proposal_validated(<span class="kw-2">&amp;</span>proposal.data, <span class="kw-2">&amp;</span>event_sender, <span class="self">self</span>).<span class="kw">await
-                </span>{
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_quorum_proposal_validated(<span class="kw-2">&amp;</span>proposal.data, <span class="self">self</span>).<span class="kw">await </span>{
                     <span class="macro">tracing::debug!</span>(
                         <span class="string">"Failed to handle QuorumProposalValidated event; error = {e:#}"
                     </span>);
@@ -1295,12 +1267,6 @@
                     <span class="prelude-val">None</span>,
                 );
             }
-            HotShotEvent::QuorumVoteDependenciesValidated(view_number) =&gt; {
-                <span class="macro">tracing::debug!</span>(<span class="string">"All vote dependencies verified for view {:?}"</span>, view_number);
-                <span class="kw">if </span>!<span class="self">self</span>.update_latest_voted_view(<span class="kw-2">*</span>view_number).<span class="kw">await </span>{
-                    <span class="macro">tracing::debug!</span>(<span class="string">"view not updated"</span>);
-                }
-            }
             HotShotEvent::Timeout(view) =&gt; {
                 <span class="kw">let </span>view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
                 <span class="comment">// cancel old tasks
@@ -1312,6 +1278,9 @@
             }
             HotShotEvent::ViewChange(<span class="kw-2">mut </span>view) =&gt; {
                 view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
+                <span class="kw">if </span>!<span class="self">self</span>.update_latest_voted_view(view).<span class="kw">await </span>{
+                    <span class="macro">tracing::debug!</span>(<span class="string">"view not updated"</span>);
+                }
                 <span class="comment">// cancel old tasks
                 </span><span class="kw">let </span>current_tasks = <span class="self">self</span>.vote_dependencies.split_off(<span class="kw-2">&amp;</span>view);
                 <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, task)) = <span class="self">self</span>.vote_dependencies.pop_last() {
@@ -1379,13 +1348,6 @@
             <span class="kw">return</span>;
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumVoteDependenciesValidated(
-                proposal.data.view_number(),
-            )),
-            <span class="kw-2">&amp;</span>event_sender,
-        )
-        .<span class="kw">await</span>;
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(proposal.data.view_number() + <span class="number">1</span>)),
             <span class="kw-2">&amp;</span>event_sender,

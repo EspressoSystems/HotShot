@@ -252,12 +252,6 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -480,12 +474,6 @@
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
     drop(consensus_writer);
-
-    broadcast_event(
-        HotShotEvent::HighQcUpdated(justify_qc.clone()).into(),
-        event_sender,
-    )
-    .<span class="kw">await</span>;
 
     <span class="kw">let </span><span class="prelude-val">Some</span>((parent_leaf, _parent_state)) = parent <span class="kw">else </span>{
         <span class="macro">tracing::warn!</span>(

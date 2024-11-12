@@ -199,13 +199,14 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{sync::Arc, time::Duration};
+</span><span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
@@ -369,6 +370,7 @@
         internal_event_stream: internal_event_stream.clone(),
         external_event_stream: external_event_stream.clone(),
         public_key,
+        transactions_cache: lru::LruCache::new(NonZeroUsize::new(<span class="number">100_000</span>).unwrap()),
     };
 
     <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>net);
