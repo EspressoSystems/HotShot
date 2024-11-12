@@ -195,6 +195,14 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
     }
 }
 
+pub async fn decide_from_proposal_2<TYPES: NodeType>(
+    proposal: &QuorumProposal<TYPES>,
+    consensus: OuterConsensus<TYPES>,
+    existing_upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
+    public_key: &TYPES::SignatureKey,
+) -> LeafChainTraversalOutcome<TYPES> {
+}
+
 /// Ascends the leaf chain by traversing through the parent commitments of the proposal. We begin
 /// by obtaining the parent view, and if we are in a chain (i.e. the next view from the parent is
 /// one view newer), then we begin attempting to form the chain. This is a direct impl from
