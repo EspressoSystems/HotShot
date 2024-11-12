@@ -658,11 +658,6 @@
 <a href="#658" id="658">658</a>
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -695,7 +690,7 @@
     utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>tokio::{task::JoinHandle, time::timeout};
+<span class="kw">use </span>tokio::time::timeout;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
@@ -1303,11 +1298,6 @@
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
-}
-
-<span class="doccomment">/// Cancel a task
-</span><span class="kw">pub async fn </span>cancel_task&lt;T&gt;(task: JoinHandle&lt;T&gt;) {
-    task.abort();
 }
 
 <span class="doccomment">/// Helper function to send events and log errors

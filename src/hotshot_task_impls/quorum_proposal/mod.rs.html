@@ -561,11 +561,6 @@
 <a href="#561" id="561">561</a>
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -578,7 +573,6 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>either::Either;
-<span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::DependencyTask,
@@ -602,10 +596,7 @@
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="self">self</span>::handlers::{ProposalDependency, ProposalDependencyHandle};
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
 <span class="kw">mod </span>handlers;
 
@@ -918,7 +909,7 @@
             </span><span class="kw">for </span>view <span class="kw">in </span>(<span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view + <span class="number">1</span>)..=(<span class="kw-2">*</span>new_view) {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.proposal_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::View::new(view))
                 {
-                    cancel_task(dependency).<span class="kw">await</span>;
+                    dependency.abort();
                 }
             }
 
@@ -1095,21 +1086,20 @@
                 )<span class="question-mark">?</span>;
             }
             HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) =&gt; {
-                <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view).<span class="kw">await</span>;
+                <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
             }
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
+
     <span class="doccomment">/// Cancel all tasks the consensus tasks has spawned before the given view
-    </span><span class="kw">pub async fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::View) {
+    </span><span class="kw">pub fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::View) {
         <span class="kw">let </span>keep = <span class="self">self</span>.proposal_dependencies.split_off(<span class="kw-2">&amp;</span>view);
-        <span class="kw">let </span><span class="kw-2">mut </span>cancel = Vec::new();
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, task)) = <span class="self">self</span>.proposal_dependencies.pop_first() {
-            cancel.push(cancel_task(task));
+            task.abort();
         }
         <span class="self">self</span>.proposal_dependencies = keep;
-        join_all(cancel).<span class="kw">await</span>;
     }
 }
 
@@ -1128,7 +1118,7 @@
         <span class="self">self</span>.handle(event, receiver.clone(), sender.clone()).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handle)) = <span class="self">self</span>.proposal_dependencies.pop_first() {
             handle.abort();
         }

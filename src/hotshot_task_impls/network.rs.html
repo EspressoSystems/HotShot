@@ -844,7 +844,6 @@
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
@@ -871,7 +870,7 @@
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
 };
 
 <span class="doccomment">/// the network message task state
@@ -1064,7 +1063,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+    <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
 
 <span class="kw">impl</span>&lt;
@@ -1172,13 +1171,14 @@
     <span class="doccomment">/// Cancel all tasks for previous views
     </span><span class="kw">pub fn </span>cancel_tasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view: TYPES::View) {
         <span class="kw">let </span>keep = <span class="self">self</span>.transmit_tasks.split_off(<span class="kw-2">&amp;</span>view);
-        <span class="kw">let </span><span class="kw-2">mut </span>cancel = Vec::new();
+
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, tasks)) = <span class="self">self</span>.transmit_tasks.pop_first() {
-            <span class="kw">let </span><span class="kw-2">mut </span>to_cancel = tasks.into_iter().map(cancel_task).collect();
-            cancel.append(<span class="kw-2">&amp;mut </span>to_cancel);
+            <span class="kw">for </span>task <span class="kw">in </span>tasks {
+                task.abort();
+            }
         }
+
         <span class="self">self</span>.transmit_tasks = keep;
-        spawn(<span class="kw">async move </span>{ join_all(cancel).<span class="kw">await </span>});
     }
 
     <span class="doccomment">/// Parses a `HotShotEvent` and returns a tuple of: (sender's public key, `MessageKind`, `TransmitType`)
@@ -1633,7 +1633,7 @@
             <span class="prelude-val">Ok</span>(())
         }
 
-        <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+        <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
     }
 
     <span class="kw">impl</span>&lt;

@@ -900,7 +900,7 @@
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
@@ -995,7 +995,7 @@
         <span class="self">self</span>.handle(event, sender.clone()).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+    <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
 
 <span class="doccomment">/// State of a view sync replica task
@@ -1060,7 +1060,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+    <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; ViewSyncTaskState&lt;TYPES, I, V&gt; {
@@ -1435,7 +1435,7 @@
                 }
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
-                    cancel_task(timeout_task).<span class="kw">await</span>;
+                    timeout_task.abort();
                 }
 
                 <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(spawn({
@@ -1528,7 +1528,7 @@
                 .<span class="kw">await</span>;
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
-                    cancel_task(timeout_task).<span class="kw">await</span>;
+                    timeout_task.abort();
                 }
                 <span class="self">self</span>.timeout_task = <span class="prelude-val">Some</span>(spawn({
                     <span class="kw">let </span>stream = event_stream.clone();
@@ -1584,7 +1584,7 @@
                 }
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
-                    cancel_task(timeout_task).<span class="kw">await</span>;
+                    timeout_task.abort();
                 }
 
                 broadcast_event(
@@ -1655,7 +1655,7 @@
                 <span class="comment">// Shouldn't ever receive a timeout for a relay higher than ours
                 </span><span class="kw">if </span>TYPES::View::new(<span class="kw-2">*</span>round) == <span class="self">self</span>.next_view &amp;&amp; <span class="kw-2">*</span>relay == <span class="self">self</span>.relay {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout_task) = <span class="self">self</span>.timeout_task.take() {
-                        cancel_task(timeout_task).<span class="kw">await</span>;
+                        timeout_task.abort();
                     }
                     <span class="self">self</span>.relay += <span class="number">1</span>;
                     <span class="kw">match </span>last_seen_certificate {

@@ -455,7 +455,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Drop <span class="kw">for </span>NetworkRequestState&lt;TYPES, I&gt; {
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        futures::executor::block_on(<span class="kw">async move </span>{ <span class="self">self</span>.cancel_subtasks().<span class="kw">await </span>});
+        <span class="self">self</span>.cancel_subtasks();
     }
 }
 
@@ -503,7 +503,7 @@
         }
     }
 
-    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.shutdown_flag.store(<span class="bool-val">true</span>, Ordering::Relaxed);
 
         <span class="kw">while </span>!<span class="self">self</span>.spawned_tasks.is_empty() {

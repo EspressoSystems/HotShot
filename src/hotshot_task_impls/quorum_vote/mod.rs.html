@@ -765,7 +765,7 @@
 
 <span class="kw">use crate</span>::{
     events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
     quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
 };
 
@@ -1123,7 +1123,7 @@
             <span class="comment">// Cancel the old dependency tasks.
             </span><span class="kw">for </span>view <span class="kw">in </span><span class="kw-2">*</span><span class="self">self</span>.latest_voted_view..(<span class="kw-2">*</span>new_view) {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dependency) = <span class="self">self</span>.vote_dependencies.remove(<span class="kw-2">&amp;</span>TYPES::View::new(view)) {
-                    cancel_task(dependency).<span class="kw">await</span>;
+                    dependency.abort();
                     <span class="macro">tracing::debug!</span>(<span class="string">"Vote dependency removed for view {:?}"</span>, view);
                 }
             }
@@ -1306,7 +1306,7 @@
                 <span class="comment">// cancel old tasks
                 </span><span class="kw">let </span>current_tasks = <span class="self">self</span>.vote_dependencies.split_off(<span class="kw-2">&amp;</span>view);
                 <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, task)) = <span class="self">self</span>.vote_dependencies.pop_last() {
-                    cancel_task(task).<span class="kw">await</span>;
+                    task.abort();
                 }
                 <span class="self">self</span>.vote_dependencies = current_tasks;
             }
@@ -1315,7 +1315,7 @@
                 <span class="comment">// cancel old tasks
                 </span><span class="kw">let </span>current_tasks = <span class="self">self</span>.vote_dependencies.split_off(<span class="kw-2">&amp;</span>view);
                 <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, task)) = <span class="self">self</span>.vote_dependencies.pop_last() {
-                    cancel_task(task).<span class="kw">await</span>;
+                    task.abort();
                 }
                 <span class="self">self</span>.vote_dependencies = current_tasks;
             }
@@ -1448,7 +1448,7 @@
         <span class="self">self</span>.handle(event, receiver.clone(), sender.clone()).<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">while let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, handle)) = <span class="self">self</span>.vote_dependencies.pop_last() {
             handle.abort();
         }

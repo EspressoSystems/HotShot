@@ -118,7 +118,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="macro">tracing::info!</span>(<span class="string">"Node ID {} Recording {} events"</span>, <span class="self">self</span>.id, <span class="self">self</span>.events.len());
         <span class="kw">let </span>filename = <span class="macro">format!</span>(<span class="string">"rewind_{}.log"</span>, <span class="self">self</span>.id);
         <span class="kw">let </span><span class="kw-2">mut </span>file = <span class="kw">match </span>OpenOptions::new()
