@@ -45,10 +45,8 @@ use crate::{
 #[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
-    event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     validation_info: &ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
-    let view_number = proposal.data.view_number();
     let mut consensus_writer = validation_info.consensus.write().await;
 
     let leaf = Leaf::from_quorum_proposal(&proposal.data);
@@ -56,20 +54,13 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
     let state = Arc::new(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
-    let view = View {
-        view_inner: ViewInner::Leaf {
-            leaf: leaf.commit(&validation_info.upgrade_lock).await,
-            state,
-            delta: None, // May be updated to `Some` in the vote task.
-        },
-    };
 
-    if let Err(e) = consensus_writer.update_validated_state_map(view_number, view.clone()) {
+    if let Err(e) = consensus_writer
+        .update_leaf(leaf.clone(), state, None, &validation_info.upgrade_lock)
+        .await
+    {
         tracing::trace!("{e:?}");
     }
-    consensus_writer
-        .update_saved_leaves(leaf.clone(), &validation_info.upgrade_lock)
-        .await;
 
     if let Err(e) = validation_info
         .storage
@@ -88,13 +79,6 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         proposal.data.justify_qc.clone().view_number() > consensus_writer.locked_view();
 
     drop(consensus_writer);
-
-    // Broadcast that we've updated our consensus state so that other tasks know it's safe to grab.
-    broadcast_event(
-        HotShotEvent::ValidatedStateUpdated(view_number, view).into(),
-        event_sender,
-    )
-    .await;
 
     if !liveness_check {
         bail!("Quorum Proposal failed the liveness check");
@@ -249,7 +233,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             "Proposal's parent missing from storage with commitment: {:?}",
             justify_qc.data.leaf_commit
         );
-        validate_proposal_liveness(proposal, event_sender, &validation_info).await?;
+        validate_proposal_liveness(proposal, &validation_info).await?;
         let block_number = proposal.data.block_header.block_number();
         let epoch = TYPES::Epoch::new(epoch_from_block_number(
             block_number,

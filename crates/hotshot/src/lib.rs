@@ -42,7 +42,6 @@ use async_trait::async_trait;
 use futures::join;
 use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry};
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
-use tokio::{spawn, time::sleep};
 // Internal
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
@@ -68,6 +67,7 @@ use hotshot_types::{
 // External
 /// Reexport rand crate
 pub use rand;
+use tokio::{spawn, time::sleep};
 use tracing::{debug, instrument, trace};
 
 use crate::{
@@ -365,7 +365,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         inner
     }
 
-    /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
+    /// "Starts" consensus by sending a `QcFormed`, `ViewChange` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
@@ -409,24 +409,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 .await;
             }
         });
-        {
-            if let Some(validated_state) = consensus.validated_state_map().get(&self.start_view) {
-                #[allow(clippy::panic)]
-                self.internal_event_stream
-                    .0
-                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
-                        TYPES::View::new(*self.start_view),
-                        validated_state.clone(),
-                    )))
-                    .await
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
-                            self.start_view,
-                        )
-                    });
-            }
-        }
         #[allow(clippy::panic)]
         self.internal_event_stream
             .0
