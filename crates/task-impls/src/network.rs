@@ -380,27 +380,16 @@ impl<
             HotShotEvent::QuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let is_vote_leaf_extended = self
-                    .consensus
-                    .read()
-                    .await
-                    .is_leaf_extended(vote.data.leaf_commit);
-                let transmit_type = if is_vote_leaf_extended {
-                    tracing::debug!("We're voting for the last eQC proposal. Broadcast the vote.");
-                    TransmitType::Broadcast
-                } else {
-                    let leader = match self.quorum_membership.leader(view_number, self.epoch) {
-                        Ok(l) => l,
-                        Err(e) => {
-                            tracing::warn!(
-                                "Failed to calculate leader for view number {:?}. Error: {:?}",
-                                view_number,
-                                e
-                            );
-                            return None;
-                        }
-                    };
-                    TransmitType::Direct(leader)
+                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                    Ok(l) => l,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to calculate leader for view number {:?}. Error: {:?}",
+                            view_number,
+                            e
+                        );
+                        return None;
+                    }
                 };
 
                 Some((
@@ -408,7 +397,17 @@ impl<
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone()),
                     )),
-                    transmit_type,
+                    TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ExtendedQuorumVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote(vote.clone()),
+                    )),
+                    TransmitType::Broadcast,
                 ))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((

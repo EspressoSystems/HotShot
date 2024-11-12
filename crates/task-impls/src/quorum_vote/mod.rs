@@ -229,6 +229,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
         )
         .await;
 
+        let is_vote_leaf_extended = self
+            .consensus
+            .read()
+            .await
+            .is_leaf_extended(leaf.commit(&self.upgrade_lock).await);
         if let Err(e) = submit_vote::<TYPES, I, V>(
             self.sender.clone(),
             Arc::clone(&self.quorum_membership),
@@ -240,6 +245,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             Arc::clone(&self.storage),
             leaf,
             vid_share,
+            is_vote_leaf_extended,
         )
         .await
         {
@@ -705,6 +711,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             Arc::clone(&self.storage),
             proposed_leaf,
             updated_vid,
+            false,
         )
         .await
         {

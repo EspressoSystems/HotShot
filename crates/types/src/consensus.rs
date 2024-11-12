@@ -14,7 +14,7 @@ use std::{
 };
 
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
-use committable::Commitment;
+use committable::{Commitment, Committable};
 use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
@@ -974,16 +974,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
         let new_epoch = epoch_from_block_number(proposed_leaf.height(), self.epoch_height);
         let old_epoch = epoch_from_block_number(parent_leaf.height(), self.epoch_height);
-        let Some(View {
-            view_inner: ViewInner::Leaf {
-                leaf: leaf_commit, ..
-            },
-        }) = self.validated_state_map.get(&parent_leaf.view_number())
-        else {
-            tracing::error!("Couldn't find the provided old leaf in the consensus");
-            return false;
-        };
-        new_epoch - 1 == old_epoch && self.is_leaf_extended(*leaf_commit)
+        let parent_leaf_commit = <Leaf<TYPES> as Committable>::commit(parent_leaf);
+        new_epoch - 1 == old_epoch && self.is_leaf_extended(parent_leaf_commit)
     }
 }
 

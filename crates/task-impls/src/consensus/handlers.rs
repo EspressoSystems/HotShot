@@ -45,23 +45,17 @@ pub(crate) async fn handle_quorum_vote_recv<
         .read()
         .await
         .is_leaf_extended(vote.data.leaf_commit);
-    if is_vote_leaf_extended {
-        // We do not check if we are the leader when receiving a vote for the last eQC proposal.
-        // Every node should receive the votes and form an eQC.
-        tracing::debug!("We have received a vote for the last eQC proposal");
-    } else {
-        // Are we the leader for this view?
-        ensure!(
-            task_state
-                .quorum_membership
-                .leader(vote.view_number() + 1, task_state.cur_epoch)?
-                == task_state.public_key,
-            info!(
-                "We are not the leader for view {:?}",
-                vote.view_number() + 1
-            )
-        );
-    }
+    let we_are_leader = task_state
+        .quorum_membership
+        .leader(vote.view_number() + 1, task_state.cur_epoch)?
+        == task_state.public_key;
+    ensure!(
+        is_vote_leaf_extended || we_are_leader,
+        info!(
+            "We are not the leader for view {:?} and this is not the last vote for eQC",
+            vote.view_number() + 1
+        )
+    );
 
     handle_vote(
         &mut task_state.vote_collectors,
