@@ -13,7 +13,7 @@ use syn::{
     parse::{Parse, ParseStream, Result},
     parse_macro_input,
     punctuated::Punctuated,
-    Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, Token, TypePath,
+    Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, PathArguments, Token, TypePath,
 };
 
 /// Bracketed types, e.g. [A, B, C<D>]
@@ -108,6 +108,37 @@ impl ToLowerSnakeStr for ExprPath {
     }
 }
 
+impl ToLowerSnakeStr for syn::GenericArgument {
+    /// allow panic because this is a compiler error
+    #[allow(clippy::panic)]
+    fn to_lower_snake_str(&self) -> String {
+        match self {
+            syn::GenericArgument::Lifetime(l) => l.ident.to_string().to_lowercase(),
+            syn::GenericArgument::Type(t) => match t {
+                syn::Type::Path(p) => p.to_lower_snake_str(),
+                _ => {
+                    panic!("Unexpected type for GenericArgument::Type: {t:?}");
+                }
+            },
+            syn::GenericArgument::Const(c) => match c {
+                syn::Expr::Lit(l) => match &l.lit {
+                    syn::Lit::Str(v) => format!("{}_", v.value().to_lowercase()),
+                    syn::Lit::Int(v) => format!("{}_", v.base10_digits()),
+                    _ => {
+                        panic!("Unexpected type for GenericArgument::Const::Lit: {l:?}");
+                    }
+                },
+                _ => {
+                    panic!("Unexpected type for GenericArgument::Const: {c:?}");
+                }
+            },
+            _ => {
+                panic!("Unexpected type for GenericArgument: {self:?}");
+            }
+        }
+    }
+}
+
 impl ToLowerSnakeStr for TypePath {
     fn to_lower_snake_str(&self) -> String {
         self.path
@@ -115,6 +146,13 @@ impl ToLowerSnakeStr for TypePath {
             .iter()
             .fold(String::new(), |mut acc, s| {
                 acc.push_str(&s.ident.to_string().to_lowercase());
+                if let PathArguments::AngleBracketed(a) = &s.arguments {
+                    acc.push('_');
+                    for arg in &a.args {
+                        acc.push_str(&arg.to_lower_snake_str());
+                    }
+                }
+
                 acc.push('_');
                 acc
             })
