@@ -248,6 +248,7 @@
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -470,6 +471,7 @@
         builder_commitment: BuilderCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         builder_fee: Vec&lt;BuilderFee&lt;TYPES&gt;&gt;,
+        view_number: u64,
         vid_common: VidCommon,
         auction_results: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
         version: Version,

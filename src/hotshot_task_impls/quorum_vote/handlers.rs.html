@@ -320,6 +320,7 @@
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -550,6 +551,7 @@
             <span class="kw-2">&amp;</span>proposed_leaf.block_header().clone(),
             vid_share.data.common.clone(),
             version,
+            <span class="kw-2">*</span>view_number,
         )
         .<span class="kw">await
         </span>.wrap()

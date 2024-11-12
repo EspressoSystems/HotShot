@@ -910,6 +910,7 @@
 <a href="#910" id="910">910</a>
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1708,7 +1709,7 @@
     <span class="kw">use crate</span>::{
         traits::{
             block_contents::BuilderFee,
-            node_implementation::{ConsensusTime, NodeType, Versions},
+            node_implementation::{NodeType, Versions},
             signature_key::BuilderSignatureKey,
             BlockPayload,
         },
@@ -1737,6 +1738,7 @@
     </span><span class="kw">pub fn </span>builder_fee&lt;TYPES: NodeType, V: Versions&gt;(
         num_storage_nodes: usize,
         version: vbs::version::Version,
+        view_number: u64,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;BuilderFee&lt;TYPES&gt;&gt; {
         <span class="doccomment">/// Arbitrary fee amount, this block doesn't actually come from a builder
         </span><span class="kw">const </span>FEE_AMOUNT: u64 = <span class="number">0</span>;
@@ -1750,7 +1752,7 @@
             <span class="kw">match </span>TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(
                 <span class="kw-2">&amp;</span>priv_key,
                 FEE_AMOUNT,
-                <span class="kw-2">*</span>TYPES::View::genesis(),
+                view_number,
             ) {
                 <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {
                     fee_amount: FEE_AMOUNT,

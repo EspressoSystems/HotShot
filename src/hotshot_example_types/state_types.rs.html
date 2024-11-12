@@ -152,6 +152,7 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -261,6 +262,7 @@
         _proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
         _vid_common: VidCommon,
         _version: Version,
+        _view_number: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Delta), <span class="self">Self</span>::Error&gt; {
         <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span>instance.delay_config).<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>((

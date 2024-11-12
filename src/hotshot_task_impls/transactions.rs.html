@@ -824,6 +824,8 @@
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
 <a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1043,6 +1045,7 @@
             <span class="kw">let </span><span class="prelude-val">Some</span>(null_fee) = null_block::builder_fee::&lt;TYPES, V&gt;(
                 <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch),
                 version,
+                <span class="kw-2">*</span>block_view,
             ) <span class="kw">else </span>{
                 <span class="macro">tracing::error!</span>(<span class="string">"Failed to get null fee"</span>);
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -1187,6 +1190,7 @@
         <span class="kw">let </span><span class="prelude-val">Some</span>(null_fee) = null_block::builder_fee::&lt;TYPES, V&gt;(
             <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch),
             version,
+            <span class="kw-2">*</span>block_view,
         ) <span class="kw">else </span>{
             <span class="macro">tracing::error!</span>(<span class="string">"Failed to calculate null block fee."</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
