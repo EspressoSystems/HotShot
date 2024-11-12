@@ -7,6 +7,7 @@
 use std::{
     cmp::max,
     collections::{BTreeMap, BTreeSet},
+    marker::PhantomData,
     num::NonZeroU64,
 };
 
@@ -23,13 +24,11 @@ use hotshot_types::{
 use rand::{rngs::StdRng, Rng};
 use utils::anytrace::Result;
 
-use super::helpers::stable_quorum_filter;
+use crate::traits::election::helpers::QuorumFilterConfig;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-
 /// The static committee election
-
-pub struct RandomizedCommitteeMembers<T: NodeType, const SEED: u64, const OVERLAP: u64> {
+pub struct RandomizedCommitteeMembers<T: NodeType, C: QuorumFilterConfig> {
     /// The nodes eligible for leadership.
     /// NOTE: This is currently a hack because the DA leader needs to be the quorum
     /// leader but without voting rights.
@@ -44,19 +43,20 @@ pub struct RandomizedCommitteeMembers<T: NodeType, const SEED: u64, const OVERLA
 
     /// The network topic of the committee
     committee_topic: Topic,
+
+    /// Phantom
+    _pd: PhantomData<C>,
 }
 
-impl<TYPES: NodeType, const SEED: u64, const OVERLAP: u64>
-    RandomizedCommitteeMembers<TYPES, SEED, OVERLAP>
-{
+impl<TYPES: NodeType, CONFIG: QuorumFilterConfig> RandomizedCommitteeMembers<TYPES, CONFIG> {
     /// Creates a set of indices into the stake_table which reference the nodes selected for this epoch's committee
     fn make_quorum_filter(&self, epoch: <TYPES as NodeType>::Epoch) -> BTreeSet<usize> {
-        stable_quorum_filter(SEED, epoch.u64(), self.stake_table.len(), OVERLAP)
+        CONFIG::execute(epoch.u64(), self.stake_table.len())
     }
 }
 
-impl<TYPES: NodeType, const SEED: u64, const OVERLAP: u64> Membership<TYPES>
-    for RandomizedCommitteeMembers<TYPES, SEED, OVERLAP>
+impl<TYPES: NodeType, CONFIG: QuorumFilterConfig> Membership<TYPES>
+    for RandomizedCommitteeMembers<TYPES, CONFIG>
 {
     type Error = utils::anytrace::Error;
 
@@ -102,6 +102,7 @@ impl<TYPES: NodeType, const SEED: u64, const OVERLAP: u64> Membership<TYPES>
             stake_table: members,
             indexed_stake_table,
             committee_topic,
+            _pd: PhantomData,
         }
     }
 
@@ -244,7 +245,6 @@ impl<TYPES: NodeType, const SEED: u64, const OVERLAP: u64> Membership<TYPES>
     /// Get the voting upgrade threshold for the committee
     fn upgrade_threshold(&self) -> NonZeroU64 {
         let len = self.stake_table.len() / 2; // Divide by two as we are flipping between odds and evens
-
         NonZeroU64::new(max((len as u64 * 9) / 10, ((len as u64 * 2) / 3) + 1)).unwrap()
     }
 }

@@ -21,4 +21,4 @@ pub mod static_committee;
 pub mod static_committee_leader_two_views;
 
 /// general helpers
-mod helpers;
+pub mod helpers;
