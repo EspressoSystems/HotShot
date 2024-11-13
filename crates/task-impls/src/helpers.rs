@@ -14,7 +14,7 @@ use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
-    consensus::OuterConsensus,
+    consensus::{self, OuterConsensus},
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
@@ -201,6 +201,14 @@ pub async fn decide_from_proposal_2<TYPES: NodeType>(
     existing_upgrade_cert: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
     public_key: &TYPES::SignatureKey,
 ) -> LeafChainTraversalOutcome<TYPES> {
+    let mut res = LeafChainTraversalOutcome::default();
+    let consensus_reader = consensus.read().await;
+    let proposed_leaf = Leaf::from_quorum_proposal(proposal);
+    let Some(parent_info) = consensus_reader.parent_leaf_info(&proposed_leaf, public_key) else {
+        return res;
+    };
+
+    res
 }
 
 /// Ascends the leaf chain by traversing through the parent commitments of the proposal. We begin

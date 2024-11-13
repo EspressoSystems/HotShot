@@ -23,7 +23,7 @@ pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     error::HotShotError,
-    event::HotShotAction,
+    event::{HotShotAction, LeafInfo},
     message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
@@ -33,7 +33,10 @@ use crate::{
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{BuilderCommitment, StateAndDelta, Terminator, Terminator::Inclusive},
+    utils::{
+        BuilderCommitment, StateAndDelta,
+        Terminator::{self, Inclusive},
+    },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
@@ -493,6 +496,36 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         );
         self.cur_view = view_number;
         Ok(())
+    }
+
+    /// Get the parent Leaf Info from a given leaf and our public key.
+    /// Returns None if we don't have the data in out state
+    pub fn parent_leaf_info(
+        &self,
+        leaf: &Leaf<TYPES>,
+        public_key: &TYPES::SignatureKey,
+    ) -> Option<LeafInfo<TYPES>> {
+        let parent_view_number = leaf.justify_qc().view_number();
+        let parent_leaf = self
+            .saved_leaves
+            .get(&leaf.justify_qc().data().leaf_commit)?;
+        let parent_state_and_delta = self.state_and_delta(parent_view_number);
+        let (Some(state), delta) = parent_state_and_delta else {
+            return None;
+        };
+        let parent_vid = self
+            .vid_shares()
+            .get(&parent_view_number)?
+            .get(public_key)
+            .cloned()
+            .map(|prop| prop.data);
+
+        Some(LeafInfo {
+            leaf: parent_leaf.clone(),
+            state,
+            delta,
+            vid_share: parent_vid,
+        })
     }
 
     /// Update the current epoch.
