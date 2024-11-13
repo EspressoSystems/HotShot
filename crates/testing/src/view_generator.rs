@@ -148,7 +148,7 @@ impl TestView {
             .await
             .to_qc2(),
             upgrade_certificate: None,
-            proposal_certificate: None,
+            view_change_evidence: None,
             drb_result: [0; 32],
             drb_seed: [0; 96],
         };
@@ -359,7 +359,7 @@ impl TestView {
             None
         };
 
-        let proposal_certificate = if let Some(tc) = timeout_certificate {
+        let view_change_evidence = if let Some(tc) = timeout_certificate {
             Some(ViewChangeEvidence::Timeout(tc))
         } else {
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
@@ -381,7 +381,7 @@ impl TestView {
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
-            proposal_certificate,
+            view_change_evidence,
             drb_result: [0; 32],
             drb_seed: [0; 96],
         };

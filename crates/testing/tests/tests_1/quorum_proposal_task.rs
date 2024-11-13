@@ -345,7 +345,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     }
 
     // Get the proposal cert out for the view sync input
-    let cert = match proposals[1].data.proposal_certificate.clone().unwrap() {
+    let cert = match proposals[1].data.view_change_evidence.clone().unwrap() {
         ViewChangeEvidence::Timeout(tc) => tc,
         _ => panic!("Found a View Sync Cert when there should have been a Timeout cert"),
     };
@@ -435,7 +435,7 @@ async fn test_quorum_proposal_task_view_sync() {
     }
 
     // Get the proposal cert out for the view sync input
-    let cert = match proposals[1].data.proposal_certificate.clone().unwrap() {
+    let cert = match proposals[1].data.view_change_evidence.clone().unwrap() {
         ViewChangeEvidence::ViewSync(vsc) => vsc,
         _ => panic!("Found a TC when there should have been a view sync cert"),
     };

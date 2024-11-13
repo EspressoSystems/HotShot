@@ -560,7 +560,7 @@ pub(crate) async fn validate_proposal_view_and_certs<
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view_number - 1 {
         let received_proposal_cert =
-            proposal.data.proposal_certificate.clone().context(debug!(
+            proposal.data.view_change_evidence.clone().context(debug!(
                 "Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one",
                 *view_number
         ))?;

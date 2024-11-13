@@ -390,7 +390,7 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
     /// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
-    pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
+    pub view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
 
     /// the DRB seed currently being calculated
     #[serde(with = "serde_bytes")]
@@ -408,7 +408,7 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
             view_number: quorum_proposal.view_number,
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
             upgrade_certificate: quorum_proposal.upgrade_certificate,
-            proposal_certificate: quorum_proposal.proposal_certificate,
+            view_change_evidence: quorum_proposal.proposal_certificate,
             drb_seed: [0; 96],
             drb_result: [0; 32],
         }
@@ -422,7 +422,7 @@ impl<TYPES: NodeType> From<QuorumProposal2<TYPES>> for QuorumProposal<TYPES> {
             view_number: quorum_proposal.view_number,
             justify_qc: quorum_proposal.justify_qc.to_qc(),
             upgrade_certificate: quorum_proposal.upgrade_certificate,
-            proposal_certificate: quorum_proposal.proposal_certificate,
+            proposal_certificate: quorum_proposal.view_change_evidence,
         }
     }
 }
@@ -1029,7 +1029,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             justify_qc,
             block_header,
             upgrade_certificate,
-            proposal_certificate: _,
+            view_change_evidence: _,
             drb_seed: _,
             drb_result: _,
         } = quorum_proposal;
