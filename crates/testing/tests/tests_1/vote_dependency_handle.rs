@@ -79,7 +79,6 @@ async fn test_vote_dependency_handle() {
     for inputs in all_inputs.into_iter() {
         // The outputs are static here, but we re-make them since we use `into_iter` below
         let outputs = vec![
-            exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
             exact(ViewChange(ViewNumber::new(3), EpochNumber::new(0))),
             quorum_vote_send(),
         ];

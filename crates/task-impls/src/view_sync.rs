@@ -37,7 +37,7 @@ use utils::anytrace::*;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
@@ -132,7 +132,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         self.handle(event, sender.clone()).await
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }
 
 /// State of a view sync replica task
@@ -197,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         Ok(())
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskState<TYPES, I, V> {
@@ -590,7 +590,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
 
                 self.timeout_task = Some(spawn({
@@ -684,7 +684,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 .await;
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
                 self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
@@ -740,7 +740,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
 
                 // TODO: Figure out the correct way to view sync across epochs if needed
@@ -812,7 +812,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 // Shouldn't ever receive a timeout for a relay higher than ours
                 if TYPES::View::new(*round) == self.next_view && *relay == self.relay {
                     if let Some(timeout_task) = self.timeout_task.take() {
-                        cancel_task(timeout_task).await;
+                        timeout_task.abort();
                     }
                     self.relay += 1;
                     match last_seen_certificate {
