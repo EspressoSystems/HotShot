@@ -67,9 +67,7 @@ async fn test_quorum_vote_task_success() {
                 Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);
@@ -139,9 +137,7 @@ async fn test_quorum_vote_task_miss_dependency() {
                 Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);

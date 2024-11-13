@@ -110,14 +110,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::Qc => {
-                        if let HotShotEvent::QcFormed(either::Left(qc)) = event {
+                        if let HotShotEvent::Qc2Formed(either::Left(qc)) = event {
                             qc.view_number() + 1
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::TimeoutCert => {
-                        if let HotShotEvent::QcFormed(either::Right(timeout)) = event {
+                        if let HotShotEvent::Qc2Formed(either::Right(timeout)) = event {
                             timeout.view_number() + 1
                         } else {
                             return false;
@@ -224,7 +224,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::QuorumProposalPreliminarilyValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
             }
-            HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
+            HotShotEvent::Qc2Formed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
                     timeout_dependency.mark_as_completed(event);
                 }
@@ -248,7 +248,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             // 2. A view sync cert was received.
             AndDependency::from_deps(vec![view_sync_dependency]),
         ];
-        // 3. A `QcFormed`` event (and `QuorumProposalRecv` event)
+        // 3. A `Qc2Formed`` event (and `QuorumProposalRecv` event)
         if *view_number > 1 {
             secondary_deps.push(AndDependency::from_deps(vec![
                 qc_dependency,

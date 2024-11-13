@@ -55,10 +55,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
 
-    if let Err(e) = consensus_writer
-        .update_leaf(leaf.clone(), state, None, &validation_info.upgrade_lock)
-        .await
-    {
+    if let Err(e) = consensus_writer.update_leaf(leaf.clone(), state, None) {
         tracing::trace!("{e:?}");
     }
 

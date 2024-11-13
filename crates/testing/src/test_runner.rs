@@ -647,7 +647,6 @@ where
             internal_channel,
             external_channel,
         )
-        .await
     }
 }
 

@@ -418,11 +418,10 @@ where
     /// Checks that the signature of the quorum proposal is valid.
     /// # Errors
     /// Returns an error when the proposal signature is invalid.
-    pub async fn validate_signature<V: Versions>(
+    pub fn validate_signature(
         &self,
         quorum_membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
-        _upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = self.data.view_number();
         let view_leader_key = quorum_membership.leader(view_number, epoch)?;

@@ -100,6 +100,7 @@ pub mod error_adaptor {
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound(deserialize = "TYPES: NodeType"))]
+#[allow(clippy::large_enum_variant)]
 pub enum EventType<TYPES: NodeType> {
     /// A view encountered an error and was interrupted
     Error {

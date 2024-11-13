@@ -158,7 +158,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         )?;
 
         let mem = self.memberships.quorum_membership.clone();
-        let upgrade_lock = self.hotshot.upgrade_lock.clone();
         let receiver = self.internal_event_stream.1.activate_cloned();
         let sender = self.internal_event_stream.0.clone();
         Ok(async move {
@@ -189,10 +188,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     // Make sure that the quorum_proposal is valid
-                    if let Err(err) = quorum_proposal
-                        .validate_signature(&mem, epoch, &upgrade_lock)
-                        .await
-                    {
+                    if let Err(err) = quorum_proposal.validate_signature(&mem, epoch) {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }

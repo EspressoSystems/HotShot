@@ -104,7 +104,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                         hs_event.as_ref()
                     {
                         // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, cur_epoch, upgrade_lock).await.is_ok() {
+                        if quorum_proposal.validate_signature(&mem, cur_epoch).is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -136,10 +136,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
     );
 
-    if let Err(e) = consensus_writer
-        .update_leaf(leaf.clone(), Arc::clone(&state), None, upgrade_lock)
-        .await
-    {
+    if let Err(e) = consensus_writer.update_leaf(leaf.clone(), Arc::clone(&state), None) {
         tracing::trace!("{e:?}");
     }
     let view = View {
@@ -440,15 +437,7 @@ pub async fn validate_proposal_safety_and_liveness<
 
     {
         let mut consensus_writer = validation_info.consensus.write().await;
-        if let Err(e) = consensus_writer
-            .update_leaf(
-                proposed_leaf.clone(),
-                state,
-                None,
-                &validation_info.upgrade_lock,
-            )
-            .await
-        {
+        if let Err(e) = consensus_writer.update_leaf(proposed_leaf.clone(), state, None) {
             tracing::trace!("{e:?}");
         }
 
@@ -563,13 +552,10 @@ pub(crate) async fn validate_proposal_view_and_certs<
     );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    proposal
-        .validate_signature(
-            &validation_info.quorum_membership,
-            validation_info.cur_epoch,
-            &validation_info.upgrade_lock,
-        )
-        .await?;
+    proposal.validate_signature(
+        &validation_info.quorum_membership,
+        validation_info.cur_epoch,
+    )?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view_number - 1 {

@@ -241,15 +241,11 @@ pub(crate) async fn update_shared_state<
     // Now that we've rounded everyone up, we need to update the shared state
     let mut consensus_writer = consensus.write().await;
 
-    if let Err(e) = consensus_writer
-        .update_leaf(
-            proposed_leaf.clone(),
-            Arc::clone(&state),
-            Some(Arc::clone(&delta)),
-            &upgrade_lock,
-        )
-        .await
-    {
+    if let Err(e) = consensus_writer.update_leaf(
+        proposed_leaf.clone(),
+        Arc::clone(&state),
+        Some(Arc::clone(&delta)),
+    ) {
         tracing::trace!("{e:?}");
     }
 

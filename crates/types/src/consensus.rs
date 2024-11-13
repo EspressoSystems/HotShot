@@ -24,12 +24,12 @@ use crate::{
     data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     error::HotShotError,
     event::HotShotAction,
-    message::{Proposal, UpgradeLock},
+    message::Proposal,
     simple_certificate::{DaCertificate, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -610,12 +610,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the new view contains less information than the exisiting view
     /// with the same view number.
-    pub async fn update_leaf<V: Versions>(
+    pub fn update_leaf(
         &mut self,
         leaf: Leaf2<TYPES>,
         state: Arc<TYPES::ValidatedState>,
         delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
-        upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = leaf.view_number();
         let view = View {
@@ -626,7 +625,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             },
         };
         self.update_validated_state_map(view_number, view)?;
-        self.update_saved_leaves(leaf, upgrade_lock).await;
+        self.update_saved_leaves(leaf);
         Ok(())
     }
 
@@ -665,11 +664,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the saved leaves with a new leaf.
-    async fn update_saved_leaves<V: Versions>(
-        &mut self,
-        leaf: Leaf2<TYPES>,
-        _upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) {
+    fn update_saved_leaves(&mut self, leaf: Leaf2<TYPES>) {
         self.saved_leaves.insert(leaf.commit(), leaf);
     }
 

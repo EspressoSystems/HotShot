@@ -245,7 +245,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             interal_chan,
             external_chan,
         )
-        .await
     }
 
     /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
@@ -256,7 +255,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// Use this function if you want to use some prexisting channels and to spin up the tasks
     /// and start consensus manually.  Mostly useful for tests
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-    pub async fn new_from_channels(
+    pub fn new_from_channels(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
@@ -382,7 +381,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         inner
     }
 
-    /// "Starts" consensus by sending a `QcFormed`, `ViewChange` events
+    /// "Starts" consensus by sending a `Qc2Formed`, `ViewChange` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
@@ -435,7 +434,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             .await
             .unwrap_or_else(|_| {
                 panic!(
-                    "Genesis Broadcast failed; event = QcFormed(either::Left({:?}))",
+                    "Genesis Broadcast failed; event = Qc2Formed(either::Left({:?}))",
                     consensus.high_qc()
                 )
             });

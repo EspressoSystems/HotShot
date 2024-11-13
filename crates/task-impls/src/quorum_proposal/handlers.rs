@@ -40,13 +40,13 @@ pub(crate) enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// For the `QcFormed` event.
+    /// For the `Qc2Formed` event.
     Qc,
 
     /// For the `ViewSyncFinalizeCertificate2Recv` event.
     ViewSyncCert,
 
-    /// For the `QcFormed` event timeout branch.
+    /// For the `Qc2Formed` event timeout branch.
     TimeoutCert,
 
     /// For the `QuroumProposalRecv` event.
@@ -288,7 +288,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                         auction_result: auction_result.clone(),
                     });
                 }
-                HotShotEvent::QcFormed(cert) => match cert {
+                HotShotEvent::Qc2Formed(cert) => match cert {
                     either::Right(timeout) => {
                         timeout_certificate = Some(timeout.clone());
                     }

@@ -82,9 +82,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
 
@@ -172,9 +170,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
 
@@ -514,9 +510,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                 Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);
