@@ -4,14 +4,11 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn, async_timeout};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn, JoinHandle};
 use async_trait::async_trait;
 use futures::future::select_all;
 use hotshot::{
@@ -26,8 +23,11 @@ use hotshot_types::{
         node_implementation::{NodeType, Versions},
     },
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::{spawn, JoinHandle};
+use tokio::{
+    spawn,
+    task::JoinHandle,
+    time::{sleep, timeout},
+};
 use tracing::error;
 
 use crate::test_runner::Node;
@@ -134,7 +134,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                     messages.push(receiver.recv());
                 }
 
-                match async_timeout(Duration::from_millis(2500), select_all(messages)).await {
+                match timeout(Duration::from_millis(2500), select_all(messages)).await {
                     Ok((Ok(input), id, _)) => {
                         let _ = S::handle_event(&mut self.state, (input, id))
                             .await
@@ -142,7 +142,7 @@ impl<S: TestTaskState + Send + 'static> TestTask<S> {
                     }
                     Ok((Err(e), _id, _)) => {
                         error!("Error from one channel in test task {:?}", e);
-                        async_sleep(Duration::from_millis(4000)).await;
+                        sleep(Duration::from_millis(4000)).await;
                     }
                     _ => {}
                 };
@@ -168,12 +168,13 @@ pub async fn add_network_message_test_task<
         internal_event_stream: internal_event_stream.clone(),
         external_event_stream: external_event_stream.clone(),
         public_key,
+        transactions_cache: lru::LruCache::new(NonZeroUsize::new(100_000).unwrap()),
     };
 
     let network = Arc::clone(&net);
     let mut state = network_state.clone();
 
-    async_spawn(async move {
+    spawn(async move {
         loop {
             // Get the next message from the network
             let message = match network.recv_message().await {

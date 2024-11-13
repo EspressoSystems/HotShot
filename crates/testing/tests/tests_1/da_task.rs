@@ -32,11 +32,9 @@ use hotshot_types::{
 };
 use vbs::version::StaticVersionType;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_da_task() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -91,8 +89,8 @@ async fn test_da_task() {
 
     let inputs = vec![
         serial![
-            ViewChange(ViewNumber::new(1)),
-            ViewChange(ViewNumber::new(2)),
+            ViewChange(ViewNumber::new(1), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
@@ -101,7 +99,8 @@ async fn test_da_task() {
                 ViewNumber::new(2),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(EpochNumber::new(0)),
-                    <TestVersions as Versions>::Base::VERSION
+                    <TestVersions as Versions>::Base::VERSION,
+                    *ViewNumber::new(2),
                 )
                 .unwrap()],
                 Some(precompute),
@@ -130,11 +129,9 @@ async fn test_da_task() {
     run_test![inputs, da_script].await;
 }
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_da_task_storage_failure() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
@@ -192,8 +189,8 @@ async fn test_da_task_storage_failure() {
 
     let inputs = vec![
         serial![
-            ViewChange(ViewNumber::new(1)),
-            ViewChange(ViewNumber::new(2)),
+            ViewChange(ViewNumber::new(1), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
@@ -202,7 +199,8 @@ async fn test_da_task_storage_failure() {
                 ViewNumber::new(2),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(EpochNumber::new(0)),
-                    <TestVersions as Versions>::Base::VERSION
+                    <TestVersions as Versions>::Base::VERSION,
+                    *ViewNumber::new(2),
                 )
                 .unwrap()],
                 Some(precompute),

@@ -61,7 +61,7 @@ scoop install protobuf cmake
 Once dependencies have been installed, to build everything:
 
 ```sh
-just async_std build
+just build
 ```
 
 
@@ -74,7 +74,7 @@ HotShot supports static linking for its examples:
 # Nix-shell is optional but recommended
 nix develop .#staticShell
 
-just async_std build
+just build
 ```
 
 # Testing
@@ -82,7 +82,7 @@ just async_std build
 To test:
 
 ```sh
-RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just async_std test
+RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just test
 ```
 
 - `RUST_LOG=$ERROR_LOG_LEVEL`: The basic levels of logging include `warn`, `error`, `info`.
@@ -92,7 +92,7 @@ RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just async_std test
 
 To stress test, run the ignored tests prefixed with `test_stress`:
 ```sh
-RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just async_std run_test test_stress
+RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just run_test test_stress
 ```
 
 ## Careful
@@ -101,7 +101,7 @@ To double check for UB:
 
 ```bash
 nix develop .#correctnessShell
-just async_std careful
+just careful
 ```
 
 ## Testing on CI
@@ -109,7 +109,6 @@ just async_std careful
 To test as if running on CI, one must limit the number of cores and ram to match github runners (2 core, 7 gig ram). To limit the ram, spin up a virtual machine or container with 7 gigs ram. To limit the core count when running tests:
 
 ```
-ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just async_std test
 ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just tokio test
 ```
 
@@ -202,7 +201,6 @@ For espresso developers we have written up a description of our workflow [here](
 Choose an async runtime to use before launching a text editor. This may be done by setting the environment RUSTFLAGS. For example:
 
 ```
-export RUSTFLAGS='--cfg async_executor_impl="tokio" --cfg async_channel_impl="tokio"' # export RUSTFLAGS so the editor is aware of extra flags
 nvim # launch text editor of choice. We choose neovim in this example
 unset RUSTFLAGS # Unset rustflags so we may continue to use the justfile. The justfile sets these particular config options
 ```

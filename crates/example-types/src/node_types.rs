@@ -159,7 +159,7 @@ impl<TYPES: NodeType> NodeImplementation<TYPES> for CombinedImpl {
 }
 
 impl<TYPES: NodeType> NodeImplementation<TYPES> for Libp2pImpl {
-    type Network = Libp2pNetwork<TYPES::SignatureKey>;
+    type Network = Libp2pNetwork<TYPES>;
     type Storage = TestStorage<TYPES>;
     type AuctionResultsProvider = TestAuctionResultsProvider<TYPES>;
 }
@@ -176,6 +176,8 @@ impl Versions for TestVersions {
     ];
 
     type Marketplace = StaticVersion<0, 3>;
+
+    type Epochs = StaticVersion<0, 4>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -190,6 +192,8 @@ impl Versions for MarketplaceUpgradeTestVersions {
     ];
 
     type Marketplace = StaticVersion<0, 3>;
+
+    type Epochs = StaticVersion<0, 4>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -204,6 +208,24 @@ impl Versions for MarketplaceTestVersions {
     ];
 
     type Marketplace = StaticVersion<0, 3>;
+
+    type Epochs = StaticVersion<0, 4>;
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct EpochsTestVersions {}
+
+impl Versions for EpochsTestVersions {
+    type Base = StaticVersion<0, 4>;
+    type Upgrade = StaticVersion<0, 4>;
+    const UPGRADE_HASH: [u8; 32] = [
+        1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+        0, 0,
+    ];
+
+    type Marketplace = StaticVersion<0, 3>;
+
+    type Epochs = StaticVersion<0, 4>;
 }
 
 #[cfg(test)]
@@ -230,8 +252,7 @@ mod tests {
         }
     }
 
-    #[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-    #[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+    #[tokio::test(flavor = "multi_thread")]
     /// Test that the view number affects the commitment post-marketplace
     async fn test_versioned_commitment_includes_view() {
         let upgrade_lock = UpgradeLock::new();

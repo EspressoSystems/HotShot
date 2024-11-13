@@ -4,10 +4,10 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::Receiver;
-use async_compatibility_layer::art::async_spawn;
+use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::Stream;
 use hotshot::{traits::BlockPayload, types::Event};
@@ -28,6 +28,7 @@ use hotshot_types::{
     },
 };
 use tide_disco::{method::ReadState, App, Url};
+use tokio::spawn;
 use vbs::version::StaticVersionType;
 
 use crate::test_builder::BuilderChange;
@@ -85,7 +86,7 @@ pub fn run_builder_source<TYPES, Source>(
         + v0_1::data_source::BuilderDataSource<TYPES>
         + v0_3::data_source::BuilderDataSource<TYPES>,
 {
-    async_spawn(async move {
+    spawn(async move {
         let start_builder = |url: Url, source: Source| -> _ {
             let builder_api_0_1 = hotshot_builder_api::v0_1::builder::define_api::<Source, TYPES>(
                 &Options::default(),
@@ -100,7 +101,7 @@ pub fn run_builder_source<TYPES, Source>(
                 .expect("Failed to register the builder API 0.1")
                 .register_module(MARKETPLACE_BUILDER_MODULE, builder_api_0_3)
                 .expect("Failed to register the builder API 0.3");
-            async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
+            spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
         };
 
         let mut handle = Some(start_builder(url.clone(), source.clone()));
@@ -112,10 +113,7 @@ pub fn run_builder_source<TYPES, Source>(
                 }
                 BuilderChange::Down => {
                     if let Some(handle) = handle.take() {
-                        #[cfg(async_executor_impl = "tokio")]
                         handle.abort();
-                        #[cfg(async_executor_impl = "async-std")]
-                        handle.cancel().await;
                     }
                 }
                 _ => {}
@@ -138,7 +136,7 @@ pub fn run_builder_source_0_1<TYPES, Source>(
     Source: Clone + Send + Sync + tide_disco::method::ReadState + 'static,
     <Source as ReadState>::State: Sync + Send + v0_1::data_source::BuilderDataSource<TYPES>,
 {
-    async_spawn(async move {
+    spawn(async move {
         let start_builder = |url: Url, source: Source| -> _ {
             let builder_api = hotshot_builder_api::v0_1::builder::define_api::<Source, TYPES>(
                 &Options::default(),
@@ -147,7 +145,7 @@ pub fn run_builder_source_0_1<TYPES, Source>(
             let mut app: App<Source, Error> = App::with_state(source);
             app.register_module(LEGACY_BUILDER_MODULE, builder_api)
                 .expect("Failed to register the builder API");
-            async_spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
+            spawn(app.serve(url, hotshot_builder_api::v0_1::Version::instance()))
         };
 
         let mut handle = Some(start_builder(url.clone(), source.clone()));
@@ -159,10 +157,7 @@ pub fn run_builder_source_0_1<TYPES, Source>(
                 }
                 BuilderChange::Down => {
                     if let Some(handle) = handle.take() {
-                        #[cfg(async_executor_impl = "tokio")]
                         handle.abort();
-                        #[cfg(async_executor_impl = "async-std")]
-                        handle.cancel().await;
                     }
                 }
                 _ => {}
@@ -174,7 +169,7 @@ pub fn run_builder_source_0_1<TYPES, Source>(
 /// Helper function to construct all builder data structures from a list of transactions
 async fn build_block<TYPES: NodeType>(
     transactions: Vec<TYPES::Transaction>,
-    num_storage_nodes: usize,
+    num_storage_nodes: Arc<RwLock<usize>>,
     pub_key: TYPES::BuilderSignatureKey,
     priv_key: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
 ) -> BlockEntry<TYPES>
@@ -192,7 +187,7 @@ where
     let commitment = block_payload.builder_commitment(&metadata);
 
     let (vid_commitment, precompute_data) =
-        precompute_vid_commitment(&block_payload.encode(), num_storage_nodes);
+        precompute_vid_commitment(&block_payload.encode(), *num_storage_nodes.read_arc().await);
 
     // Get block size from the encoded payload
     let block_size = block_payload.encode().len() as u64;

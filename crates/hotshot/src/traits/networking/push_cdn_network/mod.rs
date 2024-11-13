@@ -15,9 +15,6 @@ use std::sync::Arc;
 #[cfg(feature = "hotshot-testing")]
 use std::{path::Path, time::Duration};
 
-use async_compatibility_layer::channel::TrySendError;
-#[cfg(feature = "hotshot-testing")]
-use async_compatibility_layer::{art::async_sleep, art::async_spawn};
 use async_trait::async_trait;
 use cdn_broker::reexports::def::hook::NoMessageHook;
 #[cfg(feature = "hotshot-testing")]
@@ -50,6 +47,7 @@ use hotshot_types::{
 use metrics::CdnMetricsValue;
 #[cfg(feature = "hotshot-testing")]
 use rand::{rngs::StdRng, RngCore, SeedableRng};
+use tokio::{spawn, sync::mpsc::error::TrySendError, time::sleep};
 use tracing::error;
 
 use super::NetworkError;
@@ -213,14 +211,14 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
             };
 
             // Create and spawn the broker
-            async_spawn(async move {
+            spawn(async move {
                 let broker: Broker<TestingDef<TYPES::SignatureKey>> =
                     Broker::new(config).await.expect("broker failed to start");
 
                 // If we are the first broker by identifier, we need to sleep a bit
                 // for discovery to happen first
                 if other_broker_identifier > broker_identifier {
-                    async_sleep(Duration::from_secs(2)).await;
+                    sleep(Duration::from_secs(2)).await;
                 }
 
                 // Error if we stopped unexpectedly
@@ -246,7 +244,7 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
         };
 
         // Spawn the marshal
-        async_spawn(async move {
+        spawn(async move {
             let marshal: Marshal<TestingDef<TYPES::SignatureKey>> = Marshal::new(marshal_config)
                 .await
                 .expect("failed to spawn marshal");
@@ -345,11 +343,15 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         topic: HotShotTopic,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
+        // If we're paused, don't send the message
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(());
+        }
         self.broadcast_message(message, topic.into())
             .await
-            .map_err(|e| {
+            .inspect_err(|_e| {
                 self.metrics.num_failed_messages.add(1);
-                e
             })
     }
 
@@ -364,11 +366,15 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         _recipients: Vec<K>,
         _broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError> {
+        // If we're paused, don't send the message
+        #[cfg(feature = "hotshot-testing")]
+        if self.is_paused.load(Ordering::Relaxed) {
+            return Ok(());
+        }
         self.broadcast_message(message, Topic::Da)
             .await
-            .map_err(|e| {
+            .inspect_err(|_e| {
                 self.metrics.num_failed_messages.add(1);
-                e
             })
     }
 
@@ -410,6 +416,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         // If we're paused, receive but don't process messages
         #[cfg(feature = "hotshot-testing")]
         if self.is_paused.load(Ordering::Relaxed) {
+            sleep(Duration::from_millis(100)).await;
             return Ok(vec![]);
         }
 

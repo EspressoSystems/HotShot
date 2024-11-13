@@ -9,7 +9,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use async_compatibility_layer::art::async_spawn;
 use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task_impls::{
@@ -26,6 +25,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use tokio::spawn;
 
 use crate::{types::SystemContextHandle, Versions};
 
@@ -241,6 +241,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            epoch_height: handle.hotshot.config.epoch_height,
         }
     }
 }
@@ -268,6 +269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             id: handle.hotshot.id,
             formed_upgrade_certificate: None,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            epoch_height: handle.hotshot.config.epoch_height,
         }
     }
 }
@@ -284,20 +286,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             private_key: handle.private_key().clone(),
             consensus: OuterConsensus::new(consensus),
             cur_view: handle.cur_view().await,
-            cur_view_time: Utc::now().timestamp(),
             cur_epoch: handle.cur_epoch().await,
-            network: Arc::clone(&handle.hotshot.network),
             quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            timeout_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
-            timeout_task: async_spawn(async {}),
             timeout: handle.hotshot.config.next_view_timeout,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             storage: Arc::clone(&handle.storage),
-            proposal_cert: None,
             spawned_tasks: BTreeMap::new(),
-            instance_state: handle.hotshot.instance_state(),
             id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            epoch_height: handle.hotshot.config.epoch_height,
         }
     }
 }
@@ -324,12 +321,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             cur_view_time: Utc::now().timestamp(),
             cur_epoch: handle.cur_epoch().await,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
-            timeout_task: async_spawn(async {}),
+            timeout_task: spawn(async {}),
             timeout: handle.hotshot.config.next_view_timeout,
             consensus: OuterConsensus::new(consensus),
-            last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            epoch_height: handle.hotshot.config.epoch_height,
         }
     }
 }

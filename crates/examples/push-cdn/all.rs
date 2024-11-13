@@ -10,13 +10,13 @@ pub mod types;
 
 use std::path::Path;
 
-use async_compatibility_layer::art::async_spawn;
 use cdn_broker::{
     reexports::{crypto::signature::KeyPair, def::hook::NoMessageHook},
     Broker,
 };
 use cdn_marshal::Marshal;
 use hotshot::{
+    helpers::initialize_logging,
     traits::implementations::{HotShotMessageHook, TestingDef, WrappedSignatureKey},
     types::SignatureKey,
 };
@@ -25,6 +25,7 @@ use hotshot_orchestrator::client::ValidatorArgs;
 use hotshot_types::traits::node_implementation::NodeType;
 use infra::{gen_local_address, BUILDER_BASE_PORT};
 use rand::{rngs::StdRng, RngCore, SeedableRng};
+use tokio::spawn;
 
 use crate::{
     infra::{read_orchestrator_init_config, run_orchestrator, OrchestratorArgs},
@@ -37,18 +38,16 @@ pub mod infra;
 
 use tracing::error;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::main)]
-#[cfg_attr(async_executor_impl = "async-std", async_std::main)]
+#[tokio::main]
 async fn main() {
-    use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-    setup_logging();
-    setup_backtrace();
+    // Initialize logging
+    initialize_logging();
 
     // use configfile args
     let (config, orchestrator_url) = read_orchestrator_init_config::<TestTypes>();
 
     // Start the orhcestrator
-    async_spawn(run_orchestrator::<TestTypes>(OrchestratorArgs {
+    spawn(run_orchestrator::<TestTypes>(OrchestratorArgs {
         url: orchestrator_url.clone(),
         config: config.clone(),
     }));
@@ -104,7 +103,7 @@ async fn main() {
             };
 
         // Create and spawn the broker
-        async_spawn(async move {
+        spawn(async move {
             let broker: Broker<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
                 Broker::new(config).await.expect("broker failed to start");
 
@@ -132,7 +131,7 @@ async fn main() {
     };
 
     // Spawn the marshal
-    async_spawn(async move {
+    spawn(async move {
         let marshal: Marshal<TestingDef<<TestTypes as NodeType>::SignatureKey>> =
             Marshal::new(marshal_config)
                 .await
@@ -149,7 +148,7 @@ async fn main() {
     for i in 0..(config.config.num_nodes_with_stake.get()) {
         let orchestrator_url = orchestrator_url.clone();
         let builder_address = gen_local_address::<BUILDER_BASE_PORT>(i);
-        let node = async_spawn(async move {
+        let node = spawn(async move {
             infra::main_entry_point::<TestTypes, Network, NodeImpl, TestVersions, ThisRun>(
                 ValidatorArgs {
                     url: orchestrator_url,

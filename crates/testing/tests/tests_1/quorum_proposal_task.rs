@@ -4,10 +4,10 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
-use hotshot::{tasks::task_state::CreateTaskState, traits::ValidatedState};
+use hotshot::tasks::task_state::CreateTaskState;
 use hotshot_example_types::{
     block_types::TestMetadata,
     node_types::{MemoryImpl, TestTypes, TestVersions},
@@ -17,8 +17,8 @@ use hotshot_macros::{run_test, test_scripts};
 use hotshot_task_impls::{events::HotShotEvent::*, quorum_proposal::QuorumProposalTaskState};
 use hotshot_testing::{
     all_predicates,
-    helpers::{build_fake_view_with_leaf, build_payload_commitment, build_system_handle},
-    predicates::event::{all_predicates, exact, quorum_proposal_send},
+    helpers::{build_payload_commitment, build_system_handle},
+    predicates::event::{all_predicates, quorum_proposal_send},
     random,
     script::{Expectations, InputOrder, TaskScript},
     serial,
@@ -32,7 +32,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, Versions},
     },
     utils::BuilderCommitment,
-    vote::HasViewNumber,
 };
 use sha2::Digest;
 use vec1::vec1;
@@ -40,14 +39,12 @@ use vec1::vec1;
 const TIMEOUT: Duration = Duration::from_millis(35);
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     use hotshot_testing::script::{Expectations, TaskScript};
     use vbs::version::StaticVersionType;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let node_id = 1;
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
@@ -81,11 +78,14 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
         // to make sure they show up during tests.
         consensus_writer
-            .update_saved_leaves(
+            .update_leaf(
                 Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Arc::new(TestValidatedState::default()),
+                None,
                 &handle.hotshot.upgrade_lock,
             )
-            .await;
+            .await
+            .unwrap();
     }
 
     // We must send the genesis cert here to initialize hotshot successfully.
@@ -94,6 +94,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
         quorum_membership.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
+        *ViewNumber::new(1),
     )
     .unwrap();
     drop(consensus_writer);
@@ -115,20 +116,12 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
                 vec1![builder_fee.clone()],
                 None,
             ),
-            ValidatedStateUpdated(
-                proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
     ];
 
     let expectations = vec![
         Expectations::from_outputs(vec![]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(genesis_cert.clone())),
-            exact(HighQcUpdated(genesis_cert.clone())),
-            quorum_proposal_send(),
-        ]),
+        Expectations::from_outputs(all_predicates![quorum_proposal_send(),]),
     ];
 
     let quorum_proposal_task_state =
@@ -143,13 +136,11 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     use vbs::version::StaticVersionType;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let node_id = 3;
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
@@ -177,28 +168,19 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
         // to make sure they show up during tests.
         consensus_writer
-            .update_saved_leaves(
+            .update_leaf(
                 Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Arc::new(TestValidatedState::default()),
+                None,
                 &handle.hotshot.upgrade_lock,
             )
-            .await;
-
-        consensus_writer
-            .update_validated_state_map(
-                view.quorum_proposal.data.view_number(),
-                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
-            )
+            .await
             .unwrap();
     }
 
     // We need to handle the views where we aren't the leader to ensure that the states are
     // updated properly.
-
-    let (validated_state, _ /* state delta */) = <TestValidatedState as ValidatedState<
-        TestTypes,
-    >>::genesis(&*handle.hotshot.instance_state());
     let genesis_cert = proposals[0].data.justify_qc.clone();
-    let genesis_leaf = Leaf::genesis(&validated_state, &*handle.hotshot.instance_state()).await;
 
     drop(consensus_writer);
 
@@ -206,6 +188,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
         quorum_membership.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
+        *ViewNumber::new(1),
     )
     .unwrap();
 
@@ -227,10 +210,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                genesis_cert.view_number(),
-                build_fake_view_with_leaf(genesis_leaf.clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
@@ -248,10 +227,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
@@ -269,10 +244,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
@@ -290,10 +261,6 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
@@ -311,35 +278,15 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(genesis_cert.clone())),
-            exact(HighQcUpdated(genesis_cert.clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
-            quorum_proposal_send(),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[3].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[3].data.justify_qc.clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[4].data.justify_qc.clone())),
-        ]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(all_predicates![quorum_proposal_send(),]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
     ];
 
     let quorum_proposal_task_state =
@@ -355,13 +302,11 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_task_qc_timeout() {
     use vbs::version::StaticVersionType;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let node_id = 3;
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
@@ -420,16 +365,13 @@ async fn test_quorum_proposal_task_qc_timeout() {
             ViewNumber::new(3),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                 quorum_membership.total_nodes(EpochNumber::new(1)),
-                <TestVersions as Versions>::Base::VERSION
+                <TestVersions as Versions>::Base::VERSION,
+                *ViewNumber::new(3),
             )
             .unwrap()],
             None,
         ),
         VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
-        ValidatedStateUpdated(
-            proposals[1].data.view_number(),
-            build_fake_view_with_leaf(leaves[1].clone(), &handle.hotshot.upgrade_lock).await,
-        ),
     ]];
 
     let expectations = vec![Expectations::from_outputs(vec![quorum_proposal_send()])];
@@ -446,15 +388,13 @@ async fn test_quorum_proposal_task_qc_timeout() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_task_view_sync() {
     use hotshot_example_types::block_types::TestMetadata;
     use hotshot_types::data::null_block;
     use vbs::version::StaticVersionType;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let node_id = 2;
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
@@ -515,16 +455,13 @@ async fn test_quorum_proposal_task_view_sync() {
             ViewNumber::new(2),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                 quorum_membership.total_nodes(EpochNumber::new(1)),
-                <TestVersions as Versions>::Base::VERSION
+                <TestVersions as Versions>::Base::VERSION,
+                *ViewNumber::new(2),
             )
             .unwrap()],
             None,
         ),
         VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
-        ValidatedStateUpdated(
-            proposals[0].data.view_number(),
-            build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
-        ),
     ]];
 
     let expectations = vec![Expectations::from_outputs(vec![quorum_proposal_send()])];
@@ -541,13 +478,11 @@ async fn test_quorum_proposal_task_view_sync() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_task_liveness_check() {
     use vbs::version::StaticVersionType;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let node_id = 3;
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
@@ -575,16 +510,13 @@ async fn test_quorum_proposal_task_liveness_check() {
         // We don't have a `QuorumProposalRecv` task handler, so we'll just manually insert the proposals
         // to make sure they show up during tests.
         consensus_writer
-            .update_saved_leaves(
+            .update_leaf(
                 Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Arc::new(TestValidatedState::default()),
+                None,
                 &handle.hotshot.upgrade_lock,
             )
-            .await;
-        consensus_writer
-            .update_validated_state_map(
-                view.quorum_proposal.data.view_number(),
-                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
-            )
+            .await
             .unwrap();
     }
     drop(consensus_writer);
@@ -593,17 +525,13 @@ async fn test_quorum_proposal_task_liveness_check() {
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
         quorum_membership.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
+        *ViewNumber::new(1),
     )
     .unwrap();
 
     // We need to handle the views where we aren't the leader to ensure that the states are
     // updated properly.
-
-    let (validated_state, _ /* state delta */) = <TestValidatedState as ValidatedState<
-        TestTypes,
-    >>::genesis(&*handle.hotshot.instance_state());
     let genesis_cert = proposals[0].data.justify_qc.clone();
-    let genesis_leaf = Leaf::genesis(&validated_state, &*handle.hotshot.instance_state()).await;
 
     let inputs = vec![
         random![
@@ -623,10 +551,6 @@ async fn test_quorum_proposal_task_liveness_check() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[0].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                genesis_cert.view_number(),
-                build_fake_view_with_leaf(genesis_leaf.clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
@@ -644,10 +568,6 @@ async fn test_quorum_proposal_task_liveness_check() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[1].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[0].data.view_number(),
-                build_fake_view_with_leaf(leaves[0].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
@@ -665,10 +585,6 @@ async fn test_quorum_proposal_task_liveness_check() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[2].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[1].data.view_number(),
-                build_fake_view_with_leaf(leaves[1].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
@@ -686,10 +602,6 @@ async fn test_quorum_proposal_task_liveness_check() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[3].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[2].data.view_number(),
-                build_fake_view_with_leaf(leaves[2].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
@@ -707,35 +619,15 @@ async fn test_quorum_proposal_task_liveness_check() {
                 None,
             ),
             VidDisperseSend(vid_dispersals[4].clone(), handle.public_key()),
-            ValidatedStateUpdated(
-                proposals[3].data.view_number(),
-                build_fake_view_with_leaf(leaves[3].clone(), &handle.hotshot.upgrade_lock).await,
-            ),
         ],
     ];
 
     let expectations = vec![
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(genesis_cert.clone())),
-            exact(HighQcUpdated(genesis_cert.clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
-            quorum_proposal_send(),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[3].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[3].data.justify_qc.clone())),
-        ]),
-        Expectations::from_outputs(all_predicates![
-            exact(UpdateHighQc(proposals[4].data.justify_qc.clone())),
-            exact(HighQcUpdated(proposals[4].data.justify_qc.clone())),
-        ]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(all_predicates![quorum_proposal_send(),]),
+        Expectations::from_outputs(vec![]),
+        Expectations::from_outputs(vec![]),
     ];
 
     let quorum_proposal_task_state =
@@ -750,11 +642,9 @@ async fn test_quorum_proposal_task_liveness_check() {
 }
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_quorum_proposal_task_with_incomplete_events() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await

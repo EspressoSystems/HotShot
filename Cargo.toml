@@ -12,20 +12,21 @@ repository = "https://github.com/EspressoSystems/HotShot"
 # when implementing traits externally
 [workspace]
 members = [
+  "crates/builder-api",
+  "crates/example-types",
+  "crates/examples",
+  "crates/fakeapi",
   "crates/hotshot",
   "crates/hotshot-stake-table",
   "crates/libp2p-networking",
   "crates/macros",
+  "crates/orchestrator"
+,
   "crates/task",
   "crates/task-impls",
   "crates/testing",
-  "crates/examples",
-  "crates/example-types",
   "crates/types",
-  "crates/builder-api",
-  "crates/fakeapi",
-  "crates/utils",
-]
+  "crates/utils"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -35,11 +36,8 @@ ark-ff = "0.4"
 ark-serialize = "0.4"
 ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7"
-async-compatibility-layer = { version = "1.2.1", default-features = false, features = [
-  "logging-utils",
-] }
-async-lock = "2"
-async-std = { version = "1", features = ["attributes"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+async-lock = "3"
 async-trait = "0.1"
 bincode = "1"
 bitvec = { version = "1", default-features = false, features = [
@@ -61,7 +59,7 @@ derive_more = { version = "1.0", features = ["from", "deref"] }
 futures = { version = "0.3", default-features = false }
 jf-crhf = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
-jf-signature = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
+jf-signature = { git = "https://github.com/EspressoSystems/jellyfish", tag = "jf-signature-v0.2.0" }
 jf-rescue = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-pcs = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-utils = { version = "0.4.4", git = "https://github.com/espressosystems/jellyfish", tag = "0.4.5" }
@@ -77,7 +75,7 @@ serde = { version = "1", features = ["derive"] }
 serde_bytes = { version = "0.11" }
 serde_json = { version = "1.0" }
 sha2 = "0.10"
-thiserror = "1"
+thiserror = "2"
 surf-disco = "0.9"
 tagged-base64 = "0.4"
 tide-disco = "0.9"
@@ -116,18 +114,12 @@ tokio = { version = "1", default-features = false, features = [
 ] }
 anyhow = "1"
 
-
 # Push CDN imports
 cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3" }
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3" }
 cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3" }
-
-### Profiles
-###
-### Note: these only apply to example executables or tests built from within this crate. They have
-### no effect on crates that depend on this crate.
-
+### Profiles###### Note: these only apply to example executables or tests built from within this crate. They have### no effect on crates that depend on this crate.
 ## Apply some optimizations to test dependencies in debug/test builds
 
 [profile.dev]

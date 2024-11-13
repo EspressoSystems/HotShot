@@ -15,7 +15,6 @@ use std::{
     time::Instant,
 };
 
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use async_trait::async_trait;
 use cdn_broker::reexports::crypto::signature::KeyPair;
 use chrono::Utc;
@@ -258,9 +257,6 @@ pub fn read_orchestrator_init_config<TYPES: NodeType>() -> (NetworkConfig<TYPES:
 /// This derived config is used for initialization of orchestrator,
 /// therefore `known_nodes_with_stake` will be an initialized
 /// vector full of the node's own config.
-/// `my_own_validator_config` will be generated from seed here
-/// for loading config from orchestrator,
-/// or else it will be loaded from file.
 #[must_use]
 pub fn load_config_from_file<TYPES: NodeType>(
     config_file: &str,
@@ -273,11 +269,6 @@ pub fn load_config_from_file<TYPES: NodeType>(
 
     let mut config: NetworkConfig<TYPES::SignatureKey> = config_toml.into();
 
-    // my_own_validator_config would be best to load from file,
-    // but its type is too complex to load so we'll generate it from seed now.
-    // Also this function is only used for orchestrator initialization now, so this value doesn't matter
-    config.config.my_own_validator_config =
-        ValidatorConfig::generated_from_seed_indexed(config.seed, config.node_index, 1, true);
     // initialize it with size for better assignment of peers' config
     config.config.known_nodes_with_stake =
         vec![PeerConfig::default(); config.config.num_nodes_with_stake.get() as usize];
@@ -357,6 +348,7 @@ pub trait RunDa<
     /// Initializes networking, returns self
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey>,
+        validator_config: ValidatorConfig<TYPES::SignatureKey>,
         libp2p_advertise_address: Option<String>,
     ) -> Self;
 
@@ -371,18 +363,17 @@ pub trait RunDa<
                 .expect("Couldn't generate genesis block");
 
         let config = self.config();
+        let validator_config = self.validator_config();
 
         // Get KeyPair for certificate Aggregation
-        let pk = config.config.my_own_validator_config.public_key.clone();
-        let sk = config.config.my_own_validator_config.private_key.clone();
+        let pk = validator_config.public_key.clone();
+        let sk = validator_config.private_key.clone();
 
         let network = self.network();
 
         let all_nodes = if cfg!(feature = "fixed-leader-election") {
             let mut vec = config.config.known_nodes_with_stake.clone();
-
             vec.truncate(config.config.fixed_leader_for_gpuvid);
-
             vec
         } else {
             config.config.known_nodes_with_stake.clone()
@@ -602,6 +593,9 @@ pub trait RunDa<
 
     /// Returns the config for this run
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey>;
+
+    /// Returns the validator config with private signature keys for this run.
+    fn validator_config(&self) -> ValidatorConfig<TYPES::SignatureKey>;
 }
 
 // Push CDN
@@ -610,6 +604,8 @@ pub trait RunDa<
 pub struct PushCdnDaRun<TYPES: NodeType> {
     /// The underlying configuration
     config: NetworkConfig<TYPES::SignatureKey>,
+    /// The private validator config
+    validator_config: ValidatorConfig<TYPES::SignatureKey>,
     /// The underlying network
     network: PushCdnNetwork<TYPES::SignatureKey>,
 }
@@ -638,20 +634,18 @@ where
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey>,
+        validator_config: ValidatorConfig<TYPES::SignatureKey>,
         _libp2p_advertise_address: Option<String>,
     ) -> PushCdnDaRun<TYPES> {
-        // Get our own key
-        let key = config.config.my_own_validator_config.clone();
-
         // Convert to the Push-CDN-compatible type
         let keypair = KeyPair {
-            public_key: WrappedSignatureKey(key.public_key),
-            private_key: key.private_key,
+            public_key: WrappedSignatureKey(validator_config.public_key.clone()),
+            private_key: validator_config.private_key.clone(),
         };
 
         // See if we should be DA, subscribe to the DA topic if so
         let mut topics = vec![CdnTopic::Global];
-        if config.config.my_own_validator_config.is_da {
+        if validator_config.is_da {
             topics.push(CdnTopic::Da);
         }
 
@@ -670,7 +664,11 @@ where
         // Wait for the network to be ready
         network.wait_for_ready().await;
 
-        PushCdnDaRun { config, network }
+        PushCdnDaRun {
+            config,
+            validator_config,
+            network,
+        }
     }
 
     fn network(&self) -> PushCdnNetwork<TYPES::SignatureKey> {
@@ -680,6 +678,10 @@ where
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
         self.config.clone()
     }
+
+    fn validator_config(&self) -> ValidatorConfig<TYPES::SignatureKey> {
+        self.validator_config.clone()
+    }
 }
 
 // Libp2p
@@ -688,8 +690,10 @@ where
 pub struct Libp2pDaRun<TYPES: NodeType> {
     /// The underlying network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
+    /// The private validator config
+    validator_config: ValidatorConfig<TYPES::SignatureKey>,
     /// The underlying network
-    network: Libp2pNetwork<TYPES::SignatureKey>,
+    network: Libp2pNetwork<TYPES>,
 }
 
 #[async_trait]
@@ -702,12 +706,12 @@ impl<
         >,
         NODE: NodeImplementation<
             TYPES,
-            Network = Libp2pNetwork<TYPES::SignatureKey>,
+            Network = Libp2pNetwork<TYPES>,
             Storage = TestStorage<TYPES>,
             AuctionResultsProvider = TestAuctionResultsProvider<TYPES>,
         >,
         V: Versions,
-    > RunDa<TYPES, Libp2pNetwork<TYPES::SignatureKey>, NODE, V> for Libp2pDaRun<TYPES>
+    > RunDa<TYPES, Libp2pNetwork<TYPES>, NODE, V> for Libp2pDaRun<TYPES>
 where
     <TYPES as NodeType>::ValidatedState: TestableState<TYPES>,
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
@@ -716,12 +720,12 @@ where
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey>,
+        validator_config: ValidatorConfig<TYPES::SignatureKey>,
         libp2p_advertise_address: Option<String>,
     ) -> Libp2pDaRun<TYPES> {
         // Extrapolate keys for ease of use
-        let keys = config.clone().config.my_own_validator_config;
-        let public_key = keys.public_key;
-        let private_key = keys.private_key;
+        let public_key = &validator_config.public_key;
+        let private_key = &validator_config.private_key;
 
         // In an example, we can calculate the libp2p bind address as a function
         // of the advertise address.
@@ -746,6 +750,10 @@ where
             .to_string()
         };
 
+        // Create the qurorum membership from the list of known nodes
+        let all_nodes = config.config.known_nodes_with_stake.clone();
+        let quorum_membership = TYPES::Membership::new(all_nodes.clone(), all_nodes, Topic::Global);
+
         // Derive the bind address
         let bind_address =
             derive_libp2p_multiaddr(&bind_address).expect("failed to derive bind address");
@@ -753,11 +761,12 @@ where
         // Create the Libp2p network
         let libp2p_network = Libp2pNetwork::from_config(
             config.clone(),
+            quorum_membership,
             GossipConfig::default(),
             RequestResponseConfig::default(),
             bind_address,
-            &public_key,
-            &private_key,
+            public_key,
+            private_key,
             Libp2pMetricsValue::default(),
         )
         .await
@@ -768,16 +777,21 @@ where
 
         Libp2pDaRun {
             config,
+            validator_config,
             network: libp2p_network,
         }
     }
 
-    fn network(&self) -> Libp2pNetwork<TYPES::SignatureKey> {
+    fn network(&self) -> Libp2pNetwork<TYPES> {
         self.network.clone()
     }
 
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
         self.config.clone()
+    }
+
+    fn validator_config(&self) -> ValidatorConfig<TYPES::SignatureKey> {
+        self.validator_config.clone()
     }
 }
 
@@ -787,6 +801,8 @@ where
 pub struct CombinedDaRun<TYPES: NodeType> {
     /// The underlying network configuration
     config: NetworkConfig<TYPES::SignatureKey>,
+    /// The private validator config
+    validator_config: ValidatorConfig<TYPES::SignatureKey>,
     /// The underlying network
     network: CombinedNetworks<TYPES>,
 }
@@ -815,27 +831,34 @@ where
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey>,
+        validator_config: ValidatorConfig<TYPES::SignatureKey>,
         libp2p_advertise_address: Option<String>,
     ) -> CombinedDaRun<TYPES> {
         // Initialize our Libp2p network
-        let libp2p_network: Libp2pDaRun<TYPES> =
-            <Libp2pDaRun<TYPES> as RunDa<
-                TYPES,
-                Libp2pNetwork<TYPES::SignatureKey>,
-                Libp2pImpl,
-                V,
-            >>::initialize_networking(config.clone(), libp2p_advertise_address.clone())
-            .await;
+        let libp2p_network: Libp2pDaRun<TYPES> = <Libp2pDaRun<TYPES> as RunDa<
+            TYPES,
+            Libp2pNetwork<TYPES>,
+            Libp2pImpl,
+            V,
+        >>::initialize_networking(
+            config.clone(),
+            validator_config.clone(),
+            libp2p_advertise_address.clone(),
+        )
+        .await;
 
         // Initialize our CDN network
-        let cdn_network: PushCdnDaRun<TYPES> =
-            <PushCdnDaRun<TYPES> as RunDa<
-                TYPES,
-                PushCdnNetwork<TYPES::SignatureKey>,
-                PushCdnImpl,
-                V,
-            >>::initialize_networking(config.clone(), libp2p_advertise_address)
-            .await;
+        let cdn_network: PushCdnDaRun<TYPES> = <PushCdnDaRun<TYPES> as RunDa<
+            TYPES,
+            PushCdnNetwork<TYPES::SignatureKey>,
+            PushCdnImpl,
+            V,
+        >>::initialize_networking(
+            config.clone(),
+            validator_config.clone(),
+            libp2p_advertise_address,
+        )
+        .await;
 
         // Create our combined network config
         let delay_duration = config
@@ -848,7 +871,11 @@ where
             CombinedNetworks::new(cdn_network.network, libp2p_network.network, delay_duration);
 
         // Return the run configuration
-        CombinedDaRun { config, network }
+        CombinedDaRun {
+            config,
+            validator_config,
+            network,
+        }
     }
 
     fn network(&self) -> CombinedNetworks<TYPES> {
@@ -857,6 +884,10 @@ where
 
     fn config(&self) -> NetworkConfig<TYPES::SignatureKey> {
         self.config.clone()
+    }
+
+    fn validator_config(&self) -> ValidatorConfig<TYPES::SignatureKey> {
+        self.validator_config.clone()
     }
 }
 
@@ -885,32 +916,30 @@ pub async fn main_entry_point<
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
 {
-    setup_logging();
-    setup_backtrace();
+    // Initialize logging
+    hotshot::helpers::initialize_logging();
 
     info!("Starting validator");
 
     let orchestrator_client: OrchestratorClient = OrchestratorClient::new(args.url.clone());
 
     // We assume one node will not call this twice to generate two validator_config-s with same identity.
-    let my_own_validator_config =
-        NetworkConfig::<TYPES::SignatureKey>::generate_init_validator_config(
-            orchestrator_client
-                .get_node_index_for_init_validator_config()
-                .await,
-            // we assign nodes to the DA committee by default
-            true,
-        );
+    let validator_config = NetworkConfig::<TYPES::SignatureKey>::generate_init_validator_config(
+        orchestrator_client
+            .get_node_index_for_init_validator_config()
+            .await,
+        // we assign nodes to the DA committee by default
+        true,
+    );
 
     // Derives our Libp2p private key from our private key, and then returns the public key of that key
     let libp2p_public_key =
-        derive_libp2p_peer_id::<TYPES::SignatureKey>(&my_own_validator_config.private_key)
+        derive_libp2p_peer_id::<TYPES::SignatureKey>(&validator_config.private_key)
             .expect("failed to derive Libp2p keypair");
 
     // We need this to be able to register our node
     let peer_config =
-        PeerConfig::<TYPES::SignatureKey>::to_bytes(&my_own_validator_config.public_config())
-            .clone();
+        PeerConfig::<TYPES::SignatureKey>::to_bytes(&validator_config.public_config()).clone();
 
     // Derive the advertise multiaddress from the supplied string
     let advertise_multiaddress = args.advertise_address.clone().map(|advertise_address| {
@@ -924,16 +953,22 @@ pub async fn main_entry_point<
     // This function will be taken solely by sequencer right after OrchestratorClient::new,
     // which means the previous `generate_validator_config_when_init` will not be taken by sequencer, it's only for key pair generation for testing in hotshot.
 
-    let (mut run_config, source) = get_complete_config(
+    let (mut run_config, validator_config, source) = get_complete_config(
         &orchestrator_client,
-        my_own_validator_config,
+        validator_config,
         advertise_multiaddress,
         Some(libp2p_public_key),
     )
     .await
     .expect("failed to get config");
 
-    let builder_task = initialize_builder(&mut run_config, &args, &orchestrator_client).await;
+    let builder_task = initialize_builder(
+        &mut run_config,
+        &validator_config,
+        &args,
+        &orchestrator_client,
+    )
+    .await;
 
     run_config.config.builder_urls = orchestrator_client
         .get_builder_addresses()
@@ -953,7 +988,9 @@ pub async fn main_entry_point<
     );
 
     info!("Initializing networking");
-    let run = RUNDA::initialize_networking(run_config.clone(), args.advertise_address).await;
+    let run =
+        RUNDA::initialize_networking(run_config.clone(), validator_config, args.advertise_address)
+            .await;
     let hotshot = run.initialize_state_and_hotshot().await;
 
     if let Some(task) = builder_task {
@@ -1014,6 +1051,7 @@ async fn initialize_builder<
     >,
 >(
     run_config: &mut NetworkConfig<<TYPES as NodeType>::SignatureKey>,
+    validator_config: &ValidatorConfig<<TYPES as NodeType>::SignatureKey>,
     args: &ValidatorArgs,
     orchestrator_client: &OrchestratorClient,
 ) -> Option<Box<dyn BuilderTask<TYPES>>>
@@ -1022,7 +1060,7 @@ where
     <TYPES as NodeType>::BlockPayload: TestableBlock<TYPES>,
     Leaf<TYPES>: TestableLeaf,
 {
-    if !run_config.config.my_own_validator_config.is_da {
+    if !validator_config.is_da {
         return None;
     }
 

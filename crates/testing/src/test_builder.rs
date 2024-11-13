@@ -98,6 +98,8 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     pub start_solver: bool,
     /// boxed closure used to validate the resulting transactions
     pub validate_transactions: TransactionValidator,
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
@@ -415,6 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             upgrade_view: None,
             start_solver: true,
             validate_transactions: Arc::new(|_| Ok(())),
+            epoch_height: 0,
         }
     }
 }
@@ -452,6 +455,7 @@ where
             timing_data,
             da_staked_committee_size,
             unreliable_network,
+            epoch_height,
             ..
         } = self.clone();
 
@@ -477,7 +481,7 @@ where
             })
             .collect();
         // But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.
-        let my_own_validator_config = ValidatorConfig::generated_from_seed_indexed(
+        let validator_config = ValidatorConfig::<TYPES::SignatureKey>::generated_from_seed_indexed(
             [0u8; 32],
             node_id,
             1,
@@ -492,7 +496,6 @@ where
             known_da_nodes,
             num_bootstrap: num_bootstrap_nodes,
             known_nodes_with_stake,
-            my_own_validator_config,
             da_staked_committee_size,
             fixed_leader_for_gpuvid: 1,
             next_view_timeout: 500,
@@ -509,7 +512,7 @@ where
             stop_proposing_time: 0,
             start_voting_time: u64::MAX,
             stop_voting_time: 0,
-            epoch_height: 0,
+            epoch_height,
         };
         let TimingData {
             next_view_timeout,
@@ -544,6 +547,7 @@ where
                     storage
                 }),
                 config,
+                validator_config,
                 marketplace_config: Box::new(|_| MarketplaceConfig::<TYPES, I> {
                     auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
                     fallback_builder_url: Url::parse("http://localhost:9999").unwrap(),

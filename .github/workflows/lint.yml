@@ -17,10 +17,6 @@ concurrency:
 jobs:
   clippy:
     strategy:
-      matrix:
-        just_variants:
-          - async-std
-          - tokio
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -34,18 +30,13 @@ jobs:
         name: Enable Rust Caching
         with:
           shared-key: "lint"
-          prefix-key: ${{ matrix.just_variants }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
+      - uses: taiki-e/install-action@just
 
       - name: Run clippy
         run: |
-          just ${{ matrix.just_variants }} clippy
+          just clippy
 
   fmt:
     runs-on: ubuntu-latest
@@ -56,12 +47,8 @@ jobs:
       - name: Install Rust
         uses: mkroening/rust-toolchain-toml@main
 
-      - name: Install Just
-        run: |
-          wget https://github.com/casey/just/releases/download/1.14.0/just-1.14.0-x86_64-unknown-linux-musl.tar.gz
-          tar -vxf just-1.14.0-x86_64-unknown-linux-musl.tar.gz just
-          sudo cp just /usr/bin/just
+      - uses: taiki-e/install-action@just
 
       - name: Check rustfmt
         run: |
-          just ${{ matrix.just_variants }} fmt_check
+          just fmt_check

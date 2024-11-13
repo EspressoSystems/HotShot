@@ -16,7 +16,6 @@ use std::{
 };
 
 use async_broadcast::{broadcast, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{future::BoxFuture, Stream, StreamExt};
@@ -36,6 +35,7 @@ use hotshot_types::{
 use lru::LruCache;
 use rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 use tide_disco::{method::ReadState, Url};
+use tokio::{spawn, time::sleep};
 
 use super::{
     build_block, run_builder_source_0_1, BlockEntry, BuilderTask, TestBuilderImplementation,
@@ -46,7 +46,7 @@ pub struct RandomBuilderImplementation;
 
 impl RandomBuilderImplementation {
     pub async fn create<TYPES: NodeType<Transaction = TestTransaction>>(
-        num_storage_nodes: usize,
+        num_nodes: usize,
         config: RandomBuilderConfig,
         changes: HashMap<u64, BuilderChange>,
         change_sender: Sender<BuilderChange>,
@@ -57,15 +57,17 @@ impl RandomBuilderImplementation {
         let (pub_key, priv_key) =
             TYPES::BuilderSignatureKey::generated_from_seed_indexed([1; 32], 0);
         let blocks = Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(256).unwrap())));
+        let num_nodes = Arc::new(RwLock::new(num_nodes));
         let source = RandomBuilderSource {
             blocks: Arc::clone(&blocks),
             pub_key: pub_key.clone(),
+            num_nodes: num_nodes.clone(),
             should_fail_claims: Arc::new(AtomicBool::new(false)),
         };
         let task = RandomBuilderTask {
             blocks,
             config,
-            num_storage_nodes,
+            num_nodes: num_nodes.clone(),
             changes,
             change_sender,
             pub_key,
@@ -84,21 +86,21 @@ where
     type Config = RandomBuilderConfig;
 
     async fn start(
-        num_storage_nodes: usize,
+        num_nodes: usize,
         url: Url,
         config: RandomBuilderConfig,
         changes: HashMap<u64, BuilderChange>,
     ) -> Box<dyn BuilderTask<TYPES>> {
         let (change_sender, change_receiver) = broadcast(128);
 
-        let (task, source) = Self::create(num_storage_nodes, config, changes, change_sender).await;
+        let (task, source) = Self::create(num_nodes, config, changes, change_sender).await;
         run_builder_source_0_1(url, change_receiver, source);
         Box::new(task)
     }
 }
 
 pub struct RandomBuilderTask<TYPES: NodeType<Transaction = TestTransaction>> {
-    num_storage_nodes: usize,
+    num_nodes: Arc<RwLock<usize>>,
     config: RandomBuilderConfig,
     changes: HashMap<u64, BuilderChange>,
     change_sender: Sender<BuilderChange>,
@@ -110,7 +112,7 @@ pub struct RandomBuilderTask<TYPES: NodeType<Transaction = TestTransaction>> {
 impl<TYPES: NodeType<Transaction = TestTransaction>> RandomBuilderTask<TYPES> {
     async fn build_blocks(
         options: RandomBuilderConfig,
-        num_storage_nodes: usize,
+        num_nodes: Arc<RwLock<usize>>,
         pub_key: <TYPES as NodeType>::BuilderSignatureKey,
         priv_key: <<TYPES as NodeType>::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
         blocks: Arc<RwLock<LruCache<BuilderCommitment, BlockEntry<TYPES>>>>,
@@ -136,7 +138,7 @@ impl<TYPES: NodeType<Transaction = TestTransaction>> RandomBuilderTask<TYPES> {
 
             let block = build_block(
                 transactions,
-                num_storage_nodes,
+                num_nodes.clone(),
                 pub_key.clone(),
                 priv_key.clone(),
             )
@@ -156,7 +158,7 @@ impl<TYPES: NodeType<Transaction = TestTransaction>> RandomBuilderTask<TYPES> {
                     time_per_block.as_millis(),
                 );
             }
-            async_sleep(time_per_block.saturating_sub(start.elapsed())).await;
+            sleep(time_per_block.saturating_sub(start.elapsed())).await;
         }
     }
 }
@@ -169,15 +171,15 @@ where
         mut self: Box<Self>,
         mut stream: Box<dyn Stream<Item = Event<TYPES>> + std::marker::Unpin + Send + 'static>,
     ) {
-        let mut task = Some(async_spawn(Self::build_blocks(
+        let mut task = Some(spawn(Self::build_blocks(
             self.config.clone(),
-            self.num_storage_nodes,
+            self.num_nodes.clone(),
             self.pub_key.clone(),
             self.priv_key.clone(),
             self.blocks.clone(),
         )));
 
-        async_spawn(async move {
+        spawn(async move {
             loop {
                 match stream.next().await {
                     None => {
@@ -189,9 +191,9 @@ where
                                 match change {
                                     BuilderChange::Up => {
                                         if task.is_none() {
-                                            task = Some(async_spawn(Self::build_blocks(
+                                            task = Some(spawn(Self::build_blocks(
                                                 self.config.clone(),
-                                                self.num_storage_nodes,
+                                                self.num_nodes.clone(),
                                                 self.pub_key.clone(),
                                                 self.priv_key.clone(),
                                                 self.blocks.clone(),
@@ -200,10 +202,7 @@ where
                                     }
                                     BuilderChange::Down => {
                                         if let Some(handle) = task.take() {
-                                            #[cfg(async_executor_impl = "tokio")]
                                             handle.abort();
-                                            #[cfg(async_executor_impl = "async-std")]
-                                            handle.cancel().await;
                                         }
                                     }
                                     BuilderChange::FailClaims(_) => {}
@@ -232,6 +231,7 @@ pub struct RandomBuilderSource<TYPES: NodeType> {
         >,
     >,
     pub_key: TYPES::BuilderSignatureKey,
+    num_nodes: Arc<RwLock<usize>>,
     should_fail_claims: Arc<AtomicBool>,
 }
 
@@ -243,10 +243,11 @@ where
     /// Create new [`RandomBuilderSource`]
     #[must_use]
     #[allow(clippy::missing_panics_doc)] // ony panics if 256 == 0
-    pub fn new(pub_key: TYPES::BuilderSignatureKey) -> Self {
+    pub fn new(pub_key: TYPES::BuilderSignatureKey, num_nodes: Arc<RwLock<usize>>) -> Self {
         Self {
             blocks: Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(256).unwrap()))),
             pub_key,
+            num_nodes,
             should_fail_claims: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -302,6 +303,19 @@ impl<TYPES: NodeType> BuilderDataSource<TYPES> for RandomBuilderSource<TYPES> {
             blocks.pop(block_hash);
         };
         Ok(payload)
+    }
+
+    async fn claim_block_with_num_nodes(
+        &self,
+        block_hash: &BuilderCommitment,
+        view_number: u64,
+        sender: TYPES::SignatureKey,
+        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+        num_nodes: usize,
+    ) -> Result<AvailableBlockData<TYPES>, BuildError> {
+        *self.num_nodes.write().await = num_nodes;
+        self.claim_block(block_hash, view_number, sender, signature)
+            .await
     }
 
     async fn claim_block_header_input(

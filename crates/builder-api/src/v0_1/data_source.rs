@@ -14,7 +14,7 @@ use hotshot_types::{
 
 use super::{
     block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
-    builder::BuildError,
+    builder::{BuildError, TransactionStatus},
 };
 
 #[async_trait]
@@ -28,13 +28,24 @@ pub trait BuilderDataSource<TYPES: NodeType> {
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Result<Vec<AvailableBlockInfo<TYPES>>, BuildError>;
 
-    /// to claim a block from the list of provided available blocks
+    /// To claim a block from the list of provided available blocks
     async fn claim_block(
         &self,
         block_hash: &BuilderCommitment,
         view_number: u64,
         sender: TYPES::SignatureKey,
         signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+    ) -> Result<AvailableBlockData<TYPES>, BuildError>;
+
+    /// To claim a block from the list of provided available blocks and provide the number of nodes
+    /// information to the builder for VID computation.
+    async fn claim_block_with_num_nodes(
+        &self,
+        block_hash: &BuilderCommitment,
+        view_number: u64,
+        sender: TYPES::SignatureKey,
+        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
+        num_nodes: usize,
     ) -> Result<AvailableBlockData<TYPES>, BuildError>;
 
     /// To claim a block header input
@@ -59,4 +70,9 @@ where
         &self,
         txns: Vec<<I as NodeType>::Transaction>,
     ) -> Result<Vec<Commitment<<I as NodeType>::Transaction>>, BuildError>;
+
+    async fn txn_status(
+        &self,
+        txn_hash: Commitment<<I as NodeType>::Transaction>,
+    ) -> Result<TransactionStatus, BuildError>;
 }

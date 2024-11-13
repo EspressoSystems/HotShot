@@ -33,13 +33,11 @@ use jf_vid::{precomputable::Precomputable, VidScheme};
 use vbs::version::StaticVersionType;
 use vec1::vec1;
 
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_vid_task() {
     use hotshot_types::message::Proposal;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     // Build the API for node 2.
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
@@ -102,9 +100,9 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
     let inputs = vec![
-        serial![ViewChange(ViewNumber::new(1))],
+        serial![ViewChange(ViewNumber::new(1), EpochNumber::new(1))],
         serial![
-            ViewChange(ViewNumber::new(2)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
@@ -113,7 +111,8 @@ async fn test_vid_task() {
                 ViewNumber::new(2),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(EpochNumber::new(0)),
-                    <TestVersions as Versions>::Base::VERSION
+                    <TestVersions as Versions>::Base::VERSION,
+                    *ViewNumber::new(2),
                 )
                 .unwrap()],
                 Some(vid_precompute),
@@ -134,12 +133,12 @@ async fn test_vid_task() {
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     quorum_membership.total_nodes(EpochNumber::new(0)),
-                    <TestVersions as Versions>::Base::VERSION
+                    <TestVersions as Versions>::Base::VERSION,
+                    *ViewNumber::new(2),
                 )
                 .unwrap()],
                 None,
             )),
-            exact(BlockReady(vid_disperse, ViewNumber::new(2))),
             exact(VidDisperseSend(vid_proposal.clone(), pub_key)),
         ]),
     ];
