@@ -842,6 +842,16 @@
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
 <a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -859,7 +869,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
@@ -1056,7 +1066,7 @@
     <span class="doccomment">/// Storage to store actionable events
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;S&gt;&gt;,
     <span class="doccomment">/// Shared consensus state
-    </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     <span class="doccomment">/// map view number to transmit tasks
@@ -1138,7 +1148,7 @@
 
         <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
-        <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
+        <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
         spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, V, NET, S&gt;::maybe_record_action(
                 <span class="prelude-val">Some</span>(HotShotAction::VidDisperse),
@@ -1164,7 +1174,7 @@
     </span><span class="kw">async fn </span>maybe_record_action(
         maybe_action: <span class="prelude-ty">Option</span>&lt;HotShotAction&gt;,
         storage: Arc&lt;RwLock&lt;S&gt;&gt;,
-        consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
+        consensus: OuterConsensus&lt;TYPES&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     ) -&gt; std::result::Result&lt;(), ()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>action) = maybe_action {
@@ -1250,6 +1260,16 @@
                         GeneralConsensusMessage::Vote(vote.clone()),
                     )),
                     TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ExtendedQuorumVoteSend(vote) =&gt; {
+                <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
+                <span class="prelude-val">Some</span>((
+                    vote.signing_key(),
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote(vote.clone()),
+                    )),
+                    TransmitType::Broadcast,
                 ))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) =&gt; <span class="prelude-val">Some</span>((
@@ -1513,7 +1533,7 @@
             .committee_members(view_number, <span class="self">self</span>.epoch);
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
-        <span class="kw">let </span>consensus = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus);
+        <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
         <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
         <span class="kw">let </span>handle = spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>NetworkEventTaskState::&lt;TYPES, V, NET, S&gt;::maybe_record_action(

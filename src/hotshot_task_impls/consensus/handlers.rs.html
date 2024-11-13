@@ -298,6 +298,13 @@
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -338,14 +345,19 @@
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="comment">// Are we the leader for this view?
-    </span><span class="macro">ensure!</span>(
-        task_state
-            .quorum_membership
-            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
-            </span>== task_state.public_key,
+    <span class="kw">let </span>is_vote_leaf_extended = task_state
+        .consensus
+        .read()
+        .<span class="kw">await
+        </span>.is_leaf_extended(vote.data.leaf_commit);
+    <span class="kw">let </span>we_are_leader = task_state
+        .quorum_membership
+        .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
+        </span>== task_state.public_key;
+    <span class="macro">ensure!</span>(
+        is_vote_leaf_extended || we_are_leader,
         <span class="macro">info!</span>(
-            <span class="string">"We are not the leader for view {:?}"</span>,
+            <span class="string">"We are not the leader for view {:?} and this is not the last vote for eQC"</span>,
             vote.view_number() + <span class="number">1
         </span>)
     );
@@ -360,6 +372,7 @@
         <span class="kw-2">&amp;</span>event,
         sender,
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+        !is_vote_leaf_extended,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -399,6 +412,7 @@
         <span class="kw-2">&amp;</span>event,
         sender,
         <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+        <span class="bool-val">true</span>,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 

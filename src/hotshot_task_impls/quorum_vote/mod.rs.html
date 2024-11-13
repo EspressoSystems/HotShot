@@ -714,6 +714,13 @@
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -938,6 +945,11 @@
         )
         .<span class="kw">await</span>;
 
+        <span class="kw">let </span>is_vote_leaf_extended = <span class="self">self
+            </span>.consensus
+            .read()
+            .<span class="kw">await
+            </span>.is_leaf_extended(leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>);
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = submit_vote::&lt;TYPES, I, V&gt;(
             <span class="self">self</span>.sender.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
@@ -949,6 +961,7 @@
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             leaf,
             vid_share,
+            is_vote_leaf_extended,
         )
         .<span class="kw">await
         </span>{
@@ -1401,6 +1414,7 @@
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             proposed_leaf,
             updated_vid,
+            <span class="bool-val">false</span>,
         )
         .<span class="kw">await
         </span>{

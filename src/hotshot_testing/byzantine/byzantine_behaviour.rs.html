@@ -452,7 +452,7 @@
     },
 };
 <span class="kw">use </span>hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, OuterConsensus},
     data::QuorumProposal,
     message::{Proposal, UpgradeLock},
     simple_vote::QuorumVote,
@@ -783,7 +783,7 @@
             quorum_membership,
             da_membership,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
-            consensus: Arc::clone(<span class="kw-2">&amp;</span>handle.consensus()),
+            consensus: OuterConsensus::new(handle.consensus()),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
             transmit_tasks: BTreeMap::new(),
         };

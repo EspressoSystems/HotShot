@@ -591,6 +591,15 @@
 <a href="#591" id="591">591</a>
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -655,6 +664,9 @@
 
     <span class="doccomment">/// Node id
     </span><span class="kw">pub </span>id: u64,
+
+    <span class="doccomment">/// Whether we should check if we are the leader when handling a vote
+    </span><span class="kw">pub </span>check_if_leader: bool,
 }
 
 <span class="doccomment">/// Describes the functions a vote must implement for it to be aggregatable by the generic vote collection task
@@ -696,10 +708,12 @@
         vote: <span class="kw-2">&amp;</span>VOTE,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;CERT&gt;&gt; {
-        <span class="macro">ensure!</span>(
-            vote.leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership, <span class="self">self</span>.epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
-            <span class="macro">info!</span>(<span class="string">"Received vote for a view in which we were not the leader."</span>)
-        );
+        <span class="kw">if </span><span class="self">self</span>.check_if_leader {
+            <span class="macro">ensure!</span>(
+                vote.leader(<span class="kw-2">&amp;</span><span class="self">self</span>.membership, <span class="self">self</span>.epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                <span class="macro">info!</span>(<span class="string">"Received vote for a view in which we were not the leader."</span>)
+            );
+        }
         <span class="macro">ensure!</span>(
             vote.view_number() == <span class="self">self</span>.view,
             <span class="macro">error!</span>(
@@ -782,6 +796,7 @@
     event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+    check_if_leader: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
@@ -812,6 +827,7 @@
         view: info.view,
         epoch: info.epoch,
         id: info.id,
+        check_if_leader,
     };
 
     state.handle_vote_event(Arc::clone(<span class="kw-2">&amp;</span>event), sender).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -839,6 +855,7 @@
     event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+    check_if_leader: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 <span class="kw">where
     </span>VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;: HandleVoteEvent&lt;TYPES, VOTE, CERT&gt;,
@@ -858,6 +875,7 @@
                 Arc::clone(event),
                 event_stream,
                 upgrade_lock.clone(),
+                check_if_leader,
             )
             .<span class="kw">await</span><span class="question-mark">?</span>;
 
