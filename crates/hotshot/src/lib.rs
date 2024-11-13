@@ -90,14 +90,7 @@ pub struct MarketplaceConfig<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub fallback_builder_url: Url,
 }
 
-/// Bundle of all the memberships a consensus instance uses
-#[derive(Clone)]
-pub struct Memberships<TYPES: NodeType> {
-    /// The entire quorum
-    pub quorum_membership: TYPES::Membership,
-    /// The DA nodes
-    pub da_membership: TYPES::Membership,
-}
+pub use hotshot_types::stake_table::Memberships;
 
 /// Holds the state needed to participate in `HotShot` consensus
 pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {

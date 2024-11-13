@@ -76,10 +76,6 @@ path = "push-cdn/broker.rs"
 name = "cdn-marshal"
 path = "push-cdn/marshal.rs"
 
-[[example]]
-name = "whitelist-push-cdn"
-path = "push-cdn/whitelist-adapter.rs"
-
 [dependencies]
 async-broadcast = { workspace = true }
 async-lock = { workspace = true }
