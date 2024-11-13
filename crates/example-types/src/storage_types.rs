@@ -43,6 +43,7 @@ pub struct TestStorageState<TYPES: NodeType> {
     high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
     high_qc2: Option<hotshot_types::simple_certificate::QuorumCertificate2<TYPES>>,
     action: TYPES::View,
+    epoch: TYPES::Epoch,
 }
 
 impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
@@ -55,6 +56,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
             high_qc: None,
             high_qc2: None,
             action: TYPES::View::genesis(),
+            epoch: TYPES::Epoch::genesis(),
         }
     }
 }
@@ -103,6 +105,9 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
     }
     pub async fn last_actioned_view(&self) -> TYPES::View {
         self.inner.read().await.action
+    }
+    pub async fn last_actioned_epoch(&self) -> TYPES::Epoch {
+        self.inner.read().await.epoch
     }
 }
 

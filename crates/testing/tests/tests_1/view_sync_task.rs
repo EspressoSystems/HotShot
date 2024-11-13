@@ -11,7 +11,8 @@ use hotshot_task_impls::{
 };
 use hotshot_testing::helpers::build_system_handle;
 use hotshot_types::{
-    data::ViewNumber, simple_vote::ViewSyncPreCommitData,
+    data::{EpochNumber, ViewNumber},
+    simple_vote::ViewSyncPreCommitData,
     traits::node_implementation::ConsensusTime,
 };
 
@@ -49,7 +50,10 @@ async fn test_view_sync_task() {
 
     input.push(HotShotEvent::Shutdown);
 
-    output.push(HotShotEvent::ViewChange(ViewNumber::new(3)));
+    output.push(HotShotEvent::ViewChange(
+        ViewNumber::new(3),
+        EpochNumber::new(0),
+    ));
     output.push(HotShotEvent::ViewSyncPreCommitVoteSend(vote.clone()));
 
     let view_sync_state =

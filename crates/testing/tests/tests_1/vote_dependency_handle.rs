@@ -79,8 +79,7 @@ async fn test_vote_dependency_handle() {
     for inputs in all_inputs.into_iter() {
         // The outputs are static here, but we re-make them since we use `into_iter` below
         let outputs = vec![
-            exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
-            exact(ViewChange(ViewNumber::new(3))),
+            exact(ViewChange(ViewNumber::new(3), EpochNumber::new(0))),
             quorum_vote_send(),
         ];
 
@@ -96,11 +95,11 @@ async fn test_vote_dependency_handle() {
                 quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
                 storage: Arc::clone(&handle.storage()),
                 view_number,
-                epoch_number: EpochNumber::new(1),
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: handle.hotshot.upgrade_lock.clone(),
                 id: handle.hotshot.id,
+                epoch_height: handle.hotshot.config.epoch_height,
             };
 
         vote_dependency_handle_state

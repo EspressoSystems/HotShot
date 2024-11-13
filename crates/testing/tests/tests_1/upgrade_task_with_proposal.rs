@@ -132,6 +132,7 @@ async fn test_upgrade_task_with_proposal() {
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
         quorum_membership.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
+        *ViewNumber::new(1),
     )
     .unwrap();
 
@@ -212,18 +213,10 @@ async fn test_upgrade_task_with_proposal() {
         timeout: TIMEOUT,
         state: proposal_state,
         expectations: vec![
-            Expectations::from_outputs(all_predicates![
-                exact(UpdateHighQc(genesis_cert.clone())),
-                exact(HighQcUpdated(genesis_cert.clone())),
-            ]),
-            Expectations::from_outputs(all_predicates![
-                exact(UpdateHighQc(proposals[1].data.justify_qc.clone())),
-                exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
-            ]),
+            Expectations::from_outputs(vec![]),
+            Expectations::from_outputs(vec![]),
             Expectations::from_outputs(vec![]),
             Expectations::from_outputs(all_predicates![
-                exact(UpdateHighQc(proposals[2].data.justify_qc.clone())),
-                exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
                 quorum_proposal_send_with_upgrade_certificate::<TestTypes>()
             ]),
         ],

@@ -28,7 +28,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{Leaf2, ViewNumber},
+    data::{EpochNumber, Leaf2, ViewNumber},
     request_response::ProposalRequestPayload,
     traits::{
         consensus_api::ConsensusApi,
@@ -94,12 +94,11 @@ async fn test_quorum_proposal_recv_task() {
 
     let expectations = vec![Expectations::from_outputs(vec![
         exact(QuorumProposalPreliminarilyValidated(proposals[1].clone())),
-        exact(HighQcUpdated(proposals[1].data.justify_qc.clone())),
         exact(QuorumProposalValidated(
             proposals[1].clone(),
             leaves[0].clone(),
         )),
-        exact(ViewChange(ViewNumber::new(2))),
+        exact(ViewChange(ViewNumber::new(2), EpochNumber::new(0))),
     ])];
 
     let state =
@@ -193,9 +192,8 @@ async fn test_quorum_proposal_recv_task_liveness_check() {
 
     let expectations = vec![Expectations::from_outputs(all_predicates![
         exact(QuorumProposalPreliminarilyValidated(proposals[2].clone())),
-        exact(ViewChange(ViewNumber::new(3))),
+        exact(ViewChange(ViewNumber::new(3), EpochNumber::new(0))),
         exact(QuorumProposalRequestSend(req, signature)),
-        exact(HighQcUpdated(proposals[2].data.justify_qc.clone())),
     ])];
 
     let state =

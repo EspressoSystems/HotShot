@@ -217,6 +217,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
                 self.membership.total_nodes(self.cur_epoch),
                 version,
+                *block_view,
             ) else {
                 tracing::error!("Failed to get null fee");
                 return None;
@@ -361,6 +362,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
             self.membership.total_nodes(self.cur_epoch),
             version,
+            *block_view,
         ) else {
             tracing::error!("Failed to calculate null block fee.");
             return None;
@@ -450,7 +452,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -469,7 +471,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 )
                 .await;
             }
-            HotShotEvent::ViewChange(view) => {
+            HotShotEvent::ViewChange(view, epoch) => {
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
                 let view = TYPES::View::new(std::cmp::max(1, **view));
                 ensure!(
                     *view > *self.cur_view,
@@ -706,6 +711,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             bail!("No available blocks");
         }
 
+        let version = match self.upgrade_lock.version(view_number).await {
+            Ok(v) => v,
+            Err(err) => {
+                bail!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
+            }
+        };
+
         for (block_info, builder_idx) in available_blocks {
             // Verify signature over chosen block.
             if !block_info.sender.validate_block_info_signature(
@@ -732,9 +744,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             let response = {
                 let client = &self.builder_clients[builder_idx];
 
-                let (block, header_input) = futures::join! {
-                    client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
-                    client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
+                // If epochs are supported, provide the latest `num_nodes` information to the
+                // builder for VID computation.
+                let (block, header_input) = if version >= V::Epochs::VERSION {
+                    futures::join! {
+                        client.claim_block_with_num_nodes(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature, self.membership.total_nodes(self.cur_epoch)) ,
+                        client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
+                    }
+                } else {
+                    futures::join! {
+                        client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
+                        client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
+                    }
                 };
 
                 let block_data = match block {
@@ -806,5 +827,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         self.handle(event, sender.clone()).await
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }

@@ -10,7 +10,6 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use either::Either;
-use futures::future::join_all;
 use hotshot_task::{
     dependency::{AndDependency, EventDependency, OrDependency},
     dependency_task::DependencyTask,
@@ -34,10 +33,7 @@ use tracing::instrument;
 use utils::anytrace::*;
 
 use self::handlers::{ProposalDependency, ProposalDependencyHandle};
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
-};
+use crate::events::HotShotEvent;
 
 mod handlers;
 
@@ -114,7 +110,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::Qc => {
-                        if let HotShotEvent::HighQcUpdated(qc) = event {
+                        if let HotShotEvent::QcFormed(either::Left(qc)) = event {
                             qc.view_number() + 1
                         } else {
                             return false;
@@ -233,7 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     timeout_dependency.mark_as_completed(event);
                 }
                 Either::Left(_) => {
-                    // qc_dependency.mark_as_completed(event);
+                    qc_dependency.mark_as_completed(event);
                 }
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
@@ -241,9 +237,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::VidDisperseSend(_, _) => {
                 vid_share_dependency.mark_as_completed(event);
-            }
-            HotShotEvent::HighQcUpdated(_) => {
-                qc_dependency.mark_as_completed(event);
             }
             _ => {}
         };
@@ -350,7 +343,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             for view in (*self.latest_proposed_view + 1)..=(*new_view) {
                 if let Some(dependency) = self.proposal_dependencies.remove(&TYPES::View::new(view))
                 {
-                    cancel_task(dependency).await;
+                    dependency.abort();
                 }
             }
 
@@ -396,16 +389,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
-                    let consensus_reader = self.consensus.read().await;
-                    if qc.view_number <= consensus_reader.high_qc().view_number {
+                    if qc.view_number <= self.consensus.read().await.high_qc().view_number {
                         tracing::trace!(
                             "Received a QC for a view that was not > than our current high QC"
                         );
                     }
+                    self.consensus
+                        .write()
+                        .await
+                        .update_high_qc(qc.clone())
+                        .wrap()
+                        .context(error!(
+                            "Failed to update high QC in internal consensus state!"
+                        ))?;
 
-                    // We need to gate on this data actually existing in the consensus shared state.
-                    // So we broadcast here and handle *before* we make the task.
-                    broadcast_event(HotShotEvent::UpdateHighQc(qc).into(), &event_sender).await;
+                    // Then update the high QC in storage
+                    self.storage
+                        .write()
+                        .await
+                        .update_high_qc2(qc.clone())
+                        .await
+                        .wrap()
+                        .context(error!("Failed to update high QC in storage!"))?;
+                    let view_number = qc.view_number() + 1;
+                    let epoch_number = self.consensus.read().await.cur_epoch();
+                    self.create_dependency_task_if_new(
+                        view_number,
+                        epoch_number,
+                        event_receiver,
+                        event_sender,
+                        Arc::clone(&event),
+                    )?;
                 }
             },
             HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -489,59 +503,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 )?;
             }
-            HotShotEvent::UpdateHighQc(qc) => {
-                // First update the high QC internally
-                self.consensus
-                    .write()
-                    .await
-                    .update_high_qc(qc.clone())
-                    .wrap()
-                    .context(error!(
-                        "Failed to update high QC in internal consensus state!"
-                    ))?;
-
-                // Then update the high QC in storage
-                self.storage
-                    .write()
-                    .await
-                    .update_high_qc2(qc.clone())
-                    .await
-                    .wrap()
-                    .context(error!("Failed to update high QC in storage!"))?;
-
-                broadcast_event(
-                    HotShotEvent::HighQcUpdated(qc.clone()).into(),
-                    &event_sender,
-                )
-                .await;
-            }
-            HotShotEvent::HighQcUpdated(qc) => {
-                let view_number = qc.view_number() + 1;
-                let epoch_number = self.consensus.read().await.cur_epoch();
-                self.create_dependency_task_if_new(
-                    view_number,
-                    epoch_number,
-                    event_receiver,
-                    event_sender,
-                    Arc::clone(&event),
-                )?;
-            }
-            HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) => {
-                self.cancel_tasks(*view).await;
+            HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
+                self.cancel_tasks(*view);
             }
             _ => {}
         }
         Ok(())
     }
+
     /// Cancel all tasks the consensus tasks has spawned before the given view
-    pub async fn cancel_tasks(&mut self, view: TYPES::View) {
+    pub fn cancel_tasks(&mut self, view: TYPES::View) {
         let keep = self.proposal_dependencies.split_off(&view);
-        let mut cancel = Vec::new();
         while let Some((_, task)) = self.proposal_dependencies.pop_first() {
-            cancel.push(cancel_task(task));
+            task.abort();
         }
         self.proposal_dependencies = keep;
-        join_all(cancel).await;
     }
 }
 
@@ -560,7 +536,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         self.handle(event, receiver.clone(), sender.clone()).await
     }
 
-    async fn cancel_subtasks(&mut self) {
+    fn cancel_subtasks(&mut self) {
         while let Some((_, handle)) = self.proposal_dependencies.pop_first() {
             handle.abort();
         }

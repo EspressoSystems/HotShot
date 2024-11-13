@@ -241,6 +241,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            epoch_height: handle.hotshot.config.epoch_height,
         }
     }
 }
@@ -293,6 +294,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             spawned_tasks: BTreeMap::new(),
             id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            epoch_height: handle.hotshot.config.epoch_height,
         }
     }
 }
@@ -322,9 +324,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             timeout_task: spawn(async {}),
             timeout: handle.hotshot.config.next_view_timeout,
             consensus: OuterConsensus::new(consensus),
-            last_decided_view: handle.cur_view().await,
             id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            epoch_height: handle.hotshot.config.epoch_height,
         }
     }
 }
