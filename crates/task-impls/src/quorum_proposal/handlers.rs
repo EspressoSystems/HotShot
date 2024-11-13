@@ -205,6 +205,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 commitment_and_metadata.builder_commitment,
                 commitment_and_metadata.metadata,
                 commitment_and_metadata.fees.to_vec(),
+                *self.view_number,
                 vid_share.data.common.clone(),
                 commitment_and_metadata.auction_result,
                 version,
@@ -292,7 +293,6 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                         timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(qc) => {
-                        // Handled by the UpdateHighQc event.
                         parent_view_number = Some(qc.view_number());
                     }
                 },
