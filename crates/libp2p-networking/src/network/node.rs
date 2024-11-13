@@ -14,18 +14,13 @@ mod handle;
 use std::{
     collections::{HashMap, HashSet},
     iter,
-    marker::PhantomData,
     num::{NonZeroU32, NonZeroUsize},
     time::Duration,
 };
 
-use async_compatibility_layer::{
-    art::async_spawn,
-    channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
-};
-use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
+use futures::{channel::mpsc, SinkExt, StreamExt};
 use hotshot_types::{
-    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::signature_key::SignatureKey,
+    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::node_implementation::NodeType,
 };
 use libp2p::{
     autonat,
@@ -48,6 +43,10 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use rand::{prelude::SliceRandom, thread_rng};
+use tokio::{
+    select, spawn,
+    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+};
 use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
 
 pub use self::{
@@ -83,32 +82,29 @@ pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
 #[derive(custom_debug::Debug)]
-pub struct NetworkNode<K: SignatureKey + 'static> {
+pub struct NetworkNode<T: NodeType> {
     /// The keypair for the node
     keypair: Keypair,
     /// peer id of network node
     peer_id: PeerId,
     /// the swarm of networkbehaviours
     #[debug(skip)]
-    swarm: Swarm<NetworkDef<K>>,
+    swarm: Swarm<NetworkDef<T::SignatureKey>>,
     /// the configuration parameters of the netework
-    config: NetworkNodeConfig<K>,
+    config: NetworkNodeConfig<T>,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
     /// Handler for direct messages
     direct_message_state: DMBehaviour,
     /// Handler for DHT Events
-    dht_handler: DHTBehaviour<K>,
+    dht_handler: DHTBehaviour<T::SignatureKey>,
     /// Channel to resend requests, set to Some when we call `spawn_listeners`
     resend_tx: Option<UnboundedSender<ClientRequest>>,
     /// Send to the bootstrap task to tell it to start a bootstrap
     bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
-
-    /// Phantom data to hold the key type
-    pd: PhantomData<K>,
 }
 
-impl<K: SignatureKey + 'static> NetworkNode<K> {
+impl<T: NodeType> NetworkNode<T> {
     /// Returns number of peers this node is connected to
     pub fn num_connected(&self) -> usize {
         self.swarm.connected_peers().count()
@@ -168,7 +164,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
     #[instrument]
-    pub async fn new(config: NetworkNodeConfig<K>) -> Result<Self, NetworkError> {
+    pub async fn new(config: NetworkNodeConfig<T>) -> Result<Self, NetworkError> {
         // Generate a random `KeyPair` if one is not specified
         let keypair = config
             .keypair
@@ -179,7 +175,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         let peer_id = PeerId::from(keypair.public());
 
         // Generate the transport from the keypair, stake table, and auth message
-        let transport: BoxedTransport = gen_transport::<K>(
+        let transport: BoxedTransport = gen_transport::<T>(
             keypair.clone(),
             config.stake_table.clone(),
             config.auth_message.clone(),
@@ -187,7 +183,7 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         .await?;
 
         // Generate the swarm
-        let mut swarm: Swarm<NetworkDef<K>> = {
+        let mut swarm: Swarm<NetworkDef<T::SignatureKey>> = {
             // Use the `Blake3` hash of the message's contents as the ID
             let message_id_fn = |message: &GossipsubMessage| {
                 let hash = blake3::hash(&message.data);
@@ -304,9 +300,6 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
 
             // build swarm
             let swarm = SwarmBuilder::with_existing_identity(keypair.clone());
-            #[cfg(async_executor_impl = "async-std")]
-            let swarm = swarm.with_async_std();
-            #[cfg(async_executor_impl = "tokio")]
             let swarm = swarm.with_tokio();
 
             swarm
@@ -337,7 +330,6 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
             ),
             resend_tx: None,
             bootstrap_tx: None,
-            pd: PhantomData,
         })
     }
 
@@ -382,11 +374,11 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
     #[instrument(skip(self))]
     async fn handle_client_requests(
         &mut self,
-        msg: Result<ClientRequest, UnboundedRecvError>,
+        msg: Option<ClientRequest>,
     ) -> Result<bool, NetworkError> {
         let behaviour = self.swarm.behaviour_mut();
         match msg {
-            Ok(msg) => {
+            Some(msg) => {
                 match msg {
                     ClientRequest::BeginBootstrap => {
                         debug!("Beginning Libp2p bootstrap");
@@ -496,8 +488,8 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                     }
                 }
             }
-            Err(e) => {
-                error!("Error receiving msg in main behaviour loop: {:?}", e);
+            None => {
+                error!("Error receiving msg in main behaviour loop: channel closed");
             }
         }
         Ok(false)
@@ -539,7 +531,6 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 // Send the number of connected peers to the client
                 send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(self.num_connected()))
-                    .await
                     .map_err(|err| NetworkError::ChannelSendError(err.to_string()))?;
             }
             SwarmEvent::ConnectionClosed {
@@ -564,7 +555,6 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                 // Send the number of connected peers to the client
                 send_to_client
                     .send(NetworkEvent::ConnectedPeersUpdate(self.num_connected()))
-                    .await
                     .map_err(|err| NetworkError::ChannelSendError(err.to_string()))?;
             }
             SwarmEvent::Dialing {
@@ -673,7 +663,6 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                     // forward messages directly to Client
                     send_to_client
                         .send(event)
-                        .await
                         .map_err(|err| NetworkError::ChannelSendError(err.to_string()))?;
                 }
             }
@@ -730,16 +719,15 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
         ),
         NetworkError,
     > {
-        let (s_input, s_output) = unbounded::<ClientRequest>();
-        let (r_input, r_output) = unbounded::<NetworkEvent>();
+        let (s_input, mut s_output) = unbounded_channel::<ClientRequest>();
+        let (r_input, r_output) = unbounded_channel::<NetworkEvent>();
         let (mut bootstrap_tx, bootstrap_rx) = mpsc::channel(100);
         self.resend_tx = Some(s_input.clone());
         self.dht_handler.set_bootstrap_sender(bootstrap_tx.clone());
 
         DHTBootstrapTask::run(bootstrap_rx, s_input.clone());
-        async_spawn(
+        spawn(
             async move {
-                let mut fuse = s_output.recv().boxed().fuse();
                 loop {
                     select! {
                         event = self.swarm.next() => {
@@ -749,14 +737,13 @@ impl<K: SignatureKey + 'static> NetworkNode<K> {
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
-                        msg = fuse => {
+                        msg = s_output.recv() => {
                             debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 let _ = bootstrap_tx.send(InputEvent::ShutdownBootstrap).await;
                                 break
                             }
-                            fuse = s_output.recv().boxed().fuse();
                         }
                     }
                 }

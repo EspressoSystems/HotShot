@@ -58,17 +58,13 @@ export DYLD_FALLBACK_LIBRARY_PATH
 for ITERATION in $(seq -w "${N_ITERATIONS}");
 do
     echo "Running iteration ${ITERATION}/${N_ITERATIONS}";
-    for RUNTIME in async-std tokio;
-    do
-        export RUSTFLAGS="--cfg async_executor_impl=\"${RUNTIME}\" --cfg async_channel_impl=\"${RUNTIME}\" --cfg hotshot_example"
-        export CARGO_TARGET_DIR="target_dirs/nix_rustc/{$RUNTIME}"
+    export CARGO_TARGET_DIR="target_dirs/nix_rustc"
         if ! cargo nextest run \
             --no-fail-fast \
             --failure-output final \
             --test-threads "${TEST_THREADS}" \
-            --hide-progress-bar > "${OUT_DIR}/${ITERATION}_${RUNTIME}.log" 2>&1;
+            --hide-progress-bar > "${OUT_DIR}/${ITERATION}.log" 2>&1;
         then
-            echo "${ITERATION}_${RUNTIME}" >> "${OUT_DIR}/failed-iterations"
-        fi
-    done
+        echo "${ITERATION}" >> "${OUT_DIR}/failed-iterations"
+    fi
 done

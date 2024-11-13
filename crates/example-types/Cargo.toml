@@ -13,7 +13,6 @@ gpu-vid = ["hotshot-task-impls/gpu-vid"]
 
 [dependencies]
 async-broadcast = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
 sha3 = "^0.10"
@@ -34,11 +33,8 @@ async-lock = { workspace = true }
 bitvec = { workspace = true }
 ethereum-types = { workspace = true }
 hotshot-task = { path = "../task" }
+jf-vid = { workspace = true }
 vbs = { workspace = true }
 url = { workspace = true }
 reqwest = { workspace = true }
-
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 tokio = { workspace = true }
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-async-std = { workspace = true }

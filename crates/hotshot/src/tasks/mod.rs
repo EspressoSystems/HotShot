@@ -8,10 +8,14 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration};
 
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+};
 use async_broadcast::{broadcast, RecvError};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{
@@ -33,7 +37,7 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, OuterConsensus},
     constants::EVENT_CHANNEL_SIZE,
     message::{Message, UpgradeLock},
     traits::{
@@ -41,13 +45,8 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
+use tokio::{spawn, time::sleep};
 use vbs::version::StaticVersionType;
-
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
-};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -101,14 +100,14 @@ pub fn add_queue_len_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Vers
     let consensus = handle.hotshot.consensus();
     let rx = handle.internal_event_stream.1.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-    let task_handle = async_spawn(async move {
+    let task_handle = spawn(async move {
         futures::pin_mut!(shutdown_signal);
         loop {
             futures::select! {
                 () = shutdown_signal => {
                     return;
                 },
-                () = async_sleep(Duration::from_millis(500)).fuse() => {
+                () = sleep(Duration::from_millis(500)).fuse() => {
                     consensus.read().await.metrics.internal_event_queue_len.set(rx.len());
                 }
             }
@@ -118,6 +117,7 @@ pub fn add_queue_len_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Vers
 }
 
 /// Add the network task to handle messages and publish events.
+#[allow(clippy::missing_panics_doc)]
 pub fn add_network_message_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -131,6 +131,7 @@ pub fn add_network_message_task<
         internal_event_stream: handle.internal_event_stream.0.clone(),
         external_event_stream: handle.output_event_stream.0.clone(),
         public_key: handle.public_key().clone(),
+        transactions_cache: lru::LruCache::new(NonZeroUsize::new(100_000).unwrap()),
     };
 
     let upgrade_lock = handle.hotshot.upgrade_lock.clone();
@@ -138,7 +139,7 @@ pub fn add_network_message_task<
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-    let task_handle = async_spawn(async move {
+    let task_handle = spawn(async move {
         futures::pin_mut!(shutdown_signal);
 
         loop {
@@ -198,8 +199,9 @@ pub fn add_network_event_task<
         quorum_membership,
         da_membership,
         storage: Arc::clone(&handle.storage()),
-        consensus: Arc::clone(&handle.consensus()),
+        consensus: OuterConsensus::new(handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+        transmit_tasks: BTreeMap::new(),
     };
     let task = Task::new(
         network_state,
@@ -327,6 +329,7 @@ where
         storage: I::Storage,
         marketplace_config: MarketplaceConfig<TYPES, I>,
     ) -> SystemContextHandle<TYPES, I, V> {
+        let epoch_height = config.epoch_height;
         let hotshot = SystemContext::new(
             public_key,
             private_key,
@@ -355,6 +358,7 @@ where
             storage: Arc::clone(&hotshot.storage),
             network: Arc::clone(&hotshot.network),
             memberships: Arc::clone(&hotshot.memberships),
+            epoch_height,
         };
 
         add_consensus_tasks::<TYPES, I, V>(&mut handle).await;
@@ -408,7 +412,7 @@ where
         let private_key = handle.private_key().clone();
         let upgrade_lock = handle.hotshot.upgrade_lock.clone();
         let consensus = Arc::clone(&handle.hotshot.consensus());
-        let send_handle = async_spawn(async move {
+        let send_handle = spawn(async move {
             futures::pin_mut!(shutdown_signal);
 
             let recv_stream = stream::unfold(original_receiver, |mut recv| async move {
@@ -462,7 +466,7 @@ where
         // spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
         let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-        let recv_handle = async_spawn(async move {
+        let recv_handle = spawn(async move {
             futures::pin_mut!(shutdown_signal);
 
             let network_recv_stream =

@@ -8,14 +8,6 @@
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
 
-use async_compatibility_layer::art::async_sleep;
-use derivative::Derivative;
-use dyn_clone::DynClone;
-use futures::Future;
-use thiserror::Error;
-
-#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
@@ -25,14 +17,17 @@ use std::{
     time::Duration,
 };
 
-use async_compatibility_layer::channel::TrySendError;
 use async_trait::async_trait;
-use futures::future::join_all;
+use derivative::Derivative;
+use dyn_clone::DynClone;
+use futures::{future::join_all, Future};
 use rand::{
     distributions::{Bernoulli, Uniform},
     prelude::Distribution,
 };
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use tokio::{sync::mpsc::error::TrySendError, time::sleep};
 
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
@@ -376,7 +371,7 @@ pub trait NetworkReliability: Debug + Sync + std::marker::Send + DynClone + 'sta
         }
         let closure = async move {
             if sample_keep {
-                async_sleep(delay).await;
+                sleep(delay).await;
                 for msg in msgs {
                     send_fn(msg).await;
                 }

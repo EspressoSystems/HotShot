@@ -10,7 +10,6 @@ use std::{
 };
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_timeout};
 use async_trait::async_trait;
 use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 use hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
@@ -31,6 +30,7 @@ use hotshot_types::{
     utils::ViewInner,
     vid::{VidCommitment, VidPrecomputeData},
 };
+use tokio::time::{sleep, timeout};
 use tracing::instrument;
 use url::Url;
 use utils::anytrace::*;
@@ -217,6 +217,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
                 self.membership.total_nodes(self.cur_epoch),
                 version,
+                *block_view,
             ) else {
                 tracing::error!("Failed to get null fee");
                 return None;
@@ -274,7 +275,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
         let start = Instant::now();
 
-        let maybe_auction_result = async_timeout(
+        let maybe_auction_result = timeout(
             self.builder_timeout,
             self.auction_results_provider
                 .fetch_auction_result(block_view),
@@ -293,7 +294,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         builder_urls.push(self.fallback_builder_url.clone());
 
         for url in builder_urls {
-            futures.push(async_timeout(
+            futures.push(timeout(
                 self.builder_timeout.saturating_sub(start.elapsed()),
                 async {
                     let client = BuilderClientMarketplace::new(url);
@@ -361,6 +362,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
             self.membership.total_nodes(self.cur_epoch),
             version,
+            *block_view,
         ) else {
             tracing::error!("Failed to calculate null block fee.");
             return None;
@@ -433,8 +435,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         None
     }
 
+    /// epochs view change handler
+    #[instrument(skip_all, fields(id = self.id, view_number = *self.cur_view))]
+    pub async fn handle_view_change_epochs(
+        &mut self,
+        event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
+        block_view: TYPES::View,
+    ) -> Option<HotShotTaskCompleted> {
+        if self.consensus.read().await.is_high_qc_forming_eqc() {
+            tracing::info!("Reached end of epoch. Not getting a new block until we form an eQC.");
+            None
+        } else {
+            self.handle_view_change_marketplace(event_stream, block_view)
+                .await
+        }
+    }
+
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -453,42 +471,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 )
                 .await;
             }
-            HotShotEvent::ViewChange(view) => {
-                let view = *view;
-
-                tracing::debug!("view change in transactions to view {:?}", view);
-                ensure!(
-                  *view > *self.cur_view || *self.cur_view == 0,
-                  debug!(
-                    "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
-                  )
-                );
-
-                let mut make_block = false;
-                if *view - *self.cur_view > 1 {
-                    tracing::info!("View changed by more than 1 going to view {:?}", view);
-                    make_block = self.membership.leader(view, self.cur_epoch)? == self.public_key;
+            HotShotEvent::ViewChange(view, epoch) => {
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
                 }
-                self.cur_view = view;
-
-                let next_view = self.cur_view + 1;
-                let next_leader =
-                    self.membership.leader(next_view, self.cur_epoch)? == self.public_key;
-
+                let view = TYPES::View::new(std::cmp::max(1, **view));
                 ensure!(
-                    make_block || next_leader,
+                    *view > *self.cur_view,
                     debug!(
-                        "Not making the block because we are not leader for view {:?}",
-                        self.cur_view
+                      "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
                     )
                 );
-
-                if make_block {
-                    self.handle_view_change(&event_stream, self.cur_view).await;
-                }
-
-                if next_leader {
-                    self.handle_view_change(&event_stream, next_view).await;
+                self.cur_view = view;
+                if self.membership.leader(view, self.cur_epoch)? == self.public_key {
+                    self.handle_view_change(&event_stream, view).await;
+                    return Ok(());
                 }
             }
             _ => {}
@@ -510,7 +507,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 Err(e) if task_start_time.elapsed() >= self.builder_timeout => break Err(e),
                 _ => {
                     // We still have time, will re-try in a bit
-                    async_sleep(RETRY_DELAY).await;
+                    sleep(RETRY_DELAY).await;
                     continue;
                 }
             }
@@ -585,7 +582,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         };
 
         while task_start_time.elapsed() < self.builder_timeout {
-            match async_timeout(
+            match timeout(
                 self.builder_timeout
                     .saturating_sub(task_start_time.elapsed()),
                 self.block_from_builder(parent_comm, parent_view, &parent_comm_sig),
@@ -601,7 +598,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 Ok(Err(err)) => {
                     tracing::info!("Couldn't get a block: {err:#}");
                     // pause a bit
-                    async_sleep(RETRY_DELAY).await;
+                    sleep(RETRY_DELAY).await;
                     continue;
                 }
 
@@ -656,7 +653,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 break;
             }
         }
-        let timeout = async_sleep(std::cmp::max(
+        let timeout = sleep(std::cmp::max(
             query_start
                 .elapsed()
                 .mul_f32(BUILDER_ADDITIONAL_TIME_MULTIPLIER),
@@ -714,6 +711,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             bail!("No available blocks");
         }
 
+        let version = match self.upgrade_lock.version(view_number).await {
+            Ok(v) => v,
+            Err(err) => {
+                bail!("Upgrade certificate requires unsupported version, refusing to request blocks: {}", err);
+            }
+        };
+
         for (block_info, builder_idx) in available_blocks {
             // Verify signature over chosen block.
             if !block_info.sender.validate_block_info_signature(
@@ -732,7 +736,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             ) {
                 Ok(request_signature) => request_signature,
                 Err(err) => {
-                    tracing::warn!(%err, "Failed to sign block hash");
+                    tracing::error!(%err, "Failed to sign block hash");
                     continue;
                 }
             };
@@ -740,9 +744,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             let response = {
                 let client = &self.builder_clients[builder_idx];
 
-                let (block, header_input) = futures::join! {
-                    client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
-                    client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
+                // If epochs are supported, provide the latest `num_nodes` information to the
+                // builder for VID computation.
+                let (block, header_input) = if version >= V::Epochs::VERSION {
+                    futures::join! {
+                        client.claim_block_with_num_nodes(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature, self.membership.total_nodes(self.cur_epoch)) ,
+                        client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
+                    }
+                } else {
+                    futures::join! {
+                        client.claim_block(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature),
+                        client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
+                    }
                 };
 
                 let block_data = match block {
@@ -814,5 +827,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         self.handle(event, sender.clone()).await
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }

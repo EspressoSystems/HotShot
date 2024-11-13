@@ -19,14 +19,11 @@ pub mod cbor;
 use std::{collections::HashSet, fmt::Debug};
 
 use futures::channel::oneshot::Sender;
-use hotshot_types::traits::{network::NetworkError, signature_key::SignatureKey};
-#[cfg(async_executor_impl = "async-std")]
-use libp2p::dns::async_std::Transport as DnsTransport;
-#[cfg(async_executor_impl = "tokio")]
-use libp2p::dns::tokio::Transport as DnsTransport;
+use hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
+    dns::tokio::Transport as DnsTransport,
     gossipsub::Event as GossipEvent,
     identify::Event as IdentifyEvent,
     identity::Keypair,
@@ -35,9 +32,6 @@ use libp2p::{
     Multiaddr, Transport,
 };
 use libp2p_identity::PeerId;
-#[cfg(async_executor_impl = "async-std")]
-use quic::async_std::Transport as QuicTransport;
-#[cfg(async_executor_impl = "tokio")]
 use quic::tokio::Transport as QuicTransport;
 use tracing::instrument;
 use transport::StakeTableAuthentication;
@@ -50,8 +44,6 @@ pub use self::{
         RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
     },
 };
-#[cfg(not(any(async_executor_impl = "async-std", async_executor_impl = "tokio")))]
-compile_error! {"Either config option \"async-std\" or \"tokio\" must be enabled for this crate."}
 
 /// Actions to send from the client to the swarm
 #[derive(Debug)]
@@ -165,9 +157,9 @@ type BoxedTransport = Boxed<(PeerId, StreamMuxerBox)>;
 /// # Errors
 /// If we could not create a DNS transport
 #[instrument(skip(identity))]
-pub async fn gen_transport<K: SignatureKey + 'static>(
+pub async fn gen_transport<T: NodeType>(
     identity: Keypair,
-    stake_table: Option<HashSet<K>>,
+    stake_table: Option<T::Membership>,
     auth_message: Option<Vec<u8>>,
 ) -> Result<BoxedTransport, NetworkError> {
     // Create the initial `Quic` transport
@@ -178,16 +170,11 @@ pub async fn gen_transport<K: SignatureKey + 'static>(
     };
 
     // Require authentication against the stake table
-    let transport = StakeTableAuthentication::new(transport, stake_table, auth_message);
+    let transport: StakeTableAuthentication<_, T, _> =
+        StakeTableAuthentication::new(transport, stake_table, auth_message);
 
     // Support DNS resolution
     let transport = {
-        #[cfg(async_executor_impl = "async-std")]
-        {
-            DnsTransport::system(transport).await
-        }
-
-        #[cfg(async_executor_impl = "tokio")]
         {
             DnsTransport::system(transport)
         }

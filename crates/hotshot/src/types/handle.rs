@@ -70,6 +70,9 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
 
     /// Memberships used by consensus
     pub memberships: Arc<Memberships<TYPES>>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
@@ -222,6 +225,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// there are two cleaner solutions:
     /// - make the stream generic and in nodetypes or nodeimpelmentation
     /// - type wrapper
+    ///
     /// NOTE: this is only used for sanity checks in our tests
     #[must_use]
     pub fn internal_event_stream_receiver_known_impl(&self) -> Receiver<Arc<HotShotEvent<TYPES>>> {

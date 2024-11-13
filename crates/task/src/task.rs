@@ -7,14 +7,8 @@
 use std::sync::Arc;
 
 use async_broadcast::{Receiver, RecvError, Sender};
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::{spawn, JoinHandle};
 use async_trait::async_trait;
-#[cfg(async_executor_impl = "async-std")]
-use futures::future::join_all;
-#[cfg(async_executor_impl = "tokio")]
 use futures::future::try_join_all;
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::{spawn, JoinHandle};
 use utils::anytrace::Result;
 
@@ -34,7 +28,7 @@ pub trait TaskState: Send {
     type Event: TaskEvent + Clone + Send + Sync;
 
     /// Joins all subtasks.
-    async fn cancel_subtasks(&mut self);
+    fn cancel_subtasks(&mut self);
 
     /// Handles an event, providing direct access to the specific channel we received the event on.
     async fn handle_event(
@@ -83,7 +77,7 @@ impl<S: TaskState + Send + 'static> Task<S> {
                 match self.receiver.recv_direct().await {
                     Ok(input) => {
                         if *input == S::Event::shutdown_event() {
-                            self.state.cancel_subtasks().await;
+                            self.state.cancel_subtasks();
 
                             break self.boxed_state();
                         }
@@ -133,12 +127,9 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
         let handles = &mut self.task_handles;
 
         while let Some(handle) = handles.pop() {
-            #[cfg(async_executor_impl = "async-std")]
-            let mut task_state = handle.await;
-            #[cfg(async_executor_impl = "tokio")]
             let mut task_state = handle.await.unwrap();
 
-            task_state.cancel_subtasks().await;
+            task_state.cancel_subtasks();
         }
     }
     /// Take a task, run it, and register it
@@ -153,12 +144,7 @@ impl<EVENT: Send + Sync + Clone + TaskEvent> ConsensusTaskRegistry<EVENT> {
     /// # Panics
     /// Panics if one of the tasks panicked
     pub async fn join_all(self) -> Vec<Box<dyn TaskState<Event = EVENT>>> {
-        #[cfg(async_executor_impl = "async-std")]
-        let states = join_all(self.task_handles).await;
-        #[cfg(async_executor_impl = "tokio")]
-        let states = try_join_all(self.task_handles).await.unwrap();
-
-        states
+        try_join_all(self.task_handles).await.unwrap()
     }
 }
 
@@ -187,9 +173,6 @@ impl NetworkTaskRegistry {
     /// tasks being joined return an error.
     pub async fn shutdown(&mut self) {
         let handles = std::mem::take(&mut self.handles);
-        #[cfg(async_executor_impl = "async-std")]
-        join_all(handles).await;
-        #[cfg(async_executor_impl = "tokio")]
         try_join_all(handles)
             .await
             .expect("Failed to join all tasks during shutdown");

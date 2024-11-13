@@ -7,7 +7,6 @@
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Sender;
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use chrono::Utc;
 use hotshot_types::{
     event::{Event, EventType},
@@ -18,14 +17,13 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
+use tokio::{spawn, time::sleep};
 use tracing::instrument;
 use utils::anytrace::*;
 
 use super::ConsensusTaskState;
 use crate::{
-    consensus::Versions,
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    consensus::Versions, events::HotShotEvent, helpers::broadcast_event,
     vote_collection::handle_vote,
 };
 
@@ -40,14 +38,19 @@ pub(crate) async fn handle_quorum_vote_recv<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    // Are we the leader for this view?
+    let is_vote_leaf_extended = task_state
+        .consensus
+        .read()
+        .await
+        .is_leaf_extended(vote.data.leaf_commit);
+    let we_are_leader = task_state
+        .quorum_membership
+        .leader(vote.view_number() + 1, task_state.cur_epoch)?
+        == task_state.public_key;
     ensure!(
-        task_state
-            .quorum_membership
-            .leader(vote.view_number() + 1, task_state.cur_epoch)?
-            == task_state.public_key,
+        is_vote_leaf_extended || we_are_leader,
         info!(
-            "We are not the leader for view {:?}",
+            "We are not the leader for view {:?} and this is not the last vote for eQC",
             vote.view_number() + 1
         )
     );
@@ -62,6 +65,7 @@ pub(crate) async fn handle_quorum_vote_recv<
         &event,
         sender,
         &task_state.upgrade_lock,
+        !is_vote_leaf_extended,
     )
     .await?;
 
@@ -101,6 +105,7 @@ pub(crate) async fn handle_timeout_vote_recv<
         &event,
         sender,
         &task_state.upgrade_lock,
+        true,
     )
     .await?;
 
@@ -115,9 +120,15 @@ pub(crate) async fn handle_view_change<
     V: Versions,
 >(
     new_view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    if epoch_number > task_state.cur_epoch {
+        task_state.cur_epoch = epoch_number;
+        tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
+    }
+
     ensure!(
         new_view_number > task_state.cur_view,
         "New view is not larger than the current view"
@@ -126,8 +137,16 @@ pub(crate) async fn handle_view_change<
     let old_view_number = task_state.cur_view;
     tracing::debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
 
+    if *old_view_number / 100 != *new_view_number / 100 {
+        tracing::info!("Progress: entered view {:>6}", *new_view_number);
+    }
     // Move this node to the next view
     task_state.cur_view = new_view_number;
+    task_state
+        .consensus
+        .write()
+        .await
+        .update_view(new_view_number)?;
 
     // If we have a decided upgrade certificate, the protocol version may also have been upgraded.
     let decided_upgrade_certificate_read = task_state
@@ -147,13 +166,11 @@ pub(crate) async fn handle_view_change<
 
     // Spawn a timeout task if we did actually update view
     let timeout = task_state.timeout;
-    let new_timeout_task = async_spawn({
+    let new_timeout_task = spawn({
         let stream = sender.clone();
-        // Nuance: We timeout on the view + 1 here because that means that we have
-        // not seen evidence to transition to this new view
-        let view_number = new_view_number + 1;
+        let view_number = new_view_number;
         async move {
-            async_sleep(Duration::from_millis(timeout)).await;
+            sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
                 Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
                 &stream,
@@ -163,11 +180,7 @@ pub(crate) async fn handle_view_change<
     });
 
     // Cancel the old timeout task
-    cancel_task(std::mem::replace(
-        &mut task_state.timeout_task,
-        new_timeout_task,
-    ))
-    .await;
+    std::mem::replace(&mut task_state.timeout_task, new_timeout_task).abort();
 
     let consensus_reader = task_state.consensus.read().await;
     consensus_reader
@@ -191,14 +204,14 @@ pub(crate) async fn handle_view_change<
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
     if usize::try_from(task_state.cur_view.u64()).unwrap()
-        > usize::try_from(task_state.last_decided_view.u64()).unwrap()
+        > usize::try_from(consensus_reader.last_decided_view().u64()).unwrap()
     {
         consensus_reader
             .metrics
             .number_of_views_since_last_decide
             .set(
                 usize::try_from(task_state.cur_view.u64()).unwrap()
-                    - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
+                    - usize::try_from(consensus_reader.last_decided_view().u64()).unwrap(),
             );
     }
 
@@ -223,7 +236,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
     ensure!(
-        task_state.cur_view < view_number,
+        task_state.cur_view <= view_number,
         "Timeout event is for an old view"
     );
 
@@ -255,7 +268,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    tracing::debug!(
+    tracing::error!(
         "We did not receive evidence for view {} in time, sending timeout vote for that view!",
         *view_number
     );

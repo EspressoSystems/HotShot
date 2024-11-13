@@ -4,15 +4,15 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashSet, fmt::Debug, marker::PhantomData, time::Duration};
+use std::{collections::HashSet, fmt::Debug, time::Duration};
 
-use async_compatibility_layer::{
-    art::{async_sleep, async_timeout},
-    channel::{Receiver, UnboundedReceiver, UnboundedSender},
-};
-use hotshot_types::traits::{network::NetworkError, signature_key::SignatureKey};
+use hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 use libp2p::{request_response::ResponseChannel, Multiaddr};
 use libp2p_identity::PeerId;
+use tokio::{
+    sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender},
+    time::{sleep, timeout},
+};
 use tracing::{debug, info, instrument};
 
 use crate::network::{
@@ -24,9 +24,9 @@ use crate::network::{
 /// - A reference to the state
 /// - Controls for the swarm
 #[derive(Debug, Clone)]
-pub struct NetworkNodeHandle<K: SignatureKey + 'static> {
+pub struct NetworkNodeHandle<T: NodeType> {
     /// network configuration
-    network_config: NetworkNodeConfig<K>,
+    network_config: NetworkNodeConfig<T>,
 
     /// send an action to the networkbehaviour
     send_network: UnboundedSender<ClientRequest>,
@@ -39,9 +39,6 @@ pub struct NetworkNodeHandle<K: SignatureKey + 'static> {
 
     /// human readable id
     id: usize,
-
-    /// Phantom data to hold the key type
-    pd: PhantomData<K>,
 }
 
 /// internal network node receiver
@@ -58,11 +55,13 @@ impl NetworkNodeReceiver {
     /// recv a network event
     /// # Errors
     /// Errors if the receiver channel is closed
-    pub async fn recv(&self) -> Result<NetworkEvent, NetworkError> {
+    pub async fn recv(&mut self) -> Result<NetworkEvent, NetworkError> {
         self.receiver
             .recv()
             .await
-            .map_err(|e| NetworkError::ChannelReceiveError(e.to_string()))
+            .ok_or(NetworkError::ChannelReceiveError(
+                "Receiver channel closed".to_string(),
+            ))
     }
     /// Add a kill switch to the receiver
     pub fn set_kill_switch(&mut self, kill_switch: Receiver<()>) {
@@ -78,10 +77,10 @@ impl NetworkNodeReceiver {
 /// Spawn a network node task task and return the handle and the receiver for it
 /// # Errors
 /// Errors if spawning the task fails
-pub async fn spawn_network_node<K: SignatureKey + 'static>(
-    config: NetworkNodeConfig<K>,
+pub async fn spawn_network_node<T: NodeType>(
+    config: NetworkNodeConfig<T>,
     id: usize,
-) -> Result<(NetworkNodeReceiver, NetworkNodeHandle<K>), NetworkError> {
+) -> Result<(NetworkNodeReceiver, NetworkNodeHandle<T>), NetworkError> {
     let mut network = NetworkNode::new(config.clone())
         .await
         .map_err(|e| NetworkError::ConfigError(format!("failed to create network node: {e}")))?;
@@ -104,33 +103,32 @@ pub async fn spawn_network_node<K: SignatureKey + 'static>(
         recv_kill: None,
     };
 
-    let handle = NetworkNodeHandle::<K> {
+    let handle = NetworkNodeHandle::<T> {
         network_config: config,
         send_network: send_chan,
         listen_addr,
         peer_id,
         id,
-        pd: PhantomData,
     };
     Ok((receiver, handle))
 }
 
-impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
+impl<T: NodeType> NetworkNodeHandle<T> {
     /// Cleanly shuts down a swarm node
     /// This is done by sending a message to
     /// the swarm itself to spin down
     #[instrument]
     pub async fn shutdown(&self) -> Result<(), NetworkError> {
-        self.send_request(ClientRequest::Shutdown).await?;
+        self.send_request(ClientRequest::Shutdown)?;
         Ok(())
     }
     /// Notify the network to begin the bootstrap process
     /// # Errors
     /// If unable to send via `send_network`. This should only happen
     /// if the network is shut down.
-    pub async fn begin_bootstrap(&self) -> Result<(), NetworkError> {
+    pub fn begin_bootstrap(&self) -> Result<(), NetworkError> {
         let req = ClientRequest::BeginBootstrap;
-        self.send_request(req).await
+        self.send_request(req)
     }
 
     /// Get a reference to the network node handle's listen addr.
@@ -146,7 +144,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn print_routing_table(&self) -> Result<(), NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetRoutingTable(s);
-        self.send_request(req).await?;
+        self.send_request(req)?;
         r.await
             .map_err(|e| NetworkError::ChannelReceiveError(e.to_string()))
     }
@@ -174,7 +172,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
             );
 
             // Sleep for a second before checking again
-            async_sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(1)).await;
         }
 
         Ok(())
@@ -187,7 +185,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn lookup_pid(&self, peer_id: PeerId) -> Result<(), NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::LookupPeer(peer_id, s);
-        self.send_request(req).await?;
+        self.send_request(req)?;
         r.await
             .map_err(|err| NetworkError::ChannelReceiveError(err.to_string()))
     }
@@ -217,7 +215,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn put_record(
         &self,
         key: RecordKey,
-        value: RecordValue<K>,
+        value: RecordValue<T::SignatureKey>,
     ) -> Result<(), NetworkError> {
         // Serialize the key
         let key = key.to_bytes();
@@ -233,7 +231,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
             notify: s,
         };
 
-        self.send_request(req).await?;
+        self.send_request(req)?;
 
         r.await.map_err(|_| NetworkError::RequestCancelled)
     }
@@ -257,13 +255,13 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
             notify: s,
             retry_count,
         };
-        self.send_request(req).await?;
+        self.send_request(req)?;
 
         // Map the error
         let result = r.await.map_err(|_| NetworkError::RequestCancelled)?;
 
         // Deserialize the record's value
-        let record: RecordValue<K> = bincode::deserialize(&result)
+        let record: RecordValue<T::SignatureKey> = bincode::deserialize(&result)
             .map_err(|e| NetworkError::FailedToDeserialize(e.to_string()))?;
 
         Ok(record.value().to_vec())
@@ -277,9 +275,9 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn get_record_timeout(
         &self,
         key: RecordKey,
-        timeout: Duration,
+        timeout_duration: Duration,
     ) -> Result<Vec<u8>, NetworkError> {
-        async_timeout(timeout, self.get_record(key, 3))
+        timeout(timeout_duration, self.get_record(key, 3))
             .await
             .map_err(|err| NetworkError::Timeout(err.to_string()))?
     }
@@ -292,10 +290,10 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn put_record_timeout(
         &self,
         key: RecordKey,
-        value: RecordValue<K>,
-        timeout: Duration,
+        value: RecordValue<T::SignatureKey>,
+        timeout_duration: Duration,
     ) -> Result<(), NetworkError> {
-        async_timeout(timeout, self.put_record(key, value))
+        timeout(timeout_duration, self.put_record(key, value))
             .await
             .map_err(|err| NetworkError::Timeout(err.to_string()))?
     }
@@ -306,7 +304,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn subscribe(&self, topic: String) -> Result<(), NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Subscribe(topic, Some(s));
-        self.send_request(req).await?;
+        self.send_request(req)?;
         r.await
             .map_err(|err| NetworkError::ChannelReceiveError(err.to_string()))
     }
@@ -317,7 +315,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn unsubscribe(&self, topic: String) -> Result<(), NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::Unsubscribe(topic, Some(s));
-        self.send_request(req).await?;
+        self.send_request(req)?;
         r.await
             .map_err(|err| NetworkError::ChannelReceiveError(err.to_string()))
     }
@@ -326,24 +324,24 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     /// e.g. maintain their connection
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
-    pub async fn ignore_peers(&self, peers: Vec<PeerId>) -> Result<(), NetworkError> {
+    pub fn ignore_peers(&self, peers: Vec<PeerId>) -> Result<(), NetworkError> {
         let req = ClientRequest::IgnorePeers(peers);
-        self.send_request(req).await
+        self.send_request(req)
     }
 
     /// Make a direct request to `peer_id` containing `msg`
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    pub async fn direct_request(&self, pid: PeerId, msg: &[u8]) -> Result<(), NetworkError> {
-        self.direct_request_no_serialize(pid, msg.to_vec()).await
+    pub fn direct_request(&self, pid: PeerId, msg: &[u8]) -> Result<(), NetworkError> {
+        self.direct_request_no_serialize(pid, msg.to_vec())
     }
 
     /// Make a direct request to `peer_id` containing `msg` without serializing
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    pub async fn direct_request_no_serialize(
+    pub fn direct_request_no_serialize(
         &self,
         pid: PeerId,
         contents: Vec<u8>,
@@ -353,20 +351,20 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
             contents,
             retry_count: 1,
         };
-        self.send_request(req).await
+        self.send_request(req)
     }
 
     /// Reply with `msg` to a request over `chan`
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    pub async fn direct_response(
+    pub fn direct_response(
         &self,
         chan: ResponseChannel<Vec<u8>>,
         msg: &[u8],
     ) -> Result<(), NetworkError> {
         let req = ClientRequest::DirectResponse(chan, msg.to_vec());
-        self.send_request(req).await
+        self.send_request(req)
     }
 
     /// Forcefully disconnect from a peer
@@ -376,52 +374,47 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     /// # Panics
     /// If channel errors out
     /// shouldn't happen.
-    pub async fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkError> {
+    pub fn prune_peer(&self, pid: PeerId) -> Result<(), NetworkError> {
         let req = ClientRequest::Prune(pid);
-        self.send_request(req).await
+        self.send_request(req)
     }
 
     /// Gossip a message to peers
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    pub async fn gossip(&self, topic: String, msg: &[u8]) -> Result<(), NetworkError> {
-        self.gossip_no_serialize(topic, msg.to_vec()).await
+    pub fn gossip(&self, topic: String, msg: &[u8]) -> Result<(), NetworkError> {
+        self.gossip_no_serialize(topic, msg.to_vec())
     }
 
     /// Gossip a message to peers without serializing
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     /// - Will return [`NetworkError::FailedToSerialize`] when unable to serialize `msg`
-    pub async fn gossip_no_serialize(
-        &self,
-        topic: String,
-        msg: Vec<u8>,
-    ) -> Result<(), NetworkError> {
+    pub fn gossip_no_serialize(&self, topic: String, msg: Vec<u8>) -> Result<(), NetworkError> {
         let req = ClientRequest::GossipMsg(topic, msg);
-        self.send_request(req).await
+        self.send_request(req)
     }
 
     /// Tell libp2p about known network nodes
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
-    pub async fn add_known_peers(
+    pub fn add_known_peers(
         &self,
         known_peers: Vec<(PeerId, Multiaddr)>,
     ) -> Result<(), NetworkError> {
         debug!("Adding {} known peers", known_peers.len());
         let req = ClientRequest::AddKnownPeers(known_peers);
-        self.send_request(req).await
+        self.send_request(req)
     }
 
     /// Send a client request to the network
     ///
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
-    async fn send_request(&self, req: ClientRequest) -> Result<(), NetworkError> {
+    fn send_request(&self, req: ClientRequest) -> Result<(), NetworkError> {
         self.send_network
             .send(req)
-            .await
             .map_err(|err| NetworkError::ChannelSendError(err.to_string()))
     }
 
@@ -435,7 +428,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn num_connected(&self) -> Result<usize, NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeerNum(s);
-        self.send_request(req).await?;
+        self.send_request(req)?;
         Ok(r.await.unwrap())
     }
 
@@ -449,7 +442,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
     pub async fn connected_pids(&self) -> Result<HashSet<PeerId>, NetworkError> {
         let (s, r) = futures::channel::oneshot::channel();
         let req = ClientRequest::GetConnectedPeers(s);
-        self.send_request(req).await?;
+        self.send_request(req)?;
         Ok(r.await.unwrap())
     }
 
@@ -467,7 +460,7 @@ impl<K: SignatureKey + 'static> NetworkNodeHandle<K> {
 
     /// Return a reference to the network config
     #[must_use]
-    pub fn config(&self) -> &NetworkNodeConfig<K> {
+    pub fn config(&self) -> &NetworkNodeConfig<T> {
         &self.network_config
     }
 }

@@ -1,34 +1,34 @@
 use std::time::Duration;
 
 use async_broadcast::broadcast;
-use async_compatibility_layer::art::async_timeout;
 use futures::StreamExt;
-use hotshot_example_types::node_types::{MemoryImpl, TestTypes, TestVersions};
+use hotshot_example_types::{
+    node_types::{MemoryImpl, TestTypes, TestVersions},
+    state_types::TestValidatedState,
+};
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_task_impls::{events::HotShotEvent::*, quorum_vote::VoteDependencyHandle};
 use hotshot_testing::{
-    helpers::{build_fake_view_with_leaf, build_system_handle},
+    helpers::build_system_handle,
     predicates::{event::*, Predicate, PredicateResult},
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{EpochNumber, ViewNumber},
+    data::{EpochNumber, Leaf, ViewNumber},
     traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
-    vote::HasViewNumber,
 };
 use itertools::Itertools;
+use tokio::time::timeout;
 
 const TIMEOUT: Duration = Duration::from_millis(35);
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_vote_dependency_handle() {
     use std::sync::Arc;
 
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     // We use a node ID of 2 here abitrarily. We just need it to build the system handle.
     let node_id = 2;
@@ -54,14 +54,14 @@ async fn test_vote_dependency_handle() {
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
         consensus_writer
-            .update_validated_state_map(
-                view.quorum_proposal.data.view_number(),
-                build_fake_view_with_leaf(view.leaf.clone(), &handle.hotshot.upgrade_lock).await,
+            .update_leaf(
+                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Arc::new(TestValidatedState::default()),
+                None,
+                &handle.hotshot.upgrade_lock,
             )
+            .await
             .unwrap();
-        consensus_writer
-            .update_saved_leaves(view.leaf.clone(), &handle.hotshot.upgrade_lock)
-            .await;
     }
     drop(consensus_writer);
 
@@ -79,8 +79,7 @@ async fn test_vote_dependency_handle() {
     for inputs in all_inputs.into_iter() {
         // The outputs are static here, but we re-make them since we use `into_iter` below
         let outputs = vec![
-            exact(QuorumVoteDependenciesValidated(ViewNumber::new(2))),
-            validated_state_updated(),
+            exact(ViewChange(ViewNumber::new(3), EpochNumber::new(0))),
             quorum_vote_send(),
         ];
 
@@ -96,11 +95,11 @@ async fn test_vote_dependency_handle() {
                 quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
                 storage: Arc::clone(&handle.storage()),
                 view_number,
-                epoch_number: EpochNumber::new(1),
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: handle.hotshot.upgrade_lock.clone(),
                 id: handle.hotshot.id,
+                epoch_height: handle.hotshot.config.epoch_height,
             };
 
         vote_dependency_handle_state
@@ -110,9 +109,7 @@ async fn test_vote_dependency_handle() {
         // We need to avoid re-processing the inputs during our output evaluation. This part here is not
         // strictly necessary, but it makes writing the outputs easier.
         let mut output_events = vec![];
-        while let Ok(Ok(received_output)) =
-            async_timeout(TIMEOUT, event_receiver.recv_direct()).await
-        {
+        while let Ok(Ok(received_output)) = timeout(TIMEOUT, event_receiver.recv_direct()).await {
             output_events.push(received_output);
         }
 

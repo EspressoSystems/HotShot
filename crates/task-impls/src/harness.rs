@@ -7,9 +7,9 @@
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::broadcast;
-use async_compatibility_layer::art::async_timeout;
 use hotshot_task::task::{ConsensusTaskRegistry, Task, TaskState};
 use hotshot_types::traits::node_implementation::NodeType;
+use tokio::time::timeout;
 
 use crate::events::{HotShotEvent, HotShotTaskCompleted};
 
@@ -27,7 +27,7 @@ pub struct TestHarnessState<TYPES: NodeType> {
 /// # Arguments
 /// * `event_stream` - if given, will be used to register the task builder.
 /// * `allow_extra_output` - whether to allow an extra output after we've seen all expected
-/// outputs. Should be `false` in most cases.
+///     outputs. Should be `false` in most cases.
 ///
 /// # Panics
 /// Panics if any state the test expects is not set. Panicking causes a test failure
@@ -69,12 +69,10 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send
         to_task.broadcast_direct(Arc::new(event)).await.unwrap();
     }
 
-    if async_timeout(Duration::from_secs(2), test_future)
-        .await
-        .is_err()
-    {
-        panic!("Test timeout out before all all expected outputs received");
-    }
+    assert!(
+        timeout(Duration::from_secs(2), test_future).await.is_ok(),
+        "Test timeout out before all all expected outputs received"
+    );
 }
 
 /// Handles an event for the Test Harness Task.  If the event is expected, remove it from
@@ -82,7 +80,7 @@ pub async fn run_harness<TYPES, S: TaskState<Event = HotShotEvent<TYPES>> + Send
 ///
 /// # Arguments
 /// * `allow_extra_output` - whether to allow an extra output after we've seen all expected
-/// outputs. Should be `false` in most cases.
+///     outputs. Should be `false` in most cases.
 ///
 ///  # Panics
 /// Will panic to fail the test when it receives and unexpected event

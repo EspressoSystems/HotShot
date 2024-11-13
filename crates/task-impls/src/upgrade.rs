@@ -37,7 +37,7 @@ use crate::{
     vote_collection::{handle_vote, VoteCollectorsMap},
 };
 
-/// Tracks state of a DA task
+/// Tracks state of an upgrade task
 pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
@@ -50,6 +50,7 @@ pub struct UpgradeTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ve
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
+
     /// The underlying network
     pub network: Arc<I::Network>,
 
@@ -104,7 +105,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
     }
 
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Upgrade Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Upgrade Task", level = "error")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -245,10 +246,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                     &event,
                     &tx,
                     &self.upgrade_lock,
+                    true,
                 )
                 .await?;
             }
-            HotShotEvent::ViewChange(new_view) => {
+            HotShotEvent::ViewChange(new_view, epoch_number) => {
+                if *epoch_number > self.cur_epoch {
+                    self.cur_epoch = *epoch_number;
+                }
                 ensure!(self.cur_view < *new_view || *self.cur_view == 0);
 
                 self.cur_view = *new_view;
@@ -335,5 +340,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         Ok(())
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }

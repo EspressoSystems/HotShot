@@ -18,8 +18,6 @@ use std::{
 };
 
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::spawn_blocking;
 use bincode::Options;
 use committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
@@ -27,7 +25,6 @@ use jf_vid::{precomputable::Precomputable, VidDisperse as JfVidDisperse, VidSche
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(async_executor_impl = "tokio")]
 use tokio::task::spawn_blocking;
 use tracing::error;
 use utils::anytrace::*;
@@ -226,8 +223,6 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
                 )
                 .unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
         }).await;
-        #[cfg(async_executor_impl = "tokio")]
-        // Tokio's JoinHandle's `Output` is `Result<T, JoinError>`, while in async-std it's just `T`
         // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         let vid_disperse = vid_disperse.unwrap();
 
@@ -373,7 +368,7 @@ pub struct QuorumProposal<TYPES: NodeType> {
     /// Possible timeout or view sync certificate.
     /// - A timeout certificate is only present if the justify_qc is not for the preceding view
     /// - A view sync certificate is only present if the justify_qc and timeout_cert are not
-    /// present.
+    ///   present.
     pub proposal_certificate: Option<ViewChangeEvidence<TYPES>>,
 }
 
@@ -801,7 +796,7 @@ pub mod null_block {
     use crate::{
         traits::{
             block_contents::BuilderFee,
-            node_implementation::{ConsensusTime, NodeType, Versions},
+            node_implementation::{NodeType, Versions},
             signature_key::BuilderSignatureKey,
             BlockPayload,
         },
@@ -817,7 +812,7 @@ pub mod null_block {
     #[memoize(SharedCache, Capacity: 10)]
     #[must_use]
     pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
-        let vid_result = vid_scheme(num_storage_nodes).commit_only(&Vec::new());
+        let vid_result = vid_scheme(num_storage_nodes).commit_only(Vec::new());
 
         match vid_result {
             Ok(r) => Some(r),
@@ -830,6 +825,7 @@ pub mod null_block {
     pub fn builder_fee<TYPES: NodeType, V: Versions>(
         num_storage_nodes: usize,
         version: vbs::version::Version,
+        view_number: u64,
     ) -> Option<BuilderFee<TYPES>> {
         /// Arbitrary fee amount, this block doesn't actually come from a builder
         const FEE_AMOUNT: u64 = 0;
@@ -843,7 +839,7 @@ pub mod null_block {
             match TYPES::BuilderSignatureKey::sign_sequencing_fee_marketplace(
                 &priv_key,
                 FEE_AMOUNT,
-                *TYPES::View::genesis(),
+                view_number,
             ) {
                 Ok(sig) => Some(BuilderFee {
                     fee_amount: FEE_AMOUNT,

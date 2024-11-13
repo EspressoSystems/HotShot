@@ -23,7 +23,7 @@ Adds new type parameter, corresponding to the state type, to Message
 ### Features
 - StatefulHandler trait
 - Reexport traits from traits module
-- State Machine + NodeImplementation
+- State Machine + Node Implementation
 - state machine mvp megasquash
 - Replace tokio broadcast queue with unbounded equivalent
 

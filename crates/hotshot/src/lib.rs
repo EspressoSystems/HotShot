@@ -26,6 +26,9 @@ pub mod types;
 
 pub mod tasks;
 
+/// Contains helper functions for the crate
+pub mod helpers;
+
 use std::{
     collections::{BTreeMap, HashMap},
     num::NonZeroUsize,
@@ -34,7 +37,6 @@ use std::{
 };
 
 use async_broadcast::{broadcast, InactiveReceiver, Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::join;
@@ -65,6 +67,7 @@ use hotshot_types::{
 // External
 /// Reexport rand crate
 pub use rand;
+use tokio::{spawn, time::sleep};
 use tracing::{debug, instrument, trace};
 
 use crate::{
@@ -125,6 +128,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     /// The view to enter when first starting consensus
     start_view: TYPES::View,
 
+    /// The epoch to enter when first starting consensus
+    start_epoch: TYPES::Epoch,
+
     /// Access to the output event stream.
     output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
 
@@ -168,6 +174,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Clone
             consensus: self.consensus.clone(),
             instance_state: Arc::clone(&self.instance_state),
             start_view: self.start_view,
+            start_epoch: self.start_epoch,
             output_event_stream: self.output_event_stream.clone(),
             external_event_stream: self.external_event_stream.clone(),
             anchored_leaf: self.anchored_leaf.clone(),
@@ -325,6 +332,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             saved_payloads,
             initializer.high_qc,
             Arc::clone(&consensus_metrics),
+            config.epoch_height,
         );
 
         let consensus = Arc::new(RwLock::new(consensus));
@@ -341,6 +349,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             private_key,
             config,
             start_view: initializer.start_view,
+            start_epoch: initializer.start_epoch,
             network,
             memberships: Arc::new(memberships),
             metrics: Arc::clone(&consensus_metrics),
@@ -356,7 +365,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         inner
     }
 
-    /// "Starts" consensus by sending a `QcFormed`, `ViewChange`, and `ValidatedStateUpdated` events
+    /// "Starts" consensus by sending a `QcFormed`, `ViewChange` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
@@ -371,7 +380,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         #[allow(clippy::panic)]
         self.internal_event_stream
             .0
-            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(self.start_view)))
+            .broadcast_direct(Arc::new(HotShotEvent::ViewChange(
+                self.start_view,
+                self.start_epoch,
+            )))
             .await
             .unwrap_or_else(|_| {
                 panic!(
@@ -387,9 +399,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
 
         // Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
-        async_spawn({
+        spawn({
             async move {
-                async_sleep(Duration::from_millis(next_view_timeout)).await;
+                sleep(Duration::from_millis(next_view_timeout)).await;
                 broadcast_event(
                     Arc::new(HotShotEvent::Timeout(start_view + 1)),
                     &event_stream,
@@ -397,24 +409,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 .await;
             }
         });
-        {
-            if let Some(validated_state) = consensus.validated_state_map().get(&self.start_view) {
-                #[allow(clippy::panic)]
-                self.internal_event_stream
-                    .0
-                    .broadcast_direct(Arc::new(HotShotEvent::ValidatedStateUpdated(
-                        TYPES::View::new(*self.start_view),
-                        validated_state.clone(),
-                    )))
-                    .await
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Genesis Broadcast failed; event = ValidatedStateUpdated({:?})",
-                            self.start_view,
-                        )
-                    });
-            }
-        }
         #[allow(clippy::panic)]
         self.internal_event_stream
             .0
@@ -495,7 +489,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             HotShotError::FailedToSerialize(format!("failed to serialize transaction: {err}"))
         })?;
 
-        async_spawn(async move {
+        spawn(async move {
             let da_membership = &api.memberships.da_membership.clone();
             join! {
                 // TODO We should have a function that can return a network error if there is one
@@ -652,6 +646,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             storage: Arc::clone(&self.storage),
             network: Arc::clone(&self.network),
             memberships: Arc::clone(&self.memberships),
+            epoch_height: self.config.epoch_height,
         };
 
         add_network_tasks::<TYPES, I, V>(&mut handle).await;
@@ -705,7 +700,7 @@ where
         let (network_task_sender, mut receiver_from_network): Channel<HotShotEvent<TYPES>> =
             broadcast(EVENT_CHANNEL_SIZE);
 
-        let _recv_loop_handle = async_spawn(async move {
+        let _recv_loop_handle = spawn(async move {
             loop {
                 let msg = match select(left_receiver.recv(), right_receiver.recv()).await {
                     Either::Left(msg) => Either::Left(msg.0.unwrap().as_ref().clone()),
@@ -721,7 +716,7 @@ where
             }
         });
 
-        let _send_loop_handle = async_spawn(async move {
+        let _send_loop_handle = spawn(async move {
             loop {
                 if let Ok(msg) = receiver_from_network.recv().await {
                     let mut state = send_state.write().await;
@@ -765,6 +760,7 @@ where
         SystemContextHandle<TYPES, I, V>,
         SystemContextHandle<TYPES, I, V>,
     ) {
+        let epoch_height = config.epoch_height;
         let left_system_context = SystemContext::new(
             public_key.clone(),
             private_key.clone(),
@@ -832,6 +828,7 @@ where
             storage: Arc::clone(&left_system_context.storage),
             network: Arc::clone(&left_system_context.network),
             memberships: Arc::clone(&left_system_context.memberships),
+            epoch_height,
         };
 
         let mut right_handle = SystemContextHandle {
@@ -843,6 +840,7 @@ where
             storage: Arc::clone(&right_system_context.storage),
             network: Arc::clone(&right_system_context.network),
             memberships: Arc::clone(&right_system_context.memberships),
+            epoch_height,
         };
 
         // add consensus tasks to each handle, using their individual internal event streams
@@ -977,6 +975,8 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Starting view number that should be equivelant to the view the node shut down with last.
     start_view: TYPES::View,
+    /// Starting epoch number that should be equivelant to the epoch the node shut down with last.
+    start_epoch: TYPES::Epoch,
     /// The view we last performed an action in.  An action is Proposing or voting for
     /// Either the quorum or DA.
     actioned_view: TYPES::View,
@@ -1010,6 +1010,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::View::new(0),
+            start_epoch: TYPES::Epoch::new(0),
             actioned_view: TYPES::View::new(0),
             saved_proposals: BTreeMap::new(),
             high_qc,
@@ -1024,15 +1025,16 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     ///
     /// # Arguments
     /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
-    /// after restart.
+    ///     after restart.
     /// * `validated_state` - Optional validated state that if given, will be used to construct the
-    /// `SystemContext`.
+    ///     `SystemContext`.
     #[allow(clippy::too_many_arguments)]
     pub fn from_reload(
         anchor_leaf: Leaf<TYPES>,
         instance_state: TYPES::InstanceState,
         validated_state: Option<Arc<TYPES::ValidatedState>>,
         start_view: TYPES::View,
+        start_epoch: TYPES::Epoch,
         actioned_view: TYPES::View,
         saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
         high_qc: QuorumCertificate<TYPES>,
@@ -1046,6 +1048,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             validated_state,
             state_delta: None,
             start_view,
+            start_epoch,
             actioned_view,
             saved_proposals,
             high_qc,

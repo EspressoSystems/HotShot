@@ -10,17 +10,16 @@ use hotshot_task_impls::{
     events::HotShotEvent, harness::run_harness, view_sync::ViewSyncTaskState,
 };
 use hotshot_testing::helpers::build_system_handle;
+use hotshot_types::data::EpochNumber;
 use hotshot_types::{
     data::ViewNumber, simple_vote::ViewSyncPreCommitData,
     traits::node_implementation::ConsensusTime,
 };
 
 #[cfg(test)]
-#[cfg_attr(async_executor_impl = "tokio", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(async_executor_impl = "async-std", async_std::test)]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_view_sync_task() {
-    async_compatibility_layer::logging::setup_logging();
-    async_compatibility_layer::logging::setup_backtrace();
+    hotshot::helpers::initialize_logging();
 
     // Build the API for node 5.
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(5)
@@ -51,7 +50,10 @@ async fn test_view_sync_task() {
 
     input.push(HotShotEvent::Shutdown);
 
-    output.push(HotShotEvent::ViewChange(ViewNumber::new(2)));
+    output.push(HotShotEvent::ViewChange(
+        ViewNumber::new(3),
+        EpochNumber::new(0),
+    ));
     output.push(HotShotEvent::ViewSyncPreCommitVoteSend(vote.clone()));
 
     let view_sync_state =

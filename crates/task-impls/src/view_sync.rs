@@ -12,10 +12,7 @@ use std::{
 };
 
 use async_broadcast::{Receiver, Sender};
-use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
-#[cfg(async_executor_impl = "async-std")]
-use async_std::task::JoinHandle;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -34,14 +31,13 @@ use hotshot_types::{
     },
     vote::{Certificate, HasViewNumber, Vote},
 };
-#[cfg(async_executor_impl = "tokio")]
-use tokio::task::JoinHandle;
+use tokio::{spawn, task::JoinHandle, time::sleep};
 use tracing::instrument;
 use utils::anytrace::*;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
@@ -136,7 +132,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         self.handle(event, sender.clone()).await
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }
 
 /// State of a view sync replica task
@@ -201,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         Ok(())
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskState<TYPES, I, V> {
@@ -269,7 +265,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
         task_map.insert(view, replica_state);
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "View Sync Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Main Task", level = "error")]
     #[allow(clippy::type_complexity)]
     /// Handles incoming events for the main view sync task
     pub async fn handle(
@@ -336,9 +332,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     epoch: self.cur_epoch,
                     id: self.id,
                 };
-                let vote_collector =
-                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await?;
+                let vote_collector = create_vote_accumulator(
+                    &info,
+                    event,
+                    &event_stream,
+                    self.upgrade_lock.clone(),
+                    true,
+                )
+                .await?;
 
                 relay_map.insert(relay, vote_collector);
             }
@@ -377,9 +378,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     id: self.id,
                 };
 
-                let vote_collector =
-                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await?;
+                let vote_collector = create_vote_accumulator(
+                    &info,
+                    event,
+                    &event_stream,
+                    self.upgrade_lock.clone(),
+                    true,
+                )
+                .await?;
                 relay_map.insert(relay, vote_collector);
             }
 
@@ -416,15 +422,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     epoch: self.cur_epoch,
                     id: self.id,
                 };
-                let vote_collector =
-                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await;
+                let vote_collector = create_vote_accumulator(
+                    &info,
+                    event,
+                    &event_stream,
+                    self.upgrade_lock.clone(),
+                    true,
+                )
+                .await;
                 if let Ok(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
             }
 
-            &HotShotEvent::ViewChange(new_view) => {
+            &HotShotEvent::ViewChange(new_view, epoch) => {
+                if epoch > self.cur_epoch {
+                    self.cur_epoch = epoch;
+                }
                 let new_view = TYPES::View::new(*new_view);
                 if self.cur_view < new_view {
                     tracing::debug!(
@@ -439,7 +453,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 
                     // Garbage collect old tasks
                     // We could put this into a separate async task, but that would require making several fields on ViewSyncTaskState thread-safe and harm readability.  In the common case this will have zero tasks to clean up.
-                    // cancel poll for votes
                     // run GC
                     for i in *self.last_garbage_collected_view..*self.cur_view {
                         self.replica_task_map
@@ -466,7 +479,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
             &HotShotEvent::Timeout(view_number) => {
                 // This is an old timeout and we can ignore it
                 ensure!(
-                    view_number > self.cur_view,
+                    view_number >= self.cur_view,
                     debug!("Discarding old timeout vote.")
                 );
 
@@ -495,9 +508,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     .await;
                 } else {
                     // If this is the first timeout we've seen advance to the next view
-                    self.cur_view = view_number;
+                    self.cur_view = view_number + 1;
                     broadcast_event(
-                        Arc::new(HotShotEvent::ViewChange(TYPES::View::new(*self.cur_view))),
+                        Arc::new(HotShotEvent::ViewChange(self.cur_view, self.cur_epoch)),
                         &event_stream,
                     )
                     .await;
@@ -513,7 +526,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ViewSyncReplicaTaskState<TYPES, I, V>
 {
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "View Sync Replica Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Replica Task", level = "error")]
     /// Handle incoming events for the view sync replica task
     pub async fn handle(
         &mut self,
@@ -577,17 +590,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
 
-                self.timeout_task = Some(async_spawn({
+                self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
                     let phase = last_seen_certificate;
                     let relay = self.relay;
                     let next_view = self.next_view;
                     let timeout = self.view_sync_timeout;
                     async move {
-                        async_sleep(timeout).await;
+                        sleep(timeout).await;
                         tracing::warn!("Vote sending timed out in ViewSyncPreCommitCertificateRecv, Relay = {}", relay);
 
                         broadcast_event(
@@ -663,23 +676,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     *self.next_view
                 );
 
+                // TODO: Figure out the correct way to view sync across epochs if needed
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view)),
+                    Arc::new(HotShotEvent::ViewChange(self.next_view, self.cur_epoch)),
                     &event_stream,
                 )
                 .await;
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
-                self.timeout_task = Some(async_spawn({
+                self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
                     let phase = last_seen_certificate;
                     let relay = self.relay;
                     let next_view = self.next_view;
                     let timeout = self.view_sync_timeout;
                     async move {
-                        async_sleep(timeout).await;
+                        sleep(timeout).await;
                         tracing::warn!(
                             "Vote sending timed out in ViewSyncCommitCertificateRecv, relay = {}",
                             relay
@@ -726,11 +740,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
 
+                // TODO: Figure out the correct way to view sync across epochs if needed
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view)),
+                    Arc::new(HotShotEvent::ViewChange(self.next_view, self.cur_epoch)),
                     &event_stream,
                 )
                 .await;
@@ -769,13 +784,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     .await;
                 }
 
-                self.timeout_task = Some(async_spawn({
+                self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
                     let relay = self.relay;
                     let next_view = self.next_view;
                     let timeout = self.view_sync_timeout;
                     async move {
-                        async_sleep(timeout).await;
+                        sleep(timeout).await;
                         tracing::warn!("Vote sending timed out in ViewSyncTrigger");
                         broadcast_event(
                             Arc::new(HotShotEvent::ViewSyncTimeout(
@@ -797,7 +812,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 // Shouldn't ever receive a timeout for a relay higher than ours
                 if TYPES::View::new(*round) == self.next_view && *relay == self.relay {
                     if let Some(timeout_task) = self.timeout_task.take() {
-                        cancel_task(timeout_task).await;
+                        timeout_task.abort();
                     }
                     self.relay += 1;
                     match last_seen_certificate {
@@ -834,14 +849,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         }
                     }
 
-                    self.timeout_task = Some(async_spawn({
+                    self.timeout_task = Some(spawn({
                         let stream = event_stream.clone();
                         let relay = self.relay;
                         let next_view = self.next_view;
                         let timeout = self.view_sync_timeout;
                         let last_cert = last_seen_certificate.clone();
                         async move {
-                            async_sleep(timeout).await;
+                            sleep(timeout).await;
                             tracing::warn!(
                                 "Vote sending timed out in ViewSyncTimeout relay = {}",
                                 relay

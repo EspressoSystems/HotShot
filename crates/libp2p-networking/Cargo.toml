@@ -11,9 +11,11 @@ authors = { workspace = true }
 default = ["webui"]
 webui = []
 
+[dev-dependencies]
+hotshot-example-types = { path = "../example-types" }
+
 [dependencies]
 anyhow = { workspace = true }
-async-compatibility-layer = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
@@ -40,14 +42,11 @@ lazy_static = { workspace = true }
 pin-project = "1"
 portpicker.workspace = true
 cbor4ii = "0.3"
+tracing-subscriber = { workspace = true }
 
-[target.'cfg(all(async_executor_impl = "tokio"))'.dependencies]
 libp2p = { workspace = true, features = ["tokio"] }
 tokio = { workspace = true }
 tokio-stream = "0.1"
-[target.'cfg(all(async_executor_impl = "async-std"))'.dependencies]
-libp2p = { workspace = true, features = ["async-std"] }
-async-std = { workspace = true }
 
 [lints]
 workspace = true

@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
@@ -18,7 +18,7 @@ use hotshot_task_impls::{
     },
 };
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, OuterConsensus},
     data::QuorumProposal,
     message::{Proposal, UpgradeLock},
     simple_vote::QuorumVote,
@@ -349,8 +349,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + std::fmt::Debug, V: Version
             quorum_membership,
             da_membership,
             storage: Arc::clone(&handle.storage()),
-            consensus: Arc::clone(&handle.consensus()),
+            consensus: OuterConsensus::new(handle.consensus()),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
+            transmit_tasks: BTreeMap::new(),
         };
         let modified_network_state = NetworkEventTaskStateModifier {
             network_event_task_state: network_state,
