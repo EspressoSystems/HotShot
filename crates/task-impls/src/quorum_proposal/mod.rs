@@ -504,7 +504,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 )?;
             }
-            HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) => {
+            HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
                 self.cancel_tasks(*view);
             }
             _ => {}
