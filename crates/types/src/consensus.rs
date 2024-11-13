@@ -971,43 +971,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
     }
 
-    /// Returns an `Epoch` for the view following the given view.
-    /// There are three cases:
-    /// 1. The leaf from the given view is not for the last block.
-    ///    The epoch should be calculated based on the next block number.
-    /// 2. The leaf from the given view is for the last block but it is not the last in the 3-chain.
-    ///    The next leaf will be for the same block number.
-    /// 3. The leaf from the given view is for the last block and it is the last in the 3-chain.
-    ///    The next leaf will be for the next block number.
-    /// # Errors
-    /// Returns error when there is no state corresponding to the given view.
-    pub fn get_epoch_for_next_view(&self, view: TYPES::View) -> Result<TYPES::Epoch> {
-        if self.epoch_height == 0 {
-            return Ok(TYPES::Epoch::new(0));
-        }
-        let validated_view = self.validated_state_map.get(&view).context(error!(
-            "Could not find a validated state corresponding to the given view."
-        ))?;
-        let ViewInner::Leaf {
-            leaf: leaf_commit, ..
-        } = validated_view.view_inner
-        else {
-            bail!("Could not find a proposed leaf corresponding to the given view.");
-        };
-        let leaf = self.saved_leaves.get(&leaf_commit).context(error!(
-            "Could not find a leaf corresponding to the given view."
-        ))?;
-        let next_block_number = if self.is_leaf_forming_eqc(leaf_commit) {
-            // Covers the second case.
-            leaf.height()
-        } else {
-            // Covers the first and third case.
-            leaf.height() + 1
-        };
-        let epoch_number = epoch_from_block_number(next_block_number, self.epoch_height);
-        Ok(TYPES::Epoch::new(epoch_number))
-    }
-
     /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`
     pub fn check_eqc(&self, proposed_leaf: &Leaf<TYPES>, parent_leaf: &Leaf<TYPES>) -> bool {
         if parent_leaf.view_number() == TYPES::View::genesis() {

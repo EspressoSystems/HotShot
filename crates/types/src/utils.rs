@@ -70,7 +70,7 @@ impl<TYPES: NodeType> Clone for ViewInner<TYPES> {
     }
 }
 /// The hash of a leaf.
-pub(crate) type LeafCommitment<TYPES> = Commitment<Leaf<TYPES>>;
+pub type LeafCommitment<TYPES> = Commitment<Leaf<TYPES>>;
 
 /// Optional validated state and state delta.
 pub type StateAndDelta<TYPES> = (

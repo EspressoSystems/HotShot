@@ -8,6 +8,11 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use self::handlers::handle_quorum_proposal_recv;
+use crate::{
+    events::{HotShotEvent, ProposalMissing},
+    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+};
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -30,12 +35,6 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, info, instrument, warn};
 use utils::anytrace::{bail, Result};
 use vbs::version::Version;
-
-use self::handlers::handle_quorum_proposal_recv;
-use crate::{
-    events::{HotShotEvent, ProposalMissing},
-    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
-};
 /// Event handlers for this task.
 mod handlers;
 
@@ -178,61 +177,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 // to enter view V + 1.
                 let oldest_view_to_keep = TYPES::View::new(view.saturating_sub(1));
                 self.cancel_tasks(oldest_view_to_keep);
-            }
-            HotShotEvent::QcFormed(Either::Left(cert)) => {
-                let new_view = cert.view_number() + 1;
-                let leaf_height_option = self
-                    .consensus
-                    .read()
-                    .await
-                    .saved_leaves()
-                    .get(&cert.data().leaf_commit)
-                    .map(Leaf::height);
-                let cert_block_number = if leaf_height_option.is_none() {
-                    match fetch_proposal(
-                        cert.view_number(),
-                        event_sender.clone(),
-                        event_receiver.clone(),
-                        Arc::clone(&self.quorum_membership),
-                        OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
-                        self.public_key.clone(),
-                        self.private_key.clone(),
-                        &self.upgrade_lock,
-                    )
-                    .await
-                    {
-                        Ok((leaf, _)) => leaf.height(),
-                        Err(e) => {
-                            tracing::error!("Error fetching a leaf when trying to change view after forming QC; error = {}", e);
-                            return;
-                        }
-                    }
-                } else {
-                    leaf_height_option.unwrap()
-                };
-
-                let next_view_epoch = match self
-                    .consensus
-                    .read()
-                    .await
-                    .get_epoch_for_next_view(cert.view_number())
-                {
-                    Ok(epoch) => epoch,
-                    Err(e) => {
-                        tracing::error!("Error updating view, error: {:?}", e);
-                        return;
-                    }
-                };
-                tracing::trace!(
-                    "Sending ViewChange for view {} and epoch {}",
-                    *new_view,
-                    *next_view_epoch
-                );
-                broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(new_view, next_view_epoch)),
-                    &event_sender,
-                )
-                .await;
             }
             _ => {}
         }
