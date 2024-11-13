@@ -558,6 +558,9 @@
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -682,7 +685,7 @@
     <span class="doccomment">/// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     </span>DacSend(DaCertificate&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
-    </span>ViewChange(TYPES::View),
+    </span>ViewChange(TYPES::View, TYPES::Epoch),
     <span class="doccomment">/// Timeout for the view sync protocol; emitted by a replica in the view sync task
     </span>ViewSyncTimeout(TYPES::View, u64, ViewSyncPhase),
 
@@ -854,7 +857,7 @@
             }
             HotShotEvent::QuorumProposalRequestSend(req, <span class="kw">_</span>)
             | HotShotEvent::QuorumProposalRequestRecv(req, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(req.view_number),
-            HotShotEvent::ViewChange(view_number)
+            HotShotEvent::ViewChange(view_number, <span class="kw">_</span>)
             | HotShotEvent::ViewSyncTimeout(view_number, <span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::ViewSyncTrigger(view_number)
             | HotShotEvent::Timeout(view_number) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>view_number),
@@ -939,8 +942,11 @@
             HotShotEvent::DacSend(cert, <span class="kw">_</span>) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"DacSend(view_number={:?})"</span>, cert.view_number())
             }
-            HotShotEvent::ViewChange(view_number) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"ViewChange(view_number={view_number:?})"</span>)
+            HotShotEvent::ViewChange(view_number, epoch_number) =&gt; {
+                <span class="macro">write!</span>(
+                    f,
+                    <span class="string">"ViewChange(view_number={view_number:?}, epoch_number={epoch_number:?})"
+                </span>)
             }
             HotShotEvent::ViewSyncTimeout(view_number, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"ViewSyncTimeout(view_number={view_number:?})"</span>)

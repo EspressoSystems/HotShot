@@ -839,6 +839,9 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1450,8 +1453,11 @@
                     TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::ViewChange(view) =&gt; {
+            HotShotEvent::ViewChange(view, epoch) =&gt; {
                 <span class="self">self</span>.view = view;
+                <span class="kw">if </span>epoch &gt; <span class="self">self</span>.epoch {
+                    <span class="self">self</span>.epoch = epoch;
+                }
                 <span class="self">self</span>.cancel_tasks(view);
                 <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
                 <span class="kw">let </span>epoch = <span class="self">self</span>.epoch.u64();

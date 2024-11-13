@@ -210,6 +210,18 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -282,7 +294,7 @@
     }
 }
 <span class="doccomment">/// The hash of a leaf.
-</span><span class="kw">type </span>LeafCommitment&lt;TYPES&gt; = Commitment&lt;Leaf&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>LeafCommitment&lt;TYPES&gt; = Commitment&lt;Leaf&lt;TYPES&gt;&gt;;
 
 <span class="doccomment">/// Optional validated state and state delta.
 </span><span class="kw">pub type </span>StateAndDelta&lt;TYPES&gt; = (
@@ -421,5 +433,17 @@
         .with_little_endian()
         .with_fixint_encoding()
         .reject_trailing_bytes()
+}
+
+<span class="doccomment">/// Returns an epoch number given a block number and an epoch height
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>epoch_from_block_number(block_number: u64, epoch_height: u64) -&gt; u64 {
+    <span class="kw">if </span>epoch_height == <span class="number">0 </span>{
+        <span class="number">0
+    </span>} <span class="kw">else if </span>block_number % epoch_height == <span class="number">0 </span>{
+        block_number / epoch_height
+    } <span class="kw">else </span>{
+        block_number / epoch_height + <span class="number">1
+    </span>}
 }
 </code></pre></div></section></main></body></html>

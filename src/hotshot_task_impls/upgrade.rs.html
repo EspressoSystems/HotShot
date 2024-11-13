@@ -338,6 +338,9 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -445,7 +448,7 @@
     }
 
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Upgrade Task"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"Upgrade Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -589,7 +592,10 @@
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
             }
-            HotShotEvent::ViewChange(new_view) =&gt; {
+            HotShotEvent::ViewChange(new_view, epoch_number) =&gt; {
+                <span class="kw">if </span><span class="kw-2">*</span>epoch_number &gt; <span class="self">self</span>.cur_epoch {
+                    <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch_number;
+                }
                 <span class="macro">ensure!</span>(<span class="self">self</span>.cur_view &lt; <span class="kw-2">*</span>new_view || <span class="kw-2">*</span><span class="self">self</span>.cur_view == <span class="number">0</span>);
 
                 <span class="self">self</span>.cur_view = <span class="kw-2">*</span>new_view;

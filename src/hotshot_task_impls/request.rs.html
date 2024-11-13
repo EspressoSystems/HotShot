@@ -492,7 +492,7 @@
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            HotShotEvent::ViewChange(view) =&gt; {
+            HotShotEvent::ViewChange(view, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span>view &gt; <span class="self">self</span>.view {
                     <span class="self">self</span>.view = view;

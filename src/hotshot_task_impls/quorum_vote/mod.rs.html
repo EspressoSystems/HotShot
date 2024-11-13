@@ -707,6 +707,13 @@
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -715,6 +722,11 @@
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::broadcast_event,
+    quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
+};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -735,6 +747,7 @@
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::epoch_from_block_number,
     vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
@@ -743,12 +756,6 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
-
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::broadcast_event,
-    quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
-};
 
 <span class="doccomment">/// Event handlers for `QuorumProposalValidated`.
 </span><span class="kw">mod </span>handlers;
@@ -780,8 +787,6 @@
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
     <span class="doccomment">/// View number to vote on.
     </span><span class="kw">pub </span>view_number: TYPES::View,
-    <span class="doccomment">/// Epoch number to vote on.
-    </span><span class="kw">pub </span>epoch_number: TYPES::Epoch,
     <span class="doccomment">/// Event sender.
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Event receiver.
@@ -790,6 +795,8 @@
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">'static</span>, V: Versions&gt; HandleDepOutput
@@ -824,7 +831,7 @@
                             </span>.consensus
                             .read()
                             .<span class="kw">await
-                            </span>.is_qc_forming_eqc(<span class="kw-2">&amp;</span>proposal.data.justify_qc)
+                            </span>.is_leaf_forming_eqc(proposal.data.justify_qc.data.leaf_commit)
                     {
                         <span class="macro">tracing::debug!</span>(<span class="string">"Do not vote here. Voting for this case is handled in QuorumVoteTaskState"</span>);
                         <span class="kw">return</span>;
@@ -877,11 +884,6 @@
             }
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.view_number + <span class="number">1</span>)),
-            <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
-        )
-        .<span class="kw">await</span>;
         <span class="kw">let </span><span class="prelude-val">Some</span>(vid_share) = vid_share <span class="kw">else </span>{
             <span class="macro">tracing::error!</span>(
                 <span class="string">"We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed."</span>,
@@ -920,6 +922,22 @@
             <span class="kw">return</span>;
         }
 
+        <span class="kw">let </span>current_epoch =
+            TYPES::Epoch::new(epoch_from_block_number(leaf.height(), <span class="self">self</span>.epoch_height));
+        <span class="macro">tracing::trace!</span>(
+            <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
+            <span class="self">self</span>.view_number + <span class="number">1</span>,
+            <span class="kw-2">*</span>current_epoch
+        );
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(
+                <span class="self">self</span>.view_number + <span class="number">1</span>,
+                current_epoch,
+            )),
+            <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
+        )
+        .<span class="kw">await</span>;
+
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = submit_vote::&lt;TYPES, I, V&gt;(
             <span class="self">self</span>.sender.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
@@ -927,7 +945,7 @@
             <span class="self">self</span>.private_key.clone(),
             <span class="self">self</span>.upgrade_lock.clone(),
             <span class="self">self</span>.view_number,
-            <span class="self">self</span>.epoch_number,
+            current_epoch,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             leaf,
             vid_share,
@@ -981,6 +999,9 @@
 
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; QuorumVoteTaskState&lt;TYPES, I, V&gt; {
@@ -1034,7 +1055,6 @@
     </span><span class="kw">fn </span>create_dependency_task_if_new(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
-        epoch_number: TYPES::Epoch,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: <span class="prelude-ty">Option</span>&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1073,11 +1093,11 @@
                 quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
                 view_number,
-                epoch_number,
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
                 id: <span class="self">self</span>.id,
+                epoch_height: <span class="self">self</span>.epoch_height,
             },
         );
         <span class="self">self</span>.vote_dependencies
@@ -1141,25 +1161,18 @@
                     .version(proposal.data.view_number())
                     .<span class="kw">await</span><span class="question-mark">?</span>;
 
-                <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                <span class="kw">let </span>cur_epoch = consensus_reader.cur_epoch();
-                <span class="kw">let </span>is_qc_forming_eqc =
-                    consensus_reader.is_qc_forming_eqc(<span class="kw-2">&amp;</span>proposal.data.justify_qc);
-                drop(consensus_reader);
+                <span class="kw">let </span>is_justify_qc_forming_eqc = <span class="self">self
+                    </span>.consensus
+                    .read()
+                    .<span class="kw">await
+                    </span>.is_leaf_forming_eqc(proposal.data.justify_qc.data.leaf_commit);
 
-                <span class="kw">if </span>version &gt;= V::Epochs::VERSION &amp;&amp; is_qc_forming_eqc {
-                    <span class="self">self</span>.handle_eqc_voting(
-                        proposal,
-                        parent_leaf,
-                        event_sender,
-                        event_receiver,
-                        cur_epoch,
-                    )
-                    .<span class="kw">await</span>;
+                <span class="kw">if </span>version &gt;= V::Epochs::VERSION &amp;&amp; is_justify_qc_forming_eqc {
+                    <span class="self">self</span>.handle_eqc_voting(proposal, parent_leaf, event_sender, event_receiver)
+                        .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="self">self</span>.create_dependency_task_if_new(
                         proposal.data.view_number,
-                        cur_epoch,
                         event_receiver,
                         <span class="kw-2">&amp;</span>event_sender,
                         <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>event)),
@@ -1195,13 +1208,7 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(
-                    view,
-                    cur_epoch,
-                    event_receiver,
-                    <span class="kw-2">&amp;</span>event_sender,
-                    <span class="prelude-val">None</span>,
-                );
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
             HotShotEvent::VidShareRecv(sender, disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
@@ -1259,13 +1266,7 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(
-                    view,
-                    cur_epoch,
-                    event_receiver,
-                    <span class="kw-2">&amp;</span>event_sender,
-                    <span class="prelude-val">None</span>,
-                );
+                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
             HotShotEvent::Timeout(view) =&gt; {
                 <span class="kw">let </span>view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
@@ -1276,7 +1277,7 @@
                 }
                 <span class="self">self</span>.vote_dependencies = current_tasks;
             }
-            HotShotEvent::ViewChange(<span class="kw-2">mut </span>view) =&gt; {
+            HotShotEvent::ViewChange(<span class="kw-2">mut </span>view, <span class="kw">_</span>) =&gt; {
                 view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
                 <span class="kw">if </span>!<span class="self">self</span>.update_latest_voted_view(view).<span class="kw">await </span>{
                     <span class="macro">tracing::debug!</span>(<span class="string">"view not updated"</span>);
@@ -1294,13 +1295,13 @@
     }
 
     <span class="doccomment">/// Handles voting for the last block in the epoch to form the Extended QC.
+    </span><span class="attr">#[allow(clippy::too_many_lines)]
     </span><span class="kw">async fn </span>handle_eqc_voting(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
         parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        epoch_number: TYPES::Epoch,
     ) {
         <span class="macro">tracing::info!</span>(<span class="string">"Reached end of epoch. Justify QC is for the last block in the epoch."</span>);
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
@@ -1348,12 +1349,6 @@
             <span class="kw">return</span>;
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(proposal.data.view_number() + <span class="number">1</span>)),
-            <span class="kw-2">&amp;</span>event_sender,
-        )
-        .<span class="kw">await</span>;
-
         <span class="comment">// Update internal state
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_shared_state::&lt;TYPES, I, V&gt;(
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
@@ -1376,6 +1371,25 @@
             <span class="kw">return</span>;
         }
 
+        <span class="kw">let </span>current_block_number = proposed_leaf.height();
+        <span class="kw">let </span>current_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            current_block_number,
+            <span class="self">self</span>.epoch_height,
+        ));
+        <span class="macro">tracing::trace!</span>(
+            <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
+            proposal.data.view_number() + <span class="number">1</span>,
+            <span class="kw-2">*</span>current_epoch
+        );
+        broadcast_event(
+            Arc::new(HotShotEvent::ViewChange(
+                proposal.data.view_number() + <span class="number">1</span>,
+                current_epoch,
+            )),
+            <span class="kw-2">&amp;</span>event_sender,
+        )
+        .<span class="kw">await</span>;
+
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = submit_vote::&lt;TYPES, I, V&gt;(
             event_sender.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
@@ -1383,7 +1397,7 @@
             <span class="self">self</span>.private_key.clone(),
             <span class="self">self</span>.upgrade_lock.clone(),
             proposal.data.view_number(),
-            epoch_number,
+            current_epoch,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
             proposed_leaf,
             updated_vid,

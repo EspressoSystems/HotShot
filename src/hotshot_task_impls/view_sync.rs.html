@@ -861,6 +861,11 @@
 <a href="#861" id="861">861</a>
 <a href="#862" id="862">862</a>
 <a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1128,7 +1133,7 @@
         task_map.insert(view, replica_state);
     }
 
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"View Sync Main Task"</span>, level = <span class="string">"error"</span>)]
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"View Sync Main Task"</span>, level = <span class="string">"error"</span>)]
     #[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Handles incoming events for the main view sync task
     </span><span class="kw">pub async fn </span>handle(
@@ -1283,7 +1288,10 @@
                 }
             }
 
-            <span class="kw-2">&amp;</span>HotShotEvent::ViewChange(new_view) =&gt; {
+            <span class="kw-2">&amp;</span>HotShotEvent::ViewChange(new_view, epoch) =&gt; {
+                <span class="kw">if </span>epoch &gt; <span class="self">self</span>.cur_epoch {
+                    <span class="self">self</span>.cur_epoch = epoch;
+                }
                 <span class="kw">let </span>new_view = TYPES::View::new(<span class="kw-2">*</span>new_view);
                 <span class="kw">if </span><span class="self">self</span>.cur_view &lt; new_view {
                     <span class="macro">tracing::debug!</span>(
@@ -1355,7 +1363,7 @@
                     <span class="comment">// If this is the first timeout we've seen advance to the next view
                     </span><span class="self">self</span>.cur_view = view_number + <span class="number">1</span>;
                     broadcast_event(
-                        Arc::new(HotShotEvent::ViewChange(TYPES::View::new(<span class="kw-2">*</span><span class="self">self</span>.cur_view))),
+                        Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.cur_view, <span class="self">self</span>.cur_epoch)),
                         <span class="kw-2">&amp;</span>event_stream,
                     )
                     .<span class="kw">await</span>;
@@ -1371,7 +1379,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;
     ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;
 {
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"View Sync Replica Task"</span>, level = <span class="string">"error"</span>)]
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"View Sync Replica Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="doccomment">/// Handle incoming events for the view sync replica task
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1521,8 +1529,9 @@
                     <span class="kw-2">*</span><span class="self">self</span>.next_view
                 );
 
-                broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.next_view)),
+                <span class="comment">// TODO: Figure out the correct way to view sync across epochs if needed
+                </span>broadcast_event(
+                    Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.next_view, <span class="self">self</span>.cur_epoch)),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
@@ -1587,8 +1596,9 @@
                     timeout_task.abort();
                 }
 
-                broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.next_view)),
+                <span class="comment">// TODO: Figure out the correct way to view sync across epochs if needed
+                </span>broadcast_event(
+                    Arc::new(HotShotEvent::ViewChange(<span class="self">self</span>.next_view, <span class="self">self</span>.cur_epoch)),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;

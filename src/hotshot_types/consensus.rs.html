@@ -985,17 +985,6 @@
 <a href="#985" id="985">985</a>
 <a href="#986" id="986">986</a>
 <a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
-<a href="#993" id="993">993</a>
-<a href="#994" id="994">994</a>
-<a href="#995" id="995">995</a>
-<a href="#996" id="996">996</a>
-<a href="#997" id="997">997</a>
-<a href="#998" id="998">998</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1025,15 +1014,15 @@
     message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate, QuorumCertificate},
     traits::{
-        block_contents::{BlockHeader, BuilderFee},
+        block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{BuilderCommitment, StateAndDelta, Terminator, Terminator::Inclusive},
+    utils::{BuilderCommitment, LeafCommitment, StateAndDelta, Terminator},
     vid::VidCommitment,
-    vote::{Certificate, HasViewNumber},
+    vote::HasViewNumber,
 };
 
 <span class="doccomment">/// A type alias for `HashMap&lt;Commitment&lt;T&gt;, T&gt;`
@@ -1501,6 +1490,7 @@
             epoch_number &gt; <span class="self">self</span>.cur_epoch,
             <span class="macro">debug!</span>(<span class="string">"New epoch isn't newer than the current epoch."</span>)
         );
+        <span class="macro">tracing::trace!</span>(<span class="string">"Updating epoch from {} to {}"</span>, <span class="self">self</span>.cur_epoch, epoch_number);
         <span class="self">self</span>.cur_epoch = epoch_number;
         <span class="prelude-val">Ok</span>(())
     }
@@ -1880,15 +1870,80 @@
         <span class="prelude-val">Some</span>(())
     }
 
-    <span class="doccomment">/// Returns true if the current high qc is for the last block in the epoch
-    </span><span class="kw">pub fn </span>is_high_qc_for_last_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">let </span>high_qc = <span class="self">self</span>.high_qc();
-        <span class="self">self</span>.is_qc_for_last_block(high_qc)
+    <span class="doccomment">/// Return true if the high QC takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    </span><span class="kw">pub fn </span>is_high_qc_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span>high_qc_leaf_commit = <span class="self">self</span>.high_qc().data.leaf_commit;
+        <span class="kw">let </span>is_high_qc_extended = <span class="self">self</span>.is_leaf_extended(high_qc_leaf_commit);
+        <span class="kw">if </span>is_high_qc_extended {
+            <span class="macro">tracing::debug!</span>(<span class="string">"We have formed an eQC!"</span>);
+        }
+        <span class="self">self</span>.is_leaf_for_last_block(high_qc_leaf_commit) &amp;&amp; !is_high_qc_extended
     }
 
-    <span class="doccomment">/// Returns true if the given qc is for the last block in the epoch
-    </span><span class="kw">pub fn </span>is_qc_for_last_block(<span class="kw-2">&amp;</span><span class="self">self</span>, cert: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
-        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>cert.data().leaf_commit) <span class="kw">else </span>{
+    <span class="doccomment">/// Return true if the given leaf takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain leaves but not the eQC leaf itself
+    </span><span class="kw">pub fn </span>is_leaf_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>, leaf_commit: LeafCommitment&lt;TYPES&gt;) -&gt; bool {
+        <span class="self">self</span>.is_leaf_for_last_block(leaf_commit) &amp;&amp; !<span class="self">self</span>.is_leaf_extended(leaf_commit)
+    }
+
+    <span class="doccomment">/// Returns true if the given leaf can form an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    </span><span class="kw">pub fn </span>is_leaf_extended(<span class="kw-2">&amp;</span><span class="self">self</span>, leaf_commit: LeafCommitment&lt;TYPES&gt;) -&gt; bool {
+        <span class="kw">if </span>!<span class="self">self</span>.is_leaf_for_last_block(leaf_commit) {
+            <span class="macro">tracing::debug!</span>(<span class="string">"The given leaf is not for the last block in the epoch."</span>);
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        }
+
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>leaf_commit) <span class="kw">else </span>{
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        };
+        <span class="kw">let </span>leaf_view = leaf.view_number();
+        <span class="kw">let </span>leaf_block_number = leaf.height();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>last_visited_view_number = leaf_view;
+        <span class="kw">let </span><span class="kw-2">mut </span>is_leaf_extended = <span class="bool-val">true</span>;
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.visit_leaf_ancestors(
+            leaf_view,
+            Terminator::Inclusive(leaf_view - <span class="number">2</span>),
+            <span class="bool-val">true</span>,
+            |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
+                <span class="macro">tracing::trace!</span>(
+                    <span class="string">"last_visited_view_number = {}, leaf.view_number = {}"</span>,
+                    <span class="kw-2">*</span>last_visited_view_number,
+                    <span class="kw-2">*</span>leaf.view_number()
+                );
+
+                <span class="kw">if </span>leaf.view_number() == leaf_view {
+                    <span class="kw">return </span><span class="bool-val">true</span>;
+                }
+
+                <span class="kw">if </span>last_visited_view_number - <span class="number">1 </span>!= leaf.view_number() {
+                    <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Non consecutive views."</span>);
+                    is_leaf_extended = <span class="bool-val">false</span>;
+                    <span class="kw">return </span><span class="bool-val">false</span>;
+                }
+                <span class="kw">if </span>leaf_block_number != leaf.height() {
+                    <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Block numbers do not match."</span>);
+                    is_leaf_extended = <span class="bool-val">false</span>;
+                    <span class="kw">return </span><span class="bool-val">false</span>;
+                }
+                last_visited_view_number = leaf.view_number();
+                <span class="bool-val">true
+            </span>},
+        ) {
+            is_leaf_extended = <span class="bool-val">false</span>;
+            <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Leaf ascension failed."</span>);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Leaf ascension failed; error={e}"</span>);
+        }
+        <span class="macro">tracing::trace!</span>(<span class="string">"Can the given leaf form an eQC? {}"</span>, is_leaf_extended);
+        is_leaf_extended
+    }
+
+    <span class="doccomment">/// Returns true if a given leaf is for the last block in the epoch
+    </span><span class="kw">pub fn </span>is_leaf_for_last_block(<span class="kw-2">&amp;</span><span class="self">self</span>, leaf_commit: LeafCommitment&lt;TYPES&gt;) -&gt; bool {
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>leaf_commit) <span class="kw">else </span>{
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
         <span class="kw">let </span>block_height = leaf.height();
@@ -1897,83 +1952,6 @@
         </span>} <span class="kw">else </span>{
             block_height % <span class="self">self</span>.epoch_height == <span class="number">0
         </span>}
-    }
-
-    <span class="doccomment">/// Returns true if the current high qc is an extended Quorum Certificate
-    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
-    /// consecutive views for the last block in the epoch.
-    </span><span class="kw">pub fn </span>is_high_qc_extended(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">let </span>high_qc = <span class="self">self</span>.high_qc();
-        <span class="kw">let </span>ret = <span class="self">self</span>.is_qc_extended(high_qc);
-        <span class="kw">if </span>ret {
-            <span class="macro">tracing::debug!</span>(<span class="string">"We have formed an eQC!"</span>);
-        };
-        ret
-    }
-
-    <span class="doccomment">/// Returns true if the given qc is an extended Quorum Certificate
-    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
-    /// consecutive views for the last block in the epoch.
-    </span><span class="kw">pub fn </span>is_qc_extended(<span class="kw-2">&amp;</span><span class="self">self</span>, cert: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
-        <span class="kw">if </span>!<span class="self">self</span>.is_qc_for_last_block(cert) {
-            <span class="macro">tracing::debug!</span>(<span class="string">"High QC is not for the last block in the epoch."</span>);
-            <span class="kw">return </span><span class="bool-val">false</span>;
-        }
-
-        <span class="kw">let </span>qc_view = cert.view_number();
-        <span class="kw">let </span>high_qc_block_number =
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>cert.data().leaf_commit) {
-                leaf.block_header().block_number()
-            } <span class="kw">else </span>{
-                <span class="kw">return </span><span class="bool-val">false</span>;
-            };
-
-        <span class="kw">let </span><span class="kw-2">mut </span>last_visited_view_number = qc_view;
-        <span class="kw">let </span><span class="kw-2">mut </span>is_qc_extended = <span class="bool-val">true</span>;
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
-            <span class="self">self</span>.visit_leaf_ancestors(qc_view, Inclusive(qc_view - <span class="number">2</span>), <span class="bool-val">true</span>, |leaf, <span class="kw">_</span>, <span class="kw">_</span>| {
-                <span class="macro">tracing::trace!</span>(
-                    <span class="string">"last_visited_view_number = {}, leaf.view_number = {}"</span>,
-                    <span class="kw-2">*</span>last_visited_view_number,
-                    <span class="kw-2">*</span>leaf.view_number()
-                );
-
-                <span class="kw">if </span>leaf.view_number() == qc_view {
-                    <span class="kw">return </span><span class="bool-val">true</span>;
-                }
-
-                <span class="kw">if </span>last_visited_view_number - <span class="number">1 </span>!= leaf.view_number() {
-                    <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Non consecutive views."</span>);
-                    is_qc_extended = <span class="bool-val">false</span>;
-                    <span class="kw">return </span><span class="bool-val">false</span>;
-                }
-                <span class="kw">if </span>high_qc_block_number != leaf.height() {
-                    <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Block numbers do not match."</span>);
-                    is_qc_extended = <span class="bool-val">false</span>;
-                    <span class="kw">return </span><span class="bool-val">false</span>;
-                }
-                last_visited_view_number = leaf.view_number();
-                <span class="bool-val">true
-            </span>})
-        {
-            is_qc_extended = <span class="bool-val">false</span>;
-            <span class="macro">tracing::trace!</span>(<span class="string">"The chain is broken. Leaf ascension failed."</span>);
-            <span class="macro">tracing::debug!</span>(<span class="string">"Leaf ascension failed; error={e}"</span>);
-        }
-        <span class="macro">tracing::trace!</span>(<span class="string">"Is the given QC an eQC? {}"</span>, is_qc_extended);
-        is_qc_extended
-    }
-
-    <span class="doccomment">/// Return true if the given Quorum Certificate takes part in forming an eQC, i.e.
-    /// it is one of the 3-chain certificates but not the eQC itself
-    </span><span class="kw">pub fn </span>is_qc_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>, cert: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
-        <span class="self">self</span>.is_qc_for_last_block(cert) &amp;&amp; !<span class="self">self</span>.is_qc_extended(cert)
-    }
-
-    <span class="doccomment">/// Return true if the high QC takes part in forming an eQC, i.e.
-    /// it is one of the 3-chain certificates but not the eQC itself
-    </span><span class="kw">pub fn </span>is_high_qc_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.is_high_qc_for_last_block() &amp;&amp; !<span class="self">self</span>.is_high_qc_extended()
     }
 }
 

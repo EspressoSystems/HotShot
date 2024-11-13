@@ -1047,7 +1047,7 @@
                     Arc::clone(<span class="kw-2">&amp;</span>event),
                 )<span class="question-mark">?</span>;
             }
-            HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) =&gt; {
+            HotShotEvent::ViewChange(view, <span class="kw">_</span>) | HotShotEvent::Timeout(view) =&gt; {
                 <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
             }
             <span class="kw">_ </span>=&gt; {}

@@ -154,6 +154,11 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -248,10 +253,13 @@
 
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; ConsensusTaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// Handles a consensus event received on the event stream
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"ConsensusTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, cur_epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"ConsensusTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -272,8 +280,10 @@
                     <span class="macro">tracing::debug!</span>(<span class="string">"Failed to handle TimeoutVoteRecv event; error = {e}"</span>);
                 }
             }
-            HotShotEvent::ViewChange(new_view_number) =&gt; {
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_view_change(<span class="kw-2">*</span>new_view_number, <span class="kw-2">&amp;</span>sender, <span class="self">self</span>).<span class="kw">await </span>{
+            HotShotEvent::ViewChange(new_view_number, epoch_number) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
+                    handle_view_change(<span class="kw-2">*</span>new_view_number, <span class="kw-2">*</span>epoch_number, <span class="kw-2">&amp;</span>sender, <span class="self">self</span>).<span class="kw">await
+                </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to handle ViewChange event; error = {e}"</span>);
                 }
             }

@@ -826,6 +826,9 @@
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1280,7 +1283,7 @@
     }
 
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"TransactionTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"TransactionTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -1299,7 +1302,10 @@
                 )
                 .<span class="kw">await</span>;
             }
-            HotShotEvent::ViewChange(view) =&gt; {
+            HotShotEvent::ViewChange(view, epoch) =&gt; {
+                <span class="kw">if </span><span class="kw-2">*</span>epoch &gt; <span class="self">self</span>.cur_epoch {
+                    <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
+                }
                 <span class="kw">let </span>view = TYPES::View::new(std::cmp::max(<span class="number">1</span>, <span class="kw-2">**</span>view));
                 <span class="macro">ensure!</span>(
                     <span class="kw-2">*</span>view &gt; <span class="kw-2">*</span><span class="self">self</span>.cur_view,

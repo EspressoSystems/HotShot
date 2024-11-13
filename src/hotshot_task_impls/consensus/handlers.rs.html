@@ -293,6 +293,11 @@
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -408,9 +413,15 @@
     V: Versions,
 &gt;(
     new_view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">if </span>epoch_number &gt; task_state.cur_epoch {
+        task_state.cur_epoch = epoch_number;
+        <span class="macro">tracing::info!</span>(<span class="string">"Progress: entered epoch {:&gt;6}"</span>, <span class="kw-2">*</span>epoch_number);
+    }
+
     <span class="macro">ensure!</span>(
         new_view_number &gt; task_state.cur_view,
         <span class="string">"New view is not larger than the current view"
@@ -424,7 +435,6 @@
     }
     <span class="comment">// Move this node to the next view
     </span>task_state.cur_view = new_view_number;
-
     task_state
         .consensus
         .write()

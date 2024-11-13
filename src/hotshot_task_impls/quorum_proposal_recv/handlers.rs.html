@@ -252,6 +252,28 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -265,6 +287,7 @@
 <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
 <span class="kw">use </span>committable::Committable;
+<span class="kw">use </span>hotshot_types::traits::block_contents::BlockHeader;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, QuorumProposal},
@@ -272,12 +295,12 @@
     simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         storage::Storage,
         ValidatedState,
     },
-    utils::{View, ViewInner},
+    utils::{epoch_from_block_number, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tokio::spawn;
@@ -481,8 +504,18 @@
             justify_qc.data.leaf_commit
         );
         validate_proposal_liveness(proposal, <span class="kw-2">&amp;</span>validation_info).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>block_number = proposal.data.block_header.block_number();
+        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
+            block_number,
+            validation_info.epoch_height,
+        ));
+        <span class="macro">tracing::trace!</span>(
+            <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
+            view_number,
+            <span class="kw-2">*</span>epoch
+        );
         broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(view_number)),
+            Arc::new(HotShotEvent::ViewChange(view_number, epoch)),
             event_sender,
         )
         .<span class="kw">await</span>;
@@ -498,8 +531,19 @@
         quorum_proposal_sender_key,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="kw">let </span>epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        proposal.data.block_header.block_number(),
+        validation_info.epoch_height,
+    ));
+
+    <span class="macro">tracing::trace!</span>(
+        <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
+        view_number,
+        <span class="kw-2">*</span>epoch_number
+    );
     broadcast_event(
-        Arc::new(HotShotEvent::ViewChange(view_number)),
+        Arc::new(HotShotEvent::ViewChange(view_number, epoch_number)),
         event_sender,
     )
     .<span class="kw">await</span>;
