@@ -111,15 +111,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 )
                 .await;
 
-                // send the block to the VID dispersal function
-                broadcast_event(
-                    Arc::new(HotShotEvent::BlockReady(vid_disperse, *view_number)),
-                    &event_stream,
-                )
-                .await;
-            }
-
-            HotShotEvent::BlockReady(vid_disperse, view_number) => {
                 let view_number = *view_number;
                 let Ok(signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
@@ -181,5 +172,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VidTaskState<T
         Ok(())
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }

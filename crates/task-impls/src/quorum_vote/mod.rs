@@ -37,7 +37,7 @@ use vbs::version::StaticVersionType;
 
 use crate::{
     events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
     quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
 };
 
@@ -168,13 +168,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             }
         }
 
-        broadcast_event(
-            Arc::new(HotShotEvent::QuorumVoteDependenciesValidated(
-                self.view_number,
-            )),
-            &self.sender,
-        )
-        .await;
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(self.view_number + 1)),
             &self.sender,
@@ -395,7 +388,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             // Cancel the old dependency tasks.
             for view in *self.latest_voted_view..(*new_view) {
                 if let Some(dependency) = self.vote_dependencies.remove(&TYPES::View::new(view)) {
-                    cancel_task(dependency).await;
+                    dependency.abort();
                     tracing::debug!("Vote dependency removed for view {:?}", view);
                 }
             }
@@ -423,9 +416,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
 
                 // Handle the event before creating the dependency task.
-                if let Err(e) =
-                    handle_quorum_proposal_validated(&proposal.data, &event_sender, self).await
-                {
+                if let Err(e) = handle_quorum_proposal_validated(&proposal.data, self).await {
                     tracing::debug!(
                         "Failed to handle QuorumProposalValidated event; error = {e:#}"
                     );
@@ -567,27 +558,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     None,
                 );
             }
-            HotShotEvent::QuorumVoteDependenciesValidated(view_number) => {
-                tracing::debug!("All vote dependencies verified for view {:?}", view_number);
-                if !self.update_latest_voted_view(*view_number).await {
-                    tracing::debug!("view not updated");
-                }
-            }
             HotShotEvent::Timeout(view) => {
                 let view = TYPES::View::new(view.saturating_sub(1));
                 // cancel old tasks
                 let current_tasks = self.vote_dependencies.split_off(&view);
                 while let Some((_, task)) = self.vote_dependencies.pop_last() {
-                    cancel_task(task).await;
+                    task.abort();
                 }
                 self.vote_dependencies = current_tasks;
             }
             HotShotEvent::ViewChange(mut view) => {
                 view = TYPES::View::new(view.saturating_sub(1));
+                if !self.update_latest_voted_view(view).await {
+                    tracing::debug!("view not updated");
+                }
                 // cancel old tasks
                 let current_tasks = self.vote_dependencies.split_off(&view);
                 while let Some((_, task)) = self.vote_dependencies.pop_last() {
-                    cancel_task(task).await;
+                    task.abort();
                 }
                 self.vote_dependencies = current_tasks;
             }
@@ -652,13 +640,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         }
 
         broadcast_event(
-            Arc::new(HotShotEvent::QuorumVoteDependenciesValidated(
-                proposal.data.view_number(),
-            )),
-            &event_sender,
-        )
-        .await;
-        broadcast_event(
             Arc::new(HotShotEvent::ViewChange(proposal.data.view_number() + 1)),
             &event_sender,
         )
@@ -720,7 +701,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         self.handle(event, receiver.clone(), sender.clone()).await
     }
 
-    async fn cancel_subtasks(&mut self) {
+    fn cancel_subtasks(&mut self) {
         while let Some((_, handle)) = self.vote_dependencies.pop_last() {
             handle.abort();
         }

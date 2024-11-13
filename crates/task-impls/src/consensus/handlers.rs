@@ -23,9 +23,7 @@ use utils::anytrace::*;
 
 use super::ConsensusTaskState;
 use crate::{
-    consensus::Versions,
-    events::HotShotEvent,
-    helpers::{broadcast_event, cancel_task},
+    consensus::Versions, events::HotShotEvent, helpers::broadcast_event,
     vote_collection::handle_vote,
 };
 
@@ -170,11 +168,7 @@ pub(crate) async fn handle_view_change<
     });
 
     // Cancel the old timeout task
-    cancel_task(std::mem::replace(
-        &mut task_state.timeout_task,
-        new_timeout_task,
-    ))
-    .await;
+    std::mem::replace(&mut task_state.timeout_task, new_timeout_task).abort();
 
     let consensus_reader = task_state.consensus.read().await;
     consensus_reader
@@ -198,14 +192,14 @@ pub(crate) async fn handle_view_change<
     // Do the comparison before the subtraction to avoid potential overflow, since
     // `last_decided_view` may be greater than `cur_view` if the node is catching up.
     if usize::try_from(task_state.cur_view.u64()).unwrap()
-        > usize::try_from(task_state.last_decided_view.u64()).unwrap()
+        > usize::try_from(consensus_reader.last_decided_view().u64()).unwrap()
     {
         consensus_reader
             .metrics
             .number_of_views_since_last_decide
             .set(
                 usize::try_from(task_state.cur_view.u64()).unwrap()
-                    - usize::try_from(task_state.last_decided_view.u64()).unwrap(),
+                    - usize::try_from(consensus_reader.last_decided_view().u64()).unwrap(),
             );
     }
 
