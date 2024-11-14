@@ -318,6 +318,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 private_key: self.private_key.clone(),
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                timeout: self.timeout,
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,

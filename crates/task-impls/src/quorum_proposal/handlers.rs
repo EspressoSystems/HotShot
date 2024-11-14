@@ -90,6 +90,8 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
 
+    /// View timeout from config.
+    pub timeout: u64,
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -143,15 +145,16 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         {
             return highest_qc;
         }
+        let wait_duration = Duration::from_millis(self.timeout / 2);
 
         // TODO configure timeout
-        while self.view_start_time.elapsed() < Duration::from_secs(1) {
+        while self.view_start_time.elapsed() < wait_duration {
             let Some(time_spent) = Instant::now().checked_duration_since(self.view_start_time)
             else {
                 // Shouldn't be possible, now must be after the start
                 return highest_qc;
             };
-            let Some(time_left) = Duration::from_secs(1).checked_sub(time_spent) else {
+            let Some(time_left) = wait_duration.checked_sub(time_spent) else {
                 // No time left
                 return highest_qc;
             };
