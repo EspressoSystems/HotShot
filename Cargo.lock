@@ -2216,11 +2216,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "espresso-systems-common"
-version = "0.4.1"
-source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.4.1#2e889e878866c2a5cce1daaab947f7c93d5811ae"
-
-[[package]]
 name = "etcetera"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2922,18 +2917,15 @@ dependencies = [
  "cdn-client",
  "cdn-marshal",
  "chrono",
- "clap",
  "committable",
  "custom_debug",
  "dashmap",
- "derive_more 1.0.0",
  "either",
  "ethereum-types",
  "futures",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
- "jf-signature 0.2.0",
  "libp2p-identity",
  "libp2p-networking",
  "lru 0.12.5",
@@ -2942,12 +2934,8 @@ dependencies = [
  "portpicker",
  "rand 0.8.5",
  "serde",
- "sha2 0.10.8",
- "surf-disco",
- "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
- "toml",
  "tracing",
  "tracing-subscriber 0.3.18",
  "url",
@@ -2978,17 +2966,10 @@ name = "hotshot-example-types"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-broadcast",
  "async-lock 3.4.0",
  "async-trait",
- "bitvec",
  "committable",
- "either",
- "ethereum-types",
- "futures",
  "hotshot",
- "hotshot-builder-api",
- "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
  "jf-vid",
@@ -3000,7 +2981,6 @@ dependencies = [
  "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
- "tracing",
  "url",
  "vbs",
 ]
@@ -3010,47 +2990,31 @@ name = "hotshot-examples"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-broadcast",
- "async-lock 3.4.0",
  "async-trait",
- "bimap",
- "blake3",
  "cdn-broker",
- "cdn-client",
  "cdn-marshal",
  "chrono",
  "clap",
- "committable",
- "custom_debug",
- "dashmap",
- "derive_more 1.0.0",
- "either",
  "futures",
  "hotshot",
  "hotshot-example-types",
  "hotshot-orchestrator",
- "hotshot-task",
  "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
- "libp2p-identity",
  "libp2p-networking",
  "local-ip-address",
- "lru 0.12.5",
  "portpicker",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.8",
  "surf-disco",
- "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
  "toml",
  "tracing",
  "tracing-subscriber 0.3.18",
  "url",
- "vbs",
- "vec1",
 ]
 
 [[package]]
@@ -3064,11 +3028,9 @@ dependencies = [
  "hotshot-example-types",
  "hotshot-types",
  "rand 0.8.5",
- "serde",
  "tide-disco",
  "tokio",
  "toml",
- "tracing",
  "vbs",
 ]
 
@@ -3088,24 +3050,19 @@ version = "0.5.79"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
- "bincode",
  "blake3",
  "clap",
  "csv",
  "futures",
  "hotshot-types",
  "libp2p",
- "multiaddr",
  "serde",
- "serde_json",
  "surf-disco",
- "thiserror 2.0.3",
  "tide-disco",
  "tokio",
  "toml",
  "tracing",
  "vbs",
- "vec1",
 ]
 
 [[package]]
@@ -3133,7 +3090,6 @@ dependencies = [
 name = "hotshot-task"
 version = "0.5.79"
 dependencies = [
- "anyhow",
  "async-broadcast",
  "async-trait",
  "futures",
@@ -3151,7 +3107,6 @@ dependencies = [
  "async-lock 3.4.0",
  "async-trait",
  "bincode",
- "bitvec",
  "cdn-proto",
  "chrono",
  "committable",
@@ -3160,7 +3115,6 @@ dependencies = [
  "hotshot-builder-api",
  "hotshot-task",
  "hotshot-types",
- "jf-signature 0.2.0",
  "jf-vid",
  "lru 0.12.5",
  "rand 0.8.5",
@@ -3197,12 +3151,10 @@ dependencies = [
  "hotshot-example-types",
  "hotshot-fakeapi",
  "hotshot-macros",
- "hotshot-orchestrator",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
  "itertools 0.13.0",
- "jf-signature 0.2.0",
  "jf-vid",
  "lru 0.12.5",
  "portpicker",
@@ -3210,7 +3162,6 @@ dependencies = [
  "reqwest",
  "serde",
  "sha2 0.10.8",
- "sha3",
  "tagged-base64",
  "thiserror 2.0.3",
  "tide-disco",
@@ -3246,7 +3197,6 @@ dependencies = [
  "displaydoc",
  "dyn-clone",
  "either",
- "espresso-systems-common",
  "ethereum-types",
  "futures",
  "jf-pcs",
@@ -3258,10 +3208,8 @@ dependencies = [
  "memoize",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "reqwest",
  "serde",
  "serde-inline-default",
- "serde_bytes",
  "serde_json",
  "sha2 0.10.8",
  "surf-disco",
@@ -4485,7 +4433,6 @@ name = "libp2p-networking"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-lock 3.4.0",
  "async-trait",
  "bincode",
  "blake3",
@@ -4493,7 +4440,6 @@ dependencies = [
  "custom_debug",
  "delegate",
  "derive_builder",
- "either",
  "futures",
  "hotshot-example-types",
  "hotshot-types",
@@ -4502,18 +4448,10 @@ dependencies = [
  "libp2p-identity",
  "libp2p-swarm-derive",
  "pin-project",
- "portpicker",
  "rand 0.8.5",
  "serde",
- "serde_bytes",
- "serde_json",
- "thiserror 2.0.3",
- "tide",
  "tokio",
- "tokio-stream",
  "tracing",
- "tracing-subscriber 0.3.18",
- "void",
 ]
 
 [[package]]
@@ -6537,15 +6475,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
-]
-
-[[package]]
-name = "serde_bytes"
-version = "0.11.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "387cc504cb06bb40a96c8e04e951fe01854cf6bc921053c954e4a606d9675c6a"
-dependencies = [
- "serde",
 ]
 
 [[package]]
