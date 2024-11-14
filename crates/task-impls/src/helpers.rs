@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-use async_broadcast::{InactiveReceiver, Receiver, SendError, Sender};
+use async_broadcast::{Receiver, SendError, Sender};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
@@ -426,7 +426,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
 pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     next_proposal_view_number: TYPES::View,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    event_receiver: &InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
+    event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     quorum_membership: Arc<TYPES::Membership>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -452,7 +452,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
         let _ = fetch_proposal(
             parent_view_number,
             event_sender.clone(),
-            event_receiver.activate_cloned(),
+            event_receiver.clone(),
             quorum_membership,
             consensus.clone(),
             public_key.clone(),

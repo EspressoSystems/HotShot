@@ -19,20 +19,22 @@ use crate::{
     quorum_proposal::{UpgradeLock, Versions},
 };
 use anyhow::{ensure, Context, Result};
-use async_broadcast::{InactiveReceiver, Receiver, Sender};
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use hotshot_task::dependency_task::HandleDepOutput;
-use hotshot_types::simple_certificate::QuorumCertificate;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
     simple_certificate::UpgradeCertificate,
     traits::{
-        block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
+        block_contents::BlockHeader,
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
     },
     vote::HasViewNumber,
 };
+use hotshot_types::{simple_certificate::QuorumCertificate, vote::Certificate};
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
@@ -71,7 +73,7 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
 
     /// The event receiver.
-    pub receiver: InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
+    pub receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
 
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
@@ -114,7 +116,16 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
     ) -> Option<QuorumCertificate<TYPES>> {
         while let Ok(event) = rx.recv_direct().await {
             if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
-                return Some(qc.clone());
+                if qc
+                    .is_valid_cert(
+                        self.quorum_membership.as_ref(),
+                        TYPES::Epoch::new(0),
+                        &self.upgrade_lock,
+                    )
+                    .await
+                {
+                    return Some(qc.clone());
+                }
             }
         }
         None
@@ -132,20 +143,25 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         {
             return highest_qc;
         }
-        let mut rx = self.receiver.activate_cloned();
 
         // TODO configure timeout
         while self.view_start_time.elapsed() < Duration::from_secs(1) {
-            let Some(time_spent) = self.view_start_time.checked_duration_since(Instant::now())
+            let Some(time_spent) = Instant::now().checked_duration_since(self.view_start_time)
             else {
+                // Shouldn't be possible, now must be after the start
                 return highest_qc;
             };
             let Some(time_left) = Duration::from_secs(1).checked_sub(time_spent) else {
+                // No time left
                 return highest_qc;
             };
-            let Ok(maybe_qc) =
-                tokio::time::timeout(time_left, self.wait_for_qc_event(&mut rx)).await
+            let Ok(maybe_qc) = tokio::time::timeout(
+                time_left,
+                self.wait_for_qc_event(&mut self.receiver.clone()),
+            )
+            .await
             else {
+                // we timeout out, don't wait any longer
                 return highest_qc;
             };
             let Some(qc) = maybe_qc else {

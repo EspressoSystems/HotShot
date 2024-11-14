@@ -312,7 +312,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 latest_proposed_view: self.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                receiver: event_receiver.deactivate(),
+                receiver: event_receiver,
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
