@@ -13,17 +13,10 @@ gpu-vid = ["hotshot-task-impls/gpu-vid"]
 
 [dependencies]
 anyhow = { workspace = true }
-async-broadcast = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
-bitvec = { workspace = true }
 committable = { workspace = true }
-either = { workspace = true }
-ethereum-types = { workspace = true }
-futures = { workspace = true }
 hotshot = { path = "../hotshot" }
-hotshot-builder-api = { path = "../builder-api" }
-hotshot-task = { path = "../task" }
 hotshot-task-impls = { path = "../task-impls", version = "0.5.36", default-features = false }
 hotshot-types = { path = "../types" }
 jf-vid = { workspace = true }
@@ -35,6 +28,5 @@ sha3 = "^0.10"
 thiserror = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
-tracing = { workspace = true }
 url = { workspace = true }
 vbs = { workspace = true }

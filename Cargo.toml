@@ -119,11 +119,7 @@ cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3" }
 cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.3" }
-
-### Profiles
-###
-### Note: these only apply to example executables or tests built from within this crate. They have
-### no effect on crates that depend on this crate.
+### Profiles###### Note: these only apply to example executables or tests built from within this crate. They have### no effect on crates that depend on this crate.
 
 ## Apply some optimizations to test dependencies in debug/test builds
 
@@ -171,8 +167,3 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 # TODO change to deny
 missing_docs = "warn"
 warnings = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = [
-  'cfg(async_executor_impl, values("async-std"))',
-  'cfg(async_executor_impl, values("tokio"))',
-  'cfg(hotshot_example)',
-] }

@@ -2974,17 +2974,10 @@ name = "hotshot-example-types"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-broadcast",
  "async-lock 3.4.0",
  "async-trait",
- "bitvec",
  "committable",
- "either",
- "ethereum-types",
- "futures",
  "hotshot",
- "hotshot-builder-api",
- "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
  "jf-vid",
@@ -2996,7 +2989,6 @@ dependencies = [
  "thiserror 2.0.3",
  "time 0.3.36",
  "tokio",
- "tracing",
  "url",
  "vbs",
 ]
