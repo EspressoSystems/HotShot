@@ -339,9 +339,6 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -361,7 +358,7 @@
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
@@ -455,7 +452,7 @@
         view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
         formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
-        parent_view_number: TYPES::View,
+        parent_qc: QuorumCertificate&lt;TYPES&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
             <span class="self">self</span>.view_number,
@@ -466,7 +463,7 @@
             <span class="self">self</span>.private_key.clone(),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
-            parent_view_number,
+            parent_qc.view_number(),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -509,8 +506,6 @@
         </span>);
 
         <span class="kw">let </span>version = <span class="self">self</span>.upgrade_lock.version(<span class="self">self</span>.view_number).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">let </span>high_qc = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone();
 
         <span class="kw">let </span>builder_commitment = commitment_and_metadata.builder_commitment.clone();
         <span class="kw">let </span>metadata = commitment_and_metadata.metadata.clone();
@@ -562,7 +557,7 @@
         <span class="kw">let </span>proposal = QuorumProposal {
             block_header,
             view_number: <span class="self">self</span>.view_number,
-            justify_qc: high_qc,
+            justify_qc: parent_qc,
             upgrade_certificate,
             proposal_certificate,
         };
@@ -612,7 +607,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>timeout_certificate = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>view_sync_finalize_cert = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>vid_share = <span class="prelude-val">None</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>parent_view_number = <span class="prelude-val">None</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>parent_qc = <span class="prelude-val">None</span>;
         <span class="kw">for </span>event <span class="kw">in </span>res.iter().flatten().flatten() {
             <span class="kw">match </span>event.as_ref() {
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -637,7 +632,7 @@
                         timeout_certificate = <span class="prelude-val">Some</span>(timeout.clone());
                     }
                     either::Left(qc) =&gt; {
-                        parent_view_number = <span class="prelude-val">Some</span>(qc.view_number());
+                        parent_qc = <span class="prelude-val">Some</span>(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) =&gt; {
@@ -650,8 +645,7 @@
             }
         }
 
-        <span class="kw">let </span>parent_view_number =
-            parent_view_number.unwrap_or(<span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().view_number());
+        <span class="kw">let </span>parent_qc = parent_qc.unwrap_or(<span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone());
 
         <span class="kw">if </span>commit_and_metadata.is_none() {
             <span class="macro">tracing::error!</span>(
@@ -678,7 +672,7 @@
                 proposal_cert,
                 <span class="self">self</span>.formed_upgrade_certificate.clone(),
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock.decided_upgrade_certificate),
-                parent_view_number,
+                parent_qc,
             )
             .<span class="kw">await
         </span>{
