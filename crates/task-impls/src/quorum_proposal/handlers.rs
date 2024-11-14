@@ -26,15 +26,14 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
-use hotshot_types::{simple_certificate::QuorumCertificate, vote::Certificate};
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
@@ -108,6 +107,9 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
 
     /// The time this view started
     pub view_start_time: Instant,
+
+    /// The higest_qc we've seen at the start of this task
+    pub highest_qc: QuorumCertificate<TYPES>,
 }
 
 impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
@@ -134,8 +136,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
     }
     /// Waits for the ocnfigured timeout for nodes to send HighQC messages to us.  We'll
     /// then propose with the higest QC from among these proposals.
-    async fn wait_for_highest_qc(&mut self) -> QuorumCertificate<TYPES> {
-        let mut highest_qc = self.consensus.read().await.high_qc().clone();
+    async fn wait_for_highest_qc(&mut self) {
         // If we haven't upgraded to Hotstuff 2 just return the high qc right away
         if self
             .upgrade_lock
@@ -143,7 +144,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             .await
             .is_ok_and(|version| version < V::Epochs::VERSION)
         {
-            return highest_qc;
+            return;
         }
         let wait_duration = Duration::from_millis(self.timeout / 2);
 
@@ -152,11 +153,11 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             let Some(time_spent) = Instant::now().checked_duration_since(self.view_start_time)
             else {
                 // Shouldn't be possible, now must be after the start
-                return highest_qc;
+                return;
             };
             let Some(time_left) = wait_duration.checked_sub(time_spent) else {
                 // No time left
-                return highest_qc;
+                return;
             };
             let Ok(maybe_qc) = tokio::time::timeout(
                 time_left,
@@ -165,16 +166,15 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             .await
             else {
                 // we timeout out, don't wait any longer
-                return highest_qc;
+                return;
             };
             let Some(qc) = maybe_qc else {
                 continue;
             };
-            if qc.view_number() > highest_qc.view_number() {
-                highest_qc = qc;
+            if qc.view_number() > self.highest_qc.view_number() {
+                self.highest_qc = qc;
             }
         }
-        highest_qc
     }
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
@@ -380,7 +380,12 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             }
         }
 
-        let parent_qc = parent_qc.unwrap_or(self.wait_for_highest_qc().await);
+        let parent_qc = if let Some(qc) = parent_qc {
+            qc
+        } else {
+            self.wait_for_highest_qc().await;
+            self.highest_qc.clone()
+        };
 
         if commit_and_metadata.is_none() {
             tracing::error!(

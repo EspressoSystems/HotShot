@@ -19,7 +19,7 @@ use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -91,6 +91,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
+
+    /// The higest_qc we've seen at the start of this task
+    pub highest_qc: QuorumCertificate<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
@@ -323,6 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
                 view_start_time: Instant::now(),
+                highest_qc: self.highest_qc.clone(),
             },
         );
         self.proposal_dependencies
@@ -507,6 +511,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
                 self.cancel_tasks(*view);
+            }
+            HotShotEvent::HighQcSend(qc, _sender) => {
+                ensure!(qc.view_number() > self.highest_qc.view_number());
+                let epoch_number = self.consensus.read().await.cur_epoch();
+                ensure!(
+                    qc.is_valid_cert(
+                        self.quorum_membership.as_ref(),
+                        epoch_number,
+                        &self.upgrade_lock
+                    )
+                    .await,
+                    warn!("Qurom certificate {:?} was invalid", qc.data())
+                );
+                self.highest_qc = qc.clone();
             }
             _ => {}
         }
