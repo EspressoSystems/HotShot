@@ -33,8 +33,11 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     let mut output = Vec::new();
 
     let current_view = ViewNumber::new(4);
-    input.push(HotShotEvent::ViewChange(current_view));
-    input.push(HotShotEvent::ViewChange(current_view + 1));
+    input.push(HotShotEvent::ViewChange(current_view, EpochNumber::new(1)));
+    input.push(HotShotEvent::ViewChange(
+        current_view + 1,
+        EpochNumber::new(1),
+    ));
     input.push(HotShotEvent::Shutdown);
     let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
@@ -51,7 +54,8 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
         vec1::vec1![
             null_block::builder_fee::<TestConsecutiveLeaderTypes, TestVersions>(
                 quorum_membership.total_nodes(EpochNumber::new(0)),
-                <TestVersions as Versions>::Base::VERSION
+                <TestVersions as Versions>::Base::VERSION,
+                *ViewNumber::new(4),
             )
             .unwrap()
         ],

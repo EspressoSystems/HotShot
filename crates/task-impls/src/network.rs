@@ -6,16 +6,16 @@
 
 use std::{
     collections::{BTreeMap, HashMap},
+    hash::{DefaultHasher, Hash, Hasher},
     sync::Arc,
 };
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
-use futures::future::join_all;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
@@ -39,7 +39,7 @@ use utils::anytrace::*;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
 };
 
 /// the network message task state
@@ -53,6 +53,9 @@ pub struct NetworkMessageTaskState<TYPES: NodeType> {
 
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,
+
+    /// Transaction Cache to ignore previously seen transatctions
+    pub transactions_cache: lru::LruCache<u64, ()>,
 }
 
 impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
@@ -131,6 +134,11 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
             // Handle data messages
             MessageKind::Data(message) => match message {
                 DataMessage::SubmitTransaction(transaction, _) => {
+                    let mut hasher = DefaultHasher::new();
+                    transaction.hash(&mut hasher);
+                    if self.transactions_cache.put(hasher.finish(), ()).is_some() {
+                        return;
+                    }
                     broadcast_event(
                         Arc::new(HotShotEvent::TransactionsRecv(vec![transaction])),
                         &self.internal_event_stream,
@@ -204,7 +212,7 @@ pub struct NetworkEventTaskState<
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
     /// Shared consensus state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// map view number to transmit tasks
@@ -232,7 +240,7 @@ impl<
         Ok(())
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }
 
 impl<
@@ -286,7 +294,7 @@ impl<
 
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
@@ -312,7 +320,7 @@ impl<
     async fn maybe_record_action(
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
-        consensus: Arc<RwLock<Consensus<TYPES>>>,
+        consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
     ) -> std::result::Result<(), ()> {
         if let Some(mut action) = maybe_action {
@@ -340,13 +348,14 @@ impl<
     /// Cancel all tasks for previous views
     pub fn cancel_tasks(&mut self, view: TYPES::View) {
         let keep = self.transmit_tasks.split_off(&view);
-        let mut cancel = Vec::new();
+
         while let Some((_, tasks)) = self.transmit_tasks.pop_first() {
-            let mut to_cancel = tasks.into_iter().map(cancel_task).collect();
-            cancel.append(&mut to_cancel);
+            for task in tasks {
+                task.abort();
+            }
         }
+
         self.transmit_tasks = keep;
-        spawn(async move { join_all(cancel).await });
     }
 
     /// Parses a `HotShotEvent` and returns a tuple of: (sender's public key, `MessageKind`, `TransmitType`)
@@ -397,6 +406,16 @@ impl<
                         GeneralConsensusMessage::Vote(vote.clone()),
                     )),
                     TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ExtendedQuorumVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote(vote.clone()),
+                    )),
+                    TransmitType::Broadcast,
                 ))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
@@ -600,8 +619,11 @@ impl<
                     TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::ViewChange(view) => {
+            HotShotEvent::ViewChange(view, epoch) => {
                 self.view = view;
+                if epoch > self.epoch {
+                    self.epoch = epoch;
+                }
                 self.cancel_tasks(view);
                 let net = Arc::clone(&self.network);
                 let epoch = self.epoch.u64();
@@ -657,7 +679,7 @@ impl<
             .committee_members(view_number, self.epoch);
         let network = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let upgrade_lock = self.upgrade_lock.clone();
         let handle = spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
@@ -801,7 +823,7 @@ pub mod test {
             Ok(())
         }
 
-        async fn cancel_subtasks(&mut self) {}
+        fn cancel_subtasks(&mut self) {}
     }
 
     impl<

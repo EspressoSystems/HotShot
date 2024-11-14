@@ -13,6 +13,7 @@ use async_broadcast::{InactiveReceiver, Receiver, SendError, Sender};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
+use hotshot_types::utils::epoch_from_block_number;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -30,7 +31,7 @@ use hotshot_types::{
     utils::{Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
-use tokio::{task::JoinHandle, time::timeout};
+use tokio::time::timeout;
 use tracing::instrument;
 use utils::anytrace::*;
 
@@ -167,9 +168,6 @@ pub struct LeafChainTraversalOutcome<TYPES: NodeType> {
     /// The decided leaves with corresponding validated state and VID info.
     pub leaf_views: Vec<LeafInfo<TYPES>>,
 
-    /// The decided leaves.
-    pub leaves_decided: Vec<Leaf<TYPES>>,
-
     /// The transactions in the block payload for each leaf.
     pub included_txns: Option<HashSet<Commitment<<TYPES as NodeType>::Transaction>>>,
 
@@ -188,7 +186,6 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
             new_decided_view_number: None,
             new_decide_qc: None,
             leaf_views: Vec::new(),
-            leaves_decided: Vec::new(),
             included_txns: None,
             decided_upgrade_cert: None,
         }
@@ -323,7 +320,6 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                     delta.clone(),
                     vid_share,
                 ));
-                res.leaves_decided.push(leaf.clone());
                 if let Some(ref payload) = leaf.block_payload() {
                     res.included_txns = Some(
                         payload
@@ -486,9 +482,29 @@ pub async fn validate_proposal_safety_and_liveness<
     // Create a positive vote if either liveness or safety check
     // passes.
 
-    // Liveness check.
     {
         let consensus_reader = validation_info.consensus.read().await;
+        // Epoch safety check:
+        // The proposal is safe if
+        // 1. the proposed block and the justify QC block belong to the same epoch or
+        // 2. the justify QC is the eQC for the previous block
+        let proposal_epoch =
+            epoch_from_block_number(proposed_leaf.height(), validation_info.epoch_height);
+        let justify_qc_epoch =
+            epoch_from_block_number(parent_leaf.height(), validation_info.epoch_height);
+        ensure!(
+            proposal_epoch == justify_qc_epoch
+                || consensus_reader.check_eqc(&proposed_leaf, &parent_leaf),
+            {
+                error!(
+                    "Failed epoch safety check \n Proposed leaf is {:?} \n justify QC leaf is {:?}",
+                    proposed_leaf.clone(),
+                    parent_leaf.clone(),
+                )
+            }
+        );
+
+        // Liveness check.
         let liveness_check = justify_qc.view_number() > consensus_reader.locked_view();
 
         // Safety check.
@@ -638,11 +654,6 @@ pub(crate) async fn validate_proposal_view_and_certs<
     .await?;
 
     Ok(())
-}
-
-/// Cancel a task
-pub async fn cancel_task<T>(task: JoinHandle<T>) {
-    task.abort();
 }
 
 /// Helper function to send events and log errors

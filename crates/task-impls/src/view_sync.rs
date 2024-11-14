@@ -37,7 +37,7 @@ use utils::anytrace::*;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::{broadcast_event, cancel_task},
+    helpers::broadcast_event,
     vote_collection::{
         create_vote_accumulator, AccumulatorInfo, HandleVoteEvent, VoteCollectionTaskState,
     },
@@ -132,7 +132,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         self.handle(event, sender.clone()).await
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }
 
 /// State of a view sync replica task
@@ -197,7 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
         Ok(())
     }
 
-    async fn cancel_subtasks(&mut self) {}
+    fn cancel_subtasks(&mut self) {}
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskState<TYPES, I, V> {
@@ -265,7 +265,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
         task_map.insert(view, replica_state);
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "View Sync Main Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Main Task", level = "error")]
     #[allow(clippy::type_complexity)]
     /// Handles incoming events for the main view sync task
     pub async fn handle(
@@ -332,9 +332,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     epoch: self.cur_epoch,
                     id: self.id,
                 };
-                let vote_collector =
-                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await?;
+                let vote_collector = create_vote_accumulator(
+                    &info,
+                    event,
+                    &event_stream,
+                    self.upgrade_lock.clone(),
+                    true,
+                )
+                .await?;
 
                 relay_map.insert(relay, vote_collector);
             }
@@ -373,9 +378,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     id: self.id,
                 };
 
-                let vote_collector =
-                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await?;
+                let vote_collector = create_vote_accumulator(
+                    &info,
+                    event,
+                    &event_stream,
+                    self.upgrade_lock.clone(),
+                    true,
+                )
+                .await?;
                 relay_map.insert(relay, vote_collector);
             }
 
@@ -412,15 +422,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     epoch: self.cur_epoch,
                     id: self.id,
                 };
-                let vote_collector =
-                    create_vote_accumulator(&info, event, &event_stream, self.upgrade_lock.clone())
-                        .await;
+                let vote_collector = create_vote_accumulator(
+                    &info,
+                    event,
+                    &event_stream,
+                    self.upgrade_lock.clone(),
+                    true,
+                )
+                .await;
                 if let Ok(vote_task) = vote_collector {
                     relay_map.insert(relay, vote_task);
                 }
             }
 
-            &HotShotEvent::ViewChange(new_view) => {
+            &HotShotEvent::ViewChange(new_view, epoch) => {
+                if epoch > self.cur_epoch {
+                    self.cur_epoch = epoch;
+                }
                 let new_view = TYPES::View::new(*new_view);
                 if self.cur_view < new_view {
                     tracing::debug!(
@@ -492,7 +510,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
                     // If this is the first timeout we've seen advance to the next view
                     self.cur_view = view_number + 1;
                     broadcast_event(
-                        Arc::new(HotShotEvent::ViewChange(TYPES::View::new(*self.cur_view))),
+                        Arc::new(HotShotEvent::ViewChange(self.cur_view, self.cur_epoch)),
                         &event_stream,
                     )
                     .await;
@@ -508,7 +526,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ViewSyncTaskSta
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ViewSyncReplicaTaskState<TYPES, I, V>
 {
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "View Sync Replica Task", level = "error")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Replica Task", level = "error")]
     /// Handle incoming events for the view sync replica task
     pub async fn handle(
         &mut self,
@@ -572,7 +590,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
 
                 self.timeout_task = Some(spawn({
@@ -658,14 +676,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     *self.next_view
                 );
 
+                // TODO: Figure out the correct way to view sync across epochs if needed
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view)),
+                    Arc::new(HotShotEvent::ViewChange(self.next_view, self.cur_epoch)),
                     &event_stream,
                 )
                 .await;
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
                 self.timeout_task = Some(spawn({
                     let stream = event_stream.clone();
@@ -721,11 +740,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 }
 
                 if let Some(timeout_task) = self.timeout_task.take() {
-                    cancel_task(timeout_task).await;
+                    timeout_task.abort();
                 }
 
+                // TODO: Figure out the correct way to view sync across epochs if needed
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(self.next_view)),
+                    Arc::new(HotShotEvent::ViewChange(self.next_view, self.cur_epoch)),
                     &event_stream,
                 )
                 .await;
@@ -792,7 +812,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 // Shouldn't ever receive a timeout for a relay higher than ours
                 if TYPES::View::new(*round) == self.next_view && *relay == self.relay {
                     if let Some(timeout_task) = self.timeout_task.take() {
-                        cancel_task(timeout_task).await;
+                        timeout_task.abort();
                     }
                     self.relay += 1;
                     match last_seen_certificate {
