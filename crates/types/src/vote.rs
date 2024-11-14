@@ -56,7 +56,7 @@ The certificate formed from the collection of signatures a committee.
 The committee is defined by the `Membership` associated type.
 The votes all must be over the `Commitment` associated type.
 */
-pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
+pub trait Certificate<TYPES: NodeType, T>: HasViewNumber<TYPES> {
     /// The data commitment this certificate certifies.
     type Voteable: Voteable;
 
@@ -103,7 +103,7 @@ type SignersMap<COMMITMENT, KEY> = HashMap<
 pub struct VoteAccumulator<
     TYPES: NodeType,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
     V: Versions,
 > {
     /// Map of all signatures accumulated so far
@@ -127,7 +127,7 @@ pub struct VoteAccumulator<
 impl<
         TYPES: NodeType,
         VOTE: Vote<TYPES>,
-        CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+        CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
         V: Versions,
     > VoteAccumulator<TYPES, VOTE, CERT, V>
 {
