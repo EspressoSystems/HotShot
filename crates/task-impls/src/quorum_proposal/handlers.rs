@@ -17,7 +17,7 @@ use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::{UpgradeCertificate, QuorumCertificate},
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
@@ -304,8 +304,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             }
         }
 
-        let parent_qc =
-            parent_qc.unwrap_or(self.consensus.read().await.high_qc().clone());
+        let parent_qc = parent_qc.unwrap_or(self.consensus.read().await.high_qc().clone());
 
         if commit_and_metadata.is_none() {
             tracing::error!(
