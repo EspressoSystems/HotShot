@@ -11,7 +11,6 @@ use std::{
     num::NonZeroU64,
 };
 
-use ethereum_types::U256;
 use hotshot_types::{
     traits::{
         election::Membership,
@@ -21,6 +20,7 @@ use hotshot_types::{
     },
     PeerConfig,
 };
+use primitive_types::U256;
 use rand::{rngs::StdRng, Rng};
 use utils::anytrace::Result;
 
@@ -231,20 +231,20 @@ impl<TYPES: NodeType, CONFIG: QuorumFilterConfig> Membership<TYPES>
     }
 
     /// Get the voting success threshold for the committee
-    fn success_threshold(&self) -> NonZeroU64 {
-        let len = self.stake_table.len() / 2; // Divide by two as we are flipping between odds and evens
+    fn success_threshold(&self, epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
+        let len = self.total_nodes(epoch);
         NonZeroU64::new(((len as u64 * 2) / 3) + 1).unwrap()
     }
 
     /// Get the voting failure threshold for the committee
-    fn failure_threshold(&self) -> NonZeroU64 {
-        let len = self.stake_table.len() / 2; // Divide by two as we are flipping between odds and evens
+    fn failure_threshold(&self, epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
+        let len = self.total_nodes(epoch);
         NonZeroU64::new(((len as u64) / 3) + 1).unwrap()
     }
 
     /// Get the voting upgrade threshold for the committee
-    fn upgrade_threshold(&self) -> NonZeroU64 {
-        let len = self.stake_table.len() / 2; // Divide by two as we are flipping between odds and evens
+    fn upgrade_threshold(&self, epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
+        let len = self.total_nodes(epoch);
         NonZeroU64::new(max((len as u64 * 9) / 10, ((len as u64 * 2) / 3) + 1)).unwrap()
     }
 }

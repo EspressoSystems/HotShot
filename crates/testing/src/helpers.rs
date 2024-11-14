@@ -215,7 +215,7 @@ pub async fn build_assembled_sig<
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
-            U256::from(CERT::threshold(membership)),
+            U256::from(CERT::threshold(membership, epoch)),
         );
     let total_nodes = stake_table.len();
     let signers = bitvec![1; total_nodes];
