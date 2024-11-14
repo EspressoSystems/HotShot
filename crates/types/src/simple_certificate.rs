@@ -37,7 +37,10 @@ use crate::{
 /// Trait which allows use to inject different threshold calculations into a Certificate type
 pub trait Threshold<TYPES: NodeType> {
     /// Calculate a threshold based on the membership
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64;
+    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> u64;
 }
 
 /// Defines a threshold which is 2f + 1 (Amount needed for Quorum)
@@ -45,8 +48,11 @@ pub trait Threshold<TYPES: NodeType> {
 pub struct SuccessThreshold {}
 
 impl<TYPES: NodeType> Threshold<TYPES> for SuccessThreshold {
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
-        membership.success_threshold().into()
+    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> u64 {
+        membership.success_threshold(epoch).into()
     }
 }
 
@@ -55,8 +61,11 @@ impl<TYPES: NodeType> Threshold<TYPES> for SuccessThreshold {
 pub struct OneHonestThreshold {}
 
 impl<TYPES: NodeType> Threshold<TYPES> for OneHonestThreshold {
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
-        membership.failure_threshold().into()
+    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> u64 {
+        membership.failure_threshold(epoch).into()
     }
 }
 
@@ -65,8 +74,11 @@ impl<TYPES: NodeType> Threshold<TYPES> for OneHonestThreshold {
 pub struct UpgradeThreshold {}
 
 impl<TYPES: NodeType> Threshold<TYPES> for UpgradeThreshold {
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
-        membership.upgrade_threshold().into()
+    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> u64 {
+        membership.upgrade_threshold(epoch).into()
     }
 }
 
@@ -156,7 +168,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
         }
         let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
             membership.stake_table(epoch),
-            U256::from(Self::threshold(membership)),
+            U256::from(Self::threshold(membership, epoch)),
         );
         let Ok(commit) = self.data_commitment(upgrade_lock).await else {
             return false;
@@ -167,8 +179,11 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static, THRESHOLD: Threshold<TYPES>>
             self.signatures.as_ref().unwrap(),
         )
     }
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
-        THRESHOLD::threshold(membership)
+    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> u64 {
+        THRESHOLD::threshold(membership, epoch)
     }
     fn data(&self) -> &Self::Voteable {
         &self.data
