@@ -533,7 +533,7 @@ pub struct Leaf<TYPES: NodeType> {
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct Leaf2<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
@@ -703,6 +703,25 @@ impl<TYPES: NodeType> PartialEq for Leaf<TYPES> {
             && self.justify_qc == other.justify_qc
             && self.parent_commitment == other.parent_commitment
             && self.block_header == other.block_header
+    }
+}
+
+impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
+    fn eq(&self, other: &Self) -> bool {
+        let Leaf2 {
+            view_number,
+            justify_qc,
+            parent_commitment,
+            block_header,
+            upgrade_certificate,
+            block_payload: _,
+        } = self;
+
+        *view_number == other.view_number
+            && *justify_qc == other.justify_qc
+            && *parent_commitment == other.parent_commitment
+            && *block_header == other.block_header
+            && *upgrade_certificate == other.upgrade_certificate
     }
 }
 
