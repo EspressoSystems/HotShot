@@ -137,6 +137,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
     /// Waits for the ocnfigured timeout for nodes to send HighQC messages to us.  We'll
     /// then propose with the higest QC from among these proposals.
     async fn wait_for_highest_qc(&mut self) {
+        tracing::error!("waiting for QC");
         // If we haven't upgraded to Hotstuff 2 just return the high qc right away
         if self
             .upgrade_lock
@@ -382,6 +383,13 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
 
         let parent_qc = if let Some(qc) = parent_qc {
             qc
+        } else if self
+            .upgrade_lock
+            .version(self.view_number)
+            .await
+            .is_ok_and(|version| version < V::Epochs::VERSION)
+        {
+            self.consensus.read().await.high_qc().clone()
         } else {
             self.wait_for_highest_qc().await;
             self.highest_qc.clone()
