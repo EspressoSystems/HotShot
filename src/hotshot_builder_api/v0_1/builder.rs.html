@@ -265,6 +265,10 @@
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -486,7 +490,8 @@
     options: <span class="kw-2">&amp;</span>Options,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Api&lt;State, Error, Ver&gt;, ApiError&gt;
 <span class="kw">where
-    </span>State: <span class="lifetime">'static </span>+ Send + Sync + AcceptsTxnSubmits&lt;Types&gt;,
+    </span>State: <span class="lifetime">'static </span>+ Send + Sync + ReadState,
+    &lt;State <span class="kw">as </span>ReadState&gt;::State: Send + Sync + AcceptsTxnSubmits&lt;Types&gt;,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>api = load_api::&lt;State, Error, Ver&gt;(
         options.api_path.as_ref(),
@@ -501,7 +506,7 @@
                     .map_err(Error::TxnUnpack)<span class="question-mark">?</span>;
                 <span class="kw">let </span>hash = tx.commit();
                 state
-                    .submit_txns(<span class="macro">vec!</span>[tx])
+                    .read(|state| state.submit_txns(<span class="macro">vec!</span>[tx]))
                     .<span class="kw">await
                     </span>.map_err(Error::TxnSubmit)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(hash)
@@ -514,12 +519,15 @@
                     .body_auto::&lt;Vec&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction&gt;, Ver&gt;(Ver::instance())
                     .map_err(Error::TxnUnpack)<span class="question-mark">?</span>;
                 <span class="kw">let </span>hashes = txns.iter().map(|tx| tx.commit()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-                state.submit_txns(txns).<span class="kw">await</span>.map_err(Error::TxnSubmit)<span class="question-mark">?</span>;
+                state
+                    .read(|state| state.submit_txns(txns))
+                    .<span class="kw">await
+                    </span>.map_err(Error::TxnSubmit)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(hashes)
             }
             .boxed()
         })<span class="question-mark">?
-        </span>.at(<span class="string">"get_status"</span>, |req: RequestParams, state| {
+        </span>.get(<span class="string">"get_status"</span>, |req: RequestParams, state| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>tx = req
                     .body_auto::&lt;&lt;Types <span class="kw">as </span>NodeType&gt;::Transaction, Ver&gt;(Ver::instance())
