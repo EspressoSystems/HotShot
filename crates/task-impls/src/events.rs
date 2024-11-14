@@ -11,8 +11,8 @@ use either::Either;
 use hotshot_task::task::TaskEvent;
 use hotshot_types::{
     data::{
-        DaProposal, Leaf2, PackedBundle, QuorumProposal, QuorumProposal2, UpgradeProposal,
-        VidDisperse, VidDisperseShare,
+        DaProposal, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
+        VidDisperseShare,
     },
     message::Proposal,
     request_response::ProposalRequestPayload,
@@ -50,7 +50,7 @@ pub struct ProposalMissing<TYPES: NodeType> {
     /// View of missing proposal
     pub view: TYPES::View,
     /// Channel to send the response back to
-    pub response_chan: Sender<Option<Proposal<TYPES, QuorumProposal<TYPES>>>>,
+    pub response_chan: Sender<Option<Proposal<TYPES, QuorumProposal2<TYPES>>>>,
 }
 
 impl<TYPES: NodeType> PartialEq for ProposalMissing<TYPES> {

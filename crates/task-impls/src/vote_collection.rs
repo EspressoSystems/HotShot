@@ -414,7 +414,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertifi
         certificate: TimeoutCertificate<TYPES>,
         _key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::QcFormed(Right(certificate))
+        HotShotEvent::Qc2Formed(Right(certificate))
     }
 }
 
