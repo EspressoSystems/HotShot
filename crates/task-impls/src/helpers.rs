@@ -13,7 +13,6 @@ use async_broadcast::{InactiveReceiver, Receiver, SendError, Sender};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
-use hotshot_types::utils::epoch_from_block_number;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, QuorumProposal, ViewChangeEvidence},
@@ -28,7 +27,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{Terminator, View, ViewInner},
+    utils::{epoch_from_block_number, Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 use tokio::time::timeout;

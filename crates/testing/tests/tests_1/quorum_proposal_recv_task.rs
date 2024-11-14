@@ -27,9 +27,8 @@ use hotshot_testing::{
     serial,
     view_generator::TestViewGenerator,
 };
-use hotshot_types::data::EpochNumber;
 use hotshot_types::{
-    data::{Leaf, ViewNumber},
+    data::{EpochNumber, Leaf, ViewNumber},
     request_response::ProposalRequestPayload,
     traits::{
         consensus_api::ConsensusApi,

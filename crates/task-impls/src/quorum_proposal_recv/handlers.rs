@@ -11,13 +11,13 @@ use std::sync::Arc;
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::RwLockUpgradableReadGuard;
 use committable::Committable;
-use hotshot_types::traits::block_contents::BlockHeader;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, QuorumProposal},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
