@@ -93,6 +93,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QuorumProposalSend(Proposal<TYPES, QuorumProposal2<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote2<TYPES>),
+    /// Broadcast a quorum vote to form an eQC; emitted by a replica in the consensus task after seeing a valid quorum proposal
+    ExtendedQuorumVoteSend(QuorumVote2<TYPES>),
     /// A quorum proposal with the given parent leaf is validated.
     /// The full validation checks include:
     /// 1. The proposal is not for an old view
@@ -254,7 +256,9 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 Some(proposal.data.view_number())
             }
-            HotShotEvent::QuorumVoteSend(vote) => Some(vote.view_number()),
+            HotShotEvent::QuorumVoteSend(vote) | HotShotEvent::ExtendedQuorumVoteSend(vote) => {
+                Some(vote.view_number())
+            }
             HotShotEvent::DaProposalRecv(proposal, _)
             | HotShotEvent::DaProposalValidated(proposal, _)
             | HotShotEvent::DaProposalSend(proposal, _) => Some(proposal.data.view_number()),
@@ -328,6 +332,13 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             ),
             HotShotEvent::QuorumVoteRecv(v) => {
                 write!(f, "QuorumVoteRecv(view_number={:?})", v.view_number())
+            }
+            HotShotEvent::ExtendedQuorumVoteSend(v) => {
+                write!(
+                    f,
+                    "ExtendedQuorumVoteSend(view_number={:?})",
+                    v.view_number()
+                )
             }
             HotShotEvent::TimeoutVoteRecv(v) => {
                 write!(f, "TimeoutVoteRecv(view_number={:?})", v.view_number())

@@ -32,7 +32,7 @@ use hotshot_task_impls::{
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::{Consensus, OuterConsensus},
     constants::EVENT_CHANNEL_SIZE,
     message::{Message, UpgradeLock},
     traits::{
@@ -200,7 +200,7 @@ pub fn add_network_event_task<
         quorum_membership,
         da_membership,
         storage: Arc::clone(&handle.storage()),
-        consensus: Arc::clone(&handle.consensus()),
+        consensus: OuterConsensus::new(handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         transmit_tasks: BTreeMap::new(),
     };

@@ -27,7 +27,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{Terminator, View, ViewInner},
+    utils::{epoch_from_block_number, Terminator, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 use tokio::time::timeout;
@@ -469,9 +469,29 @@ pub async fn validate_proposal_safety_and_liveness<
     // Create a positive vote if either liveness or safety check
     // passes.
 
-    // Liveness check.
     {
         let consensus_reader = validation_info.consensus.read().await;
+        // Epoch safety check:
+        // The proposal is safe if
+        // 1. the proposed block and the justify QC block belong to the same epoch or
+        // 2. the justify QC is the eQC for the previous block
+        let proposal_epoch =
+            epoch_from_block_number(proposed_leaf.height(), validation_info.epoch_height);
+        let justify_qc_epoch =
+            epoch_from_block_number(parent_leaf.height(), validation_info.epoch_height);
+        ensure!(
+            proposal_epoch == justify_qc_epoch
+                || consensus_reader.check_eqc(&proposed_leaf, &parent_leaf),
+            {
+                error!(
+                    "Failed epoch safety check \n Proposed leaf is {:?} \n justify QC leaf is {:?}",
+                    proposed_leaf.clone(),
+                    parent_leaf.clone(),
+                )
+            }
+        );
+
+        // Liveness check.
         let liveness_check = justify_qc.view_number() > consensus_reader.locked_view();
 
         // Safety check.
