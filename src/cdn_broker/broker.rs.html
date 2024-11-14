@@ -119,6 +119,9 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -128,7 +131,7 @@
 </span><span class="doccomment">//! The following is the main `Broker` binary, which just instantiates and runs
 //! a `Broker` object.
 </span><span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>cdn_broker::{Broker, Config};
+<span class="kw">use </span>cdn_broker::{reexports::def::hook::NoMessageHook, Broker, Config};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
 <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
@@ -224,6 +227,9 @@
             private_key,
         },
 
+        user_message_hook: NoMessageHook,
+        broker_message_hook: NoMessageHook,
+
         public_bind_endpoint: args.public_bind_endpoint,
         public_advertise_endpoint: args.public_advertise_endpoint,
         private_bind_endpoint: args.private_bind_endpoint,
@@ -232,7 +238,7 @@
     };
 
     <span class="comment">// Create new `Broker`
-    // Uses TCP from broker connections and Quic for user connections.
+    // Uses TCP from broker connections and TCP+TLS for user connections.
     </span><span class="kw">let </span>broker = Broker::new(broker_config).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Start the main loop, consuming it

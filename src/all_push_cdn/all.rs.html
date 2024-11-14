@@ -155,6 +155,15 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -167,7 +176,11 @@
 
 <span class="kw">use </span>std::path::Path;
 
-<span class="kw">use </span>cdn_broker::{reexports::crypto::signature::KeyPair, Broker};
+<span class="kw">use </span>cdn_broker::{
+    reexports::{crypto::signature::KeyPair, def::hook::NoMessageHook},
+    Broker,
+};
+
 <span class="kw">use </span>cdn_marshal::Marshal;
 <span class="kw">use </span>hotshot::{
     helpers::initialize_logging,
@@ -247,6 +260,9 @@
                     private_key: broker_private_key.clone(),
                 },
 
+                user_message_hook: NoMessageHook,
+                broker_message_hook: NoMessageHook,
+
                 metrics_bind_endpoint: <span class="prelude-val">None</span>,
                 ca_cert_path: <span class="prelude-val">None</span>,
                 ca_key_path: <span class="prelude-val">None</span>,
@@ -266,11 +282,13 @@
     }
 
     <span class="comment">// Get the port to use for the marshal
-    </span><span class="kw">let </span>marshal_port = <span class="number">9000</span>;
+    </span><span class="kw">let </span>marshal_endpoint = config
+        .cdn_marshal_address
+        .clone()
+        .expect(<span class="string">"CDN marshal address must be specified"</span>);
 
     <span class="comment">// Configure the marshal
-    </span><span class="kw">let </span>marshal_endpoint = <span class="macro">format!</span>(<span class="string">"127.0.0.1:{marshal_port}"</span>);
-    <span class="kw">let </span>marshal_config = cdn_marshal::Config {
+    </span><span class="kw">let </span>marshal_config = cdn_marshal::Config {
         bind_endpoint: marshal_endpoint.clone(),
         discovery_endpoint,
         metrics_bind_endpoint: <span class="prelude-val">None</span>,

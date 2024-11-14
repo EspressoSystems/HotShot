@@ -586,6 +586,25 @@
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -601,8 +620,8 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::config::Options;
 <span class="kw">use </span>cdn_broker::reexports::{
-    connection::protocols::Tcp,
-    def::{ConnectionDef, RunDef, Topic <span class="kw">as </span>TopicTrait},
+    connection::protocols::{Tcp, TcpTls},
+    def::{hook::NoMessageHook, ConnectionDef, RunDef, Topic <span class="kw">as </span>TopicTrait},
     discovery::{Embedded, Redis},
 };
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
@@ -610,7 +629,6 @@
 <span class="kw">pub use </span>cdn_client::reexports::crypto::signature::KeyPair;
 <span class="kw">use </span>cdn_client::{
     reexports::{
-        connection::protocols::Quic,
         crypto::signature::{Serializable, SignatureScheme},
         message::{Broadcast, Direct, Message <span class="kw">as </span>PushCdnMessage},
     },
@@ -678,22 +696,35 @@
     <span class="kw">type </span>PublicKey = <span class="self">Self</span>;
 
     <span class="doccomment">/// Sign a message of arbitrary data and return the serialized signature
-    </span><span class="kw">fn </span>sign(private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey, message: <span class="kw-2">&amp;</span>[u8]) -&gt; anyhow::Result&lt;Vec&lt;u8&gt;&gt; {
-        <span class="kw">let </span>signature = T::sign(private_key, message)<span class="question-mark">?</span>;
-        <span class="comment">// TODO: replace with rigorously defined serialization scheme...
-        // why did we not make `PureAssembledSignatureType` be `CanonicalSerialize + CanonicalDeserialize`?
-        </span><span class="prelude-val">Ok</span>(bincode_opts().serialize(<span class="kw-2">&amp;</span>signature)<span class="question-mark">?</span>)
+    </span><span class="kw">fn </span>sign(
+        private_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PrivateKey,
+        namespace: <span class="kw-2">&amp;</span>str,
+        message: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; anyhow::Result&lt;Vec&lt;u8&gt;&gt; {
+        <span class="comment">// Combine the namespace and message into a single byte array
+        </span><span class="kw">let </span>message = [namespace.as_bytes(), message].concat();
+
+        <span class="kw">let </span>signature = T::sign(private_key, <span class="kw-2">&amp;</span>message)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(bincode_opts().serialize(<span class="kw-2">&amp;</span>signature)<span class="question-mark">?</span>)
     }
 
     <span class="doccomment">/// Verify a message of arbitrary data and return the result
-    </span><span class="kw">fn </span>verify(public_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicKey, message: <span class="kw-2">&amp;</span>[u8], signature: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
-        <span class="comment">// TODO: replace with rigorously defined signing scheme
+    </span><span class="kw">fn </span>verify(
+        public_key: <span class="kw-2">&amp;</span><span class="self">Self</span>::PublicKey,
+        namespace: <span class="kw-2">&amp;</span>str,
+        message: <span class="kw-2">&amp;</span>[u8],
+        signature: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; bool {
+        <span class="comment">// Deserialize the signature
         </span><span class="kw">let </span>signature: T::PureAssembledSignatureType = <span class="kw">match </span>bincode_opts().deserialize(signature) {
             <span class="prelude-val">Ok</span>(key) =&gt; key,
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="bool-val">false</span>,
         };
 
-        public_key.<span class="number">0</span>.validate(<span class="kw-2">&amp;</span>signature, message)
+        <span class="comment">// Combine the namespace and message into a single byte array
+        </span><span class="kw">let </span>message = [namespace.as_bytes(), message].concat();
+
+        public_key.<span class="number">0</span>.validate(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message)
     }
 }
 
@@ -720,11 +751,12 @@
 }
 
 <span class="doccomment">/// The user definition for the Push CDN.
-/// Uses the Quic protocol and untrusted middleware.
+/// Uses the TCP+TLS protocol and untrusted middleware.
 </span><span class="kw">pub struct </span>UserDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(PhantomData&lt;K&gt;);
 <span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; ConnectionDef <span class="kw">for </span>UserDef&lt;K&gt; {
     <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;K&gt;;
-    <span class="kw">type </span>Protocol = Quic;
+    <span class="kw">type </span>Protocol = TcpTls;
+    <span class="kw">type </span>MessageHook = NoMessageHook;
 }
 
 <span class="doccomment">/// The broker definition for the Push CDN.
@@ -733,16 +765,18 @@
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; ConnectionDef <span class="kw">for </span>BrokerDef&lt;K&gt; {
     <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;K&gt;;
     <span class="kw">type </span>Protocol = Tcp;
+    <span class="kw">type </span>MessageHook = NoMessageHook;
 }
 
-<span class="doccomment">/// The client definition for the Push CDN. Uses the Quic
+<span class="doccomment">/// The client definition for the Push CDN. Uses the TCP+TLS
 /// protocol and no middleware. Differs from the user
 /// definition in that is on the client-side.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>ClientDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt;(PhantomData&lt;K&gt;);
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; ConnectionDef <span class="kw">for </span>ClientDef&lt;K&gt; {
     <span class="kw">type </span>Scheme = WrappedSignatureKey&lt;K&gt;;
-    <span class="kw">type </span>Protocol = Quic;
+    <span class="kw">type </span>Protocol = TcpTls;
+    <span class="kw">type </span>MessageHook = NoMessageHook;
 }
 
 <span class="doccomment">/// The testing run definition for the Push CDN.
@@ -917,6 +951,10 @@
                     private_key: broker_private_key.clone(),
                 },
                 discovery_endpoint: discovery_endpoint.clone(),
+
+                user_message_hook: NoMessageHook,
+                broker_message_hook: NoMessageHook,
+
                 ca_cert_path: <span class="prelude-val">None</span>,
                 ca_key_path: <span class="prelude-val">None</span>,
                 <span class="comment">// 1GB
