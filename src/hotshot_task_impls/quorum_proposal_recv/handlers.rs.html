@@ -274,6 +274,16 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -316,7 +326,7 @@
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
 };
-
+<span class="kw">use </span>vbs::version::StaticVersionType;
 <span class="doccomment">/// Update states in the event that the parent state is not found for a given `proposal`.
 </span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">async fn </span>validate_proposal_liveness&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
@@ -353,6 +363,16 @@
 
     <span class="kw">let </span>liveness_check =
         proposal.data.justify_qc.clone().view_number() &gt; consensus_writer.locked_view();
+    <span class="comment">// if we are using HS2 we update our locked view for any QC from a leader greater than our current lock
+    </span><span class="kw">if </span>liveness_check
+        &amp;&amp; validation_info
+            .upgrade_lock
+            .version(leaf.view_number())
+            .<span class="kw">await
+            </span>.is_ok_and(|v| v &gt;= V::Epochs::VERSION)
+    {
+        consensus_writer.update_locked_view(proposal.data.justify_qc.clone().view_number())<span class="question-mark">?</span>;
+    }
 
     drop(consensus_writer);
 

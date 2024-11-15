@@ -542,13 +542,33 @@
 <a href="#542" id="542">542</a>
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
+</span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
@@ -563,7 +583,7 @@
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -635,6 +655,9 @@
 
     <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
     </span><span class="kw">pub </span>epoch_height: u64,
+
+    <span class="doccomment">/// The higest_qc we've seen at the start of this task
+    </span><span class="kw">pub </span>highest_qc: QuorumCertificate&lt;TYPES&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;
@@ -856,15 +879,18 @@
                 latest_proposed_view: <span class="self">self</span>.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                receiver: event_receiver.deactivate(),
+                receiver: event_receiver,
                 quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                 public_key: <span class="self">self</span>.public_key.clone(),
                 private_key: <span class="self">self</span>.private_key.clone(),
                 instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
+                timeout: <span class="self">self</span>.timeout,
                 formed_upgrade_certificate: <span class="self">self</span>.formed_upgrade_certificate.clone(),
                 upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
                 id: <span class="self">self</span>.id,
+                view_start_time: Instant::now(),
+                highest_qc: <span class="self">self</span>.highest_qc.clone(),
             },
         );
         <span class="self">self</span>.proposal_dependencies
@@ -1049,6 +1075,20 @@
             }
             HotShotEvent::ViewChange(view, <span class="kw">_</span>) | HotShotEvent::Timeout(view) =&gt; {
                 <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
+            }
+            HotShotEvent::HighQcSend(qc, _sender) =&gt; {
+                <span class="macro">ensure!</span>(qc.view_number() &gt; <span class="self">self</span>.highest_qc.view_number());
+                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="macro">ensure!</span>(
+                    qc.is_valid_cert(
+                        <span class="self">self</span>.quorum_membership.as_ref(),
+                        epoch_number,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
+                    )
+                    .<span class="kw">await</span>,
+                    <span class="macro">warn!</span>(<span class="string">"Qurom certificate {:?} was invalid"</span>, qc.data())
+                );
+                <span class="self">self</span>.highest_qc = qc.clone();
             }
             <span class="kw">_ </span>=&gt; {}
         }

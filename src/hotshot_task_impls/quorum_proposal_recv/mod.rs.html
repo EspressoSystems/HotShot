@@ -224,7 +224,7 @@
 <span class="kw">use </span><span class="self">self</span>::handlers::handle_quorum_proposal_recv;
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, ProposalMissing},
-    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+    helpers::{broadcast_event, fetch_proposal},
 };
 <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;

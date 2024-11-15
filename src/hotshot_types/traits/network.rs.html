@@ -598,13 +598,6 @@
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
 <a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -637,11 +630,7 @@
 <span class="kw">use </span>tokio::{sync::mpsc::error::TrySendError, time::sleep};
 
 <span class="kw">use super</span>::{node_implementation::NodeType, signature_key::SignatureKey};
-<span class="kw">use crate</span>::{
-    data::ViewNumber,
-    message::{MessagePurpose, SequencingMessage},
-    BoxSyncFuture,
-};
+<span class="kw">use crate</span>::{data::ViewNumber, message::SequencingMessage, BoxSyncFuture};
 
 <span class="doccomment">/// Centralized server specific errors
 </span><span class="attr">#[derive(Debug, Error, Serialize, Deserialize)]
@@ -729,9 +718,6 @@
 </span><span class="kw">pub trait </span>ViewMessage&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// get the view out of the message
     </span><span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View;
-    <span class="comment">// TODO move out of this trait.
-    </span><span class="doccomment">/// get the purpose of the message
-    </span><span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose;
 }
 
 <span class="doccomment">/// A request for some data that the consensus layer is asking for.

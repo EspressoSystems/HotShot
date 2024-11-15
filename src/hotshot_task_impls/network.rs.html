@@ -852,6 +852,7 @@
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -931,7 +932,7 @@
                         GeneralConsensusMessage::ProposalRequested(req, sig) =&gt; {
                             HotShotEvent::QuorumProposalRequestRecv(req, sig)
                         }
-                        GeneralConsensusMessage::LeaderProposalAvailable(proposal) =&gt; {
+                        GeneralConsensusMessage::ProposalResponse(proposal) =&gt; {
                             HotShotEvent::QuorumProposalResponseRecv(proposal)
                         }
                         GeneralConsensusMessage::Vote(vote) =&gt; {
@@ -968,6 +969,7 @@
                             <span class="macro">tracing::error!</span>(<span class="string">"Received upgrade vote!"</span>);
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
+                        GeneralConsensusMessage::HighQC(qc) =&gt; HotShotEvent::HighQcRecv(qc, sender),
                     },
                     SequencingMessage::Da(da_message) =&gt; <span class="kw">match </span>da_message {
                         DaConsensusMessage::DaProposal(proposal) =&gt; {
@@ -1282,7 +1284,7 @@
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) =&gt; <span class="prelude-val">Some</span>((
                 sender_key.clone(),
                 MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::LeaderProposalAvailable(proposal),
+                    GeneralConsensusMessage::ProposalResponse(proposal),
                 )),
                 TransmitType::Direct(sender_key),
             )),

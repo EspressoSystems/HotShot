@@ -339,6 +339,97 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -348,10 +439,19 @@
 </span><span class="doccomment">//! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
-</span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
+</span><span class="kw">use </span>std::{
+    marker::PhantomData,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender};
+<span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_task::dependency_task::HandleDepOutput;
 <span class="kw">use </span>hotshot_types::{
@@ -360,19 +460,15 @@
     message::Proposal,
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
+        block_contents::BlockHeader,
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
-
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 
 <span class="doccomment">/// Proposal dependency types. These types represent events that precipitate a proposal.
 </span><span class="attr">#[derive(PartialEq, Debug)]
@@ -408,7 +504,7 @@
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// The event receiver.
-    </span><span class="kw">pub </span>receiver: InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// Immutable instance state
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
@@ -425,6 +521,8 @@
     <span class="doccomment">/// Shared consensus task state
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
 
+    <span class="doccomment">/// View timeout from config.
+    </span><span class="kw">pub </span>timeout: u64,
     <span class="doccomment">/// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -438,9 +536,79 @@
 
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+
+    <span class="doccomment">/// The time this view started
+    </span><span class="kw">pub </span>view_start_time: Instant,
+
+    <span class="doccomment">/// The higest_qc we've seen at the start of this task
+    </span><span class="kw">pub </span>highest_qc: QuorumCertificate&lt;TYPES&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; ProposalDependencyHandle&lt;TYPES, V&gt; {
+    <span class="doccomment">/// Return the next HighQC we get from the event stream
+    </span><span class="kw">async fn </span>wait_for_qc_event(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        rx: <span class="kw-2">&amp;mut </span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt; {
+        <span class="kw">while let </span><span class="prelude-val">Ok</span>(event) = rx.recv_direct().<span class="kw">await </span>{
+            <span class="kw">if let </span>HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
+                <span class="kw">if </span>qc
+                    .is_valid_cert(
+                        <span class="self">self</span>.quorum_membership.as_ref(),
+                        TYPES::Epoch::new(<span class="number">0</span>),
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                    )
+                    .<span class="kw">await
+                </span>{
+                    <span class="kw">return </span><span class="prelude-val">Some</span>(qc.clone());
+                }
+            }
+        }
+        <span class="prelude-val">None
+    </span>}
+    <span class="doccomment">/// Waits for the ocnfigured timeout for nodes to send HighQC messages to us.  We'll
+    /// then propose with the higest QC from among these proposals.
+    </span><span class="kw">async fn </span>wait_for_highest_qc(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="macro">tracing::error!</span>(<span class="string">"waiting for QC"</span>);
+        <span class="comment">// If we haven't upgraded to Hotstuff 2 just return the high qc right away
+        </span><span class="kw">if </span><span class="self">self
+            </span>.upgrade_lock
+            .version(<span class="self">self</span>.view_number)
+            .<span class="kw">await
+            </span>.is_ok_and(|version| version &lt; V::Epochs::VERSION)
+        {
+            <span class="kw">return</span>;
+        }
+        <span class="kw">let </span>wait_duration = Duration::from_millis(<span class="self">self</span>.timeout / <span class="number">2</span>);
+
+        <span class="comment">// TODO configure timeout
+        </span><span class="kw">while </span><span class="self">self</span>.view_start_time.elapsed() &lt; wait_duration {
+            <span class="kw">let </span><span class="prelude-val">Some</span>(time_spent) = Instant::now().checked_duration_since(<span class="self">self</span>.view_start_time)
+            <span class="kw">else </span>{
+                <span class="comment">// Shouldn't be possible, now must be after the start
+                </span><span class="kw">return</span>;
+            };
+            <span class="kw">let </span><span class="prelude-val">Some</span>(time_left) = wait_duration.checked_sub(time_spent) <span class="kw">else </span>{
+                <span class="comment">// No time left
+                </span><span class="kw">return</span>;
+            };
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(maybe_qc) = tokio::time::timeout(
+                time_left,
+                <span class="self">self</span>.wait_for_qc_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.receiver.clone()),
+            )
+            .<span class="kw">await
+            else </span>{
+                <span class="comment">// we timeout out, don't wait any longer
+                </span><span class="kw">return</span>;
+            };
+            <span class="kw">let </span><span class="prelude-val">Some</span>(qc) = maybe_qc <span class="kw">else </span>{
+                <span class="kw">continue</span>;
+            };
+            <span class="kw">if </span>qc.view_number() &gt; <span class="self">self</span>.highest_qc.view_number() {
+                <span class="self">self</span>.highest_qc = qc;
+            }
+        }
+    }
     <span class="doccomment">/// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
@@ -511,7 +679,7 @@
         <span class="kw">let </span>metadata = commitment_and_metadata.metadata.clone();
 
         <span class="kw">let </span>block_header = <span class="kw">if </span>version &gt;= V::Epochs::VERSION
-            &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.is_high_qc_forming_eqc()
+            &amp;&amp; <span class="self">self</span>.consensus.read().<span class="kw">await</span>.is_qc_forming_eqc(<span class="kw-2">&amp;</span>parent_qc)
         {
             <span class="macro">tracing::info!</span>(<span class="string">"Reached end of epoch. Proposing the same block again to form an eQC."</span>);
             <span class="kw">let </span>block_header = parent_leaf.block_header().clone();
@@ -602,7 +770,7 @@
     <span class="kw">type </span>Output = Vec&lt;Vec&lt;Vec&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;&gt;&gt;;
 
     <span class="attr">#[allow(clippy::no_effect_underscore_binding, clippy::too_many_lines)]
-    </span><span class="kw">async fn </span>handle_dep_result(<span class="self">self</span>, res: <span class="self">Self</span>::Output) {
+    </span><span class="kw">async fn </span>handle_dep_result(<span class="kw-2">mut </span><span class="self">self</span>, res: <span class="self">Self</span>::Output) {
         <span class="kw">let </span><span class="kw-2">mut </span>commit_and_metadata: <span class="prelude-ty">Option</span>&lt;CommitmentAndMetadata&lt;TYPES&gt;&gt; = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>timeout_certificate = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>view_sync_finalize_cert = <span class="prelude-val">None</span>;
@@ -645,7 +813,21 @@
             }
         }
 
-        <span class="kw">let </span>parent_qc = parent_qc.unwrap_or(<span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone());
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(version) = <span class="self">self</span>.upgrade_lock.version(<span class="self">self</span>.view_number).<span class="kw">await else </span>{
+            <span class="macro">tracing::error!</span>(
+                <span class="string">"Failed to get version for view {:?}, not proposing"</span>,
+                <span class="self">self</span>.view_number
+            );
+            <span class="kw">return</span>;
+        };
+        <span class="kw">let </span>parent_qc = <span class="kw">if let </span><span class="prelude-val">Some</span>(qc) = parent_qc {
+            qc
+        } <span class="kw">else if </span>version &lt; V::Epochs::VERSION {
+            <span class="self">self</span>.consensus.read().<span class="kw">await</span>.high_qc().clone()
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.wait_for_highest_qc().<span class="kw">await</span>;
+            <span class="self">self</span>.highest_qc.clone()
+        };
 
         <span class="kw">if </span>commit_and_metadata.is_none() {
             <span class="macro">tracing::error!</span>(
