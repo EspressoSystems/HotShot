@@ -247,7 +247,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let metadata = commitment_and_metadata.metadata.clone();
 
         let block_header = if version >= V::Epochs::VERSION
-            && self.consensus.read().await.is_high_qc_forming_eqc()
+            && self.consensus.read().await.is_qc_forming_eqc(&parent_qc)
         {
             tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
             let block_header = parent_leaf.block_header().clone();
