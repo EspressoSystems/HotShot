@@ -247,7 +247,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let metadata = commitment_and_metadata.metadata.clone();
 
         let block_header = if version >= V::Epochs::VERSION
-            && self.consensus.read().await.is_high_qc_forming_eqc()
+            && self.consensus.read().await.is_qc_forming_eqc(&parent_qc)
         {
             tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
             let block_header = parent_leaf.block_header().clone();
@@ -381,14 +381,16 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             }
         }
 
+        let Ok(version) = self.upgrade_lock.version(self.view_number).await else {
+            tracing::error!(
+                "Failed to get version for view {:?}, not proposing",
+                self.view_number
+            );
+            return;
+        };
         let parent_qc = if let Some(qc) = parent_qc {
             qc
-        } else if self
-            .upgrade_lock
-            .version(self.view_number)
-            .await
-            .is_ok_and(|version| version < V::Epochs::VERSION)
-        {
+        } else if version < V::Epochs::VERSION {
             self.consensus.read().await.high_qc().clone()
         } else {
             self.wait_for_highest_qc().await;
