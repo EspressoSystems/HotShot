@@ -438,6 +438,9 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
             block_header: leaf.block_header,
             upgrade_certificate: leaf.upgrade_certificate,
             block_payload: leaf.block_payload,
+            view_change_evidence: None,
+            drb_seed: [0; 96],
+            drb_result: [0; 32],
         }
     }
 }
@@ -556,6 +559,17 @@ pub struct Leaf2<TYPES: NodeType> {
     ///
     /// It may be empty for nodes not in the DA committee.
     block_payload: Option<TYPES::BlockPayload>,
+
+    /// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
+    pub view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
+
+    /// the DRB seed currently being calculated
+    #[serde(with = "serde_bytes")]
+    pub drb_seed: [u8; 96],
+
+    /// the result of the DRB calculation
+    #[serde(with = "serde_bytes")]
+    pub drb_result: [u8; 32],
 }
 
 impl<TYPES: NodeType> Leaf2<TYPES> {
@@ -675,13 +689,25 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-        RawCommitmentBuilder::new("leaf commitment")
-            .u64_field("view number", *self.view_number)
-            .field("parent leaf commitment", self.parent_commitment)
-            .field("block header", self.block_header.commit())
-            .field("justify qc", self.justify_qc.commit())
-            .optional("upgrade certificate", &self.upgrade_certificate)
-            .finalize()
+        if self.drb_seed == [0; 96] && self.drb_result == [0; 32] {
+            RawCommitmentBuilder::new("leaf commitment")
+                .u64_field("view number", *self.view_number)
+                .field("parent leaf commitment", self.parent_commitment)
+                .field("block header", self.block_header.commit())
+                .field("justify qc", self.justify_qc.commit())
+                .optional("upgrade certificate", &self.upgrade_certificate)
+                .finalize()
+        } else {
+            RawCommitmentBuilder::new("leaf commitment")
+                .u64_field("view number", *self.view_number)
+                .field("parent leaf commitment", self.parent_commitment)
+                .field("block header", self.block_header.commit())
+                .field("justify qc", self.justify_qc.commit())
+                .optional("upgrade certificate", &self.upgrade_certificate)
+                .fixed_size_bytes(&self.drb_seed)
+                .fixed_size_bytes(&self.drb_result)
+                .finalize()
+        }
     }
 }
 
@@ -715,6 +741,9 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
             block_header,
             upgrade_certificate,
             block_payload: _,
+            view_change_evidence,
+            drb_seed,
+            drb_result,
         } = self;
 
         *view_number == other.view_number
@@ -722,6 +751,9 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
             && *parent_commitment == other.parent_commitment
             && *block_header == other.block_header
             && *upgrade_certificate == other.upgrade_certificate
+            && *view_change_evidence == other.view_change_evidence
+            && *drb_seed == other.drb_seed
+            && *drb_result == other.drb_result
     }
 }
 
@@ -1048,9 +1080,9 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             justify_qc,
             block_header,
             upgrade_certificate,
-            view_change_evidence: _,
-            drb_seed: _,
-            drb_result: _,
+            view_change_evidence,
+            drb_seed,
+            drb_result,
         } = quorum_proposal;
 
         Self {
@@ -1060,6 +1092,9 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: None,
+            view_change_evidence: view_change_evidence.clone(),
+            drb_seed: *drb_seed,
+            drb_result: *drb_result,
         }
     }
 }
