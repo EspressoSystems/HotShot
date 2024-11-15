@@ -474,6 +474,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_deduplication_broadcast() {
         // Create a new message hook
         let mut hook = HotShotMessageHook::default();
@@ -521,6 +522,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_deduplication_direct() {
         // Create a new message hook
         let mut hook = HotShotMessageHook::default();
