@@ -46,6 +46,7 @@ use crate::{
     },
     vote::HasViewNumber,
 };
+use crate::simple_vote::HasEpoch;
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Derivative, PartialEq, Eq, Hash)]
@@ -354,7 +355,7 @@ pub enum DataMessage<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Prepare qc from the leader
-pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned> {
+pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + HasEpoch<TYPES> + DeserializeOwned> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The data being proposed.

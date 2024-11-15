@@ -597,10 +597,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_da_view(
         &mut self,
         view_number: TYPES::View,
+        epoch: TYPES::Epoch,
         payload_commitment: VidCommitment,
     ) -> Result<()> {
         let view = View {
-            view_inner: ViewInner::Da { payload_commitment },
+            view_inner: ViewInner::Da { payload_commitment, epoch },
         };
         self.update_validated_state_map(view_number, view)
     }
@@ -623,6 +624,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                 leaf: leaf.commit(upgrade_lock).await,
                 state,
                 delta,
+                epoch: leaf.epoch(),
             },
         };
         self.update_validated_state_map(view_number, view)?;
@@ -871,9 +873,9 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         view: <TYPES as NodeType>::View,
         membership: Arc<TYPES::Membership>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        epoch: TYPES::Epoch,
     ) -> Option<()> {
         let txns = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
+        let epoch = consensus.read().await.validated_state_map().get(&view)?.view_inner.epoch()?;
         let vid = VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None).await;
         let shares = VidDisperseShare::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;

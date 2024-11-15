@@ -159,7 +159,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Trigger the start of the view sync protocol; emitted by view sync task; internal trigger only
     ViewSyncTrigger(TYPES::View),
     /// A consensus view has timed out; emitted by a replica in the consensus task; received by the view sync task; internal event only
-    Timeout(TYPES::View),
+    Timeout(TYPES::View, TYPES::Epoch),
     /// Receive transactions from the network
     TransactionsRecv(Vec<TYPES::Transaction>),
     /// Send transactions to the network

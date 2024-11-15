@@ -30,6 +30,7 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 use tokio::{spawn, task::spawn_blocking};
 use tracing::instrument;
+use hotshot_types::simple_vote::HasEpoch;
 use utils::anytrace::*;
 
 use crate::{
@@ -169,9 +170,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 )
                 .await;
 
+                let proposal_epoch = proposal.data.epoch();
                 ensure!(
                     self.da_membership
-                        .has_stake(&self.public_key, self.cur_epoch),
+                        .has_stake(&self.public_key, proposal_epoch),
                     debug!(
                         "We were not chosen for consensus committee on {:?}",
                         self.cur_view
@@ -179,7 +181,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 );
 
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
-                let num_nodes = self.quorum_membership.total_nodes(self.cur_epoch);
+                let num_nodes = self.quorum_membership.total_nodes(proposal_epoch);
                 let payload_commitment =
                     spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
                 let payload_commitment = payload_commitment.unwrap();
@@ -195,6 +197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let vote = DaVote::create_signed_vote(
                     DaData {
                         payload_commit: payload_commitment,
+                        epoch: proposal_epoch,
                     },
                     view_number,
                     &self.public_key,
@@ -210,7 +213,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 // Ensure this view is in the view map for garbage collection.
 
-                if let Err(e) = consensus_writer.update_da_view(view_number, payload_commitment) {
+                if let Err(e) = consensus_writer.update_da_view(view_number, payload_commitment, proposal_epoch) {
                     tracing::trace!("{e:?}");
                 }
 
@@ -229,14 +232,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     let pk = self.private_key.clone();
                     let public_key = self.public_key.clone();
                     let chan = event_stream.clone();
-                    let current_epoch = self.cur_epoch;
                     spawn(async move {
                         Consensus::calculate_and_update_vid(
                             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
                             membership,
                             &pk,
-                            current_epoch,
                         )
                         .await;
                         if let Some(Some(vid_share)) = consensus

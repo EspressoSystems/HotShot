@@ -232,6 +232,7 @@ pub(crate) async fn handle_view_change<
 #[instrument(skip_all)]
 pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     view_number: TYPES::View,
+    epoch: TYPES::Epoch,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
@@ -243,12 +244,12 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     ensure!(
         task_state
             .timeout_membership
-            .has_stake(&task_state.public_key, task_state.cur_epoch),
+            .has_stake(&task_state.public_key, epoch),
         debug!("We were not chosen for the consensus committee for view {view_number:?}")
     );
 
     let vote = TimeoutVote::create_signed_vote(
-        TimeoutData::<TYPES> { view: view_number },
+        TimeoutData::<TYPES> { view: view_number, epoch },
         view_number,
         &task_state.public_key,
         &task_state.private_key,

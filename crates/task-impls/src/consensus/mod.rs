@@ -126,8 +126,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     tracing::trace!("Failed to handle ViewChange event; error = {e}");
                 }
             }
-            HotShotEvent::Timeout(view_number) => {
-                if let Err(e) = handle_timeout(*view_number, &sender, self).await {
+            HotShotEvent::Timeout(view_number, epoch) => {
+                if let Err(e) = handle_timeout(*view_number, *epoch, &sender, self).await {
                     tracing::debug!("Failed to handle Timeout event; error = {e}");
                 }
             }

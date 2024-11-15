@@ -297,6 +297,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     let vote = QuorumVote::<TYPES>::create_signed_vote(
         QuorumData {
             leaf_commit: leaf.commit(&upgrade_lock).await,
+            epoch: epoch_number,
         },
         view_number,
         &public_key,

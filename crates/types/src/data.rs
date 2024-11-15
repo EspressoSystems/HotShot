@@ -30,27 +30,19 @@ use tracing::error;
 use utils::anytrace::*;
 use vec1::Vec1;
 
-use crate::{
-    message::{Proposal, UpgradeLock},
-    simple_certificate::{
-        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+use crate::{impl_has_epoch, message::{Proposal, UpgradeLock}, simple_certificate::{
+    QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
+}, simple_vote::{HasEpoch, QuorumData, UpgradeProposalData, VersionedVoteData}, traits::{
+    block_contents::{
+        vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
+        GENESIS_VID_NUM_STORAGE_NODES,
     },
-    simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
-    traits::{
-        block_contents::{
-            vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
-            GENESIS_VID_NUM_STORAGE_NODES,
-        },
-        election::Membership,
-        node_implementation::{ConsensusTime, NodeType, Versions},
-        signature_key::SignatureKey,
-        states::TestableState,
-        BlockPayload,
-    },
-    utils::bincode_opts,
-    vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
-    vote::{Certificate, HasViewNumber},
-};
+    election::Membership,
+    node_implementation::{ConsensusTime, NodeType, Versions},
+    signature_key::SignatureKey,
+    states::TestableState,
+    BlockPayload,
+}, utils::bincode_opts, vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare}, vote::{Certificate, HasViewNumber}};
 
 /// Implements `ConsensusTime`, `Display`, `Add`, `AddAssign`, `Deref` and `Sub`
 /// for the given thing wrapper type around u64.
@@ -144,6 +136,8 @@ pub struct DaProposal<TYPES: NodeType> {
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::View,
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
 }
 
 /// A proposal to upgrade the network
@@ -157,6 +151,8 @@ where
     pub upgrade_proposal: UpgradeProposalData<TYPES>,
     /// View this proposal applies to
     pub view_number: TYPES::View,
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
 }
 
 /// VID dispersal data
@@ -168,6 +164,8 @@ where
 pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::View,
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
@@ -197,6 +195,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
             shares,
             common: vid_disperse.common,
             payload_commitment: vid_disperse.commit,
+            epoch,
         }
     }
 
@@ -256,6 +255,8 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
 pub struct VidDisperseShare<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::View,
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
@@ -269,6 +270,7 @@ pub struct VidDisperseShare<TYPES: NodeType> {
 impl<TYPES: NodeType> VidDisperseShare<TYPES> {
     /// Create a vector of `VidDisperseShare` from `VidDisperse`
     pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<Self> {
+        let epoch = vid_disperse.epoch;
         vid_disperse
             .shares
             .into_iter()
@@ -278,6 +280,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                 view_number: vid_disperse.view_number,
                 common: vid_disperse.common.clone(),
                 payload_commitment: vid_disperse.payload_commitment,
+                epoch,
             })
             .collect()
     }
@@ -306,6 +309,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         I: Iterator<Item = &'a VidDisperseShare<TYPES>>,
     {
         let first_vid_disperse_share = it.next()?.clone();
+        let epoch = first_vid_disperse_share.epoch;
         let mut share_map = BTreeMap::new();
         share_map.insert(
             first_vid_disperse_share.recipient_key,
@@ -316,6 +320,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
             payload_commitment: first_vid_disperse_share.payload_commitment,
             common: first_vid_disperse_share.common,
             shares: share_map,
+            epoch,
         };
         let _ = it.map(|vid_disperse_share| {
             vid_disperse.shares.insert(
@@ -330,6 +335,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
     pub fn to_vid_share_proposals(
         vid_disperse_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
     ) -> Vec<Proposal<TYPES, VidDisperseShare<TYPES>>> {
+        let epoch = vid_disperse_proposal.data.epoch;
         vid_disperse_proposal
             .data
             .shares
@@ -341,6 +347,7 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                     view_number: vid_disperse_proposal.data.view_number,
                     common: vid_disperse_proposal.data.common.clone(),
                     payload_commitment: vid_disperse_proposal.data.payload_commitment,
+                    epoch,
                 },
                 signature: vid_disperse_proposal.signature.clone(),
                 _pd: vid_disperse_proposal._pd,
@@ -358,6 +365,9 @@ pub struct QuorumProposal<TYPES: NodeType> {
 
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::View,
+
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
@@ -402,6 +412,8 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
     }
 }
 
+impl_has_epoch!(QuorumProposal<TYPES>, DaProposal<TYPES>, UpgradeProposal<TYPES>, VidDisperse<TYPES>, VidDisperseShare<TYPES>);
+
 /// The error type for block and its transactions.
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum BlockError {
@@ -435,6 +447,9 @@ pub trait TestableLeaf {
 pub struct Leaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     view_number: TYPES::View,
+
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    epoch: TYPES::Epoch,
 
     /// Per spec, justification
     justify_qc: QuorumCertificate<TYPES>,
@@ -508,12 +523,14 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         let upgrade_lock = UpgradeLock::<TYPES, V>::new();
 
         let genesis_view = <TYPES::View as ConsensusTime>::genesis();
+        let genesis_epoch = <TYPES::Epoch as ConsensusTime>::genesis();
 
         let data = QuorumData {
             leaf_commit: Leaf::genesis(validated_state, instance_state)
                 .await
                 .commit(&upgrade_lock)
                 .await,
+            epoch: genesis_epoch,
         };
 
         let versioned_data =
@@ -560,8 +577,11 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             metadata,
         );
 
+        let genesis_epoch = <TYPES::Epoch as ConsensusTime>::genesis();
+
         let null_quorum_data = QuorumData {
             leaf_commit: Commitment::<Leaf<TYPES>>::default_commitment_no_preimage(),
+            epoch: genesis_epoch,
         };
 
         let justify_qc = QuorumCertificate::new(
@@ -579,12 +599,17 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             upgrade_certificate: None,
             block_header: block_header.clone(),
             block_payload: Some(payload),
+            epoch: TYPES::Epoch::genesis(),
         }
     }
 
     /// Time when this leaf was created.
     pub fn view_number(&self) -> TYPES::View {
         self.view_number
+    }
+    /// Epoch in which this leaf was created.
+    pub fn epoch(&self) -> TYPES::Epoch {
+        self.epoch
     }
     /// Height of this leaf in the chain.
     ///
@@ -774,6 +799,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_header,
             upgrade_certificate,
             proposal_certificate: _,
+            epoch,
         } = quorum_proposal;
         Leaf {
             view_number: *view_number,
@@ -782,6 +808,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: None,
+            epoch: *epoch,
         }
     }
 }
