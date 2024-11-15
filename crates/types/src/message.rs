@@ -25,6 +25,8 @@ use vbs::{
     BinarySerializer, Serializer,
 };
 
+use crate::traits::block_contents::BlockHeader;
+use crate::utils::epoch_from_block_number;
 use crate::{
     data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
     request_response::ProposalRequestPayload,
@@ -373,11 +375,15 @@ where
     pub async fn validate_signature<V: Versions>(
         &self,
         quorum_membership: &TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch_height: u64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = quorum_membership.leader(view_number, epoch)?;
+        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            self.data.block_header.block_number(),
+            epoch_height,
+        ));
+        let view_leader_key = quorum_membership.leader(view_number, proposal_epoch)?;
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
         ensure!(

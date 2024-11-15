@@ -144,11 +144,24 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
     let view_number = proposal.data.view_number();
     let justify_qc = proposal.data.justify_qc.clone();
+    let proposal_block_number = proposal.data.block_header.block_number();
+    let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+        proposal_block_number,
+        validation_info.epoch_height,
+    ));
+    let justify_qc_epoch =
+        if validation_info != 0 && proposal_block_number % validation_info.epoch_height == 1 {
+            // if the proposal is for the first block in an epoch, the justify QC must be from the previous epoch
+            proposal_epoch - 1
+        } else {
+            // otherwise justify QC is from the same epoch
+            proposal_epoch
+        };
 
     if !justify_qc
         .is_valid_cert(
             validation_info.quorum_membership.as_ref(),
-            validation_info.cur_epoch,
+            justify_qc_epoch,
             &validation_info.upgrade_lock,
         )
         .await
@@ -228,18 +241,13 @@ pub(crate) async fn handle_quorum_proposal_recv<
             justify_qc.data.leaf_commit
         );
         validate_proposal_liveness(proposal, &validation_info).await?;
-        let block_number = proposal.data.block_header.block_number();
-        let epoch = TYPES::Epoch::new(epoch_from_block_number(
-            block_number,
-            validation_info.epoch_height,
-        ));
         tracing::trace!(
             "Sending ViewChange for view {} and epoch {}",
             view_number,
-            *epoch
+            *proposal_epoch
         );
         broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(view_number, epoch)),
+            Arc::new(HotShotEvent::ViewChange(view_number, proposal_epoch)),
             event_sender,
         )
         .await;
@@ -256,18 +264,13 @@ pub(crate) async fn handle_quorum_proposal_recv<
     )
     .await?;
 
-    let epoch_number = TYPES::Epoch::new(epoch_from_block_number(
-        proposal.data.block_header.block_number(),
-        validation_info.epoch_height,
-    ));
-
     tracing::trace!(
         "Sending ViewChange for view {} and epoch {}",
         view_number,
-        *epoch_number
+        *proposal_epoch
     );
     broadcast_event(
-        Arc::new(HotShotEvent::ViewChange(view_number, epoch_number)),
+        Arc::new(HotShotEvent::ViewChange(view_number, proposal_epoch)),
         event_sender,
     )
     .await;

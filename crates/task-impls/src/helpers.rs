@@ -104,8 +104,9 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                     if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) =
                         hs_event.as_ref()
                     {
+                        let epoch_proposal = TYPES::Epoch::new(epoch_from_block_number(quorum_proposal.data.block_header.block_number(), epoch_height));
                         // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, cur_epoch, upgrade_lock).await.is_ok() {
+                        if quorum_proposal.validate_signature(&mem, epoch_proposal, upgrade_lock).await.is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -588,7 +589,7 @@ pub(crate) async fn validate_proposal_view_and_certs<
     proposal
         .validate_signature(
             &validation_info.quorum_membership,
-            validation_info.cur_epoch,
+            validation_info.epoch_height,
             &validation_info.upgrade_lock,
         )
         .await?;
