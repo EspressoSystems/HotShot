@@ -49,7 +49,6 @@ blake3.workspace = true
 url = { workspace = true }
 num_enum = "0.7"
 parking_lot = "0.12"
-twox-hash = { version = "1", default-features = false }
 utils = { path = "../utils" }
 gcr = "0.1"
 

@@ -1200,9 +1200,9 @@ dependencies = [
 
 [[package]]
 name = "capnpc"
-version = "0.20.0"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d13cb6e2643fd1f9fb804ba938323636ef52e07d6e495e372d933ad0cb98207"
+checksum = "1aa3d5f01e69ed11656d2c7c47bf34327ea9bfb5c85c7de787fcd7b6c5e45b61"
 dependencies = [
  "capnp",
 ]
@@ -1228,14 +1228,14 @@ dependencies = [
 [[package]]
 name = "cdn-broker"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.3#f4c54c9055b9f958eacf7c5b1759a559910893cc"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.5#0c095fffe58d9d5b0d4d7efb9d0a5ef39bef2dff"
 dependencies = [
  "cdn-proto",
  "clap",
  "console-subscriber",
  "dashmap",
  "derivative",
- "jf-signature 0.1.0",
+ "jf-signature",
  "lazy_static",
  "local-ip-address",
  "parking_lot",
@@ -1251,11 +1251,12 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.3#f4c54c9055b9f958eacf7c5b1759a559910893cc"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.5#0c095fffe58d9d5b0d4d7efb9d0a5ef39bef2dff"
 dependencies = [
  "cdn-proto",
  "clap",
- "jf-signature 0.1.0",
+ "derive_more 1.0.0",
+ "jf-signature",
  "parking_lot",
  "rand 0.8.5",
  "tokio",
@@ -1266,11 +1267,11 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.3#f4c54c9055b9f958eacf7c5b1759a559910893cc"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.5#0c095fffe58d9d5b0d4d7efb9d0a5ef39bef2dff"
 dependencies = [
  "cdn-proto",
  "clap",
- "jf-signature 0.1.0",
+ "jf-signature",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -1279,7 +1280,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.3#f4c54c9055b9f958eacf7c5b1759a559910893cc"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.5#0c095fffe58d9d5b0d4d7efb9d0a5ef39bef2dff"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -1287,7 +1288,8 @@ dependencies = [
  "capnp",
  "capnpc",
  "derivative",
- "jf-signature 0.1.0",
+ "derive_more 1.0.0",
+ "jf-signature",
  "kanal",
  "lazy_static",
  "mnemonic",
@@ -2945,7 +2947,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
- "twox-hash",
  "url",
  "utils",
  "vbs",
@@ -3087,7 +3088,7 @@ dependencies = [
  "hotshot-types",
  "jf-crhf",
  "jf-rescue",
- "jf-signature 0.2.0",
+ "jf-signature",
  "jf-utils",
  "rand_chacha 0.3.1",
  "serde",
@@ -3208,7 +3209,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "jf-pcs",
- "jf-signature 0.2.0",
+ "jf-signature",
  "jf-utils",
  "jf-vid",
  "lazy_static",
@@ -3983,35 +3984,6 @@ dependencies = [
  "jf-prf",
  "jf-relation",
  "jf-utils",
-]
-
-[[package]]
-name = "jf-signature"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
-dependencies = [
- "ark-bls12-381",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "blst",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "hashbrown 0.14.5",
- "itertools 0.12.1",
- "jf-crhf",
- "jf-relation",
- "jf-rescue",
- "jf-utils",
- "num-bigint",
- "num-traits",
- "serde",
- "sha3",
- "tagged-base64",
- "zeroize",
 ]
 
 [[package]]
@@ -7966,16 +7938,6 @@ dependencies = [
  "thiserror 1.0.69",
  "url",
  "utf-8",
-]
-
-[[package]]
-name = "twox-hash"
-version = "1.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
-dependencies = [
- "cfg-if",
- "static_assertions",
 ]
 
 [[package]]

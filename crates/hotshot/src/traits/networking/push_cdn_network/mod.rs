@@ -48,7 +48,7 @@ use metrics::CdnMetricsValue;
 #[cfg(feature = "hotshot-testing")]
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 use tokio::{spawn, sync::mpsc::error::TrySendError, time::sleep};
-use tracing::error;
+use tracing::{error, warn};
 
 use super::NetworkError;
 
@@ -320,7 +320,9 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
 
     /// Wait for the client to initialize the connection
     async fn wait_for_ready(&self) {
-        self.client.ensure_initialized().await;
+        if self.client.ensure_initialized().await.is_err() {
+            warn!("Failed to wait for CDN connection to initialize: connection has been manually closed");
+        };
     }
 
     /// TODO: shut down the networks. Unneeded for testing.
@@ -329,7 +331,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         'a: 'b,
         Self: 'b,
     {
-        boxed_sync(async move {})
+        boxed_sync(async move { self.client.close().await })
     }
 
     /// Broadcast a message to all members of the quorum.

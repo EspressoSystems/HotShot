@@ -4,7 +4,6 @@
 #![allow(clippy::cast_precision_loss)]
 
 use std::cmp;
-use std::hash::Hasher;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -17,7 +16,6 @@ use gcr::{Gcr, GcrRequestError};
 use lru::LruCache;
 use parking_lot::Mutex;
 use tracing::warn;
-use twox_hash::xxh3::Hash64;
 
 /// The type of message being processed. Is used downstream to determine
 /// which sample and average to use when processing a message.
@@ -143,9 +141,10 @@ impl Sample {
 /// The message hook for `HotShot` messages. Each user has a unique
 #[derive(Clone)]
 pub struct HotShotMessageHook {
+    // TODO: Potentially make use of this later
     /// The cache for message hashes. We use this to deduplicate a sliding window of
     /// 100 messages.
-    message_hash_cache: LruCache<u64, ()>,
+    // message_hash_cache: LruCache<u64, ()>,
 
     /// The reference counter so we can keep track of the number of hooks there are
     num_hooks: Arc<()>,
@@ -196,7 +195,7 @@ impl HotShotMessageHook {
     #[must_use]
     pub fn new(period: Duration, starting_rate: u32) -> Self {
         Self {
-            message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
+            // message_hash_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
             num_hooks: Arc::new(()),
             identifier: rand::random(),
             dropped_gcr_cache: Arc::new(Mutex::new(LruCache::new(
@@ -262,8 +261,10 @@ impl HotShotMessageHook {
             if last_committed_global_average > 0 {
                 // Update our GCR instance such that:
                 // - `rate` is 2 * the global average
-                // - `max_burst` is 4 * the global average
+                // - `max_burst` stays the same (the max u32)
                 if let Err(e) = gcr.adjust(
+                    // At the very least we want to allow 1000 bytes/period. This is fine because the max
+                    // burst is quite high.
                     cmp::max(last_committed_global_average.saturating_mul(2), 1000),
                     self.commit_interval,
                     Some(u32::MAX),
@@ -276,27 +277,23 @@ impl HotShotMessageHook {
         HookResult::ProcessMessage
     }
 
-    /// Process against the local message cache. This is used to deduplicate messages.
-    /// Returns `true` if the message has been seen before, `false` otherwise.
-    ///
-    /// - `auxiliary_data` is used to take into account the message recipient or topics associated.
-    fn message_already_seen(&mut self, message: &[u8], auxiliary_data: &[u8]) -> bool {
-        // Calculate the hash of the message
-        let mut hasher = Hash64::default();
-        hasher.write(message);
-        hasher.write(auxiliary_data);
+    // TODO: Potentially make use of this later
+    // /// Process against the local message cache. This is used to deduplicate messages.
+    // /// Returns `true` if the message has been seen before, `false` otherwise.
+    // ///
+    // /// - `auxiliary_data` is used to take into account the message recipient or topics associated.
+    // fn message_already_seen(&mut self, message: &[u8], auxiliary_data: &[u8]) -> bool {
+    //     // Calculate the hash of the message
+    //     let mut hasher = Hash64::default();
+    //     hasher.write(message);
+    //     hasher.write(auxiliary_data);
 
-        // Add it, returning if we've seen it before
-        self.message_hash_cache.put(hasher.finish(), ()).is_some()
-    }
+    //     // Add it, returning if we've seen it before
+    //     self.message_hash_cache.put(hasher.finish(), ()).is_some()
+    // }
 
     /// Process incoming broadcast messages from the user
     fn process_broadcast_message(&mut self, broadcast: &mut Broadcast) -> Result<HookResult> {
-        // Skip the message if we've already seen it
-        if self.message_already_seen(&broadcast.message, &broadcast.topics) {
-            return Ok(HookResult::SkipMessage);
-        }
-
         // Check against the average message rate
         if self.process_against_average(broadcast.message.len(), MessageType::Broadcast)
             != HookResult::ProcessMessage
@@ -310,11 +307,6 @@ impl HotShotMessageHook {
 
     /// Process incoming direct messages from the user
     fn process_direct_message(&mut self, direct: &mut Direct) -> Result<HookResult> {
-        // Skip the message if we've already seen it
-        if self.message_already_seen(&direct.message, &direct.recipient) {
-            return Ok(HookResult::SkipMessage);
-        }
-
         // Check against the average message rate
         if self.process_against_average(direct.message.len(), MessageType::Direct)
             != HookResult::ProcessMessage
