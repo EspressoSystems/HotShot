@@ -47,7 +47,7 @@ mod handlers;
 /// Vote dependency types.
 #[derive(Debug, PartialEq)]
 enum VoteDependency {
-    /// For the `QuroumProposalValidated` event after validating `QuorumProposalRecv`.
+    /// For the `QuorumProposalValidated` event after validating `QuorumProposalRecv`.
     QuorumProposal,
     /// For the `DaCertificateRecv` event.
     Dac,
