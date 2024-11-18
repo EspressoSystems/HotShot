@@ -50,6 +50,7 @@ url = { workspace = true }
 num_enum = "0.7"
 parking_lot = "0.12"
 utils = { path = "../utils" }
+gcr = "0.1"
 
 tokio = { workspace = true }
 cdn-client = { workspace = true }

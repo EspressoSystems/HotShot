@@ -14,7 +14,7 @@ use cdn_broker::{reexports::def::hook::NoMessageHook, Broker};
 use cdn_marshal::Marshal;
 use hotshot::{
     helpers::initialize_logging,
-    traits::implementations::{KeyPair, TestingDef, WrappedSignatureKey},
+    traits::implementations::{HotShotMessageHook, KeyPair, TestingDef, WrappedSignatureKey},
     types::SignatureKey,
 };
 use hotshot_example_types::{node_types::TestVersions, state_types::TestTypes};
@@ -82,7 +82,7 @@ async fn main() {
                     private_key: broker_private_key.clone(),
                 },
 
-                user_message_hook: NoMessageHook,
+                user_message_hook: HotShotMessageHook::default(),
                 broker_message_hook: NoMessageHook,
 
                 metrics_bind_endpoint: None,
