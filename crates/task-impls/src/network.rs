@@ -15,7 +15,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
@@ -77,7 +77,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::ProposalRequested(req, sig) => {
                             HotShotEvent::QuorumProposalRequestRecv(req, sig)
                         }
-                        GeneralConsensusMessage::LeaderProposalAvailable(proposal) => {
+                        GeneralConsensusMessage::ProposalResponse(proposal) => {
                             HotShotEvent::QuorumProposalResponseRecv(proposal)
                         }
                         GeneralConsensusMessage::Vote(vote) => {
@@ -114,6 +114,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             tracing::error!("Received upgrade vote!");
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
+                        GeneralConsensusMessage::HighQC(qc) => HotShotEvent::HighQcRecv(qc, sender),
                     },
                     SequencingMessage::Da(da_message) => match da_message {
                         DaConsensusMessage::DaProposal(proposal) => {
@@ -212,7 +213,7 @@ pub struct NetworkEventTaskState<
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
     /// Shared consensus state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// map view number to transmit tasks
@@ -294,7 +295,7 @@ impl<
 
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
@@ -320,7 +321,7 @@ impl<
     async fn maybe_record_action(
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
-        consensus: Arc<RwLock<Consensus<TYPES>>>,
+        consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
     ) -> std::result::Result<(), ()> {
         if let Some(mut action) = maybe_action {
@@ -408,6 +409,16 @@ impl<
                     TransmitType::Direct(leader),
                 ))
             }
+            HotShotEvent::ExtendedQuorumVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote(vote.clone()),
+                    )),
+                    TransmitType::Broadcast,
+                ))
+            }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
                 req.key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -418,7 +429,7 @@ impl<
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
                 sender_key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::LeaderProposalAvailable(proposal),
+                    GeneralConsensusMessage::ProposalResponse(proposal),
                 )),
                 TransmitType::Direct(sender_key),
             )),
@@ -669,7 +680,7 @@ impl<
             .committee_members(view_number, self.epoch);
         let network = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let upgrade_lock = self.upgrade_lock.clone();
         let handle = spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(

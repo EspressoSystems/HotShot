@@ -92,6 +92,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QuorumProposalSend(Proposal<TYPES, QuorumProposal<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote<TYPES>),
+    /// Broadcast a quorum vote to form an eQC; emitted by a replica in the consensus task after seeing a valid quorum proposal
+    ExtendedQuorumVoteSend(QuorumVote<TYPES>),
     /// A quorum proposal with the given parent leaf is validated.
     /// The full validation checks include:
     /// 1. The proposal is not for an old view
@@ -234,6 +236,12 @@ pub enum HotShotEvent<TYPES: NodeType> {
         TYPES::SignatureKey,
         Proposal<TYPES, VidDisperseShare<TYPES>>,
     ),
+
+    /// A replica send us a High QC
+    HighQcRecv(QuorumCertificate<TYPES>, TYPES::SignatureKey),
+
+    /// Send our HighQC to the next leader, should go to the same leader as our vote
+    HighQcSend(QuorumCertificate<TYPES>, TYPES::SignatureKey),
 }
 
 impl<TYPES: NodeType> HotShotEvent<TYPES> {
@@ -253,7 +261,9 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 Some(proposal.data.view_number())
             }
-            HotShotEvent::QuorumVoteSend(vote) => Some(vote.view_number()),
+            HotShotEvent::QuorumVoteSend(vote) | HotShotEvent::ExtendedQuorumVoteSend(vote) => {
+                Some(vote.view_number())
+            }
             HotShotEvent::DaProposalRecv(proposal, _)
             | HotShotEvent::DaProposalValidated(proposal, _)
             | HotShotEvent::DaProposalSend(proposal, _) => Some(proposal.data.view_number()),
@@ -307,6 +317,9 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::VidRequestRecv(request, _) => Some(request.view),
             HotShotEvent::VidResponseSend(_, _, proposal)
             | HotShotEvent::VidResponseRecv(_, proposal) => Some(proposal.data.view_number),
+            HotShotEvent::HighQcRecv(qc, _) | HotShotEvent::HighQcSend(qc, _) => {
+                Some(qc.view_number())
+            }
         }
     }
 }
@@ -323,6 +336,13 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             ),
             HotShotEvent::QuorumVoteRecv(v) => {
                 write!(f, "QuorumVoteRecv(view_number={:?})", v.view_number())
+            }
+            HotShotEvent::ExtendedQuorumVoteSend(v) => {
+                write!(
+                    f,
+                    "ExtendedQuorumVoteSend(view_number={:?})",
+                    v.view_number()
+                )
             }
             HotShotEvent::TimeoutVoteRecv(v) => {
                 write!(f, "TimeoutVoteRecv(view_number={:?})", v.view_number())
@@ -557,6 +577,12 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     "VidResponseRecv(view_number={:?}",
                     proposal.data.view_number
                 )
+            }
+            HotShotEvent::HighQcRecv(qc, _) => {
+                write!(f, "HighQcRecv(view_number={:?}", qc.view_number())
+            }
+            HotShotEvent::HighQcSend(qc, _) => {
+                write!(f, "HighQcSend(view_number={:?}", qc.view_number())
             }
         }
     }
