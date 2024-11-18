@@ -77,7 +77,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::ProposalRequested(req, sig) => {
                             HotShotEvent::QuorumProposalRequestRecv(req, sig)
                         }
-                        GeneralConsensusMessage::LeaderProposalAvailable(proposal) => {
+                        GeneralConsensusMessage::ProposalResponse(proposal) => {
                             HotShotEvent::QuorumProposalResponseRecv(convert_proposal(proposal))
                         }
                         GeneralConsensusMessage::Vote(vote) => {
@@ -113,6 +113,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::UpgradeVote(message) => {
                             tracing::error!("Received upgrade vote!");
                             HotShotEvent::UpgradeVoteRecv(message)
+                        }
+                        GeneralConsensusMessage::HighQc(qc) => {
+                            HotShotEvent::HighQcRecv(qc.to_qc2(), sender)
                         }
                     },
                     SequencingMessage::Da(da_message) => match da_message {
@@ -428,7 +431,7 @@ impl<
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
                 sender_key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::LeaderProposalAvailable(convert_proposal(proposal)),
+                    GeneralConsensusMessage::ProposalResponse(convert_proposal(proposal)),
                 )),
                 TransmitType::Direct(sender_key),
             )),

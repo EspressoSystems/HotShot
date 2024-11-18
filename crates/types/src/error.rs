@@ -49,8 +49,8 @@ pub enum HotShotError<TYPES: NodeType> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum RoundTimedoutState {
-    /// Leader is in a Prepare phase and is waiting for a HighQC
-    LeaderWaitingForHighQC,
+    /// Leader is in a Prepare phase and is waiting for a HighQc
+    LeaderWaitingForHighQc,
     /// Leader is in a Prepare phase and timed out before the round min time is reached
     LeaderMinRoundTimeNotReached,
     /// Leader is waiting for prepare votes

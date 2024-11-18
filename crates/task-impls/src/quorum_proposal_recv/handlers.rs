@@ -30,6 +30,7 @@ use hotshot_types::{
 use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use super::{QuorumProposalRecvTaskState, ValidationInfo};
 use crate::{
@@ -40,7 +41,6 @@ use crate::{
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
 };
-
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
@@ -74,6 +74,16 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 
     let liveness_check =
         proposal.data.justify_qc.clone().view_number() > consensus_writer.locked_view();
+    // if we are using HS2 we update our locked view for any QC from a leader greater than our current lock
+    if liveness_check
+        && validation_info
+            .upgrade_lock
+            .version(leaf.view_number())
+            .await
+            .is_ok_and(|v| v >= V::Epochs::VERSION)
+    {
+        consensus_writer.update_locked_view(proposal.data.justify_qc.clone().view_number())?;
+    }
 
     drop(consensus_writer);
 
