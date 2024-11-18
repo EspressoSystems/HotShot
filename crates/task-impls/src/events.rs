@@ -301,7 +301,7 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             HotShotEvent::ViewChange(view_number, _)
             | HotShotEvent::ViewSyncTimeout(view_number, _, _)
             | HotShotEvent::ViewSyncTrigger(view_number)
-            | HotShotEvent::Timeout(view_number) => Some(*view_number),
+            | HotShotEvent::Timeout(view_number, ..) => Some(*view_number),
             HotShotEvent::DaCertificateRecv(cert) | HotShotEvent::DacSend(cert, _) => {
                 Some(cert.view_number())
             }
@@ -474,7 +474,9 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::ViewSyncTrigger(view_number) => {
                 write!(f, "ViewSyncTrigger(view_number={view_number:?})")
             }
-            HotShotEvent::Timeout(view_number) => write!(f, "Timeout(view_number={view_number:?})"),
+            HotShotEvent::Timeout(view_number, epoch) => {
+                write!(f, "Timeout(view_number={view_number:?}, epoch={epoch:?})")
+            }
             HotShotEvent::TransactionsRecv(_) => write!(f, "TransactionsRecv"),
             HotShotEvent::TransactionSend(_, _) => write!(f, "TransactionSend"),
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _, _) => {

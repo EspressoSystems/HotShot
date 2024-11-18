@@ -146,6 +146,7 @@ impl TestView {
             .await,
             upgrade_certificate: None,
             proposal_certificate: None,
+            epoch: genesis_epoch,
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -158,6 +159,7 @@ impl TestView {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
+            epoch: genesis_epoch,
         };
 
         let da_proposal = Proposal {
@@ -212,6 +214,7 @@ impl TestView {
     pub async fn next_view_from_ancestor(&self, ancestor: TestView) -> Self {
         let old = ancestor;
         let old_view = old.view_number;
+        let old_epoch = old.epoch_number;
 
         // This ensures that we're always moving forward in time since someone could pass in any
         // test view here.
@@ -224,6 +227,7 @@ impl TestView {
 
         let quorum_data = QuorumData {
             leaf_commit: old.leaf.commit(&self.upgrade_lock).await,
+            epoch: old_epoch,
         };
 
         let (old_private_key, old_public_key) = key_pair_for_id::<TestTypes>(*old_view);
@@ -380,6 +384,7 @@ impl TestView {
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             proposal_certificate,
+            epoch: old_epoch,
         };
 
         let mut leaf = Leaf::from_quorum_proposal(&proposal);
@@ -409,6 +414,7 @@ impl TestView {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: next_view,
+            epoch: old_epoch,
         };
 
         let da_proposal = Proposal {
@@ -455,6 +461,7 @@ impl TestView {
         QuorumVote::<TestTypes>::create_signed_vote(
             QuorumData {
                 leaf_commit: self.leaf.commit(&handle.hotshot.upgrade_lock).await,
+                epoch: self.epoch_number,
             },
             self.view_number,
             &handle.public_key(),
@@ -483,7 +490,7 @@ impl TestView {
 
     pub async fn create_da_vote(
         &self,
-        data: DaData,
+        data: DaData<TestTypes>,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
     ) -> DaVote<TestTypes> {
         DaVote::create_signed_vote(

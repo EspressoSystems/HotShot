@@ -230,21 +230,24 @@ impl Versions for EpochsTestVersions {
 
 #[cfg(test)]
 mod tests {
+    use crate::node_types::{MarketplaceTestVersions, NodeType, TestTypes};
     use committable::{Commitment, Committable};
+    use hotshot_types::data::EpochNumber;
     use hotshot_types::{
-        message::UpgradeLock, simple_vote::VersionedVoteData,
+        impl_has_epoch,
+        message::UpgradeLock,
+        simple_vote::{HasEpoch, VersionedVoteData},
         traits::node_implementation::ConsensusTime,
     };
     use serde::{Deserialize, Serialize};
-
-    use crate::node_types::{MarketplaceTestVersions, NodeType, TestTypes};
     #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Hash, Eq)]
     /// Dummy data used for test
-    struct TestData {
+    struct TestData<TYPES: NodeType> {
         data: u64,
+        epoch: TYPES::Epoch,
     }
 
-    impl Committable for TestData {
+    impl<TYPES: NodeType> Committable for TestData<TYPES> {
         fn commit(&self) -> Commitment<Self> {
             committable::RawCommitmentBuilder::new("Test data")
                 .u64(self.data)
@@ -252,32 +255,35 @@ mod tests {
         }
     }
 
+    impl_has_epoch!(TestData<TYPES>);
+
     #[tokio::test(flavor = "multi_thread")]
     /// Test that the view number affects the commitment post-marketplace
     async fn test_versioned_commitment_includes_view() {
         let upgrade_lock = UpgradeLock::new();
 
-        let data = TestData { data: 10 };
+        let data = TestData {
+            data: 10,
+            epoch: EpochNumber::new(0),
+        };
 
         let view_0 = <TestTypes as NodeType>::View::new(0);
         let view_1 = <TestTypes as NodeType>::View::new(1);
 
-        let versioned_data_0 =
-            VersionedVoteData::<TestTypes, TestData, MarketplaceTestVersions>::new(
-                data,
-                view_0,
-                &upgrade_lock,
-            )
-            .await
-            .unwrap();
-        let versioned_data_1 =
-            VersionedVoteData::<TestTypes, TestData, MarketplaceTestVersions>::new(
-                data,
-                view_1,
-                &upgrade_lock,
-            )
-            .await
-            .unwrap();
+        let versioned_data_0 = VersionedVoteData::<
+            TestTypes,
+            TestData<TestTypes>,
+            MarketplaceTestVersions,
+        >::new(data, view_0, &upgrade_lock)
+        .await
+        .unwrap();
+        let versioned_data_1 = VersionedVoteData::<
+            TestTypes,
+            TestData<TestTypes>,
+            MarketplaceTestVersions,
+        >::new(data, view_1, &upgrade_lock)
+        .await
+        .unwrap();
 
         let versioned_data_commitment_0: [u8; 32] = versioned_data_0.commit().into();
         let versioned_data_commitment_1: [u8; 32] = versioned_data_1.commit().into();

@@ -16,7 +16,7 @@ use hotshot_types::{
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote},
+    simple_vote::{DaData, DaVote, HasEpoch},
     traits::{
         block_contents::vid_commitment,
         election::Membership,
@@ -30,7 +30,6 @@ use hotshot_types::{
 use sha2::{Digest, Sha256};
 use tokio::{spawn, task::spawn_blocking};
 use tracing::instrument;
-use hotshot_types::simple_vote::HasEpoch;
 use utils::anytrace::*;
 
 use crate::{
@@ -213,7 +212,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 // Ensure this view is in the view map for garbage collection.
 
-                if let Err(e) = consensus_writer.update_da_view(view_number, payload_commitment, proposal_epoch) {
+                if let Err(e) =
+                    consensus_writer.update_da_view(view_number, proposal_epoch, payload_commitment)
+                {
                     tracing::trace!("{e:?}");
                 }
 
@@ -325,6 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number,
+                    epoch: self.cur_epoch,
                 };
 
                 let message = Proposal {

@@ -30,19 +30,28 @@ use tracing::error;
 use utils::anytrace::*;
 use vec1::Vec1;
 
-use crate::{impl_has_epoch, message::{Proposal, UpgradeLock}, simple_certificate::{
-    QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
-}, simple_vote::{HasEpoch, QuorumData, UpgradeProposalData, VersionedVoteData}, traits::{
-    block_contents::{
-        vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
-        GENESIS_VID_NUM_STORAGE_NODES,
+use crate::{
+    impl_has_epoch,
+    message::{Proposal, UpgradeLock},
+    simple_certificate::{
+        QuorumCertificate, TimeoutCertificate, UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
-    election::Membership,
-    node_implementation::{ConsensusTime, NodeType, Versions},
-    signature_key::SignatureKey,
-    states::TestableState,
-    BlockPayload,
-}, utils::bincode_opts, vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare}, vote::{Certificate, HasViewNumber}};
+    simple_vote::{HasEpoch, QuorumData, UpgradeProposalData, VersionedVoteData},
+    traits::{
+        block_contents::{
+            vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
+            GENESIS_VID_NUM_STORAGE_NODES,
+        },
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType, Versions},
+        signature_key::SignatureKey,
+        states::TestableState,
+        BlockPayload,
+    },
+    utils::bincode_opts,
+    vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
+    vote::{Certificate, HasViewNumber},
+};
 
 /// Implements `ConsensusTime`, `Display`, `Add`, `AddAssign`, `Deref` and `Sub`
 /// for the given thing wrapper type around u64.
@@ -412,7 +421,13 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
     }
 }
 
-impl_has_epoch!(QuorumProposal<TYPES>, DaProposal<TYPES>, UpgradeProposal<TYPES>, VidDisperse<TYPES>, VidDisperseShare<TYPES>);
+impl_has_epoch!(
+    QuorumProposal<TYPES>,
+    DaProposal<TYPES>,
+    UpgradeProposal<TYPES>,
+    VidDisperse<TYPES>,
+    VidDisperseShare<TYPES>
+);
 
 /// The error type for block and its transactions.
 #[derive(Error, Debug, Serialize, Deserialize)]

@@ -72,7 +72,11 @@ impl<TYPES: NodeType> Threshold<TYPES> for UpgradeThreshold {
 
 /// A certificate which can be created by aggregating many simple votes on the commitment.
 #[derive(Serialize, Deserialize, Eq, Hash, PartialEq, Debug, Clone)]
-pub struct SimpleCertificate<TYPES: NodeType, VOTEABLE: Voteable<TYPES>, THRESHOLD: Threshold<TYPES>> {
+pub struct SimpleCertificate<
+    TYPES: NodeType,
+    VOTEABLE: Voteable<TYPES>,
+    THRESHOLD: Threshold<TYPES>,
+> {
     /// The data this certificate is for.  I.e the thing that was voted on to create this Certificate
     pub data: VOTEABLE,
     /// commitment of all the votes this cert should be signed over
@@ -106,8 +110,8 @@ impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES>, THRESHOLD: Threshold<TYPES>>
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES> + Committable, THRESHOLD: Threshold<TYPES>> Committable
-    for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES> + Committable, THRESHOLD: Threshold<TYPES>>
+    Committable for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     fn commit(&self) -> Commitment<Self> {
         let signature_bytes = match self.signatures.as_ref() {
@@ -123,8 +127,8 @@ impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES> + Committable, THRESHOLD: Thresh
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES> + 'static, THRESHOLD: Threshold<TYPES>> Certificate<TYPES>
-    for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES> + 'static, THRESHOLD: Threshold<TYPES>>
+    Certificate<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     type Voteable = VOTEABLE;
     type Threshold = THRESHOLD;

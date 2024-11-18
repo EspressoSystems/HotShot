@@ -140,7 +140,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     pub fn request_proposal(
         &self,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
         leaf_commitment: Commitment<Leaf<TYPES>>,
     ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal<TYPES>>>>> {
         // We need to be able to sign this request before submitting it to the network. Compute the
@@ -160,6 +159,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let upgrade_lock = self.hotshot.upgrade_lock.clone();
         let receiver = self.internal_event_stream.1.activate_cloned();
         let sender = self.internal_event_stream.0.clone();
+        let epoch_height = self.epoch_height;
         Ok(async move {
             // First, broadcast that we need a proposal
             broadcast_event(
@@ -189,7 +189,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 {
                     // Make sure that the quorum_proposal is valid
                     if let Err(err) = quorum_proposal
-                        .validate_signature(&mem, epoch, &upgrade_lock)
+                        .validate_signature(&mem, epoch_height, &upgrade_lock)
                         .await
                     {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);

@@ -61,6 +61,7 @@ async fn test_upgrade_task_with_vote() {
         new_version_hash: [0u8; 12].to_vec(),
         old_version_last_view: ViewNumber::new(6),
         new_version_first_view: ViewNumber::new(7),
+        epoch: EpochNumber::new(0),
     };
 
     let mut proposals = Vec::new();

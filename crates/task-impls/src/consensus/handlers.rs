@@ -172,7 +172,10 @@ pub(crate) async fn handle_view_change<
         async move {
             sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
+                Arc::new(HotShotEvent::Timeout(
+                    TYPES::View::new(*view_number),
+                    epoch_number,
+                )),
                 &stream,
             )
             .await;
@@ -249,7 +252,10 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     );
 
     let vote = TimeoutVote::create_signed_vote(
-        TimeoutData::<TYPES> { view: view_number, epoch },
+        TimeoutData::<TYPES> {
+            view: view_number,
+            epoch,
+        },
         view_number,
         &task_state.public_key,
         &task_state.private_key,

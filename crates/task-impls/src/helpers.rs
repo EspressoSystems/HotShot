@@ -49,6 +49,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
+    epoch_height: u64,
 ) -> Result<(Leaf<TYPES>, View<TYPES>)> {
     // We need to be able to sign this request before submitting it to the network. Compute the
     // payload first.
@@ -352,6 +353,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     consensus: OuterConsensus<TYPES>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
     parent_view_number: TYPES::View,
+    epoch_height: u64,
 ) -> Result<(Leaf<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     let consensus_reader = consensus.read().await;
     let cur_epoch = consensus_reader.cur_epoch();
@@ -377,6 +379,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
             public_key.clone(),
             private_key.clone(),
             upgrade_lock,
+            epoch_height,
         )
         .await
         .context(info!("Failed to fetch proposal"))?;

@@ -61,20 +61,20 @@ use hotshot_types::{
         states::ValidatedState,
         EncodeBytes,
     },
+    utils::epoch_from_block_number,
     HotShotConfig,
 };
 // -- Rexports
 // External
-/// Reexport rand crate
-pub use rand;
-use tokio::{spawn, time::sleep};
-use tracing::{debug, instrument, trace};
-
 use crate::{
     tasks::{add_consensus_tasks, add_network_tasks},
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
+/// Reexport rand crate
+pub use rand;
+use tokio::{spawn, time::sleep};
+use tracing::{debug, instrument, trace};
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -281,6 +281,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             )),
         };
 
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(
+            anchored_leaf.height(),
+            config.epoch_height,
+        ));
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -290,6 +294,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                     leaf: anchored_leaf.commit(&upgrade_lock).await,
                     state: Arc::clone(&validated_state),
                     delta: initializer.state_delta.clone(),
+                    epoch,
                 },
             },
         );
@@ -396,6 +401,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         let event_stream = self.internal_event_stream.0.clone();
         let next_view_timeout = self.config.next_view_timeout;
         let start_view = self.start_view;
+        let start_epoch = self.start_epoch;
 
         // Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
@@ -403,7 +409,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             async move {
                 sleep(Duration::from_millis(next_view_timeout)).await;
                 broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(start_view + 1)),
+                    Arc::new(HotShotEvent::Timeout(start_view + 1, start_epoch + 1)),
                     &event_stream,
                 )
                 .await;

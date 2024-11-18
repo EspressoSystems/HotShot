@@ -321,6 +321,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
+                epoch_height: self.epoch_height,
             },
         );
         self.proposal_dependencies
@@ -503,7 +504,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 )?;
             }
-            HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
+            HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view, ..) => {
                 self.cancel_tasks(*view);
             }
             _ => {}

@@ -338,6 +338,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     }
     let timeout_data = TimeoutData {
         view: ViewNumber::new(1),
+        epoch: EpochNumber::new(0),
     };
     generator.add_timeout(timeout_data);
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
@@ -428,6 +429,7 @@ async fn test_quorum_proposal_task_view_sync() {
     let view_sync_finalize_data = ViewSyncFinalizeData {
         relay: 2,
         round: ViewNumber::new(node_id),
+        epoch: EpochNumber::new(0),
     };
     generator.add_view_sync_finalize(view_sync_finalize_data);
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {

@@ -7,6 +7,7 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
+use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -29,23 +30,23 @@ use hotshot_types::{
     data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
+    simple_vote::{
+        DaData, DaVote, HasEpoch, QuorumData, QuorumVote, SimpleVote, VersionedVoteData,
+    },
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
         network::Topic,
-        node_implementation::{NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType, Versions},
     },
-    utils::{View, ViewInner},
+    utils::{epoch_from_block_number, View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidProposal, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
     ValidatorConfig,
 };
 use jf_vid::VidScheme;
 use serde::Serialize;
-
-use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
 /// if cannot create a [`HotShotInitializer`]
@@ -143,7 +144,7 @@ pub async fn build_system_handle_from_launcher<
 pub async fn build_cert<
     TYPES: NodeType,
     V: Versions,
-    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
+    DATAType: Committable + HasEpoch<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
     VOTE: Vote<TYPES, Commitment = DATAType>,
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
 >(
@@ -211,7 +212,7 @@ pub async fn build_assembled_sig<
     V: Versions,
     VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
-    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
+    DATAType: Committable + HasEpoch<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
 >(
     data: &DATAType,
     membership: &TYPES::Membership,
@@ -383,9 +384,10 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
 
     let da_data = DaData {
         payload_commit: da_payload_commitment,
+        epoch: epoch_number,
     };
 
-    build_cert::<TYPES, V, DaData, DaVote<TYPES>, DaCertificate<TYPES>>(
+    build_cert::<TYPES, V, DaData<TYPES>, DaVote<TYPES>, DaCertificate<TYPES>>(
         da_data,
         da_membership,
         view_number,
@@ -402,11 +404,13 @@ pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     proposal: QuorumProposal<TYPES>,
 ) -> GeneralConsensusMessage<TYPES> {
     let view = proposal.view_number;
+    let epoch = proposal.epoch;
 
     let leaf: Leaf<_> = Leaf::from_quorum_proposal(&proposal);
     let vote = QuorumVote::<TYPES>::create_signed_vote(
         QuorumData {
             leaf_commit: leaf.commit(&handle.hotshot.upgrade_lock).await,
+            epoch,
         },
         view,
         &handle.public_key(),
@@ -439,8 +443,15 @@ where
 pub async fn build_fake_view_with_leaf<V: Versions>(
     leaf: Leaf<TestTypes>,
     upgrade_lock: &UpgradeLock<TestTypes, V>,
+    epoch_height: u64,
 ) -> View<TestTypes> {
-    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default(), upgrade_lock).await
+    build_fake_view_with_leaf_and_state(
+        leaf,
+        TestValidatedState::default(),
+        upgrade_lock,
+        epoch_height,
+    )
+    .await
 }
 
 /// This function will create a fake [`View`] from a provided [`Leaf`] and `state`.
@@ -448,12 +459,16 @@ pub async fn build_fake_view_with_leaf_and_state<V: Versions>(
     leaf: Leaf<TestTypes>,
     state: TestValidatedState,
     upgrade_lock: &UpgradeLock<TestTypes, V>,
+    epoch_height: u64,
 ) -> View<TestTypes> {
+    let epoch =
+        <TestTypes as NodeType>::Epoch::new(epoch_from_block_number(leaf.height(), epoch_height));
     View {
         view_inner: ViewInner::Leaf {
             leaf: leaf.commit(upgrade_lock).await,
             state: state.into(),
             delta: None,
+            epoch,
         },
     }
 }

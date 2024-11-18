@@ -285,11 +285,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> UpgradeTaskStat
                         old_version_last_view: TYPES::View::new(view + UPGRADE_BEGIN_OFFSET),
                         new_version_first_view: TYPES::View::new(view + UPGRADE_FINISH_OFFSET),
                         decide_by: TYPES::View::new(view + UPGRADE_DECIDE_BY_OFFSET),
+                        epoch: self.cur_epoch,
                     };
 
                     let upgrade_proposal = UpgradeProposal {
                         upgrade_proposal: upgrade_proposal_data.clone(),
                         view_number: TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
+                        epoch: self.cur_epoch,
                     };
 
                     let signature = TYPES::SignatureKey::sign(

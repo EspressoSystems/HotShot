@@ -142,7 +142,9 @@ pub struct SimpleVote<TYPES: NodeType, DATA: Voteable<TYPES>> {
     pub view_number: TYPES::View,
 }
 
-impl<TYPES: NodeType, DATA: Voteable<TYPES> + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable<TYPES> + 'static> HasViewNumber<TYPES>
+    for SimpleVote<TYPES, DATA>
+{
     fn view_number(&self) -> <TYPES as NodeType>::View {
         self.view_number
     }

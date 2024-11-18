@@ -156,6 +156,7 @@ pub(crate) async fn update_shared_state<
     proposed_leaf: &Leaf<TYPES>,
     vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
     parent_view_number: Option<TYPES::View>,
+    epoch_height: u64,
 ) -> Result<()> {
     let justify_qc = &proposed_leaf.justify_qc();
 
@@ -189,6 +190,7 @@ pub(crate) async fn update_shared_state<
                 public_key.clone(),
                 private_key.clone(),
                 &upgrade_lock,
+                epoch_height,
             )
             .await
             .ok()

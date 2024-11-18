@@ -9,6 +9,11 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{InactiveReceiver, Sender};
 use async_lock::RwLock;
@@ -19,19 +24,16 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::UpgradeCertificate,
     traits::{
-        block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
+        block_contents::BlockHeader,
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
     vote::HasViewNumber,
 };
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -97,6 +99,9 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
 
     /// The node's id
     pub id: u64,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
@@ -123,6 +128,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             &self.upgrade_lock,
             parent_view_number,
+            self.epoch_height,
         )
         .await?;
 
@@ -215,12 +221,17 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             .context(warn!("Failed to construct marketplace block header"))?
         };
 
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(
+            block_header.block_number(),
+            self.epoch_height,
+        ));
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,
             justify_qc: high_qc,
             upgrade_certificate,
             proposal_certificate,
+            epoch,
         };
 
         let proposed_leaf = Leaf::from_quorum_proposal(&proposal);

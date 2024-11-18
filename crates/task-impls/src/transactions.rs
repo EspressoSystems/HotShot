@@ -533,9 +533,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 ))?;
 
             match &view_data.view_inner {
-                ViewInner::Da { payload_commitment } => {
-                    return Ok((target_view, *payload_commitment))
-                }
+                ViewInner::Da {
+                    payload_commitment, ..
+                } => return Ok((target_view, *payload_commitment)),
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
                     ..

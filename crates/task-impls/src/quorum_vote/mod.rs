@@ -199,6 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             &leaf,
             &vid_share,
             parent_view_number,
+            self.epoch_height,
         )
         .await
         {
@@ -558,7 +559,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
-            HotShotEvent::Timeout(view) => {
+            HotShotEvent::Timeout(view, ..) => {
                 let view = TYPES::View::new(view.saturating_sub(1));
                 // cancel old tasks
                 let current_tasks = self.vote_dependencies.split_off(&view);
@@ -654,6 +655,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             &proposed_leaf,
             &updated_vid,
             Some(parent_leaf.view_number()),
+            self.epoch_height,
         )
         .await
         {

@@ -98,6 +98,7 @@ fn spawn_fetch_proposal<TYPES: NodeType, V: Versions>(
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: UpgradeLock<TYPES, V>,
+    epoch_height: u64,
 ) {
     spawn(async move {
         let lock = upgrade_lock;
@@ -111,6 +112,7 @@ fn spawn_fetch_proposal<TYPES: NodeType, V: Versions>(
             sender_public_key,
             sender_private_key,
             &lock,
+            epoch_height,
         )
         .await;
     });
@@ -149,14 +151,15 @@ pub(crate) async fn handle_quorum_proposal_recv<
         proposal_block_number,
         validation_info.epoch_height,
     ));
-    let justify_qc_epoch =
-        if validation_info != 0 && proposal_block_number % validation_info.epoch_height == 1 {
-            // if the proposal is for the first block in an epoch, the justify QC must be from the previous epoch
-            proposal_epoch - 1
-        } else {
-            // otherwise justify QC is from the same epoch
-            proposal_epoch
-        };
+    let justify_qc_epoch = if validation_info.epoch_height != 0
+        && proposal_block_number % validation_info.epoch_height == 1
+    {
+        // if the proposal is for the first block in an epoch, the justify QC must be from the previous epoch
+        proposal_epoch - 1
+    } else {
+        // otherwise justify QC is from the same epoch
+        proposal_epoch
+    };
 
     if !justify_qc
         .is_valid_cert(
@@ -201,6 +204,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             validation_info.public_key.clone(),
             validation_info.private_key.clone(),
             validation_info.upgrade_lock.clone(),
+            validation_info.epoch_height,
         );
     }
     let consensus_reader = validation_info.consensus.read().await;

@@ -23,7 +23,11 @@ use sha2::Digest;
 use tagged_base64::tagged;
 use typenum::Unsigned;
 
-use crate::{data::Leaf, traits::{node_implementation::NodeType, ValidatedState}, vid::VidCommitment};
+use crate::{
+    data::Leaf,
+    traits::{node_implementation::NodeType, ValidatedState},
+    vid::VidCommitment,
+};
 
 /// A view's state
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -57,11 +61,19 @@ pub enum ViewInner<TYPES: NodeType> {
 impl<TYPES: NodeType> Clone for ViewInner<TYPES> {
     fn clone(&self) -> Self {
         match self {
-            Self::Da { payload_commitment, epoch } => Self::Da {
+            Self::Da {
+                payload_commitment,
+                epoch,
+            } => Self::Da {
                 payload_commitment: *payload_commitment,
                 epoch: *epoch,
             },
-            Self::Leaf { leaf, state, delta, epoch } => Self::Leaf {
+            Self::Leaf {
+                leaf,
+                state,
+                delta,
+                epoch,
+            } => Self::Leaf {
                 leaf: *leaf,
                 state: Arc::clone(state),
                 delta: delta.clone(),
@@ -124,18 +136,20 @@ impl<TYPES: NodeType> ViewInner<TYPES> {
     /// return the underlying block paylod commitment if it exists
     #[must_use]
     pub fn payload_commitment(&self) -> Option<VidCommitment> {
-        if let Self::Da { payload_commitment , ..} = self {
+        if let Self::Da {
+            payload_commitment, ..
+        } = self
+        {
             Some(*payload_commitment)
         } else {
             None
         }
     }
-    
+
     /// Returns `Epoch` if possible
     pub fn epoch(&self) -> Option<TYPES::Epoch> {
         match self {
-            Self::Da { epoch, .. } => Some(*epoch),
-            Self::Leaf { epoch, .. } => Some(*epoch),
+            Self::Da { epoch, .. } | Self::Leaf { epoch, .. } => Some(*epoch),
             Self::Failed => None,
         }
     }
