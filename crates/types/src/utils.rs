@@ -247,3 +247,12 @@ pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
         block_number / epoch_height + 1
     }
 }
+
+/// A helper enum to indicate whether a node is in the epoch transition
+/// A node is in epoch transition when its high QC is for the last block in an epoch
+pub enum EpochTransitionIndicator {
+    /// A node is currently in the epoch transition
+    InTransition,
+    /// A node is not in the epoch transition
+    NotInTransition,
+}

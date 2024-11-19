@@ -483,7 +483,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     )
                 );
                 self.cur_view = view;
-                if self.membership.leader(view, self.cur_epoch)? == self.public_key {
+                let is_leader = if self.consensus.read().await.is_high_qc_for_last_block() {
+                    // if we are in the epoch transition, we need to prepare for the next epoch
+                    self.membership.leader(view, self.cur_epoch)? == self.public_key
+                        || self.membership.leader(view, self.cur_epoch + 1)? == self.public_key
+                } else {
+                    self.membership.leader(view, self.cur_epoch)? == self.public_key
+                };
+                if is_leader {
                     self.handle_view_change(&event_stream, view).await;
                     return Ok(());
                 }

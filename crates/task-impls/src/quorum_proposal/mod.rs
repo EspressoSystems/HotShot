@@ -15,6 +15,7 @@ use hotshot_task::{
     dependency_task::DependencyTask,
     task::TaskState,
 };
+use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
@@ -284,8 +285,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
-        in_transition: bool,
+        transition_indicator: EpochTransitionIndicator,
     ) -> Result<()> {
+        let in_transition = matches!(transition_indicator, EpochTransitionIndicator::InTransition);
         // Don't even bother making the task if we are not entitled to propose anyway.
         ensure!(
             self.quorum_membership.leader(view_number, epoch_number)? == self.public_key
@@ -375,7 +377,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
-        let in_transition = self.consensus.read().await.is_high_qc_for_last_block();
+        let transition_indicator = if self.consensus.read().await.is_high_qc_for_last_block() {
+            EpochTransitionIndicator::InTransition
+        } else {
+            EpochTransitionIndicator::NotInTransition
+        };
         match event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 tracing::debug!(
@@ -399,7 +405,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
-                        false,
+                        transition_indicator,
                     )?;
                 }
                 either::Left(qc) => {
@@ -434,7 +440,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
-                        in_transition,
+                        transition_indicator,
                     )?;
                 }
             },
@@ -455,7 +461,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                    in_transition,
+                    transition_indicator,
                 )?;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
@@ -483,7 +489,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     event,
-                    false,
+                    transition_indicator,
                 )?;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
@@ -500,7 +506,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                    in_transition,
+                    transition_indicator,
                 )?;
             }
             HotShotEvent::QuorumProposalSend(proposal, _) => {
@@ -520,7 +526,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                    in_transition,
+                    transition_indicator,
                 )?;
             }
             HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view, ..) => {
