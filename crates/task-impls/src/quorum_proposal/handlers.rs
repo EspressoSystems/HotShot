@@ -127,10 +127,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 if qc
                     .is_valid_cert(
                         self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
-                        NonZeroU64::new(QuorumCertificate::<TYPES>::threshold(
-                            self.quorum_membership.as_ref(),
-                        ))
-                        .unwrap(),
+                        self.quorum_membership.success_threshold(),
                         &self.upgrade_lock,
                     )
                     .await

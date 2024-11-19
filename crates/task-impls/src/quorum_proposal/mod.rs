@@ -515,10 +515,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 ensure!(
                     qc.is_valid_cert(
                         self.membership.stake_table(epoch_number),
-                        NonZeroU64::new(QuorumCertificate::<TYPES>::threshold(
-                            self.membership.as_ref()
-                        ))
-                        .unwrap(),
+                        self.membership.success_threshold(),
                         &self.upgrade_lock
                     )
                     .await,

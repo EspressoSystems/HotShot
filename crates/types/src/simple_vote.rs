@@ -117,8 +117,8 @@ mod sealed {
     impl<C: Committable> Sealed for C {}
 }
 
-
 impl<T: NodeType> QuorumMaker for QuorumData<T> {}
+impl<T: NodeType> QuorumMaker for QuorumData2<T> {}
 impl<T: NodeType> QuorumMaker for TimeoutData<T> {}
 impl<T: NodeType> QuorumMaker for ViewSyncPreCommitData<T> {}
 impl<T: NodeType> QuorumMaker for ViewSyncCommitData<T> {}
