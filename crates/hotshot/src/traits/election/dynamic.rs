@@ -67,9 +67,10 @@ pub fn leader<TYPES: NodeType>(
     drb_result.hash(&mut hasher);
     view_number.hash(&mut hasher);
     #[allow(clippy::cast_possible_truncation)]
-    let index = (hasher.finish() as usize) % stake_table.len();
-    // TODO: Index with a weighted stake table.
+    // TODO: Use the total stake rather than `len()` and update the indexing after switching to
+    // a weighted stake table.
     // <https://github.com/EspressoSystems/HotShot/issues/3898>
+    let index = (hasher.finish() as usize) % stake_table.len();
     let entry = stake_table[index].clone();
     TYPES::SignatureKey::public_key(&entry)
 }
