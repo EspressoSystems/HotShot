@@ -1071,7 +1071,7 @@
 
     <span class="doccomment">/// Wait for the client to initialize the connection
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.client.ensure_initialized().<span class="kw">await</span>;
+        <span class="kw">let _ </span>= <span class="self">self</span>.client.ensure_initialized().<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// TODO: shut down the networks. Unneeded for testing.
@@ -1080,7 +1080,7 @@
         </span><span class="lifetime">'a</span>: <span class="lifetime">'b</span>,
         <span class="self">Self</span>: <span class="lifetime">'b</span>,
     {
-        boxed_sync(<span class="kw">async move </span>{})
+        boxed_sync(<span class="kw">async move </span>{ <span class="self">self</span>.client.close().<span class="kw">await </span>})
     }
 
     <span class="doccomment">/// Broadcast a message to all members of the quorum.
