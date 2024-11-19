@@ -53,12 +53,6 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -67,13 +61,7 @@
 
 </span><span class="doccomment">//! Testing infrastructure for `HotShot`
 
-</span><span class="attr">#![cfg_attr(
-    <span class="comment">// hotshot_example option is set manually in justfile when running examples
-    </span>not(any(test, debug_assertions)),
-    deprecated = <span class="string">"suspicious usage of testing/demo implementations in non-test/non-debug build"
-</span>)]
-
-</span><span class="doccomment">/// Helpers for initializing system context handle and building tasks.
+/// Helpers for initializing system context handle and building tasks.
 </span><span class="kw">pub mod </span>helpers;
 
 <span class="doccomment">///  builder
