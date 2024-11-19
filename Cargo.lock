@@ -1228,14 +1228,14 @@ dependencies = [
 [[package]]
 name = "cdn-broker"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.6#9409763dbcb726e43218c3c4cfde91c7d5de6a52"
 dependencies = [
  "cdn-proto",
  "clap",
  "console-subscriber",
  "dashmap",
  "derivative",
- "jf-signature 0.1.0",
+ "jf-signature",
  "lazy_static",
  "local-ip-address",
  "parking_lot",
@@ -1251,11 +1251,12 @@ dependencies = [
 [[package]]
 name = "cdn-client"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.6#9409763dbcb726e43218c3c4cfde91c7d5de6a52"
 dependencies = [
  "cdn-proto",
  "clap",
- "jf-signature 0.1.0",
+ "derive_more 1.0.0",
+ "jf-signature",
  "parking_lot",
  "rand 0.8.5",
  "tokio",
@@ -1266,11 +1267,11 @@ dependencies = [
 [[package]]
 name = "cdn-marshal"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.6#9409763dbcb726e43218c3c4cfde91c7d5de6a52"
 dependencies = [
  "cdn-proto",
  "clap",
- "jf-signature 0.1.0",
+ "jf-signature",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -1279,7 +1280,7 @@ dependencies = [
 [[package]]
 name = "cdn-proto"
 version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.1#af42143a60f86a12ff759b6ad9bd1577c2887871"
+source = "git+https://github.com/EspressoSystems/Push-CDN?tag=0.5.6#9409763dbcb726e43218c3c4cfde91c7d5de6a52"
 dependencies = [
  "anyhow",
  "ark-serialize",
@@ -1287,7 +1288,8 @@ dependencies = [
  "capnp",
  "capnpc",
  "derivative",
- "jf-signature 0.1.0",
+ "derive_more 1.0.0",
+ "jf-signature",
  "kanal",
  "lazy_static",
  "mnemonic",
@@ -3079,7 +3081,7 @@ dependencies = [
  "hotshot-types",
  "jf-crhf",
  "jf-rescue",
- "jf-signature 0.2.0",
+ "jf-signature",
  "jf-utils",
  "rand_chacha 0.3.1",
  "serde",
@@ -3200,7 +3202,7 @@ dependencies = [
  "ethereum-types",
  "futures",
  "jf-pcs",
- "jf-signature 0.2.0",
+ "jf-signature",
  "jf-utils",
  "jf-vid",
  "lazy_static",
@@ -3976,35 +3978,6 @@ dependencies = [
  "jf-prf",
  "jf-relation",
  "jf-utils",
-]
-
-[[package]]
-name = "jf-signature"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/jellyfish?tag=0.4.5#7d71dbeff14f1a501b0b0dc391f1dffa1b8374fb"
-dependencies = [
- "ark-bls12-381",
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std",
- "blst",
- "derivative",
- "digest 0.10.7",
- "displaydoc",
- "hashbrown 0.14.5",
- "itertools 0.12.1",
- "jf-crhf",
- "jf-relation",
- "jf-rescue",
- "jf-utils",
- "num-bigint",
- "num-traits",
- "serde",
- "sha3",
- "tagged-base64",
- "zeroize",
 ]
 
 [[package]]
