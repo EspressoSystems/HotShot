@@ -6,6 +6,7 @@
 
 use std::time::Duration;
 
+use hotshot_example_types::node_types::TestTwoStakeTablesTypes;
 use hotshot_example_types::{
     node_types::{
         EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
@@ -13,7 +14,6 @@ use hotshot_example_types::{
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
-use hotshot_example_types::node_types::TestTwoStakeTablesTypes;
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
@@ -137,7 +137,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_epoch_end,
-    Impls: [MemoryImpl],
+    Impls: [PushCdnImpl],
     Types: [TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,

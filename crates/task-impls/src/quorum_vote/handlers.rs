@@ -328,10 +328,6 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     .await
     .wrap()
     .context(error!("Failed to sign vote. This should never happen."))?;
-    tracing::debug!(
-        "sending vote to next quorum leader {:?}",
-        vote.view_number() + 1
-    );
     // Add to the storage.
     storage
         .write()
@@ -342,12 +338,17 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
         .context(error!("Failed to store VID share"))?;
 
     if extended_vote {
+        tracing::debug!("sending extended vote to everybody",);
         broadcast_event(
             Arc::new(HotShotEvent::ExtendedQuorumVoteSend(vote)),
             &sender,
         )
         .await;
     } else {
+        tracing::debug!(
+            "sending vote to next quorum leader {:?}",
+            vote.view_number() + 1
+        );
         broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &sender).await;
     }
 

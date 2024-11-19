@@ -335,6 +335,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     _pd: PhantomData,
                 };
 
+                tracing::error!("lrzasik: sending DaProposalSend");
                 broadcast_event(
                     Arc::new(HotShotEvent::DaProposalSend(
                         message.clone(),

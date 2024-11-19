@@ -675,9 +675,11 @@ impl<
         };
         let view_number = message.kind.view_number();
         let committee_topic = self.quorum_membership.committee_topic();
+        tracing::error!("lrzasik: cur_epoch: {:?}", self.epoch);
         let da_committee = self
             .da_membership
             .committee_members(view_number, self.epoch);
+        tracing::error!("lrzasik: da_committee: {:?}", da_committee);
         let network = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
