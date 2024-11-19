@@ -69,10 +69,11 @@ pub fn leader<TYPES: NodeType>(
 ) -> TYPES::SignatureKey {
     let mut hasher = DefaultHasher::new();
     drb_seed.hash(&mut hasher);
+    view_number.hash(&mut hasher);
     #[allow(clippy::cast_possible_truncation)]
-    let start_index = (hasher.finish() as usize) % stake_table.len();
+    let index = (hasher.finish() as usize) % stake_table.len();
     // TODO: Index with a weighted stake table.
     // <https://github.com/EspressoSystems/HotShot/issues/3898>
-    let entry = stake_table[start_index + view_number].clone();
+    let entry = stake_table[index].clone();
     TYPES::SignatureKey::public_key(&entry)
 }
