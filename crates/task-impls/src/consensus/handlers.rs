@@ -20,13 +20,13 @@ use hotshot_types::{
 use tokio::{spawn, time::sleep};
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use super::ConsensusTaskState;
 use crate::{
     consensus::Versions, events::HotShotEvent, helpers::broadcast_event,
     vote_collection::handle_vote,
 };
-use vbs::version::StaticVersionType;
 
 /// Handle a `QuorumVoteRecv` event.
 pub(crate) async fn handle_quorum_vote_recv<
