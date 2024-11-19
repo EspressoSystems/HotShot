@@ -13,6 +13,7 @@ use hotshot_example_types::{
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
+use hotshot_example_types::node_types::TestTwoStakeTablesTypes;
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
@@ -137,7 +138,7 @@ cross_tests!(
 cross_tests!(
     TestName: test_epoch_end,
     Impls: [MemoryImpl],
-    Types: [TestTypes],
+    Types: [TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
@@ -148,6 +149,10 @@ cross_tests!(
                 },
             ),
             epoch_height: 10,
+            num_nodes_with_stake: 10,
+            start_nodes: 10,
+            num_bootstrap_nodes: 10,
+            da_staked_committee_size: 10,
             ..TestDescription::default()
         }
     },
