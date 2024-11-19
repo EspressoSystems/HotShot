@@ -73,10 +73,6 @@ path = "push-cdn/broker.rs"
 name = "cdn-marshal"
 path = "push-cdn/marshal.rs"
 
-[[example]]
-name = "whitelist-push-cdn"
-path = "push-cdn/whitelist-adapter.rs"
-
 [dependencies]
 async-trait = { workspace = true }
 clap = { workspace = true, optional = true }

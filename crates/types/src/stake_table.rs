@@ -9,7 +9,19 @@
 use ethereum_types::U256;
 use serde::{Deserialize, Serialize};
 
-use crate::traits::signature_key::{SignatureKey, StakeTableEntryType};
+use crate::traits::{
+    node_implementation::NodeType,
+    signature_key::{SignatureKey, StakeTableEntryType},
+};
+
+/// Bundle of all the memberships a consensus instance uses
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Memberships<TYPES: NodeType> {
+    /// The entire quorum
+    pub quorum_membership: TYPES::Membership,
+    /// The DA nodes
+    pub da_membership: TYPES::Membership,
+}
 
 /// Stake table entry
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Hash, Eq)]

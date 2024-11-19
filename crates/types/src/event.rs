@@ -15,6 +15,7 @@ use crate::{
     error::HotShotError,
     message::Proposal,
     simple_certificate::QuorumCertificate,
+    stake_table::Memberships,
     traits::{node_implementation::NodeType, ValidatedState},
 };
 /// A status event emitted by a `HotShot` instance
@@ -178,7 +179,31 @@ pub enum EventType<TYPES: NodeType> {
         /// Serialized data of the message
         data: Vec<u8>,
     },
+
+    /// An epoch transition was started
+    EpochTransitionStarted {
+        /// The new epoch number
+        epoch: TYPES::Epoch,
+
+        /// The initial stake table before the epoch transition
+        pre_update_stake_table: Memberships<TYPES>,
+
+        /// The final stake table after the epoch transition
+        /// completes
+        post_update_stake_table: Memberships<TYPES>,
+    },
+
+    /// An epoch transition was completed
+    EpochTransitionFinished {
+        /// The new epoch number
+        epoch: TYPES::Epoch,
+
+        /// The final stake table after the epoch transition
+        /// completes
+        post_update_stake_table: Memberships<TYPES>,
+    },
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 /// A list of actions that we track for nodes
 pub enum HotShotAction {

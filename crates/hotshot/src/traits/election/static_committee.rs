@@ -16,9 +16,10 @@ use hotshot_types::{
     },
     PeerConfig,
 };
+use serde::{Deserialize, Serialize};
 use utils::anytrace::Result;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 
 /// The static committee election
 pub struct StaticCommittee<T: NodeType> {
