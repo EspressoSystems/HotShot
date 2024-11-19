@@ -600,6 +600,25 @@
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -619,12 +638,13 @@
 <span class="kw">use </span>hotshot_types::{
     message::UpgradeLock,
     simple_certificate::{
-        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
+        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
+        ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-        ViewSyncPreCommitVote,
+        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
+        ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
     traits::{
         election::Membership,
@@ -902,7 +922,7 @@
 
 <span class="doccomment">/// Alias for Quorum vote accumulator
 </span><span class="kw">type </span>QuorumVoteState&lt;TYPES, V&gt; =
-    VoteCollectionTaskState&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;, V&gt;;
+    VoteCollectionTaskState&lt;TYPES, QuorumVote2&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;, V&gt;;
 <span class="doccomment">/// Alias for DA vote accumulator
 </span><span class="kw">type </span>DaVoteState&lt;TYPES, V&gt; = VoteCollectionTaskState&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;, V&gt;;
 <span class="doccomment">/// Alias for Timeout vote accumulator
@@ -944,6 +964,24 @@
         _key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; HotShotEvent&lt;TYPES&gt; {
         HotShotEvent::QcFormed(Left(certificate))
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; AggregatableVote&lt;TYPES, QuorumVote2&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;&gt;
+    <span class="kw">for </span>QuorumVote2&lt;TYPES&gt;
+{
+    <span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
+        membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>, epoch)
+    }
+    <span class="kw">fn </span>make_cert_event(
+        certificate: QuorumCertificate2&lt;TYPES&gt;,
+        _key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+    ) -&gt; HotShotEvent&lt;TYPES&gt; {
+        HotShotEvent::Qc2Formed(Left(certificate))
     }
 }
 
@@ -997,7 +1035,7 @@
         certificate: TimeoutCertificate&lt;TYPES&gt;,
         _key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; HotShotEvent&lt;TYPES&gt; {
-        HotShotEvent::QcFormed(Right(certificate))
+        HotShotEvent::Qc2Formed(Right(certificate))
     }
 }
 
@@ -1061,14 +1099,14 @@
 <span class="comment">// Handlers for all vote accumulators
 </span><span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt;
-    HandleVoteEvent&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;&gt;
+    HandleVoteEvent&lt;TYPES, QuorumVote2&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;&gt;
     <span class="kw">for </span>QuorumVoteState&lt;TYPES, V&gt;
 {
     <span class="kw">async fn </span>handle_vote_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;QuorumCertificate2&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumVoteRecv(vote) =&gt; <span class="self">self</span>.accumulate_vote(vote, sender).<span class="kw">await</span>,
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),

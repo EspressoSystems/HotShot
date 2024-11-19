@@ -608,6 +608,7 @@
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -622,6 +623,7 @@
     task::{Context, Poll},
 };
 
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::{FutureExt, Stream};
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 <span class="kw">use </span>hotshot_example_types::{
@@ -631,16 +633,16 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf, QuorumProposal, VidDisperse, VidDisperseShare,
+        DaProposal, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DaData, DaVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
+        DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
         UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
@@ -659,8 +661,8 @@
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestView {
     <span class="kw">pub </span>da_proposal: Proposal&lt;TestTypes, DaProposal&lt;TestTypes&gt;&gt;,
-    <span class="kw">pub </span>quorum_proposal: Proposal&lt;TestTypes, QuorumProposal&lt;TestTypes&gt;&gt;,
-    <span class="kw">pub </span>leaf: Leaf&lt;TestTypes&gt;,
+    <span class="kw">pub </span>quorum_proposal: Proposal&lt;TestTypes, QuorumProposal2&lt;TestTypes&gt;&gt;,
+    <span class="kw">pub </span>leaf: Leaf2&lt;TestTypes&gt;,
     <span class="kw">pub </span>view_number: ViewNumber,
     <span class="kw">pub </span>epoch_number: EpochNumber,
     <span class="kw">pub </span>quorum_membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
@@ -740,22 +742,26 @@
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
-            .<span class="kw">await</span>,
+            .<span class="kw">await
+            </span>.into(),
             payload_commitment,
             builder_commitment,
             metadata,
         );
 
-        <span class="kw">let </span>quorum_proposal_inner = QuorumProposal::&lt;TestTypes&gt; {
+        <span class="kw">let </span>quorum_proposal_inner = QuorumProposal2::&lt;TestTypes&gt; {
             block_header: block_header.clone(),
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis::&lt;TestVersions&gt;(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
-            .<span class="kw">await</span>,
+            .<span class="kw">await
+            </span>.to_qc2(),
             upgrade_certificate: <span class="prelude-val">None</span>,
-            proposal_certificate: <span class="prelude-val">None</span>,
+            view_change_evidence: <span class="prelude-val">None</span>,
+            drb_result: [<span class="number">0</span>; <span class="number">32</span>],
+            drb_seed: [<span class="number">0</span>; <span class="number">96</span>],
         };
 
         <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(<span class="kw-2">&amp;</span>transactions));
@@ -776,16 +782,13 @@
             _pd: PhantomData,
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal_inner);
+        <span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal_inner);
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
 
-        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(
-            <span class="kw-2">&amp;</span>private_key,
-            leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>.as_ref(),
-        )
-        .expect(<span class="string">"Failed to sign leaf commitment!"</span>);
+        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>private_key, leaf.commit().as_ref())
+            .expect(<span class="string">"Failed to sign leaf commitment!"</span>);
 
         <span class="kw">let </span>quorum_proposal = Proposal {
             data: quorum_proposal_inner,
@@ -832,8 +835,8 @@
 
         <span class="kw">let </span>transactions = <span class="kw-2">&amp;</span><span class="self">self</span>.transactions;
 
-        <span class="kw">let </span>quorum_data = QuorumData {
-            leaf_commit: old.leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>,
+        <span class="kw">let </span>quorum_data = QuorumData2 {
+            leaf_commit: old.leaf.commit(),
         };
 
         <span class="kw">let </span>(old_private_key, old_public_key) = key_pair_for_id::&lt;TestTypes&gt;(<span class="kw-2">*</span>old_view);
@@ -884,9 +887,9 @@
         <span class="kw">let </span>quorum_certificate = build_cert::&lt;
             TestTypes,
             TestVersions,
-            QuorumData&lt;TestTypes&gt;,
-            QuorumVote&lt;TestTypes&gt;,
-            QuorumCertificate&lt;TestTypes&gt;,
+            QuorumData2&lt;TestTypes&gt;,
+            QuorumVote2&lt;TestTypes&gt;,
+            QuorumCertificate2&lt;TestTypes&gt;,
         &gt;(
             quorum_data,
             quorum_membership,
@@ -967,7 +970,7 @@
             <span class="prelude-val">None
         </span>};
 
-        <span class="kw">let </span>proposal_certificate = <span class="kw">if let </span><span class="prelude-val">Some</span>(tc) = timeout_certificate {
+        <span class="kw">let </span>view_change_evidence = <span class="kw">if let </span><span class="prelude-val">Some</span>(tc) = timeout_certificate {
             <span class="prelude-val">Some</span>(ViewChangeEvidence::Timeout(tc))
         } <span class="kw">else </span>{
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
@@ -984,24 +987,23 @@
             random,
         };
 
-        <span class="kw">let </span>proposal = QuorumProposal::&lt;TestTypes&gt; {
+        <span class="kw">let </span>proposal = QuorumProposal2::&lt;TestTypes&gt; {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
-            proposal_certificate,
+            view_change_evidence,
+            drb_result: [<span class="number">0</span>; <span class="number">32</span>],
+            drb_seed: [<span class="number">0</span>; <span class="number">96</span>],
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
+        <span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
 
-        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(
-            <span class="kw-2">&amp;</span>private_key,
-            leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>.as_ref(),
-        )
-        .expect(<span class="string">"Failed to sign leaf commitment."</span>);
+        <span class="kw">let </span>signature = &lt;BLSPubKey <span class="kw">as </span>SignatureKey&gt;::sign(<span class="kw-2">&amp;</span>private_key, leaf.commit().as_ref())
+            .expect(<span class="string">"Failed to sign leaf commitment."</span>);
 
         <span class="kw">let </span>quorum_proposal = Proposal {
             data: proposal,
@@ -1061,10 +1063,10 @@
     <span class="kw">pub async fn </span>create_quorum_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl, TestVersions&gt;,
-    ) -&gt; QuorumVote&lt;TestTypes&gt; {
-        QuorumVote::&lt;TestTypes&gt;::create_signed_vote(
-            QuorumData {
-                leaf_commit: <span class="self">self</span>.leaf.commit(<span class="kw-2">&amp;</span>handle.hotshot.upgrade_lock).<span class="kw">await</span>,
+    ) -&gt; QuorumVote2&lt;TestTypes&gt; {
+        QuorumVote2::&lt;TestTypes&gt;::create_signed_vote(
+            QuorumData2 {
+                leaf_commit: <span class="self">self</span>.leaf.commit(),
             },
             <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span>handle.public_key(),

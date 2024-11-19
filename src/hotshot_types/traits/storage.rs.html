@@ -58,6 +58,28 @@
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -78,10 +100,10 @@
 <span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 <span class="kw">use crate</span>::{
     consensus::{CommitmentMap, View},
-    data::{DaProposal, Leaf, QuorumProposal, VidDisperseShare},
+    data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
     event::HotShotAction,
     message::Proposal,
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
     vid::VidSchemeType,
 };
 
@@ -101,10 +123,17 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Add a proposal we sent to the store
+    </span><span class="kw">async fn </span>append_proposal2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Record a HotShotAction taken.
     </span><span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the current high QC in storage.
     </span><span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Update the current high QC in storage.
+    </span><span class="kw">async fn </span>update_high_qc2(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate2&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
     /// and the undecided state.
     </span><span class="kw">async fn </span>update_undecided_state(
@@ -112,10 +141,25 @@
         leafs: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
         state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
+    /// and the undecided state.
+    </span><span class="kw">async fn </span>update_undecided_state2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        leafs: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
+        state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Upgrade the current decided upgrade certificate in storage.
     </span><span class="kw">async fn </span>update_decided_upgrade_certificate(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Migrate leaves from `Leaf` to `Leaf2`, and proposals from `QuorumProposal` to `QuorumProposal2`
+    </span><span class="kw">async fn </span>migrate_consensus(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        convert_leaf: <span class="kw">fn</span>(Leaf&lt;TYPES&gt;) -&gt; Leaf2&lt;TYPES&gt;,
+        convert_proposal: <span class="kw">fn</span>(
+            Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+        ) -&gt; Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
 </code></pre></div></section></main></body></html>

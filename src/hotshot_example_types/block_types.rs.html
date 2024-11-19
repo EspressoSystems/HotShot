@@ -438,7 +438,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>hotshot_types::{
-    data::{BlockError, Leaf},
+    data::{BlockError, Leaf2},
     traits::{
         block_contents::{BlockHeader, BuilderFee, EncodeBytes, TestableBlock, Transaction},
         node_implementation::NodeType,
@@ -697,7 +697,7 @@
 
 <span class="kw">impl </span>TestBlockHeader {
     <span class="kw">pub fn </span>new&lt;TYPES: NodeType&lt;BlockHeader = <span class="self">Self</span>&gt;&gt;(
-        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
         metadata: TestMetadata,
@@ -737,7 +737,7 @@
     <span class="kw">async fn </span>new_legacy(
         _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
-        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
@@ -757,7 +757,7 @@
     <span class="kw">async fn </span>new_marketplace(
         _parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
-        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,

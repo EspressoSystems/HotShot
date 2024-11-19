@@ -719,6 +719,7 @@
 <a href="#719" id="719">719</a>
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -904,12 +905,14 @@
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
-            .<span class="kw">await</span>,
+            .<span class="kw">await
+            </span>.into(),
             high_qc: QuorumCertificate::genesis::&lt;V&gt;(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
-            .<span class="kw">await</span>,
+            .<span class="kw">await
+            </span>.to_qc2(),
             async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
             channel_generator: launcher.resource_generator.channel_generator,
@@ -1366,8 +1369,7 @@
             internal_channel,
             external_channel,
         )
-        .<span class="kw">await
-    </span>}
+    }
 }
 
 <span class="doccomment">/// a node participating in a test

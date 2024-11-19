@@ -276,7 +276,7 @@
 
 <span class="kw">use </span><span class="kw">super</span>::signature_key::BuilderSignatureKey;
 <span class="kw">use crate</span>::{
-    data::Leaf,
+    data::Leaf2,
     traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
     utils::BuilderCommitment,
     vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType},
@@ -450,7 +450,7 @@
     </span><span class="kw">fn </span>new_legacy(
         parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
-        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
@@ -466,7 +466,7 @@
     </span><span class="kw">fn </span>new_marketplace(
         parent_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Instance,
-        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         payload_commitment: VidCommitment,
         builder_commitment: BuilderCommitment,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,

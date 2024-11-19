@@ -87,7 +87,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>thiserror::Error;
 
-<span class="kw">use crate</span>::{data::Leaf, traits::node_implementation::NodeType};
+<span class="kw">use crate</span>::{data::Leaf2, traits::node_implementation::NodeType};
 
 <span class="doccomment">/// Error type for `HotShot`
 </span><span class="attr">#[derive(Debug, Error)]
@@ -99,7 +99,7 @@
 
     <span class="doccomment">/// Leaf was not present in storage
     </span><span class="attr">#[error(<span class="string">"Missing leaf with commitment: {0}"</span>)]
-    </span>MissingLeaf(Commitment&lt;Leaf&lt;TYPES&gt;&gt;),
+    </span>MissingLeaf(Commitment&lt;Leaf2&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// Failed to serialize data
     </span><span class="attr">#[error(<span class="string">"Failed to serialize: {0}"</span>)]
@@ -123,8 +123,8 @@
 </span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>RoundTimedoutState {
-    <span class="doccomment">/// Leader is in a Prepare phase and is waiting for a HighQC
-    </span>LeaderWaitingForHighQC,
+    <span class="doccomment">/// Leader is in a Prepare phase and is waiting for a HighQc
+    </span>LeaderWaitingForHighQc,
     <span class="doccomment">/// Leader is in a Prepare phase and timed out before the round min time is reached
     </span>LeaderMinRoundTimeNotReached,
     <span class="doccomment">/// Leader is waiting for prepare votes

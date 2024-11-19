@@ -617,10 +617,10 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot::{traits::TestableNodeImplementation, HotShotError};
 <span class="kw">use </span>hotshot_types::{
-    data::Leaf,
+    data::Leaf2,
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
-    simple_certificate::QuorumCertificate,
+    simple_certificate::QuorumCertificate2,
     traits::node_implementation::{ConsensusTime, NodeType, Versions},
     vid::VidCommitment,
 };
@@ -913,7 +913,7 @@
 
     </span><span class="doccomment">/// Nodes that committed this round
     /// id -&gt; (leaf, qc)
-    </span>success_nodes: HashMap&lt;u64, (LeafChain&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;)&gt;,
+    </span>success_nodes: HashMap&lt;u64, (LeafChain&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;)&gt;,
 
     <span class="doccomment">/// Nodes that failed to commit this round
     </span><span class="kw">pub </span>failed_nodes: HashMap&lt;u64, Arc&lt;HotShotError&lt;TYPES&gt;&gt;&gt;,
@@ -924,7 +924,7 @@
     <span class="doccomment">/// NOTE: technically a map is not needed
     /// left one anyway for ease of viewing
     /// leaf -&gt; # entries decided on that leaf
-    </span><span class="kw">pub </span>leaf_map: HashMap&lt;Leaf&lt;TYPES&gt;, usize&gt;,
+    </span><span class="kw">pub </span>leaf_map: HashMap&lt;Leaf2&lt;TYPES&gt;, usize&gt;,
 
     <span class="doccomment">/// block -&gt; # entries decided on that block
     </span><span class="kw">pub </span>block_map: HashMap&lt;VidCommitment, usize&gt;,
@@ -1005,9 +1005,9 @@
     </span><span class="kw">pub fn </span>insert_into_result(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         idx: usize,
-        result: (LeafChain&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;),
+        result: (LeafChain&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;),
         maybe_block_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf2&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.success_nodes.insert(idx <span class="kw">as </span>u64, result.clone());
 
         <span class="kw">let </span>maybe_leaf = result.<span class="number">0</span>.first();
@@ -1060,7 +1060,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         threshold: usize,
         total_num_nodes: usize,
-        key: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        key: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         check_leaf: bool,
         check_block: bool,
         transaction_threshold: u64,
@@ -1132,8 +1132,8 @@
 
     <span class="doccomment">/// generate leaves
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>gen_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;Leaf&lt;TYPES&gt;, usize&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>leaves = HashMap::&lt;Leaf&lt;TYPES&gt;, usize&gt;::new();
+    </span><span class="kw">pub fn </span>gen_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashMap&lt;Leaf2&lt;TYPES&gt;, usize&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>leaves = HashMap::&lt;Leaf2&lt;TYPES&gt;, usize&gt;::new();
 
         <span class="kw">for </span>(leaf_vec, <span class="kw">_</span>) <span class="kw">in </span><span class="self">self</span>.success_nodes.values() {
             <span class="kw">let </span>most_recent_leaf = leaf_vec.iter().last();

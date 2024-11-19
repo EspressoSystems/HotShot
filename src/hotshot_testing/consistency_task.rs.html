@@ -280,6 +280,7 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -291,9 +292,10 @@
 
 <span class="kw">use </span>anyhow::{bail, ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_example_types::block_types::TestBlockHeader;
 <span class="kw">use </span>hotshot_types::{
-    data::Leaf,
+    data::Leaf2,
     event::{Event, EventType},
     message::UpgradeLock,
     traits::node_implementation::{ConsensusTime, NodeType, Versions},
@@ -306,10 +308,10 @@
 };
 
 <span class="doccomment">/// Map from views to leaves for a single node, allowing multiple leaves for each view (because the node may a priori send us multiple leaves for a given view).
-</span><span class="kw">pub type </span>NodeMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Vec&lt;Leaf&lt;TYPES&gt;&gt;&gt;;
+</span><span class="kw">pub type </span>NodeMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Vec&lt;Leaf2&lt;TYPES&gt;&gt;&gt;;
 
 <span class="doccomment">/// A sanitized map from views to leaves for a single node, with only a single leaf per view.
-</span><span class="kw">pub type </span>NodeMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Leaf&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>NodeMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Leaf2&lt;TYPES&gt;&gt;;
 
 <span class="doccomment">/// Validate that the `NodeMap` only has a single leaf per view.
 </span><span class="kw">fn </span>sanitize_node_map&lt;TYPES: NodeType&gt;(
@@ -386,8 +388,8 @@
         <span class="comment">// We want to make sure the commitment matches,
         // but allow for the possibility that we may have skipped views in between.
         </span><span class="kw">if </span>child.justify_qc().view_number == parent.view_number()
-            &amp;&amp; child.justify_qc().data.leaf_commit != parent.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await
-        </span>{
+            &amp;&amp; child.justify_qc().data.leaf_commit != parent.commit()
+        {
             <span class="macro">bail!</span>(<span class="string">"The node has provided leaf:\n\n{child:?}\n\nwhich points to:\n\n{parent:?}\n\nbut the commits do not match."</span>);
         }
 
@@ -426,7 +428,7 @@
     <span class="prelude-val">Ok</span>(result)
 }
 
-<span class="kw">pub type </span>ViewMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, BTreeMap&lt;usize, Leaf&lt;TYPES&gt;&gt;&gt;;
+<span class="kw">pub type </span>ViewMap&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, BTreeMap&lt;usize, Leaf2&lt;TYPES&gt;&gt;&gt;;
 
 <span class="comment">// Invert the network map by interchanging the roles of the node_id and view number.
 //
@@ -453,7 +455,7 @@
 }
 
 <span class="doccomment">/// A view map, sanitized to have exactly one leaf per view.
-</span><span class="kw">pub type </span>ViewMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Leaf&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>ViewMapSanitized&lt;TYPES&gt; = BTreeMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::View, Leaf2&lt;TYPES&gt;&gt;;
 
 <span class="kw">fn </span>sanitize_view_map&lt;TYPES: NodeType&gt;(
     view_map: <span class="kw-2">&amp;</span>ViewMap&lt;TYPES&gt;,

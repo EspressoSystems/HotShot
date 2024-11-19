@@ -453,9 +453,9 @@
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, OuterConsensus},
-    data::QuorumProposal,
+    data::QuorumProposal2,
     message::{Proposal, UpgradeLock},
-    simple_vote::QuorumVote,
+    simple_vote::QuorumVote2,
     traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
 };
 
@@ -540,7 +540,7 @@
 </span><span class="doccomment">/// An `EventHandlerState` that modifies justify_qc on `QuorumProposalSend` to that of a previous view to mock dishonest leader
 </span><span class="kw">pub struct </span>DishonestLeader&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Store events from previous views
-    </span><span class="kw">pub </span>validated_proposals: Vec&lt;QuorumProposal&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>validated_proposals: Vec&lt;QuorumProposal2&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// How many times current node has been elected leader and sent proposal
     </span><span class="kw">pub </span>total_proposals_from_node: u64,
     <span class="doccomment">/// Which proposals to be dishonest at
@@ -560,7 +560,7 @@
     </span><span class="kw">async fn </span>handle_proposal_send_event(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;,
-        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; HotShotEvent&lt;TYPES&gt; {
         <span class="kw">let </span>length = <span class="self">self</span>.validated_proposals.len();
@@ -753,7 +753,7 @@
     ) -&gt; Vec&lt;HotShotEvent&lt;TYPES&gt;&gt; {
         <span class="kw">if let </span>HotShotEvent::QuorumVoteSend(vote) = event {
             <span class="kw">let </span>new_view = vote.view_number + <span class="self">self</span>.view_increment;
-            <span class="kw">let </span>spoofed_vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
+            <span class="kw">let </span>spoofed_vote = QuorumVote2::&lt;TYPES&gt;::create_signed_vote(
                 vote.data.clone(),
                 new_view,
                 public_key,
@@ -807,7 +807,7 @@
 </span><span class="doccomment">/// An `EventHandlerState` that will send a vote for a bad proposal
 </span><span class="kw">pub struct </span>DishonestVoter&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Collect all votes the node sends
-    </span><span class="kw">pub </span>votes_sent: Vec&lt;QuorumVote&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>votes_sent: Vec&lt;QuorumVote2&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Shared state with views numbers that leaders were dishonest at
     </span><span class="kw">pub </span>dishonest_proposal_view_numbers: Arc&lt;RwLock&lt;HashSet&lt;TYPES::View&gt;&gt;&gt;,
 }
@@ -836,7 +836,7 @@
                     <span class="comment">// Create a vote using data from most recent vote and the current event number
                     // We wont update internal consensus state for this Byzantine replica but we are at least
                     // Going to send a vote to the next honest leader
-                    </span><span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
+                    </span><span class="kw">let </span>vote = QuorumVote2::&lt;TYPES&gt;::create_signed_vote(
                         <span class="self">self</span>.votes_sent.last().unwrap().data.clone(),
                         event.view_number().unwrap(),
                         public_key,

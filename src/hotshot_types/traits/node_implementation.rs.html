@@ -308,7 +308,7 @@
     ValidatedState,
 };
 <span class="kw">use crate</span>::{
-    data::{Leaf, TestableLeaf},
+    data::{Leaf2, TestableLeaf},
     traits::{
         election::Membership, signature_key::SignatureKey, states::InstanceState, BlockPayload,
     },
@@ -360,7 +360,7 @@
     /// otherwise panics
     /// `padding` is the bytes of padding to add to the transaction
     </span><span class="kw">fn </span>leaf_create_random_transaction(
-        leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction;
@@ -399,11 +399,11 @@
     }
 
     <span class="kw">fn </span>leaf_create_random_transaction(
-        leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Transaction {
-        Leaf::create_random_transaction(leaf, rng, padding)
+        Leaf2::create_random_transaction(leaf, rng, padding)
     }
 
     <span class="kw">fn </span>block_genesis() -&gt; TYPES::BlockPayload {

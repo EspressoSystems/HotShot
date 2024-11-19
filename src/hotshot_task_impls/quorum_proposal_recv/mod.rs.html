@@ -211,6 +211,7 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -221,11 +222,6 @@
 
 </span><span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
 
-<span class="kw">use </span><span class="self">self</span>::handlers::handle_quorum_proposal_recv;
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, ProposalMissing},
-    helpers::{broadcast_event, fetch_proposal},
-};
 <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
@@ -248,6 +244,12 @@
 <span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 <span class="kw">use </span>utils::anytrace::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>vbs::version::Version;
+
+<span class="kw">use </span><span class="self">self</span>::handlers::handle_quorum_proposal_recv;
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, ProposalMissing},
+    helpers::{broadcast_event, fetch_proposal, parent_leaf_and_state},
+};
 <span class="doccomment">/// Event handlers for this task.
 </span><span class="kw">mod </span>handlers;
 

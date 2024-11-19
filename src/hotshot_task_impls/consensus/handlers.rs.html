@@ -351,7 +351,7 @@
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>hotshot_types::{
     event::{Event, EventType},
-    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote2, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -361,13 +361,13 @@
 <span class="kw">use </span>tokio::{spawn, time::sleep};
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use </span><span class="kw">super</span>::ConsensusTaskState;
 <span class="kw">use crate</span>::{
     consensus::Versions, events::HotShotEvent, helpers::broadcast_event,
     vote_collection::handle_vote,
 };
-<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="doccomment">/// Handle a `QuorumVoteRecv` event.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_vote_recv&lt;
@@ -375,7 +375,7 @@
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    vote: <span class="kw-2">&amp;</span>QuorumVote&lt;TYPES&gt;,
+    vote: <span class="kw-2">&amp;</span>QuorumVote2&lt;TYPES&gt;,
     event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,

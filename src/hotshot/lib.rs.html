@@ -1058,6 +1058,27 @@
 <a href="#1058" id="1058">1058</a>
 <a href="#1059" id="1059">1059</a>
 <a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1071,6 +1092,7 @@
 </span><span class="attr">#[cfg(feature = <span class="string">"docs"</span>)]
 </span><span class="kw">pub mod </span>documentation;
 
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::future::{select, Either};
 <span class="kw">use </span>hotshot_types::{
     message::UpgradeLock,
@@ -1108,10 +1130,10 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
-    data::{Leaf, QuorumProposal},
+    data::{Leaf, Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
-    message::{DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
+    simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -1119,6 +1141,7 @@
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         states::ValidatedState,
+        storage::Storage,
         EncodeBytes,
     },
     HotShotConfig,
@@ -1198,7 +1221,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) external_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// Anchored leaf provided by the initializer.
-    </span>anchored_leaf: Leaf&lt;TYPES&gt;,
+    </span>anchored_leaf: Leaf2&lt;TYPES&gt;,
 
     <span class="doccomment">/// access to the internal event stream, in case we need to, say, shut something down
     </span><span class="attr">#[allow(clippy::type_complexity)]
@@ -1255,6 +1278,10 @@
     /// well.
     ///
     /// Use this instead of `init` if you want to start the tasks manually
+    ///
+    /// # Panics
+    ///
+    /// Panics if storage migration fails.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>new(
         public_key: TYPES::SignatureKey,
@@ -1268,6 +1295,20 @@
         storage: I::Storage,
         marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,
     ) -&gt; Arc&lt;<span class="self">Self</span>&gt; {
+        <span class="attr">#[allow(clippy::panic)]
+        </span><span class="kw">match </span>storage
+            .migrate_consensus(
+                Into::&lt;Leaf2&lt;TYPES&gt;&gt;::into,
+                convert_proposal::&lt;TYPES, QuorumProposal&lt;TYPES&gt;, QuorumProposal2&lt;TYPES&gt;&gt;,
+            )
+            .<span class="kw">await
+        </span>{
+            <span class="prelude-val">Ok</span>(()) =&gt; {}
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">panic!</span>(<span class="string">"Failed to migrate consensus storage: {e}"</span>);
+            }
+        }
+
         <span class="kw">let </span>interal_chan = broadcast(EVENT_CHANNEL_SIZE);
         <span class="kw">let </span>external_chan = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
 
@@ -1285,8 +1326,7 @@
             interal_chan,
             external_chan,
         )
-        .<span class="kw">await
-    </span>}
+    }
 
     <span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options.
     ///
@@ -1296,7 +1336,7 @@
     /// Use this function if you want to use some prexisting channels and to spin up the tasks
     /// and start consensus manually.  Mostly useful for tests
     </span><span class="attr">#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-    </span><span class="kw">pub async fn </span>new_from_channels(
+    </span><span class="kw">pub fn </span>new_from_channels(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
@@ -1347,7 +1387,7 @@
             anchored_leaf.view_number(),
             View {
                 view_inner: ViewInner::Leaf {
-                    leaf: anchored_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
+                    leaf: anchored_leaf.commit(),
                     state: Arc::clone(<span class="kw-2">&amp;</span>validated_state),
                     delta: initializer.state_delta.clone(),
                 },
@@ -1359,13 +1399,10 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>saved_leaves = HashMap::new();
         <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = BTreeMap::new();
-        saved_leaves.insert(
-            anchored_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
-            anchored_leaf.clone(),
-        );
+        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
         <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leafs {
-            saved_leaves.insert(leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>, leaf.clone());
+            saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.block_payload() {
             <span class="kw">let </span>encoded_txns = payload.encode();
@@ -1425,7 +1462,7 @@
         inner
     }
 
-    <span class="doccomment">/// "Starts" consensus by sending a `QcFormed`, `ViewChange` events
+    <span class="doccomment">/// "Starts" consensus by sending a `Qc2Formed`, `ViewChange` events
     ///
     /// # Panics
     /// Panics if sending genesis fails
@@ -1472,13 +1509,13 @@
         <span class="attr">#[allow(clippy::panic)]
         </span><span class="self">self</span>.internal_event_stream
             .<span class="number">0
-            </span>.broadcast_direct(Arc::new(HotShotEvent::QcFormed(either::Left(
+            </span>.broadcast_direct(Arc::new(HotShotEvent::Qc2Formed(either::Left(
                 consensus.high_qc().clone(),
             ))))
             .<span class="kw">await
             </span>.unwrap_or_else(|<span class="kw">_</span>| {
                 <span class="macro">panic!</span>(
-                    <span class="string">"Genesis Broadcast failed; event = QcFormed(either::Left({:?}))"</span>,
+                    <span class="string">"Genesis Broadcast failed; event = Qc2Formed(either::Left({:?}))"</span>,
                     consensus.high_qc()
                 )
             });
@@ -1492,7 +1529,8 @@
 
                 <span class="kw">let </span>qc = Arc::new(
                     QuorumCertificate::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="self">self</span>.instance_state.as_ref())
-                        .<span class="kw">await</span>,
+                        .<span class="kw">await
+                        </span>.to_qc2(),
                 );
 
                 broadcast_event(
@@ -1592,7 +1630,7 @@
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
-    </span><span class="kw">pub async fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
+    </span><span class="kw">pub async fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf2&lt;TYPES&gt; {
         <span class="self">self</span>.consensus.read().<span class="kw">await</span>.decided_leaf()
     }
 
@@ -1603,7 +1641,7 @@
     /// Panics if internal state for consensus is inconsistent
     </span><span class="attr">#[must_use]
     #[instrument(skip_all, target = <span class="string">"SystemContext"</span>, fields(id = <span class="self">self</span>.id))]
-    </span><span class="kw">pub fn </span>try_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>try_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf2&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.consensus.try_read().map(|guard| guard.decided_leaf())
     }
 
@@ -2017,7 +2055,7 @@
 </span><span class="doccomment">/// initializer struct for creating starting block
 </span><span class="kw">pub struct </span>HotShotInitializer&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// the leaf specified initialization
-    </span>inner: Leaf&lt;TYPES&gt;,
+    </span>inner: Leaf2&lt;TYPES&gt;,
 
     <span class="doccomment">/// Instance-level state.
     </span>instance_state: TYPES::InstanceState,
@@ -2043,16 +2081,16 @@
     <span class="doccomment">/// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
-    </span>high_qc: QuorumCertificate&lt;TYPES&gt;,
+    </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
     <span class="doccomment">/// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Undecided leafs that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
-    </span>undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
+    </span>undecided_leafs: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Not yet decided state
     </span>undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
-    </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotInitializer&lt;TYPES&gt; {
@@ -2063,10 +2101,14 @@
         instance_state: TYPES::InstanceState,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
-        <span class="kw">let </span>high_qc = QuorumCertificate::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>;
+        <span class="kw">let </span>high_qc = QuorumCertificate::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state)
+            .<span class="kw">await
+            </span>.to_qc2();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            inner: Leaf::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
+            inner: Leaf::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state)
+                .<span class="kw">await
+                </span>.into(),
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::View::new(<span class="number">0</span>),
@@ -2090,16 +2132,16 @@
     ///     `SystemContext`.
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>from_reload(
-        anchor_leaf: Leaf&lt;TYPES&gt;,
+        anchor_leaf: Leaf2&lt;TYPES&gt;,
         instance_state: TYPES::InstanceState,
         validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
         start_view: TYPES::View,
         start_epoch: TYPES::Epoch,
         actioned_view: TYPES::View,
-        saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
-        high_qc: QuorumCertificate&lt;TYPES&gt;,
+        saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
+        high_qc: QuorumCertificate2&lt;TYPES&gt;,
         decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-        undecided_leafs: Vec&lt;Leaf&lt;TYPES&gt;&gt;,
+        undecided_leafs: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
         undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{

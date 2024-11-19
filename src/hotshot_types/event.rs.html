@@ -201,6 +201,7 @@
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -214,10 +215,10 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
-    data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    data::{DaProposal, Leaf2, QuorumProposal2, UpgradeProposal, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
-    simple_certificate::QuorumCertificate,
+    simple_certificate::QuorumCertificate2,
     traits::{node_implementation::NodeType, ValidatedState},
 };
 <span class="doccomment">/// A status event emitted by a `HotShot` instance
@@ -238,7 +239,7 @@
 #[serde(bound(deserialize = <span class="string">"TYPES: NodeType"</span>))]
 </span><span class="kw">pub struct </span>LeafInfo&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Decided leaf.
-    </span><span class="kw">pub </span>leaf: Leaf&lt;TYPES&gt;,
+    </span><span class="kw">pub </span>leaf: Leaf2&lt;TYPES&gt;,
     <span class="doccomment">/// Validated state.
     </span><span class="kw">pub </span>state: Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;,
     <span class="doccomment">/// Optional application-specific state delta.
@@ -250,7 +251,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; LeafInfo&lt;TYPES&gt; {
     <span class="doccomment">/// Constructor.
     </span><span class="kw">pub fn </span>new(
-        leaf: Leaf&lt;TYPES&gt;,
+        leaf: Leaf2&lt;TYPES&gt;,
         state: Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;,
         delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
         vid_share: <span class="prelude-ty">Option</span>&lt;VidDisperseShare&lt;TYPES&gt;&gt;,
@@ -303,6 +304,7 @@
 </span><span class="attr">#[non_exhaustive]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound(deserialize = <span class="string">"TYPES: NodeType"</span>))]
+#[allow(clippy::large_enum_variant)]
 </span><span class="kw">pub enum </span>EventType&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// A view encountered an error and was interrupted
     </span>Error {
@@ -324,7 +326,7 @@
         ///
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
         /// before it using
-        </span>qc: Arc&lt;QuorumCertificate&lt;TYPES&gt;&gt;,
+        </span>qc: Arc&lt;QuorumCertificate2&lt;TYPES&gt;&gt;,
         <span class="doccomment">/// Optional information of the number of transactions in the block, for logging purposes.
         </span>block_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     },
@@ -361,7 +363,7 @@
     /// or submitted to the network by us
     </span>QuorumProposal {
         <span class="doccomment">/// Contents of the proposal
-        </span>proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+        </span>proposal: Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
         <span class="doccomment">/// Public key of the leader submitting the proposal
         </span>sender: TYPES::SignatureKey,
     },

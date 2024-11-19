@@ -583,7 +583,7 @@
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -657,7 +657,7 @@
     </span><span class="kw">pub </span>epoch_height: u64,
 
     <span class="doccomment">/// The higest_qc we've seen at the start of this task
-    </span><span class="kw">pub </span>highest_qc: QuorumCertificate&lt;TYPES&gt;,
+    </span><span class="kw">pub </span>highest_qc: QuorumCertificate2&lt;TYPES&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;
@@ -677,14 +677,14 @@
                 <span class="kw">let </span>event = event.as_ref();
                 <span class="kw">let </span>event_view = <span class="kw">match </span>dependency_type {
                     ProposalDependency::Qc =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::QcFormed(either::Left(qc)) = event {
+                        <span class="kw">if let </span>HotShotEvent::Qc2Formed(either::Left(qc)) = event {
                             qc.view_number() + <span class="number">1
                         </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
                     }
                     ProposalDependency::TimeoutCert =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::QcFormed(either::Right(timeout)) = event {
+                        <span class="kw">if let </span>HotShotEvent::Qc2Formed(either::Right(timeout)) = event {
                             timeout.view_number() + <span class="number">1
                         </span>} <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
@@ -791,7 +791,7 @@
             HotShotEvent::QuorumProposalPreliminarilyValidated(..) =&gt; {
                 proposal_dependency.mark_as_completed(event);
             }
-            HotShotEvent::QcFormed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
+            HotShotEvent::Qc2Formed(quorum_certificate) =&gt; <span class="kw">match </span>quorum_certificate {
                 Either::Right(<span class="kw">_</span>) =&gt; {
                     timeout_dependency.mark_as_completed(event);
                 }
@@ -815,7 +815,7 @@
             <span class="comment">// 2. A view sync cert was received.
             </span>AndDependency::from_deps(<span class="macro">vec!</span>[view_sync_dependency]),
         ];
-        <span class="comment">// 3. A `QcFormed`` event (and `QuorumProposalRecv` event)
+        <span class="comment">// 3. A `Qc2Formed`` event (and `QuorumProposalRecv` event)
         </span><span class="kw">if </span><span class="kw-2">*</span>view_number &gt; <span class="number">1 </span>{
             secondary_deps.push(AndDependency::from_deps(<span class="macro">vec!</span>[
                 qc_dependency,
@@ -945,7 +945,7 @@
                     <span class="self">self</span>.formed_upgrade_certificate = <span class="prelude-val">Some</span>(cert.clone());
                 }
             }
-            HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert.clone() {
+            HotShotEvent::Qc2Formed(cert) =&gt; <span class="kw">match </span>cert.clone() {
                 either::Right(timeout_cert) =&gt; {
                     <span class="kw">let </span>view_number = timeout_cert.view_number + <span class="number">1</span>;
                     <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
@@ -977,7 +977,7 @@
                     </span><span class="self">self</span>.storage
                         .write()
                         .<span class="kw">await
-                        </span>.update_high_qc(qc.clone())
+                        </span>.update_high_qc2(qc.clone())
                         .<span class="kw">await
                         </span>.wrap()
                         .context(<span class="macro">error!</span>(<span class="string">"Failed to update high QC in storage!"</span>))<span class="question-mark">?</span>;

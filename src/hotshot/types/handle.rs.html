@@ -373,9 +373,6 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -398,7 +395,7 @@
 <span class="kw">use </span>hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 <span class="kw">use </span>hotshot_types::{
     consensus::Consensus,
-    data::{Leaf, QuorumProposal},
+    data::{Leaf2, QuorumProposal2},
     error::HotShotError,
     message::{Message, MessageKind, Proposal, RecipientList},
     request_response::ProposalRequestPayload,
@@ -519,8 +516,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::View,
         epoch: TYPES::Epoch,
-        leaf_commitment: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;&gt;&gt; {
+        leaf_commitment: Commitment&lt;Leaf2&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;&gt;&gt;
+    {
         <span class="comment">// We need to be able to sign this request before submitting it to the network. Compute the
         // payload first.
         </span><span class="kw">let </span>signed_proposal_request = ProposalRequestPayload {
@@ -535,7 +533,6 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>mem = <span class="self">self</span>.memberships.quorum_membership.clone();
-        <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.hotshot.upgrade_lock.clone();
         <span class="kw">let </span>receiver = <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned();
         <span class="kw">let </span>sender = <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone();
         <span class="prelude-val">Ok</span>(<span class="kw">async move </span>{
@@ -566,15 +563,12 @@
                 </span><span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     <span class="comment">// Make sure that the quorum_proposal is valid
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = quorum_proposal
-                        .validate_signature(<span class="kw-2">&amp;</span>mem, epoch, <span class="kw-2">&amp;</span>upgrade_lock)
-                        .<span class="kw">await
-                    </span>{
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem, epoch) {
                         <span class="macro">tracing::warn!</span>(<span class="string">"Invalid Proposal Received after Request.  Err {:?}"</span>, err);
                         <span class="kw">continue</span>;
                     }
-                    <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
-                    <span class="kw">let </span>commit = proposed_leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>;
+                    <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
+                    <span class="kw">let </span>commit = proposed_leaf.commit();
                     <span class="kw">if </span>commit == leaf_commitment {
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(quorum_proposal.clone());
                     }
@@ -633,7 +627,7 @@
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
-    </span><span class="kw">pub async fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
+    </span><span class="kw">pub async fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf2&lt;TYPES&gt; {
         <span class="self">self</span>.hotshot.decided_leaf().<span class="kw">await
     </span>}
 
@@ -643,7 +637,7 @@
     /// # Panics
     /// Panics if internal consensus is in an inconsistent state.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>try_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>try_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf2&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.hotshot.try_decided_leaf()
     }
 

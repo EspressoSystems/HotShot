@@ -347,9 +347,6 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -361,12 +358,13 @@
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>chrono::Utc;
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, QuorumProposal, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperseShare},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
-    simple_vote::{QuorumData, QuorumVote},
+    simple_vote::{QuorumData2, QuorumVote2},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -397,7 +395,7 @@
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    proposal: <span class="kw-2">&amp;</span>QuorumProposal&lt;TYPES&gt;,
+    proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>version = task_state
@@ -524,7 +522,7 @@
     view_number: TYPES::View,
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
     storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
-    proposed_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+    proposed_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
     vid_share: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     parent_view_number: <span class="prelude-ty">Option</span>&lt;TYPES::View&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -611,15 +609,11 @@
     <span class="comment">// Now that we've rounded everyone up, we need to update the shared state
     </span><span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
 
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer
-        .update_leaf(
-            proposed_leaf.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span>state),
-            <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
-            <span class="kw-2">&amp;</span>upgrade_lock,
-        )
-        .<span class="kw">await
-    </span>{
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_leaf(
+        proposed_leaf.clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>state),
+        <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>delta)),
+    ) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
 
@@ -632,7 +626,7 @@
     </span>storage
         .write()
         .<span class="kw">await
-        </span>.update_undecided_state(new_leaves, new_state)
+        </span>.update_undecided_state2(new_leaves, new_state)
         .<span class="kw">await
         </span>.wrap()
         .context(<span class="macro">error!</span>(<span class="string">"Failed to update undecided state"</span>))<span class="question-mark">?</span>;
@@ -652,7 +646,7 @@
     view_number: TYPES::View,
     epoch_number: TYPES::Epoch,
     storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
-    leaf: Leaf&lt;TYPES&gt;,
+    leaf: Leaf2&lt;TYPES&gt;,
     vid_share: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     extended_vote: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -665,9 +659,9 @@
     );
 
     <span class="comment">// Create and send the vote.
-    </span><span class="kw">let </span>vote = QuorumVote::&lt;TYPES&gt;::create_signed_vote(
-        QuorumData {
-            leaf_commit: leaf.commit(<span class="kw-2">&amp;</span>upgrade_lock).<span class="kw">await</span>,
+    </span><span class="kw">let </span>vote = QuorumVote2::&lt;TYPES&gt;::create_signed_vote(
+        QuorumData2 {
+            leaf_commit: leaf.commit(),
         },
         view_number,
         <span class="kw-2">&amp;</span>public_key,

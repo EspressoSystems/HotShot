@@ -123,7 +123,7 @@
 
 <span class="kw">use </span><span class="kw">super</span>::block_contents::TestableBlock;
 <span class="kw">use crate</span>::{
-    data::Leaf,
+    data::Leaf2,
     traits::{
         node_implementation::{ConsensusTime, NodeType},
         BlockPayload,
@@ -175,7 +175,7 @@
     </span><span class="kw">fn </span>validate_and_apply_header(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
-        parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
         vid_common: VidCommon,
         version: Version,

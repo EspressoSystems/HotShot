@@ -175,8 +175,8 @@
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate, TimeoutCertificate},
-    simple_vote::{QuorumVote, TimeoutVote},
+    simple_certificate::{QuorumCertificate2, TimeoutCertificate},
+    simple_vote::{QuorumVote2, TimeoutVote},
     traits::{
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -218,7 +218,7 @@
     </span><span class="kw">pub </span>committee_membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// A map of `QuorumVote` collector tasks.
-    </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, QuorumVote&lt;TYPES&gt;, QuorumCertificate&lt;TYPES&gt;, V&gt;,
+    </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, QuorumVote2&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;, V&gt;,
 
     <span class="doccomment">/// A map of `TimeoutVote` collector tasks.
     </span><span class="kw">pub </span>timeout_vote_collectors:

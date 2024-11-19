@@ -165,7 +165,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>hotshot_types::{
-    data::{fake_commitment, BlockError, Leaf, ViewNumber},
+    data::{fake_commitment, BlockError, Leaf2, ViewNumber},
     traits::{
         block_contents::BlockHeader,
         node_implementation::NodeType,
@@ -258,7 +258,7 @@
     <span class="kw">async fn </span>validate_and_apply_header(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         instance: <span class="kw-2">&amp;</span><span class="self">Self</span>::Instance,
-        _parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        _parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         _proposed_header: <span class="kw-2">&amp;</span>TYPES::BlockHeader,
         _vid_common: VidCommon,
         _version: Version,

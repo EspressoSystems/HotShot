@@ -248,7 +248,7 @@
 <span class="kw">use </span>typenum::Unsigned;
 
 <span class="kw">use crate</span>::{
-    data::Leaf,
+    data::Leaf2,
     traits::{node_implementation::NodeType, ValidatedState},
     vid::VidCommitment,
 };
@@ -294,7 +294,7 @@
     }
 }
 <span class="doccomment">/// The hash of a leaf.
-</span><span class="kw">pub type </span>LeafCommitment&lt;TYPES&gt; = Commitment&lt;Leaf&lt;TYPES&gt;&gt;;
+</span><span class="kw">pub type </span>LeafCommitment&lt;TYPES&gt; = Commitment&lt;Leaf2&lt;TYPES&gt;&gt;;
 
 <span class="doccomment">/// Optional validated state and state delta.
 </span><span class="kw">pub type </span>StateAndDelta&lt;TYPES&gt; = (

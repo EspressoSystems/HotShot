@@ -430,6 +430,7 @@
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -445,20 +446,16 @@
     time::{Duration, Instant},
 };
 
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::dependency_task::HandleDepOutput;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
         node_implementation::{ConsensusTime, NodeType},
@@ -470,19 +467,25 @@
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
+
 <span class="doccomment">/// Proposal dependency types. These types represent events that precipitate a proposal.
 </span><span class="attr">#[derive(PartialEq, Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ProposalDependency {
     <span class="doccomment">/// For the `SendPayloadCommitmentAndMetadata` event.
     </span>PayloadAndMetadata,
 
-    <span class="doccomment">/// For the `QcFormed` event.
+    <span class="doccomment">/// For the `Qc2Formed` event.
     </span>Qc,
 
     <span class="doccomment">/// For the `ViewSyncFinalizeCertificate2Recv` event.
     </span>ViewSyncCert,
 
-    <span class="doccomment">/// For the `QcFormed` event timeout branch.
+    <span class="doccomment">/// For the `Qc2Formed` event timeout branch.
     </span>TimeoutCert,
 
     <span class="doccomment">/// For the `QuroumProposalRecv` event.
@@ -541,15 +544,15 @@
     </span><span class="kw">pub </span>view_start_time: Instant,
 
     <span class="doccomment">/// The higest_qc we've seen at the start of this task
-    </span><span class="kw">pub </span>highest_qc: QuorumCertificate&lt;TYPES&gt;,
+    </span><span class="kw">pub </span>highest_qc: QuorumCertificate2&lt;TYPES&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; ProposalDependencyHandle&lt;TYPES, V&gt; {
-    <span class="doccomment">/// Return the next HighQC we get from the event stream
+    <span class="doccomment">/// Return the next HighQc we get from the event stream
     </span><span class="kw">async fn </span>wait_for_qc_event(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rx: <span class="kw-2">&amp;mut </span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;QuorumCertificate&lt;TYPES&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;QuorumCertificate2&lt;TYPES&gt;&gt; {
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(event) = rx.recv_direct().<span class="kw">await </span>{
             <span class="kw">if let </span>HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
                 <span class="kw">if </span>qc
@@ -566,7 +569,7 @@
         }
         <span class="prelude-val">None
     </span>}
-    <span class="doccomment">/// Waits for the ocnfigured timeout for nodes to send HighQC messages to us.  We'll
+    <span class="doccomment">/// Waits for the ocnfigured timeout for nodes to send HighQc messages to us.  We'll
     /// then propose with the higest QC from among these proposals.
     </span><span class="kw">async fn </span>wait_for_highest_qc(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="macro">tracing::error!</span>(<span class="string">"waiting for QC"</span>);
@@ -620,7 +623,7 @@
         view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
         formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
-        parent_qc: QuorumCertificate&lt;TYPES&gt;,
+        parent_qc: QuorumCertificate2&lt;TYPES&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
             <span class="self">self</span>.view_number,
@@ -725,23 +728,22 @@
         <span class="kw">let </span>proposal = QuorumProposal {
             block_header,
             view_number: <span class="self">self</span>.view_number,
-            justify_qc: parent_qc,
+            justify_qc: parent_qc.to_qc(),
             upgrade_certificate,
             proposal_certificate,
-        };
+        }
+        .into();
 
-        <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
+        <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
         <span class="macro">ensure!</span>(
-            proposed_leaf.parent_commitment() == parent_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>,
+            proposed_leaf.parent_commitment() == parent_leaf.commit(),
             <span class="string">"Proposed leaf parent does not equal high qc"
         </span>);
 
-        <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            proposed_leaf.commit(<span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock).<span class="kw">await</span>.as_ref(),
-        )
-        .wrap()
-        .context(<span class="macro">error!</span>(<span class="string">"Failed to compute proposed_leaf.commit()"</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>signature =
+            TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, proposed_leaf.commit().as_ref())
+                .wrap()
+                .context(<span class="macro">error!</span>(<span class="string">"Failed to compute proposed_leaf.commit()"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>message = Proposal {
             data: proposal,
@@ -795,7 +797,7 @@
                         auction_result: auction_result.clone(),
                     });
                 }
-                HotShotEvent::QcFormed(cert) =&gt; <span class="kw">match </span>cert {
+                HotShotEvent::Qc2Formed(cert) =&gt; <span class="kw">match </span>cert {
                     either::Right(timeout) =&gt; {
                         timeout_certificate = <span class="prelude-val">Some</span>(timeout.clone());
                     }

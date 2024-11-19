@@ -1031,10 +1031,6 @@
 <a href="#1031" id="1031">1031</a>
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
-<a href="#1034" id="1034">1034</a>
-<a href="#1035" id="1035">1035</a>
-<a href="#1036" id="1036">1036</a>
-<a href="#1037" id="1037">1037</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1058,15 +1054,15 @@
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
-    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
-    message::{Proposal, UpgradeLock},
-    simple_certificate::{DaCertificate, QuorumCertificate},
+    message::Proposal,
+    simple_certificate::{DaCertificate, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -1328,7 +1324,7 @@
 
     <span class="doccomment">/// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
-    </span>last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
+    </span>last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// last view had a successful decide event
     </span>last_decided_view: TYPES::View,
@@ -1339,7 +1335,7 @@
     <span class="doccomment">/// Map of leaf hash -&gt; leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    </span>saved_leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
+    </span>saved_leaves: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Bundle of views which we performed the most recent action
     /// visibible to the network.  Actions are votes and proposals
@@ -1352,7 +1348,7 @@
     </span>saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
 
     <span class="doccomment">/// the highqc per spec
-    </span>high_qc: QuorumCertificate&lt;TYPES&gt;,
+    </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
 
     <span class="doccomment">/// A reference to the metrics trait
     </span><span class="kw">pub </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
@@ -1442,10 +1438,10 @@
         locked_view: TYPES::View,
         last_decided_view: TYPES::View,
         last_actioned_view: TYPES::View,
-        last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
-        saved_leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
+        last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
+        saved_leaves: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
         saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
-        high_qc: QuorumCertificate&lt;TYPES&gt;,
+        high_qc: QuorumCertificate2&lt;TYPES&gt;,
         metrics: Arc&lt;ConsensusMetricsValue&gt;,
         epoch_height: u64,
     ) -&gt; <span class="self">Self </span>{
@@ -1488,7 +1484,7 @@
     }
 
     <span class="doccomment">/// Get the high QC.
-    </span><span class="kw">pub fn </span>high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>QuorumCertificate2&lt;TYPES&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.high_qc
     }
 
@@ -1498,7 +1494,7 @@
     }
 
     <span class="doccomment">/// Get the saved leaves.
-    </span><span class="kw">pub fn </span>saved_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>saved_leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.saved_leaves
     }
 
@@ -1518,7 +1514,9 @@
     }
 
     <span class="doccomment">/// Get the map of our recent proposals
-    </span><span class="kw">pub fn </span>last_proposals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt; {
+    </span><span class="kw">pub fn </span>last_proposals(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.last_proposals
     }
 
@@ -1538,7 +1536,7 @@
     /// Returns None if we don't have the data in out state
     </span><span class="kw">pub fn </span>parent_leaf_info(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+        leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;LeafInfo&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>parent_view_number = leaf.justify_qc().view_number();
@@ -1615,7 +1613,7 @@
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
     </span><span class="kw">pub fn </span>update_proposed_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        proposal: Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+        proposal: Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             proposal.data.view_number()
@@ -1677,23 +1675,22 @@
     /// # Errors
     /// Can return an error when the new view contains less information than the exisiting view
     /// with the same view number.
-    </span><span class="kw">pub async fn </span>update_leaf&lt;V: Versions&gt;(
+    </span><span class="kw">pub fn </span>update_leaf(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        leaf: Leaf&lt;TYPES&gt;,
+        leaf: Leaf2&lt;TYPES&gt;,
         state: Arc&lt;TYPES::ValidatedState&gt;,
         delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
-        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view_number = leaf.view_number();
         <span class="kw">let </span>view = View {
             view_inner: ViewInner::Leaf {
-                leaf: leaf.commit(upgrade_lock).<span class="kw">await</span>,
+                leaf: leaf.commit(),
                 state,
                 delta,
             },
         };
         <span class="self">self</span>.update_validated_state_map(view_number, view)<span class="question-mark">?</span>;
-        <span class="self">self</span>.update_saved_leaves(leaf, upgrade_lock).<span class="kw">await</span>;
+        <span class="self">self</span>.update_saved_leaves(leaf);
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -1732,13 +1729,8 @@
     }
 
     <span class="doccomment">/// Update the saved leaves with a new leaf.
-    </span><span class="kw">async fn </span>update_saved_leaves&lt;V: Versions&gt;(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        leaf: Leaf&lt;TYPES&gt;,
-        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
-    ) {
-        <span class="self">self</span>.saved_leaves
-            .insert(leaf.commit(upgrade_lock).<span class="kw">await</span>, leaf);
+    </span><span class="kw">fn </span>update_saved_leaves(<span class="kw-2">&amp;mut </span><span class="self">self</span>, leaf: Leaf2&lt;TYPES&gt;) {
+        <span class="self">self</span>.saved_leaves.insert(leaf.commit(), leaf);
     }
 
     <span class="doccomment">/// Update the saved payloads with a new encoded transaction.
@@ -1761,7 +1753,7 @@
     <span class="doccomment">/// Update the high QC if given a newer one.
     /// # Errors
     /// Can return an error when the provided high_qc is not newer than the existing entry.
-    </span><span class="kw">pub fn </span>update_high_qc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>update_high_qc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, high_qc: QuorumCertificate2&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             high_qc.view_number &gt; <span class="self">self</span>.high_qc.view_number || high_qc == <span class="self">self</span>.high_qc,
             <span class="macro">debug!</span>(<span class="string">"High QC with an equal or higher view exists."</span>)
@@ -1801,7 +1793,7 @@
     ) -&gt; std::result::Result&lt;(), HotShotError&lt;TYPES&gt;&gt;
     <span class="kw">where
         </span>F: FnMut(
-            <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;,
+            <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
             Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;,
             <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
         ) -&gt; bool,
@@ -1888,7 +1880,7 @@
     /// if the last decided view's leaf does not exist in the state map or saved leaves, which
     /// should never happen.
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf2&lt;TYPES&gt; {
         <span class="kw">let </span>decided_view_num = <span class="self">self</span>.last_decided_view;
         <span class="kw">let </span>view = <span class="self">self</span>.validated_state_map.get(<span class="kw-2">&amp;</span>decided_view_num).unwrap();
         <span class="kw">let </span>leaf = view
@@ -1955,7 +1947,7 @@
 
     <span class="doccomment">/// Return true if the QC takes part in forming an eQC, i.e.
     /// it is one of the 3-chain certificates but not the eQC itself
-    </span><span class="kw">pub fn </span>is_qc_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
+    </span><span class="kw">pub fn </span>is_qc_forming_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span>QuorumCertificate2&lt;TYPES&gt;) -&gt; bool {
         <span class="kw">let </span>high_qc_leaf_commit = qc.data.leaf_commit;
         <span class="kw">let </span>is_high_qc_extended = <span class="self">self</span>.is_leaf_extended(high_qc_leaf_commit);
         <span class="kw">if </span>is_high_qc_extended {
@@ -2044,14 +2036,14 @@
     }
 
     <span class="doccomment">/// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`
-    </span><span class="kw">pub fn </span>check_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>, proposed_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;, parent_leaf: <span class="kw-2">&amp;</span>Leaf&lt;TYPES&gt;) -&gt; bool {
+    </span><span class="kw">pub fn </span>check_eqc(<span class="kw-2">&amp;</span><span class="self">self</span>, proposed_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;, parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;) -&gt; bool {
         <span class="kw">if </span>parent_leaf.view_number() == TYPES::View::genesis() {
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
         <span class="kw">let </span>new_epoch = epoch_from_block_number(proposed_leaf.height(), <span class="self">self</span>.epoch_height);
         <span class="kw">let </span>old_epoch = epoch_from_block_number(parent_leaf.height(), <span class="self">self</span>.epoch_height);
-        <span class="kw">let </span>parent_leaf_commit = &lt;Leaf&lt;TYPES&gt; <span class="kw">as </span>Committable&gt;::commit(parent_leaf);
-        new_epoch - <span class="number">1 </span>== old_epoch &amp;&amp; <span class="self">self</span>.is_leaf_extended(parent_leaf_commit)
+
+        new_epoch - <span class="number">1 </span>== old_epoch &amp;&amp; <span class="self">self</span>.is_leaf_extended(parent_leaf.commit())
     }
 }
 

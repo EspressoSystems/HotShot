@@ -281,9 +281,6 @@
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -297,13 +294,13 @@
 <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>hotshot_types::traits::block_contents::BlockHeader;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, QuorumProposal},
+    data::{Leaf2, QuorumProposal, QuorumProposal2},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
@@ -316,6 +313,7 @@
 <span class="kw">use </span>tokio::spawn;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use super</span>::{QuorumProposalRecvTaskState, ValidationInfo};
 <span class="kw">use crate</span>::{
@@ -326,25 +324,21 @@
     },
     quorum_proposal_recv::{UpgradeLock, Versions},
 };
-<span class="kw">use </span>vbs::version::StaticVersionType;
 <span class="doccomment">/// Update states in the event that the parent state is not found for a given `proposal`.
 </span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">async fn </span>validate_proposal_liveness&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
-    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
     validation_info: <span class="kw-2">&amp;</span>ValidationInfo&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = validation_info.consensus.write().<span class="kw">await</span>;
 
-    <span class="kw">let </span>leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
+    <span class="kw">let </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
 
     <span class="kw">let </span>state = Arc::new(
         &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header),
     );
 
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer
-        .update_leaf(leaf.clone(), state, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>validation_info.upgrade_lock)
-        .<span class="kw">await
-    </span>{
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_leaf(leaf.clone(), state, <span class="prelude-val">None</span>) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
     }
 
@@ -352,7 +346,7 @@
         .storage
         .write()
         .<span class="kw">await
-        </span>.update_undecided_state(
+        </span>.update_undecided_state2(
             consensus_writer.saved_leaves().clone(),
             consensus_writer.validated_state_map().clone(),
         )
@@ -426,7 +420,7 @@
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
+    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
     quorum_proposal_sender_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -504,7 +498,7 @@
             .storage
             .write()
             .<span class="kw">await
-            </span>.update_high_qc(justify_qc.clone())
+            </span>.update_high_qc2(justify_qc.clone())
             .<span class="kw">await
         </span>{
             <span class="macro">bail!</span>(<span class="string">"Failed to store High QC, not voting; error = {:?}"</span>, e);
