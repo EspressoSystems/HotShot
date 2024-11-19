@@ -6,7 +6,6 @@
 
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use anyhow::{Context, Result};
 use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 use sha2::{Digest, Sha256};
 
@@ -34,41 +33,38 @@ pub fn difficulty_level() -> u64 {
     unimplemented!("Use an arbitrary `DIFFICULTY_LEVEL` for now before we bench the hash time.");
 }
 
-// TODO: Replace `hashes_per_second` parameter with a const once we bench the hash time.
-// <https://github.com/EspressoSystems/HotShot/issues/3880>
-/// Compute the DRB seed result for the leader rotation.
+/// Compute the DRB result for the leader rotation.
 ///
 /// This is to be started two epochs in advance and spawned in a non-blocking thread.
 ///
-/// # Errors
-/// * If failed to serialize the QC signature.
-pub fn compute_drb_seed<TYPES: NodeType>(
-    qc_signature: &<TYPES::SignatureKey as SignatureKey>::QcType,
-) -> Result<[u8; 32]> {
-    // Hash the QC signature.
-    let mut hash = bincode::serialize(&qc_signature)
-        .with_context(|| "Failed to serialize the QC signature.")?;
+/// # Arguments
+/// * `drb_seed_input` - Serialized QC signature.
+#[must_use]
+pub fn compute_drb_result<TYPES: NodeType>(drb_seed_input: [u8; 32]) -> [u8; 32] {
+    let mut hash = drb_seed_input.to_vec();
     for _iter in 0..DIFFICULTY_LEVEL {
         // TODO: This may be optimized to avoid memcopies after we bench the hash time.
         // <https://github.com/EspressoSystems/HotShot/issues/3880>
         hash = Sha256::digest(hash).to_vec();
     }
 
-    // Convert the hash to a seed as the DRB result.
-    let mut seed = [0u8; 32];
-    seed.copy_from_slice(&hash);
-    Ok(seed)
+    // Convert the hash to the DRB result.
+    let mut drb_result = [0u8; 32];
+    drb_result.copy_from_slice(&hash);
+    drb_result
 }
 
-/// Use the DRB seed result to get the leader.
+/// Use the DRB result to get the leader.
+///
+/// The DRB result is the output of a spawned `compute_drb_result` call.
 #[must_use]
 pub fn leader<TYPES: NodeType>(
     view_number: usize,
     stake_table: &[<TYPES::SignatureKey as SignatureKey>::StakeTableEntry],
-    drb_seed: [u8; 32],
+    drb_result: [u8; 32],
 ) -> TYPES::SignatureKey {
     let mut hasher = DefaultHasher::new();
-    drb_seed.hash(&mut hasher);
+    drb_result.hash(&mut hasher);
     view_number.hash(&mut hasher);
     #[allow(clippy::cast_possible_truncation)]
     let index = (hasher.finish() as usize) % stake_table.len();
