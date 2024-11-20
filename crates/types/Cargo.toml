@@ -24,9 +24,9 @@ digest = { workspace = true, features = ["rand_core"] }
 either = { workspace = true }
 primitive-types = { workspace = true }
 futures = { workspace = true }
-cdn-proto = { workspace = true }
 lazy_static = { workspace = true }
 memoize = { workspace = true }
+mnemonic = "1"
 rand = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }

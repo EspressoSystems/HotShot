@@ -16,7 +16,6 @@ use std::{
 };
 
 use async_lock::RwLock;
-use cdn_proto::util::mnemonic;
 use committable::Committable;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -45,6 +44,7 @@ use crate::{
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::mnemonic,
     vote::HasViewNumber,
 };
 
