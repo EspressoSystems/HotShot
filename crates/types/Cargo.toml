@@ -22,7 +22,7 @@ committable = { workspace = true }
 custom_debug = { workspace = true }
 digest = { workspace = true, features = ["rand_core"] }
 either = { workspace = true }
-ethereum-types = { workspace = true }
+primitive-types = { workspace = true }
 futures = { workspace = true }
 cdn-proto = { workspace = true }
 lazy_static = { workspace = true }

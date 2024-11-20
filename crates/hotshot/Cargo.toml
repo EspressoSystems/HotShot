@@ -30,7 +30,7 @@ committable = { workspace = true }
 custom_debug = { workspace = true }
 dashmap = "6"
 either = { workspace = true }
-ethereum-types = { workspace = true }
+primitive-types = { workspace = true }
 futures = { workspace = true }
 hotshot-task = { path = "../task" }
 hotshot-task-impls = { path = "../task-impls", version = "0.5.36", default-features = false }
