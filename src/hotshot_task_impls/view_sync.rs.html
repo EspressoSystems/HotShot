@@ -868,19 +868,6 @@
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
 <a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -909,7 +896,7 @@
     },
     traits::{
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vote::{Certificate, HasViewNumber, Vote},
@@ -945,7 +932,7 @@
 &gt;;
 
 <span class="doccomment">/// Main view sync task state
-</span><span class="kw">pub struct </span>ViewSyncTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
+</span><span class="kw">pub struct </span>ViewSyncTaskState&lt;TYPES: NodeType, V: Versions&gt; {
     <span class="doccomment">/// View HotShot is currently in
     </span><span class="kw">pub </span>cur_view: TYPES::View,
 
@@ -954,9 +941,6 @@
 
     <span class="doccomment">/// Epoch HotShot is currently in
     </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
-
-    <span class="doccomment">/// The underlying network
-    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Membership for the quorum
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
@@ -974,7 +958,7 @@
     </span><span class="kw">pub </span>num_timeouts_tracked: u64,
 
     <span class="doccomment">/// Map of running replica tasks
-    </span><span class="kw">pub </span>replica_task_map: RwLock&lt;HashMap&lt;TYPES::View, ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>replica_task_map: RwLock&lt;HashMap&lt;TYPES::View, ViewSyncReplicaTaskState&lt;TYPES, V&gt;&gt;&gt;,
 
     <span class="doccomment">/// Map of pre-commit vote accumulates for the relay
     </span><span class="kw">pub </span>pre_commit_relay_map: RwLock&lt;
@@ -1001,9 +985,7 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
-    <span class="kw">for </span>ViewSyncTaskState&lt;TYPES, I, V&gt;
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; TaskState <span class="kw">for </span>ViewSyncTaskState&lt;TYPES, V&gt; {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(
@@ -1019,7 +1001,7 @@
 }
 
 <span class="doccomment">/// State of a view sync replica task
-</span><span class="kw">pub struct </span>ViewSyncReplicaTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
+</span><span class="kw">pub struct </span>ViewSyncReplicaTaskState&lt;TYPES: NodeType, V: Versions&gt; {
     <span class="doccomment">/// Timeout for view sync rounds
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
 
@@ -1047,9 +1029,6 @@
     <span class="doccomment">/// Our node id; for logging
     </span><span class="kw">pub </span>id: u64,
 
-    <span class="doccomment">/// The underlying network
-    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
-
     <span class="doccomment">/// Membership for the quorum
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
 
@@ -1064,9 +1043,7 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
-    <span class="kw">for </span>ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; TaskState <span class="kw">for </span>ViewSyncReplicaTaskState&lt;TYPES, V&gt; {
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(
@@ -1083,7 +1060,7 @@
     <span class="kw">fn </span>cancel_subtasks(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; ViewSyncTaskState&lt;TYPES, I, V&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; ViewSyncTaskState&lt;TYPES, V&gt; {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">"View Sync Main Task"</span>, level = <span class="string">"error"</span>)]
     #[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Handles incoming events for the main view sync task
@@ -1119,7 +1096,7 @@
         }
 
         <span class="comment">// We do not have a replica task already running, so start one
-        </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, I, V&gt; = ViewSyncReplicaTaskState {
+        </span><span class="kw">let </span><span class="kw-2">mut </span>replica_state: ViewSyncReplicaTaskState&lt;TYPES, V&gt; = ViewSyncReplicaTaskState {
             cur_view: view,
             next_view: view,
             cur_epoch: <span class="self">self</span>.cur_epoch,
@@ -1128,7 +1105,6 @@
             sent_view_change_event: <span class="bool-val">false</span>,
             timeout_task: <span class="prelude-val">None</span>,
             membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
-            network: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network),
             public_key: <span class="self">self</span>.public_key.clone(),
             private_key: <span class="self">self</span>.private_key.clone(),
             view_sync_timeout: <span class="self">self</span>.view_sync_timeout,
@@ -1406,9 +1382,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;
-    ViewSyncReplicaTaskState&lt;TYPES, I, V&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; ViewSyncReplicaTaskState&lt;TYPES, V&gt; {
     <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"View Sync Replica Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="doccomment">/// Handle incoming events for the view sync replica task
     </span><span class="kw">pub async fn </span>handle(

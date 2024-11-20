@@ -552,16 +552,6 @@
 <a href="#552" id="552">552</a>
 <a href="#553" id="553">553</a>
 <a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -581,7 +571,6 @@
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    event::Event,
     message::UpgradeLock,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -609,17 +598,8 @@
     <span class="doccomment">/// Table for the in-progress proposal dependency tasks.
     </span><span class="kw">pub </span>proposal_dependencies: BTreeMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
 
-    <span class="doccomment">/// The underlying network
-    </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
-
-    <span class="doccomment">/// Output events to application
-    </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
-
     <span class="doccomment">/// Immutable instance state
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
-
-    <span class="doccomment">/// Membership for Timeout votes/certs
-    </span><span class="kw">pub </span>timeout_membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// Membership for Quorum Certs/votes
     </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
