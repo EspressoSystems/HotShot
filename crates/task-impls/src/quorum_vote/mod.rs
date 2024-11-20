@@ -40,6 +40,7 @@ use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
+use hotshot_types::simple_vote::HasEpoch;
 
 /// Event handlers for `QuorumProposalValidated`.
 mod handlers;
@@ -299,6 +300,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         view_number: TYPES::View,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
+        let id = self.id;
         EventDependency::new(
             event_receiver.clone(),
             Box::new(move |event| {
@@ -327,7 +329,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     }
                 };
                 if event_view == view_number {
-                    tracing::trace!("Vote dependency {:?} completed", dependency_type);
+                    tracing::trace!(
+                        "Vote dependency {:?} completed for view {:?}, my id is {:?}",
+                        dependency_type,
+                        view_number,
+                        id,
+                    );
                     return true;
                 }
                 false
@@ -475,10 +482,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     "Received DAC for an older view."
                 );
 
-                let cur_epoch = self.consensus.read().await.cur_epoch();
+                let cert_epoch = cert.data.epoch();
                 // Validate the DAC.
                 ensure!(
-                    cert.is_valid_cert(self.da_membership.as_ref(), cur_epoch, &self.upgrade_lock)
+                    cert.is_valid_cert(self.da_membership.as_ref(), cert_epoch, &self.upgrade_lock)
                         .await,
                     warn!("Invalid DAC")
                 );
@@ -507,7 +514,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = &disperse.data.payload_commitment;
-                let cur_epoch = self.consensus.read().await.cur_epoch();
+                let disperse_epoch = disperse.data.epoch();
 
                 // Check that the signature is valid
                 ensure!(
@@ -518,15 +525,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
                     self.da_membership
-                        .committee_members(view, cur_epoch)
+                        .committee_members(view, disperse_epoch)
                         .contains(sender)
-                        || *sender == self.quorum_membership.leader(view, cur_epoch)?,
+                        || *sender == self.quorum_membership.leader(view, disperse_epoch)?,
                     "VID share was not sent by a DA member or the view leader."
                 );
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                match vid_scheme(self.quorum_membership.total_nodes(cur_epoch)).verify_share(
+                match vid_scheme(self.quorum_membership.total_nodes(disperse_epoch)).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     payload_commitment,

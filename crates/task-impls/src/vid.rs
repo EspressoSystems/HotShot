@@ -9,6 +9,7 @@ use std::{marker::PhantomData, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
+use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare},
@@ -20,7 +21,7 @@ use hotshot_types::{
     },
 };
 use tracing::{debug, error, info, instrument};
-use utils::anytrace::Result;
+use utils::anytrace::{Context, Result};
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -79,11 +80,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 let payload =
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
+                let epoch = self.cur_epoch;
+                if self.membership.leader(*view_number, epoch).ok()? != self.public_key {
+                    tracing::debug!(
+                        "We are not the leader in the current epoch. Do not send the VID dispersal."
+                    );
+                    return None;
+                }
                 let vid_disperse = VidDisperse::calculate_vid_disperse(
                     Arc::clone(encoded_transactions),
                     &Arc::clone(&self.membership),
                     *view_number,
-                    self.cur_epoch,
+                    epoch,
                     vid_precompute.clone(),
                 )
                 .await;
@@ -135,6 +143,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
             }
 
             HotShotEvent::ViewChange(view, epoch) => {
+                if *epoch > self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
+
                 let view = *view;
                 if (*view != 0 || *self.cur_view > 0) && *self.cur_view >= *view {
                     return None;
@@ -144,9 +156,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     info!("View changed by more than 1 going to view {:?}", view);
                 }
                 self.cur_view = view;
-                if *epoch > self.cur_epoch {
-                    self.cur_epoch = *epoch;
-                }
 
                 return None;
             }

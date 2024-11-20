@@ -472,19 +472,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .await;
             }
             HotShotEvent::ViewChange(view, epoch) => {
-                if *epoch > self.cur_epoch {
-                    self.cur_epoch = *epoch;
-                }
+                tracing::error!(
+                    "lrzasik: Received view change in transaction, view {:?}, epoch {:?}",
+                    view,
+                    epoch
+                );
                 let view = TYPES::View::new(std::cmp::max(1, **view));
                 ensure!(
-                    *view > *self.cur_view,
+                    *view > *self.cur_view || *epoch > self.cur_epoch,
                     debug!(
-                      "Received a view change to an older view: tried to change view to {:?} though we are at view {:?}", view, self.cur_view
+                      "Received a view change to an older view and epoch: tried to change view to {:?}\
+                      and epoch {:?} though we are at view {:?} and epoch {:?}",
+                        view, epoch, self.cur_view, self.cur_epoch
                     )
                 );
                 self.cur_view = view;
+                self.cur_epoch = *epoch;
                 let epoch = self.cur_epoch;
                 if self.membership.leader(view, epoch)? == self.public_key {
+                    tracing::error!(
+                        "lrzasik: Handling view change in transaction, view {:?}, epoch {:?}",
+                        view,
+                        epoch
+                    );
                     self.handle_view_change(&event_stream, view).await;
                     return Ok(());
                 }

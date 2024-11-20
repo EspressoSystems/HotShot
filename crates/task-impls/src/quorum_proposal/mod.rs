@@ -15,6 +15,7 @@ use hotshot_task::{
     dependency_task::DependencyTask,
     task::TaskState,
 };
+use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
@@ -41,7 +42,7 @@ mod handlers;
 pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// Latest view number that has been proposed for.
     pub latest_proposed_view: TYPES::View,
-    
+
     /// Current epoch
     pub cur_epoch: TYPES::Epoch,
 
@@ -226,23 +227,47 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
         match event.as_ref() {
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
+                tracing::error!(
+                    "lrzasik: Completed proposal dependency with event {:?}",
+                    event
+                );
                 payload_commitment_dependency.mark_as_completed(Arc::clone(&event));
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(..) => {
+                tracing::error!(
+                    "lrzasik: Completed proposal dependency with event {:?}",
+                    event
+                );
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
+                    tracing::error!(
+                        "lrzasik: Completed proposal dependency with event {:?}",
+                        event
+                    );
                     timeout_dependency.mark_as_completed(event);
                 }
                 Either::Left(_) => {
+                    tracing::error!(
+                        "lrzasik: Completed proposal dependency with event {:?}",
+                        event
+                    );
                     qc_dependency.mark_as_completed(event);
                 }
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+                tracing::error!(
+                    "lrzasik: Completed proposal dependency with event {:?}",
+                    event
+                );
                 view_sync_dependency.mark_as_completed(event);
             }
             HotShotEvent::VidDisperseSend(_, _) => {
+                tracing::error!(
+                    "lrzasik: Completed proposal dependency with event {:?}",
+                    event
+                );
                 vid_share_dependency.mark_as_completed(event);
             }
             _ => {}
@@ -288,10 +313,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event: Arc<HotShotEvent<TYPES>>,
+        epoch_transition_indicator: EpochTransitionIndicator,
     ) -> Result<()> {
+        let leader_in_current_epoch =
+            self.quorum_membership.leader(view_number, epoch_number)? == self.public_key;
+        // If we are in the epoch transition and we are the leader in the next epoch,
+        // we might want to start collecting dependencies for our next epoch proposal.
+        let leader_in_next_epoch = matches!(
+            epoch_transition_indicator,
+            EpochTransitionIndicator::InTransition
+        ) && self
+            .quorum_membership
+            .leader(view_number, epoch_number + 1)?
+            == self.public_key;
         // Don't even bother making the task if we are not entitled to propose anyway.
         ensure!(
-            self.quorum_membership.leader(view_number, epoch_number)? == self.public_key,
+            leader_in_current_epoch || leader_in_next_epoch,
             debug!("We are not the leader of the next view")
         );
 
@@ -366,14 +403,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, epoch = self.cur_epoch), name = "handle method", level = "error", target = "QuorumProposalTaskState")]
+    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view, epoch = *self.cur_epoch), name = "handle method", level = "error", target = "QuorumProposalTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
-        let epoch_number = self.cur_epoch
+        let epoch_number = self.cur_epoch;
+        let epoch_transition_indicator = if self.consensus.read().await.is_high_qc_for_last_block()
+        {
+            EpochTransitionIndicator::InTransition
+        } else {
+            EpochTransitionIndicator::NotInTransition
+        };
         match event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) => {
                 tracing::debug!(
@@ -396,6 +439,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
+                        epoch_transition_indicator,
                     )?;
                 }
                 either::Left(qc) => {
@@ -429,6 +473,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
+                        epoch_transition_indicator,
                     )?;
                 }
             },
@@ -448,6 +493,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
+                    EpochTransitionIndicator::NotInTransition,
                 )?;
             }
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
@@ -475,6 +521,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     event,
+                    EpochTransitionIndicator::NotInTransition,
                 )?;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
@@ -490,6 +537,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
+                    epoch_transition_indicator,
                 )?;
             }
             HotShotEvent::QuorumProposalSend(proposal, _) => {
@@ -508,9 +556,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
+                    EpochTransitionIndicator::NotInTransition,
                 )?;
             }
-            HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view, ..) => {
+            HotShotEvent::ViewChange(view, epoch) => {
+                if epoch > &self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
+                self.cancel_tasks(*view);
+            }
+            HotShotEvent::Timeout(view, ..) => {
                 self.cancel_tasks(*view);
             }
             HotShotEvent::HighQcSend(qc, _sender) => {

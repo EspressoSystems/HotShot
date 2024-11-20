@@ -22,6 +22,7 @@ use anyhow::{ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use hotshot_task::dependency_task::HandleDepOutput;
+use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
@@ -195,7 +196,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         parent_qc: QuorumCertificate<TYPES>,
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
-            self.view_number,
             &self.sender,
             &self.receiver,
             Arc::clone(&self.quorum_membership),
@@ -299,6 +299,14 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             block_header.block_number(),
             self.epoch_height,
         ));
+        // Make sure we are the leader for the view and epoch.
+        // We might have ended up here because we were in the epoch transition.
+        if self.quorum_membership.leader(self.view_number, epoch)? != self.public_key {
+            tracing::debug!(
+                "We are not the leader in the epoch for which we are about to propose. Do not send the quorum proposal."
+            );
+            return Ok(());
+        }
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,

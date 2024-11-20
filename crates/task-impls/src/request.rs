@@ -37,6 +37,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tracing::instrument;
+use hotshot_types::simple_vote::HasEpoch;
 use utils::anytrace::Result;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};
@@ -97,7 +98,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.data.view_number();
-                let cur_epoch = self.consensus.read().await.cur_epoch();
+                let prop_epoch = proposal.data.epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
                 if prop_view >= self.view
@@ -108,7 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, cur_epoch, sender, receiver);
+                    self.spawn_requests(prop_view, prop_epoch, sender, receiver);
                 }
                 Ok(())
             }

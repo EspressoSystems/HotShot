@@ -234,8 +234,14 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
         view_number: TYPES::View,
         epoch: <TYPES as NodeType>::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        tracing::error!("lrzasik: lookup_leader, stake table 0, eligible_leaders: {:?}", self.eligible_leaders.0);
-        tracing::error!("lrzasik: lookup_leader, stake table 1, eligible_leaders: {:?}", self.eligible_leaders.1);
+        tracing::error!(
+            "lrzasik: lookup_leader, stake table 0, eligible_leaders: {:?}",
+            self.eligible_leaders.0
+        );
+        tracing::error!(
+            "lrzasik: lookup_leader, stake table 1, eligible_leaders: {:?}",
+            self.eligible_leaders.1
+        );
         tracing::error!("lrzasik: lookup_leader, checking view {view_number:?}, epoch {epoch:?}");
         if *epoch != 0 && *epoch % 2 == 0 {
             tracing::error!("lrzasik: lookup_leader, entered stake table 0");

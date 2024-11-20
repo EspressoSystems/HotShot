@@ -39,19 +39,24 @@ pub(crate) async fn handle_quorum_vote_recv<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    let is_vote_leaf_extended = task_state
+    tracing::error!(
+        "lrzasik: received vote for view {:?} and epoch {:?}",
+        vote.view_number(),
+        vote.data.epoch
+    );
+    let in_transition = task_state
         .consensus
         .read()
         .await
-        .is_leaf_extended(vote.data.leaf_commit);
+        .is_high_qc_for_last_block();
     let we_are_leader = task_state
         .quorum_membership
         .leader(vote.view_number() + 1, task_state.cur_epoch)?
         == task_state.public_key;
     ensure!(
-        is_vote_leaf_extended || we_are_leader,
+        in_transition || we_are_leader,
         info!(
-            "We are not the leader for view {:?} and this is not the last vote for eQC",
+            "We are not the leader for view {:?} and we are not in the epoch transition",
             vote.view_number() + 1
         )
     );
@@ -66,7 +71,7 @@ pub(crate) async fn handle_quorum_vote_recv<
         &event,
         sender,
         &task_state.upgrade_lock,
-        !is_vote_leaf_extended,
+        !in_transition,
     )
     .await?;
 
@@ -151,6 +156,7 @@ pub(crate) async fn handle_view_change<
 ) -> Result<()> {
     if epoch_number > task_state.cur_epoch {
         task_state.cur_epoch = epoch_number;
+        let _ = task_state.consensus.write().await.update_epoch(epoch_number);
         tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
     }
 

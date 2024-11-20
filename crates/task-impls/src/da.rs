@@ -264,13 +264,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 tracing::debug!("DA vote recv, Main Task {:?}", vote.view_number());
                 // Check if we are the leader and the vote is from the sender.
                 let view = vote.view_number();
+                let epoch = vote.data.epoch();
 
                 ensure!(
-                    self.da_membership.leader(view, self.cur_epoch)? == self.public_key,
+                    self.da_membership.leader(view, epoch)? == self.public_key,
                     debug!(
                       "We are not the DA committee leader for view {} are we leader for next view? {}",
                       *view,
-                      self.da_membership.leader(view + 1, self.cur_epoch)? == self.public_key
+                      self.da_membership.leader(view + 1, epoch)? == self.public_key
                     )
                 );
 
@@ -279,7 +280,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     vote,
                     self.public_key.clone(),
                     &self.da_membership,
-                    self.cur_epoch,
+                    epoch,
                     self.id,
                     &event,
                     &event_stream,
@@ -324,7 +325,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 let epoch = self.cur_epoch;
                 if self.da_membership.leader(view_number, epoch)? != self.public_key {
-                    tracing::debug!("We are not the leader in the current epoch. Do not send the DA proposal");
+                    tracing::debug!(
+                        "We are not the leader in the current epoch. Do not send the DA proposal"
+                    );
                     return Ok(());
                 }
                 let data: DaProposal<TYPES> = DaProposal {
