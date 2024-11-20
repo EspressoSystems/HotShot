@@ -72,7 +72,7 @@ where
     ) -> Result<Vec<Commitment<<I as NodeType>::Transaction>>, BuildError>;
 
     async fn txn_status(
-        &self,
+        &mut self,
         txn_hash: Commitment<<I as NodeType>::Transaction>,
     ) -> Result<TransactionStatus, BuildError>;
 }
