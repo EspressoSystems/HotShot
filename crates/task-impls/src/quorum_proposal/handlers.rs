@@ -7,21 +7,28 @@
 //! This module holds the dependency task for the QuorumProposalTask. It is spawned whenever an event that could
 //! initiate a proposal occurs.
 
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+    marker::PhantomData,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::{ensure, Context, Result};
-use async_broadcast::{InactiveReceiver, Sender};
+use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
+use committable::Committable;
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf, QuorumProposal, VidDisperse, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal, VidDisperse, ViewChangeEvidence},
     message::Proposal,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
+        block_contents::BlockHeader,
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
     },
-    vote::HasViewNumber,
+    vote::{Certificate, HasViewNumber},
 };
 use tracing::instrument;
 use utils::anytrace::*;
@@ -39,13 +46,13 @@ pub(crate) enum ProposalDependency {
     /// For the `SendPayloadCommitmentAndMetadata` event.
     PayloadAndMetadata,
 
-    /// For the `QcFormed` event.
+    /// For the `Qc2Formed` event.
     Qc,
 
     /// For the `ViewSyncFinalizeCertificate2Recv` event.
     ViewSyncCert,
 
-    /// For the `QcFormed` event timeout branch.
+    /// For the `Qc2Formed` event timeout branch.
     TimeoutCert,
 
     /// For the `QuroumProposalRecv` event.
@@ -67,7 +74,7 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     pub sender: Sender<Arc<HotShotEvent<TYPES>>>,
 
     /// The event receiver.
-    pub receiver: InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
+    pub receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
 
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
@@ -84,6 +91,8 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
 
+    /// View timeout from config.
+    pub timeout: u64,
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -97,9 +106,79 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
 
     /// The node's id
     pub id: u64,
+
+    /// The time this view started
+    pub view_start_time: Instant,
+
+    /// The higest_qc we've seen at the start of this task
+    pub highest_qc: QuorumCertificate2<TYPES>,
 }
 
 impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
+    /// Return the next HighQc we get from the event stream
+    async fn wait_for_qc_event(
+        &self,
+        rx: &mut Receiver<Arc<HotShotEvent<TYPES>>>,
+    ) -> Option<QuorumCertificate2<TYPES>> {
+        while let Ok(event) = rx.recv_direct().await {
+            if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
+                if qc
+                    .is_valid_cert(
+                        self.quorum_membership.as_ref(),
+                        TYPES::Epoch::new(0),
+                        &self.upgrade_lock,
+                    )
+                    .await
+                {
+                    return Some(qc.clone());
+                }
+            }
+        }
+        None
+    }
+    /// Waits for the ocnfigured timeout for nodes to send HighQc messages to us.  We'll
+    /// then propose with the higest QC from among these proposals.
+    async fn wait_for_highest_qc(&mut self) {
+        tracing::error!("waiting for QC");
+        // If we haven't upgraded to Hotstuff 2 just return the high qc right away
+        if self
+            .upgrade_lock
+            .version(self.view_number)
+            .await
+            .is_ok_and(|version| version < V::Epochs::VERSION)
+        {
+            return;
+        }
+        let wait_duration = Duration::from_millis(self.timeout / 2);
+
+        // TODO configure timeout
+        while self.view_start_time.elapsed() < wait_duration {
+            let Some(time_spent) = Instant::now().checked_duration_since(self.view_start_time)
+            else {
+                // Shouldn't be possible, now must be after the start
+                return;
+            };
+            let Some(time_left) = wait_duration.checked_sub(time_spent) else {
+                // No time left
+                return;
+            };
+            let Ok(maybe_qc) = tokio::time::timeout(
+                time_left,
+                self.wait_for_qc_event(&mut self.receiver.clone()),
+            )
+            .await
+            else {
+                // we timeout out, don't wait any longer
+                return;
+            };
+            let Some(qc) = maybe_qc else {
+                continue;
+            };
+            if qc.view_number() > self.highest_qc.view_number() {
+                self.highest_qc = qc;
+            }
+        }
+    }
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
@@ -111,7 +190,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
         formed_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
         decided_upgrade_certificate: Arc<RwLock<Option<UpgradeCertificate<TYPES>>>>,
-        parent_view_number: TYPES::View,
+        parent_qc: QuorumCertificate2<TYPES>,
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
             self.view_number,
@@ -122,7 +201,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             self.private_key.clone(),
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             &self.upgrade_lock,
-            parent_view_number,
+            parent_qc.view_number(),
         )
         .await?;
 
@@ -166,13 +245,11 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         let version = self.upgrade_lock.version(self.view_number).await?;
 
-        let high_qc = self.consensus.read().await.high_qc().clone();
-
         let builder_commitment = commitment_and_metadata.builder_commitment.clone();
         let metadata = commitment_and_metadata.metadata.clone();
 
         let block_header = if version >= V::Epochs::VERSION
-            && self.consensus.read().await.is_high_qc_forming_eqc()
+            && self.consensus.read().await.is_qc_forming_eqc(&parent_qc)
         {
             tracing::info!("Reached end of epoch. Proposing the same block again to form an eQC.");
             let block_header = parent_leaf.block_header().clone();
@@ -218,23 +295,22 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let proposal = QuorumProposal {
             block_header,
             view_number: self.view_number,
-            justify_qc: high_qc,
+            justify_qc: parent_qc.to_qc(),
             upgrade_certificate,
             proposal_certificate,
-        };
+        }
+        .into();
 
-        let proposed_leaf = Leaf::from_quorum_proposal(&proposal);
+        let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);
         ensure!(
-            proposed_leaf.parent_commitment() == parent_leaf.commit(&self.upgrade_lock).await,
+            proposed_leaf.parent_commitment() == parent_leaf.commit(),
             "Proposed leaf parent does not equal high qc"
         );
 
-        let signature = TYPES::SignatureKey::sign(
-            &self.private_key,
-            proposed_leaf.commit(&self.upgrade_lock).await.as_ref(),
-        )
-        .wrap()
-        .context(error!("Failed to compute proposed_leaf.commit()"))?;
+        let signature =
+            TYPES::SignatureKey::sign(&self.private_key, proposed_leaf.commit().as_ref())
+                .wrap()
+                .context(error!("Failed to compute proposed_leaf.commit()"))?;
 
         let message = Proposal {
             data: proposal,
@@ -263,12 +339,12 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
     type Output = Vec<Vec<Vec<Arc<HotShotEvent<TYPES>>>>>;
 
     #[allow(clippy::no_effect_underscore_binding, clippy::too_many_lines)]
-    async fn handle_dep_result(self, res: Self::Output) {
+    async fn handle_dep_result(mut self, res: Self::Output) {
         let mut commit_and_metadata: Option<CommitmentAndMetadata<TYPES>> = None;
         let mut timeout_certificate = None;
         let mut view_sync_finalize_cert = None;
         let mut vid_share = None;
-        let mut parent_view_number = None;
+        let mut parent_qc = None;
         for event in res.iter().flatten().flatten() {
             match event.as_ref() {
                 HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -288,12 +364,12 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                         auction_result: auction_result.clone(),
                     });
                 }
-                HotShotEvent::QcFormed(cert) => match cert {
+                HotShotEvent::Qc2Formed(cert) => match cert {
                     either::Right(timeout) => {
                         timeout_certificate = Some(timeout.clone());
                     }
                     either::Left(qc) => {
-                        parent_view_number = Some(qc.view_number());
+                        parent_qc = Some(qc.clone());
                     }
                 },
                 HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
@@ -306,8 +382,21 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
             }
         }
 
-        let parent_view_number =
-            parent_view_number.unwrap_or(self.consensus.read().await.high_qc().view_number());
+        let Ok(version) = self.upgrade_lock.version(self.view_number).await else {
+            tracing::error!(
+                "Failed to get version for view {:?}, not proposing",
+                self.view_number
+            );
+            return;
+        };
+        let parent_qc = if let Some(qc) = parent_qc {
+            qc
+        } else if version < V::Epochs::VERSION {
+            self.consensus.read().await.high_qc().clone()
+        } else {
+            self.wait_for_highest_qc().await;
+            self.highest_qc.clone()
+        };
 
         if commit_and_metadata.is_none() {
             tracing::error!(
@@ -334,7 +423,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                 proposal_cert,
                 self.formed_upgrade_certificate.clone(),
                 Arc::clone(&self.upgrade_lock.decided_upgrade_certificate),
-                parent_view_number,
+                parent_qc,
             )
             .await
         {

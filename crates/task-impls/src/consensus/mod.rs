@@ -14,8 +14,8 @@ use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate, TimeoutCertificate},
-    simple_vote::{QuorumVote, TimeoutVote},
+    simple_certificate::{QuorumCertificate2, TimeoutCertificate},
+    simple_vote::{QuorumVote2, TimeoutVote},
     traits::{
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -57,7 +57,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     pub committee_membership: Arc<TYPES::Membership>,
 
     /// A map of `QuorumVote` collector tasks.
-    pub vote_collectors: VoteCollectorsMap<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>, V>,
+    pub vote_collectors: VoteCollectorsMap<TYPES, QuorumVote2<TYPES>, QuorumCertificate2<TYPES>, V>,
 
     /// A map of `TimeoutVote` collector tasks.
     pub timeout_vote_collectors:
@@ -92,10 +92,13 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
 
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskState<TYPES, I, V> {
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]
+    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, cur_epoch = *self.cur_epoch), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -116,8 +119,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     tracing::debug!("Failed to handle TimeoutVoteRecv event; error = {e}");
                 }
             }
-            HotShotEvent::ViewChange(new_view_number) => {
-                if let Err(e) = handle_view_change(*new_view_number, &sender, self).await {
+            HotShotEvent::ViewChange(new_view_number, epoch_number) => {
+                if let Err(e) =
+                    handle_view_change(*new_view_number, *epoch_number, &sender, self).await
+                {
                     tracing::trace!("Failed to handle ViewChange event; error = {e}");
                 }
             }

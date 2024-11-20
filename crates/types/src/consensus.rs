@@ -14,26 +14,28 @@ use std::{
 };
 
 use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
-use committable::Commitment;
+use committable::{Commitment, Committable};
 use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf, QuorumProposal, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     error::HotShotError,
-    event::HotShotAction,
-    message::{Proposal, UpgradeLock},
-    simple_certificate::{DaCertificate, QuorumCertificate},
+    event::{HotShotAction, LeafInfo},
+    message::Proposal,
+    simple_certificate::{DaCertificate, QuorumCertificate2},
     traits::{
-        block_contents::{BlockHeader, BuilderFee},
+        block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
-    utils::{BuilderCommitment, StateAndDelta, Terminator, Terminator::Inclusive},
+    utils::{
+        epoch_from_block_number, BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
+    },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
@@ -289,7 +291,7 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
-    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
+    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
 
     /// last view had a successful decide event
     last_decided_view: TYPES::View,
@@ -300,7 +302,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    saved_leaves: CommitmentMap<Leaf<TYPES>>,
+    saved_leaves: CommitmentMap<Leaf2<TYPES>>,
 
     /// Bundle of views which we performed the most recent action
     /// visibible to the network.  Actions are votes and proposals
@@ -313,7 +315,7 @@ pub struct Consensus<TYPES: NodeType> {
     saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
 
     /// the highqc per spec
-    high_qc: QuorumCertificate<TYPES>,
+    high_qc: QuorumCertificate2<TYPES>,
 
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
@@ -403,10 +405,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         locked_view: TYPES::View,
         last_decided_view: TYPES::View,
         last_actioned_view: TYPES::View,
-        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
-        saved_leaves: CommitmentMap<Leaf<TYPES>>,
+        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+        saved_leaves: CommitmentMap<Leaf2<TYPES>>,
         saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
-        high_qc: QuorumCertificate<TYPES>,
+        high_qc: QuorumCertificate2<TYPES>,
         metrics: Arc<ConsensusMetricsValue>,
         epoch_height: u64,
     ) -> Self {
@@ -449,7 +451,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the high QC.
-    pub fn high_qc(&self) -> &QuorumCertificate<TYPES> {
+    pub fn high_qc(&self) -> &QuorumCertificate2<TYPES> {
         &self.high_qc
     }
 
@@ -459,7 +461,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the saved leaves.
-    pub fn saved_leaves(&self) -> &CommitmentMap<Leaf<TYPES>> {
+    pub fn saved_leaves(&self) -> &CommitmentMap<Leaf2<TYPES>> {
         &self.saved_leaves
     }
 
@@ -479,7 +481,9 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the map of our recent proposals
-    pub fn last_proposals(&self) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>> {
+    pub fn last_proposals(
+        &self,
+    ) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>> {
         &self.last_proposals
     }
 
@@ -495,6 +499,36 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         Ok(())
     }
 
+    /// Get the parent Leaf Info from a given leaf and our public key.
+    /// Returns None if we don't have the data in out state
+    pub fn parent_leaf_info(
+        &self,
+        leaf: &Leaf2<TYPES>,
+        public_key: &TYPES::SignatureKey,
+    ) -> Option<LeafInfo<TYPES>> {
+        let parent_view_number = leaf.justify_qc().view_number();
+        let parent_leaf = self
+            .saved_leaves
+            .get(&leaf.justify_qc().data().leaf_commit)?;
+        let parent_state_and_delta = self.state_and_delta(parent_view_number);
+        let (Some(state), delta) = parent_state_and_delta else {
+            return None;
+        };
+        let parent_vid = self
+            .vid_shares()
+            .get(&parent_view_number)?
+            .get(public_key)
+            .cloned()
+            .map(|prop| prop.data);
+
+        Some(LeafInfo {
+            leaf: parent_leaf.clone(),
+            state,
+            delta,
+            vid_share: parent_vid,
+        })
+    }
+
     /// Update the current epoch.
     /// # Errors
     /// Can return an error when the new epoch_number is not higher than the existing epoch number.
@@ -503,6 +537,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             epoch_number > self.cur_epoch,
             debug!("New epoch isn't newer than the current epoch.")
         );
+        tracing::trace!("Updating epoch from {} to {}", self.cur_epoch, epoch_number);
         self.cur_epoch = epoch_number;
         Ok(())
     }
@@ -545,7 +580,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
     pub fn update_proposed_view(
         &mut self,
-        proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
+        proposal: Proposal<TYPES, QuorumProposal2<TYPES>>,
     ) -> Result<()> {
         ensure!(
             proposal.data.view_number()
@@ -607,23 +642,22 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Errors
     /// Can return an error when the new view contains less information than the exisiting view
     /// with the same view number.
-    pub async fn update_leaf<V: Versions>(
+    pub fn update_leaf(
         &mut self,
-        leaf: Leaf<TYPES>,
+        leaf: Leaf2<TYPES>,
         state: Arc<TYPES::ValidatedState>,
         delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
-        upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = leaf.view_number();
         let view = View {
             view_inner: ViewInner::Leaf {
-                leaf: leaf.commit(upgrade_lock).await,
+                leaf: leaf.commit(),
                 state,
                 delta,
             },
         };
         self.update_validated_state_map(view_number, view)?;
-        self.update_saved_leaves(leaf, upgrade_lock).await;
+        self.update_saved_leaves(leaf);
         Ok(())
     }
 
@@ -662,13 +696,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Update the saved leaves with a new leaf.
-    async fn update_saved_leaves<V: Versions>(
-        &mut self,
-        leaf: Leaf<TYPES>,
-        upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) {
-        self.saved_leaves
-            .insert(leaf.commit(upgrade_lock).await, leaf);
+    fn update_saved_leaves(&mut self, leaf: Leaf2<TYPES>) {
+        self.saved_leaves.insert(leaf.commit(), leaf);
     }
 
     /// Update the saved payloads with a new encoded transaction.
@@ -691,7 +720,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Update the high QC if given a newer one.
     /// # Errors
     /// Can return an error when the provided high_qc is not newer than the existing entry.
-    pub fn update_high_qc(&mut self, high_qc: QuorumCertificate<TYPES>) -> Result<()> {
+    pub fn update_high_qc(&mut self, high_qc: QuorumCertificate2<TYPES>) -> Result<()> {
         ensure!(
             high_qc.view_number > self.high_qc.view_number || high_qc == self.high_qc,
             debug!("High QC with an equal or higher view exists.")
@@ -731,7 +760,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) -> std::result::Result<(), HotShotError<TYPES>>
     where
         F: FnMut(
-            &Leaf<TYPES>,
+            &Leaf2<TYPES>,
             Arc<<TYPES as NodeType>::ValidatedState>,
             Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
         ) -> bool,
@@ -785,13 +814,14 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Panics
     /// On inconsistent stored entries
     pub fn collect_garbage(&mut self, old_anchor_view: TYPES::View, new_anchor_view: TYPES::View) {
+        let gc_view = TYPES::View::new(new_anchor_view.saturating_sub(1));
         // state check
         let anchor_entry = self
             .validated_state_map
             .iter()
             .next()
             .expect("INCONSISTENT STATE: anchor leaf not in state map!");
-        if *anchor_entry.0 != old_anchor_view {
+        if **anchor_entry.0 != old_anchor_view.saturating_sub(1) {
             tracing::error!(
                 "Something about GC has failed. Older leaf exists than the previous anchor leaf."
             );
@@ -800,15 +830,15 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         self.saved_da_certs
             .retain(|view_number, _| *view_number >= old_anchor_view);
         self.validated_state_map
-            .range(old_anchor_view..new_anchor_view)
+            .range(old_anchor_view..gc_view)
             .filter_map(|(_view_number, view)| view.leaf_commitment())
             .for_each(|leaf| {
                 self.saved_leaves.remove(&leaf);
             });
-        self.validated_state_map = self.validated_state_map.split_off(&new_anchor_view);
-        self.saved_payloads = self.saved_payloads.split_off(&new_anchor_view);
-        self.vid_shares = self.vid_shares.split_off(&new_anchor_view);
-        self.last_proposals = self.last_proposals.split_off(&new_anchor_view);
+        self.validated_state_map = self.validated_state_map.split_off(&gc_view);
+        self.saved_payloads = self.saved_payloads.split_off(&gc_view);
+        self.vid_shares = self.vid_shares.split_off(&gc_view);
+        self.last_proposals = self.last_proposals.split_off(&gc_view);
     }
 
     /// Gets the last decided leaf.
@@ -817,7 +847,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// if the last decided view's leaf does not exist in the state map or saved leaves, which
     /// should never happen.
     #[must_use]
-    pub fn decided_leaf(&self) -> Leaf<TYPES> {
+    pub fn decided_leaf(&self) -> Leaf2<TYPES> {
         let decided_view_num = self.last_decided_view;
         let view = self.validated_state_map.get(&decided_view_num).unwrap();
         let leaf = view
@@ -882,15 +912,86 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         Some(())
     }
 
-    /// Returns true if the current high qc is for the last block in the epoch
-    pub fn is_high_qc_for_last_block(&self) -> bool {
-        let high_qc = self.high_qc();
-        self.is_qc_for_last_block(high_qc)
+    /// Return true if the QC takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain certificates but not the eQC itself
+    pub fn is_qc_forming_eqc(&self, qc: &QuorumCertificate2<TYPES>) -> bool {
+        let high_qc_leaf_commit = qc.data.leaf_commit;
+        let is_high_qc_extended = self.is_leaf_extended(high_qc_leaf_commit);
+        if is_high_qc_extended {
+            tracing::debug!("We have formed an eQC!");
+        }
+        self.is_leaf_for_last_block(high_qc_leaf_commit) && !is_high_qc_extended
     }
 
-    /// Returns true if the given qc is for the last block in the epoch
-    pub fn is_qc_for_last_block(&self, cert: &QuorumCertificate<TYPES>) -> bool {
-        let Some(leaf) = self.saved_leaves.get(&cert.data().leaf_commit) else {
+    /// Returns true if our high qc is forming an eQC
+    pub fn is_high_qc_forming_eqc(&self) -> bool {
+        self.is_qc_forming_eqc(self.high_qc())
+    }
+
+    /// Return true if the given leaf takes part in forming an eQC, i.e.
+    /// it is one of the 3-chain leaves but not the eQC leaf itself
+    pub fn is_leaf_forming_eqc(&self, leaf_commit: LeafCommitment<TYPES>) -> bool {
+        self.is_leaf_for_last_block(leaf_commit) && !self.is_leaf_extended(leaf_commit)
+    }
+
+    /// Returns true if the given leaf can form an extended Quorum Certificate
+    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
+    /// consecutive views for the last block in the epoch.
+    pub fn is_leaf_extended(&self, leaf_commit: LeafCommitment<TYPES>) -> bool {
+        if !self.is_leaf_for_last_block(leaf_commit) {
+            tracing::trace!("The given leaf is not for the last block in the epoch.");
+            return false;
+        }
+
+        let Some(leaf) = self.saved_leaves.get(&leaf_commit) else {
+            tracing::trace!("We don't have a leaf corresponding to the leaf commit");
+            return false;
+        };
+        let leaf_view = leaf.view_number();
+        let leaf_block_number = leaf.height();
+
+        let mut last_visited_view_number = leaf_view;
+        let mut is_leaf_extended = true;
+        if let Err(e) = self.visit_leaf_ancestors(
+            leaf_view,
+            Terminator::Inclusive(leaf_view - 2),
+            true,
+            |leaf, _, _| {
+                tracing::trace!(
+                    "last_visited_view_number = {}, leaf.view_number = {}",
+                    *last_visited_view_number,
+                    *leaf.view_number()
+                );
+
+                if leaf.view_number() == leaf_view {
+                    return true;
+                }
+
+                if last_visited_view_number - 1 != leaf.view_number() {
+                    tracing::trace!("The chain is broken. Non consecutive views.");
+                    is_leaf_extended = false;
+                    return false;
+                }
+                if leaf_block_number != leaf.height() {
+                    tracing::trace!("The chain is broken. Block numbers do not match.");
+                    is_leaf_extended = false;
+                    return false;
+                }
+                last_visited_view_number = leaf.view_number();
+                true
+            },
+        ) {
+            is_leaf_extended = false;
+            tracing::debug!("Leaf ascension failed; error={e}");
+        }
+        tracing::trace!("Can the given leaf form an eQC? {}", is_leaf_extended);
+        is_leaf_extended
+    }
+
+    /// Returns true if a given leaf is for the last block in the epoch
+    pub fn is_leaf_for_last_block(&self, leaf_commit: LeafCommitment<TYPES>) -> bool {
+        let Some(leaf) = self.saved_leaves.get(&leaf_commit) else {
+            tracing::trace!("We don't have a leaf corresponding to the leaf commit");
             return false;
         };
         let block_height = leaf.height();
@@ -901,81 +1002,15 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         }
     }
 
-    /// Returns true if the current high qc is an extended Quorum Certificate
-    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
-    /// consecutive views for the last block in the epoch.
-    pub fn is_high_qc_extended(&self) -> bool {
-        let high_qc = self.high_qc();
-        let ret = self.is_qc_extended(high_qc);
-        if ret {
-            tracing::debug!("We have formed an eQC!");
-        };
-        ret
-    }
-
-    /// Returns true if the given qc is an extended Quorum Certificate
-    /// The Extended Quorum Certificate (eQC) is the third Quorum Certificate formed in three
-    /// consecutive views for the last block in the epoch.
-    pub fn is_qc_extended(&self, cert: &QuorumCertificate<TYPES>) -> bool {
-        if !self.is_qc_for_last_block(cert) {
-            tracing::debug!("High QC is not for the last block in the epoch.");
-            return false;
+    /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`
+    pub fn check_eqc(&self, proposed_leaf: &Leaf2<TYPES>, parent_leaf: &Leaf2<TYPES>) -> bool {
+        if parent_leaf.view_number() == TYPES::View::genesis() {
+            return true;
         }
+        let new_epoch = epoch_from_block_number(proposed_leaf.height(), self.epoch_height);
+        let old_epoch = epoch_from_block_number(parent_leaf.height(), self.epoch_height);
 
-        let qc_view = cert.view_number();
-        let high_qc_block_number =
-            if let Some(leaf) = self.saved_leaves.get(&cert.data().leaf_commit) {
-                leaf.block_header().block_number()
-            } else {
-                return false;
-            };
-
-        let mut last_visited_view_number = qc_view;
-        let mut is_qc_extended = true;
-        if let Err(e) =
-            self.visit_leaf_ancestors(qc_view, Inclusive(qc_view - 2), true, |leaf, _, _| {
-                tracing::trace!(
-                    "last_visited_view_number = {}, leaf.view_number = {}",
-                    *last_visited_view_number,
-                    *leaf.view_number()
-                );
-
-                if leaf.view_number() == qc_view {
-                    return true;
-                }
-
-                if last_visited_view_number - 1 != leaf.view_number() {
-                    tracing::trace!("The chain is broken. Non consecutive views.");
-                    is_qc_extended = false;
-                    return false;
-                }
-                if high_qc_block_number != leaf.height() {
-                    tracing::trace!("The chain is broken. Block numbers do not match.");
-                    is_qc_extended = false;
-                    return false;
-                }
-                last_visited_view_number = leaf.view_number();
-                true
-            })
-        {
-            is_qc_extended = false;
-            tracing::trace!("The chain is broken. Leaf ascension failed.");
-            tracing::debug!("Leaf ascension failed; error={e}");
-        }
-        tracing::trace!("Is the given QC an eQC? {}", is_qc_extended);
-        is_qc_extended
-    }
-
-    /// Return true if the given Quorum Certificate takes part in forming an eQC, i.e.
-    /// it is one of the 3-chain certificates but not the eQC itself
-    pub fn is_qc_forming_eqc(&self, cert: &QuorumCertificate<TYPES>) -> bool {
-        self.is_qc_for_last_block(cert) && !self.is_qc_extended(cert)
-    }
-
-    /// Return true if the high QC takes part in forming an eQC, i.e.
-    /// it is one of the 3-chain certificates but not the eQC itself
-    pub fn is_high_qc_forming_eqc(&self) -> bool {
-        self.is_high_qc_for_last_block() && !self.is_high_qc_extended()
+        new_epoch - 1 == old_epoch && self.is_leaf_extended(parent_leaf.commit())
     }
 }
 

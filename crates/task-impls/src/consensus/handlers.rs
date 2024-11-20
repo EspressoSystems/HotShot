@@ -10,7 +10,7 @@ use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
     event::{Event, EventType},
-    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote2, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -20,6 +20,7 @@ use hotshot_types::{
 use tokio::{spawn, time::sleep};
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use super::ConsensusTaskState;
 use crate::{
@@ -33,19 +34,24 @@ pub(crate) async fn handle_quorum_vote_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    vote: &QuorumVote<TYPES>,
+    vote: &QuorumVote2<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    // Are we the leader for this view?
+    let is_vote_leaf_extended = task_state
+        .consensus
+        .read()
+        .await
+        .is_leaf_extended(vote.data.leaf_commit);
+    let we_are_leader = task_state
+        .quorum_membership
+        .leader(vote.view_number() + 1, task_state.cur_epoch)?
+        == task_state.public_key;
     ensure!(
-        task_state
-            .quorum_membership
-            .leader(vote.view_number() + 1, task_state.cur_epoch)?
-            == task_state.public_key,
+        is_vote_leaf_extended || we_are_leader,
         info!(
-            "We are not the leader for view {:?}",
+            "We are not the leader for view {:?} and this is not the last vote for eQC",
             vote.view_number() + 1
         )
     );
@@ -60,6 +66,7 @@ pub(crate) async fn handle_quorum_vote_recv<
         &event,
         sender,
         &task_state.upgrade_lock,
+        !is_vote_leaf_extended,
     )
     .await?;
 
@@ -99,9 +106,34 @@ pub(crate) async fn handle_timeout_vote_recv<
         &event,
         sender,
         &task_state.upgrade_lock,
+        true,
     )
     .await?;
 
+    Ok(())
+}
+
+/// Send an event to the next leader containing the highest QC we have
+/// This is a necessary part of HotStuff 2 but not the original HotStuff
+///
+/// #Errors
+/// Returns and error if we can't get the version or the version doesn't
+/// yet support HS 2
+pub async fn send_high_qc<TYPES: NodeType, V: Versions, I: NodeImplementation<TYPES>>(
+    new_view_number: TYPES::View,
+    sender: &Sender<Arc<HotShotEvent<TYPES>>>,
+    task_state: &mut ConsensusTaskState<TYPES, I, V>,
+) -> Result<()> {
+    let version = task_state.upgrade_lock.version(new_view_number).await?;
+    ensure!(
+        version >= V::Epochs::VERSION,
+        debug!("HotStuff 2 updgrade not yet in effect")
+    );
+    let high_qc = task_state.consensus.read().await.high_qc().clone();
+    let leader = task_state
+        .quorum_membership
+        .leader(new_view_number, TYPES::Epoch::new(0))?;
+    broadcast_event(Arc::new(HotShotEvent::HighQcSend(high_qc, leader)), sender).await;
     Ok(())
 }
 
@@ -113,9 +145,15 @@ pub(crate) async fn handle_view_change<
     V: Versions,
 >(
     new_view_number: TYPES::View,
+    epoch_number: TYPES::Epoch,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    if epoch_number > task_state.cur_epoch {
+        task_state.cur_epoch = epoch_number;
+        tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
+    }
+
     ensure!(
         new_view_number > task_state.cur_view,
         "New view is not larger than the current view"
@@ -127,9 +165,17 @@ pub(crate) async fn handle_view_change<
     if *old_view_number / 100 != *new_view_number / 100 {
         tracing::info!("Progress: entered view {:>6}", *new_view_number);
     }
+
+    // Send our high qc to the next leader immediately upon finishing a view.
+    // Part of HotStuff 2
+    let _ = send_high_qc(new_view_number, sender, task_state)
+        .await
+        .inspect_err(|e| {
+            tracing::debug!("High QC sending failed with error: {:?}", e);
+        });
+
     // Move this node to the next view
     task_state.cur_view = new_view_number;
-
     task_state
         .consensus
         .write()

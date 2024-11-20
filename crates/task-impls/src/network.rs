@@ -15,12 +15,12 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
-    consensus::Consensus,
+    consensus::OuterConsensus,
     data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
-        DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
-        SequencingMessage, UpgradeLock,
+        convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
+        MessageKind, Proposal, SequencingMessage, UpgradeLock,
     },
     traits::{
         election::Membership,
@@ -72,16 +72,16 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                 let event = match consensus_message {
                     SequencingMessage::General(general_message) => match general_message {
                         GeneralConsensusMessage::Proposal(proposal) => {
-                            HotShotEvent::QuorumProposalRecv(proposal, sender)
+                            HotShotEvent::QuorumProposalRecv(convert_proposal(proposal), sender)
                         }
                         GeneralConsensusMessage::ProposalRequested(req, sig) => {
                             HotShotEvent::QuorumProposalRequestRecv(req, sig)
                         }
-                        GeneralConsensusMessage::LeaderProposalAvailable(proposal) => {
-                            HotShotEvent::QuorumProposalResponseRecv(proposal)
+                        GeneralConsensusMessage::ProposalResponse(proposal) => {
+                            HotShotEvent::QuorumProposalResponseRecv(convert_proposal(proposal))
                         }
                         GeneralConsensusMessage::Vote(vote) => {
-                            HotShotEvent::QuorumVoteRecv(vote.clone())
+                            HotShotEvent::QuorumVoteRecv(vote.to_vote2())
                         }
                         GeneralConsensusMessage::ViewSyncPreCommitVote(view_sync_message) => {
                             HotShotEvent::ViewSyncPreCommitVoteRecv(view_sync_message)
@@ -113,6 +113,9 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::UpgradeVote(message) => {
                             tracing::error!("Received upgrade vote!");
                             HotShotEvent::UpgradeVoteRecv(message)
+                        }
+                        GeneralConsensusMessage::HighQc(qc) => {
+                            HotShotEvent::HighQcRecv(qc.to_qc2(), sender)
                         }
                     },
                     SequencingMessage::Da(da_message) => match da_message {
@@ -212,7 +215,7 @@ pub struct NetworkEventTaskState<
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
     /// Shared consensus state
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: OuterConsensus<TYPES>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// map view number to transmit tasks
@@ -294,7 +297,7 @@ impl<
 
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
@@ -320,7 +323,7 @@ impl<
     async fn maybe_record_action(
         maybe_action: Option<HotShotAction>,
         storage: Arc<RwLock<S>>,
-        consensus: Arc<RwLock<Consensus<TYPES>>>,
+        consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
     ) -> std::result::Result<(), ()> {
         if let Some(mut action) = maybe_action {
@@ -378,7 +381,7 @@ impl<
                 Some((
                     sender,
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Proposal(proposal),
+                        GeneralConsensusMessage::Proposal(convert_proposal(proposal)),
                     )),
                     TransmitType::Broadcast,
                 ))
@@ -403,9 +406,19 @@ impl<
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Vote(vote.clone()),
+                        GeneralConsensusMessage::Vote(vote.clone().to_vote()),
                     )),
                     TransmitType::Direct(leader),
+                ))
+            }
+            HotShotEvent::ExtendedQuorumVoteSend(vote) => {
+                *maybe_action = Some(HotShotAction::Vote);
+                Some((
+                    vote.signing_key(),
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote(vote.clone().to_vote()),
+                    )),
+                    TransmitType::Broadcast,
                 ))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
@@ -418,7 +431,7 @@ impl<
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
                 sender_key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::LeaderProposalAvailable(proposal),
+                    GeneralConsensusMessage::ProposalResponse(convert_proposal(proposal)),
                 )),
                 TransmitType::Direct(sender_key),
             )),
@@ -609,8 +622,11 @@ impl<
                     TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::ViewChange(view) => {
+            HotShotEvent::ViewChange(view, epoch) => {
                 self.view = view;
+                if epoch > self.epoch {
+                    self.epoch = epoch;
+                }
                 self.cancel_tasks(view);
                 let net = Arc::clone(&self.network);
                 let epoch = self.epoch.u64();
@@ -666,7 +682,7 @@ impl<
             .committee_members(view_number, self.epoch);
         let network = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
-        let consensus = Arc::clone(&self.consensus);
+        let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let upgrade_lock = self.upgrade_lock.clone();
         let handle = spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(

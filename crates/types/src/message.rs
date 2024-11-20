@@ -17,6 +17,7 @@ use std::{
 
 use async_lock::RwLock;
 use cdn_proto::util::mnemonic;
+use committable::Committable;
 use derivative::Derivative;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use utils::anytrace::*;
@@ -26,10 +27,12 @@ use vbs::{
 };
 
 use crate::{
-    data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    data::{
+        DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal, VidDisperseShare,
+    },
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
+        DaCertificate, QuorumCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
@@ -159,14 +162,6 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
             MessageKind::External(_) => TYPES::View::new(1),
         }
     }
-
-    fn purpose(&self) -> MessagePurpose {
-        match &self {
-            MessageKind::Consensus(message) => message.purpose(),
-            MessageKind::Data(_) => MessagePurpose::Data,
-            MessageKind::External(_) => MessagePurpose::External,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -212,8 +207,11 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ),
 
-    /// The leader has responded with a valid proposal.
-    LeaderProposalAvailable(Proposal<TYPES, QuorumProposal<TYPES>>),
+    /// A replica has responded with a valid proposal.
+    ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
+
+    /// Message for the next leader containing our highest QC
+    HighQc(QuorumCertificate<TYPES>),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -258,7 +256,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                         p.data.view_number()
                     }
                     GeneralConsensusMessage::ProposalRequested(req, _) => req.view_number,
-                    GeneralConsensusMessage::LeaderProposalAvailable(proposal) => {
+                    GeneralConsensusMessage::ProposalResponse(proposal) => {
                         proposal.data.view_number()
                     }
                     GeneralConsensusMessage::Vote(vote_message) => vote_message.view_number(),
@@ -279,6 +277,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     }
                     GeneralConsensusMessage::UpgradeProposal(message) => message.data.view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) => message.view_number(),
+                    GeneralConsensusMessage::HighQc(qc) => qc.view_number(),
                 }
             }
             SequencingMessage::Da(da_message) => {
@@ -293,42 +292,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     DaConsensusMessage::VidDisperseMsg(disperse) => disperse.data.view_number(),
                 }
             }
-        }
-    }
-
-    // TODO: Disable panic after the `ViewSync` case is implemented.
-    /// Get the message purpos
-    #[allow(clippy::panic)]
-    fn purpose(&self) -> MessagePurpose {
-        match &self {
-            SequencingMessage::General(general_message) => match general_message {
-                GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
-                GeneralConsensusMessage::ProposalRequested(_, _)
-                | GeneralConsensusMessage::LeaderProposalAvailable(_) => {
-                    MessagePurpose::LatestProposal
-                }
-                GeneralConsensusMessage::Vote(_) | GeneralConsensusMessage::TimeoutVote(_) => {
-                    MessagePurpose::Vote
-                }
-                GeneralConsensusMessage::ViewSyncPreCommitVote(_)
-                | GeneralConsensusMessage::ViewSyncCommitVote(_)
-                | GeneralConsensusMessage::ViewSyncFinalizeVote(_) => MessagePurpose::ViewSyncVote,
-
-                GeneralConsensusMessage::ViewSyncPreCommitCertificate(_)
-                | GeneralConsensusMessage::ViewSyncCommitCertificate(_)
-                | GeneralConsensusMessage::ViewSyncFinalizeCertificate(_) => {
-                    MessagePurpose::ViewSyncCertificate
-                }
-
-                GeneralConsensusMessage::UpgradeProposal(_) => MessagePurpose::UpgradeProposal,
-                GeneralConsensusMessage::UpgradeVote(_) => MessagePurpose::UpgradeVote,
-            },
-            SequencingMessage::Da(da_message) => match da_message {
-                DaConsensusMessage::DaProposal(_) => MessagePurpose::Proposal,
-                DaConsensusMessage::DaVote(_) => MessagePurpose::Vote,
-                DaConsensusMessage::DaCertificate(_) => MessagePurpose::DaCertificate,
-                DaConsensusMessage::VidDisperseMsg(_) => MessagePurpose::VidDisperse,
-            },
         }
     }
 }
@@ -363,6 +326,22 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     pub _pd: PhantomData<TYPES>,
 }
 
+/// Convert a `Proposal` by converting the underlying proposal type
+pub fn convert_proposal<TYPES, PROPOSAL, PROPOSAL2>(
+    proposal: Proposal<TYPES, PROPOSAL>,
+) -> Proposal<TYPES, PROPOSAL2>
+where
+    TYPES: NodeType,
+    PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned,
+    PROPOSAL2: HasViewNumber<TYPES> + DeserializeOwned + From<PROPOSAL>,
+{
+    Proposal {
+        data: proposal.data.into(),
+        signature: proposal.signature,
+        _pd: proposal._pd,
+    }
+}
+
 impl<TYPES> Proposal<TYPES, QuorumProposal<TYPES>>
 where
     TYPES: NodeType,
@@ -385,6 +364,31 @@ where
                 &self.signature,
                 proposed_leaf.commit(upgrade_lock).await.as_ref()
             ),
+            "Proposal signature is invalid."
+        );
+
+        Ok(())
+    }
+}
+
+impl<TYPES> Proposal<TYPES, QuorumProposal2<TYPES>>
+where
+    TYPES: NodeType,
+{
+    /// Checks that the signature of the quorum proposal is valid.
+    /// # Errors
+    /// Returns an error when the proposal signature is invalid.
+    pub fn validate_signature(
+        &self,
+        quorum_membership: &TYPES::Membership,
+        epoch: TYPES::Epoch,
+    ) -> Result<()> {
+        let view_number = self.data.view_number();
+        let view_leader_key = quorum_membership.leader(view_number, epoch)?;
+        let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
+
+        ensure!(
+            view_leader_key.validate(&self.signature, proposed_leaf.commit().as_ref()),
             "Proposal signature is invalid."
         );
 

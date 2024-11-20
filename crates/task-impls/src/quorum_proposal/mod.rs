@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -19,7 +19,7 @@ use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::UpgradeCertificate,
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -91,6 +91,9 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
+
+    /// The higest_qc we've seen at the start of this task
+    pub highest_qc: QuorumCertificate2<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
@@ -110,14 +113,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::Qc => {
-                        if let HotShotEvent::QcFormed(either::Left(qc)) = event {
+                        if let HotShotEvent::Qc2Formed(either::Left(qc)) = event {
                             qc.view_number() + 1
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::TimeoutCert => {
-                        if let HotShotEvent::QcFormed(either::Right(timeout)) = event {
+                        if let HotShotEvent::Qc2Formed(either::Right(timeout)) = event {
                             timeout.view_number() + 1
                         } else {
                             return false;
@@ -224,7 +227,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::QuorumProposalPreliminarilyValidated(..) => {
                 proposal_dependency.mark_as_completed(event);
             }
-            HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
+            HotShotEvent::Qc2Formed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
                     timeout_dependency.mark_as_completed(event);
                 }
@@ -248,7 +251,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             // 2. A view sync cert was received.
             AndDependency::from_deps(vec![view_sync_dependency]),
         ];
-        // 3. A `QcFormed`` event (and `QuorumProposalRecv` event)
+        // 3. A `Qc2Formed`` event (and `QuorumProposalRecv` event)
         if *view_number > 1 {
             secondary_deps.push(AndDependency::from_deps(vec![
                 qc_dependency,
@@ -312,15 +315,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 latest_proposed_view: self.latest_proposed_view,
                 view_number,
                 sender: event_sender,
-                receiver: event_receiver.deactivate(),
+                receiver: event_receiver,
                 quorum_membership: Arc::clone(&self.quorum_membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 instance_state: Arc::clone(&self.instance_state),
                 consensus: OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
+                timeout: self.timeout,
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
+                view_start_time: Instant::now(),
+                highest_qc: self.highest_qc.clone(),
             },
         );
         self.proposal_dependencies
@@ -375,7 +381,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
-            HotShotEvent::QcFormed(cert) => match cert.clone() {
+            HotShotEvent::Qc2Formed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
                     let view_number = timeout_cert.view_number + 1;
                     let epoch_number = self.consensus.read().await.cur_epoch();
@@ -407,7 +413,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     self.storage
                         .write()
                         .await
-                        .update_high_qc(qc.clone())
+                        .update_high_qc2(qc.clone())
                         .await
                         .wrap()
                         .context(error!("Failed to update high QC in storage!"))?;
@@ -503,8 +509,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 )?;
             }
-            HotShotEvent::ViewChange(view) | HotShotEvent::Timeout(view) => {
+            HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
                 self.cancel_tasks(*view);
+            }
+            HotShotEvent::HighQcSend(qc, _sender) => {
+                ensure!(qc.view_number() > self.highest_qc.view_number());
+                let epoch_number = self.consensus.read().await.cur_epoch();
+                ensure!(
+                    qc.is_valid_cert(
+                        self.quorum_membership.as_ref(),
+                        epoch_number,
+                        &self.upgrade_lock
+                    )
+                    .await,
+                    warn!("Qurom certificate {:?} was invalid", qc.data())
+                );
+                self.highest_qc = qc.clone();
             }
             _ => {}
         }

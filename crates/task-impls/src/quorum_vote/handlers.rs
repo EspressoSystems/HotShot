@@ -9,12 +9,13 @@ use std::sync::Arc;
 use async_broadcast::{InactiveReceiver, Sender};
 use async_lock::RwLock;
 use chrono::Utc;
+use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf, QuorumProposal, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperseShare},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
-    simple_vote::{QuorumData, QuorumVote},
+    simple_vote::{QuorumData2, QuorumVote2},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -26,11 +27,15 @@ use hotshot_types::{
 };
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use super::QuorumVoteTaskState;
 use crate::{
     events::HotShotEvent,
-    helpers::{broadcast_event, decide_from_proposal, fetch_proposal, LeafChainTraversalOutcome},
+    helpers::{
+        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
+        LeafChainTraversalOutcome,
+    },
     quorum_vote::Versions,
 };
 
@@ -41,9 +46,14 @@ pub(crate) async fn handle_quorum_proposal_validated<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    proposal: &QuorumProposal<TYPES>,
+    proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    let version = task_state
+        .upgrade_lock
+        .version(proposal.view_number())
+        .await?;
+
     let LeafChainTraversalOutcome {
         new_locked_view_number,
         new_decided_view_number,
@@ -51,13 +61,23 @@ pub(crate) async fn handle_quorum_proposal_validated<
         leaf_views,
         included_txns,
         decided_upgrade_cert,
-    } = decide_from_proposal(
-        proposal,
-        OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
-        Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
-        &task_state.public_key,
-    )
-    .await;
+    } = if version >= V::Epochs::VERSION {
+        decide_from_proposal_2(
+            proposal,
+            OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+            Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
+            &task_state.public_key,
+        )
+        .await
+    } else {
+        decide_from_proposal(
+            proposal,
+            OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
+            Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
+            &task_state.public_key,
+        )
+        .await
+    };
 
     if let Some(cert) = decided_upgrade_cert.clone() {
         let mut decided_certificate_lock = task_state
@@ -153,7 +173,7 @@ pub(crate) async fn update_shared_state<
     view_number: TYPES::View,
     instance_state: Arc<TYPES::InstanceState>,
     storage: Arc<RwLock<I::Storage>>,
-    proposed_leaf: &Leaf<TYPES>,
+    proposed_leaf: &Leaf2<TYPES>,
     vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
     parent_view_number: Option<TYPES::View>,
 ) -> Result<()> {
@@ -240,15 +260,11 @@ pub(crate) async fn update_shared_state<
     // Now that we've rounded everyone up, we need to update the shared state
     let mut consensus_writer = consensus.write().await;
 
-    if let Err(e) = consensus_writer
-        .update_leaf(
-            proposed_leaf.clone(),
-            Arc::clone(&state),
-            Some(Arc::clone(&delta)),
-            &upgrade_lock,
-        )
-        .await
-    {
+    if let Err(e) = consensus_writer.update_leaf(
+        proposed_leaf.clone(),
+        Arc::clone(&state),
+        Some(Arc::clone(&delta)),
+    ) {
         tracing::trace!("{e:?}");
     }
 
@@ -261,7 +277,7 @@ pub(crate) async fn update_shared_state<
     storage
         .write()
         .await
-        .update_undecided_state(new_leaves, new_state)
+        .update_undecided_state2(new_leaves, new_state)
         .await
         .wrap()
         .context(error!("Failed to update undecided state"))?;
@@ -281,8 +297,9 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     view_number: TYPES::View,
     epoch_number: TYPES::Epoch,
     storage: Arc<RwLock<I::Storage>>,
-    leaf: Leaf<TYPES>,
+    leaf: Leaf2<TYPES>,
     vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    extended_vote: bool,
 ) -> Result<()> {
     ensure!(
         quorum_membership.has_stake(&public_key, epoch_number),
@@ -293,9 +310,9 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     );
 
     // Create and send the vote.
-    let vote = QuorumVote::<TYPES>::create_signed_vote(
-        QuorumData {
-            leaf_commit: leaf.commit(&upgrade_lock).await,
+    let vote = QuorumVote2::<TYPES>::create_signed_vote(
+        QuorumData2 {
+            leaf_commit: leaf.commit(),
         },
         view_number,
         &public_key,
@@ -317,7 +334,16 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
         .await
         .wrap()
         .context(error!("Failed to store VID share"))?;
-    broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &sender).await;
+
+    if extended_vote {
+        broadcast_event(
+            Arc::new(HotShotEvent::ExtendedQuorumVoteSend(vote)),
+            &sender,
+        )
+        .await;
+    } else {
+        broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &sender).await;
+    }
 
     Ok(())
 }
