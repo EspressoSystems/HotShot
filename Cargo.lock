@@ -2963,7 +2963,6 @@ dependencies = [
  "hotshot",
  "hotshot-example-types",
  "hotshot-orchestrator",
- "hotshot-task-impls",
  "hotshot-testing",
  "hotshot-types",
  "libp2p-networking",

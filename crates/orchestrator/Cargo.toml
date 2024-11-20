@@ -4,10 +4,10 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow.workspace = true
+anyhow = { workspace = true }
 async-lock = { workspace = true }
 blake3 = { workspace = true }
-clap.workspace = true
+clap = { workspace = true }
 csv = "1"
 futures = { workspace = true }
 hotshot-types = { path = "../types" }
