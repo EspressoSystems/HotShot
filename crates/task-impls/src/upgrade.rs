@@ -49,7 +49,7 @@ pub struct UpgradeTaskState<TYPES: NodeType, V: Versions> {
     pub cur_epoch: TYPES::Epoch,
 
     /// Membership for Quorum Certs/votes
-    pub membership: Arc<TYPES::Membership>,
+    pub quorum_membership: Arc<TYPES::Membership>,
 
     /// A map of `UpgradeVote` collector tasks
     pub vote_collectors: VoteCollectorsMap<TYPES, UpgradeVote<TYPES>, UpgradeCertificate<TYPES>, V>,
@@ -179,7 +179,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                 );
 
                 // We then validate that the proposal was issued by the leader for the view.
-                let view_leader_key = self.membership.leader(view, self.cur_epoch)?;
+                let view_leader_key = self.quorum_membership.leader(view, self.cur_epoch)?;
                 ensure!(
                     view_leader_key == *sender,
                     info!(
@@ -223,11 +223,12 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                 {
                     let view = vote.view_number();
                     ensure!(
-                        self.membership.leader(view, self.cur_epoch)? == self.public_key,
+                        self.quorum_membership.leader(view, self.cur_epoch)? == self.public_key,
                         debug!(
                             "We are not the leader for view {} are we leader for next view? {}",
                             *view,
-                            self.membership.leader(view + 1, self.cur_epoch)? == self.public_key
+                            self.quorum_membership.leader(view + 1, self.cur_epoch)?
+                                == self.public_key
                         )
                     );
                 }
@@ -236,7 +237,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                     &mut self.vote_collectors,
                     vote,
                     self.public_key.clone(),
-                    &self.membership,
+                    &self.quorum_membership,
                     self.cur_epoch,
                     self.id,
                     &event,
@@ -269,7 +270,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                     && time >= self.start_proposing_time
                     && time < self.stop_proposing_time
                     && !self.upgraded().await
-                    && self.membership.leader(
+                    && self.quorum_membership.leader(
                         TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
                         self.cur_epoch,
                     )? == self.public_key

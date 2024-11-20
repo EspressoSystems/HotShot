@@ -67,7 +67,6 @@ async fn test_certificate2_validity() {
     use hotshot_types::{
         data::{EpochNumber, Leaf, Leaf2},
         traits::{election::Membership, node_implementation::ConsensusTime},
-
         vote::Certificate,
     };
 
