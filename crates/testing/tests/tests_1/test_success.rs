@@ -142,7 +142,7 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        TestDescription {
+        let mut metadata = TestDescription {
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     duration: Duration::from_millis(100000),
@@ -153,8 +153,11 @@ cross_tests!(
             start_nodes: 10,
             num_bootstrap_nodes: 10,
             da_staked_committee_size: 10,
+            
             ..TestDescription::default()
-        }
+        };
+        metadata.overall_safety_properties.num_failed_views = 5;
+        metadata
     },
 );
 

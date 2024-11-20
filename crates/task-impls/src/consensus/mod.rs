@@ -6,10 +6,18 @@
 
 use std::sync::Arc;
 
+use self::handlers::{
+    handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
+};
+use crate::helpers::broadcast_event;
+use crate::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
+use either::Either;
 use hotshot_task::task::TaskState;
+use hotshot_types::utils::epoch_from_block_number;
+use hotshot_types::vote::HasViewNumber;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
@@ -17,18 +25,13 @@ use hotshot_types::{
     simple_certificate::{QuorumCertificate, TimeoutCertificate},
     simple_vote::{QuorumVote, TimeoutVote},
     traits::{
-        node_implementation::{NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
 };
 use tokio::task::JoinHandle;
 use tracing::instrument;
-use utils::anytrace::Result;
-
-use self::handlers::{
-    handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
-};
-use crate::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
+use utils::anytrace::*;
 
 /// Event handlers for use in the `handle` method.
 mod handlers;
@@ -130,6 +133,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                 if let Err(e) = handle_timeout(*view_number, *epoch, &sender, self).await {
                     tracing::debug!("Failed to handle Timeout event; error = {e}");
                 }
+            }
+            HotShotEvent::QcFormed(Either::Left(quorum_cert)) => {
+                if !self
+                    .consensus
+                    .read()
+                    .await
+                    .is_leaf_extended(quorum_cert.data.leaf_commit)
+                {
+                    tracing::debug!("We formed QC but not eQC. Do nothing");
+                    return Ok(());
+                }
+                let cert_view = quorum_cert.view_number();
+                let cert_block_number = self
+                    .consensus
+                    .read()
+                    .await
+                    .saved_leaves()
+                    .get(&quorum_cert.data.leaf_commit)
+                    .context(error!(
+                        "Could not find the leaf for the eQC. It shouldn't happen."
+                    ))?
+                    .height();
+                let cert_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    cert_block_number,
+                    self.epoch_height,
+                ));
+                // Transition to the new epoch by sending ViewChange
+                tracing::info!("Entering new epoch: {:?}", cert_epoch + 1);
+                broadcast_event(
+                    Arc::new(HotShotEvent::ViewChange(cert_view + 1, cert_epoch + 1)),
+                    &sender,
+                )
+                .await;
             }
             _ => {}
         }

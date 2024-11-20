@@ -305,6 +305,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 self.cur_view = view;
             }
             HotShotEvent::BlockRecv(packed_bundle) => {
+                tracing::error!("lrzasik: received BlockRecv");
                 let PackedBundle::<TYPES> {
                     encoded_transactions,
                     metadata,
@@ -321,12 +322,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)
                         .wrap()?;
 
+                let epoch = self.cur_epoch;
+                if self.da_membership.leader(view_number, epoch)? != self.public_key {
+                    tracing::debug!("We are not the leader in the current epoch. Do not send the DA proposal");
+                    return Ok(());
+                }
                 let data: DaProposal<TYPES> = DaProposal {
                     encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number,
-                    epoch: self.cur_epoch,
+                    epoch,
                 };
 
                 let message = Proposal {
