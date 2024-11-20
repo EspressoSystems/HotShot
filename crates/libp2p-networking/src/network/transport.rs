@@ -522,9 +522,7 @@ mod test {
 
     use hotshot_example_types::node_types::TestTypes;
     use hotshot_types::{
-        light_client::StateVerKey,
-        signature_key::BLSPubKey,
-        traits::signature_key::SignatureKey,
+        light_client::StateVerKey, signature_key::BLSPubKey, traits::signature_key::SignatureKey,
         PeerConfig,
     };
     use libp2p::{core::transport::dummy::DummyTransport, quic::Connection};

@@ -24,8 +24,9 @@ use crate::{
     data::serialize_signature2,
     message::UpgradeLock,
     simple_vote::{
-        DaData, QuorumData, QuorumData2, QuorumMaker, TimeoutData, UpgradeProposalData, VersionedVoteData,
-        ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData, Voteable,
+        DaData, QuorumData, QuorumData2, QuorumMaker, TimeoutData, UpgradeProposalData,
+        VersionedVoteData, ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData,
+        Voteable,
     },
     traits::{
         election::Membership,
