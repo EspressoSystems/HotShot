@@ -120,9 +120,13 @@ cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
 cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
-### Profiles###### Note: these only apply to example executables or tests built from within this crate. They have### no effect on crates that depend on this crate.
-## Apply some optimizations to test dependencies in debug/test builds
 
+### Profiles
+###
+### Note: these only apply to example executables or tests built from within this crate. They have
+### no effect on crates that depend on this crate.
+
+# Apply some optimizations to test dependencies in debug/test builds
 [profile.dev]
 strip = true
 debug = 0
