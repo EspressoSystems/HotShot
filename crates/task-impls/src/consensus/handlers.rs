@@ -10,7 +10,7 @@ use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
     event::{Event, EventType},
-    simple_vote::{QuorumVote, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote2, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -20,13 +20,13 @@ use hotshot_types::{
 use tokio::{spawn, time::sleep};
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use super::ConsensusTaskState;
 use crate::{
     consensus::Versions, events::HotShotEvent, helpers::broadcast_event,
     vote_collection::handle_vote,
 };
-use vbs::version::StaticVersionType;
 
 /// Handle a `QuorumVoteRecv` event.
 pub(crate) async fn handle_quorum_vote_recv<
@@ -34,7 +34,7 @@ pub(crate) async fn handle_quorum_vote_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    vote: &QuorumVote<TYPES>,
+    vote: &QuorumVote2<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
@@ -87,7 +87,7 @@ pub(crate) async fn handle_timeout_vote_recv<
     // Are we the leader for this view?
     ensure!(
         task_state
-            .timeout_membership
+            .quorum_membership
             .leader(vote.view_number() + 1, task_state.cur_epoch)?
             == task_state.public_key,
         info!(
@@ -276,7 +276,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
 
     ensure!(
         task_state
-            .timeout_membership
+            .quorum_membership
             .has_stake(&task_state.public_key, task_state.cur_epoch),
         debug!("We were not chosen for the consensus committee for view {view_number:?}")
     );
