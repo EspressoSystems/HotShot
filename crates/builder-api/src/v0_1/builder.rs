@@ -14,7 +14,7 @@ use hotshot_types::{traits::node_implementation::NodeType, utils::BuilderCommitm
 use serde::{Deserialize, Serialize};
 use tagged_base64::TaggedBase64;
 use thiserror::Error;
-use tide_disco::{api::ApiError, method::ReadState, Api, RequestError, RequestParams, StatusCode};
+use tide_disco::{api::ApiError, method::{ReadState, WriteState}, Api, RequestError, RequestParams, StatusCode};
 use vbs::version::StaticVersionType;
 
 use super::{
@@ -219,7 +219,7 @@ pub fn submit_api<State, Types: NodeType, Ver: StaticVersionType + 'static>(
     options: &Options,
 ) -> Result<Api<State, Error, Ver>, ApiError>
 where
-    State: 'static + Send + Sync + ReadState,
+    State: 'static + Send + Sync + ReadState + WriteState,
     <State as ReadState>::State: Send + Sync + AcceptsTxnSubmits<Types>,
 {
     let mut api = load_api::<State, Error, Ver>(
@@ -256,7 +256,7 @@ where
             }
             .boxed()
         })?
-        .get("get_status", |req: RequestParams, state| {
+        .post("get_status", |req: RequestParams, state| {
             async move {
                 let tx = req
                     .body_auto::<<Types as NodeType>::Transaction, Ver>(Ver::instance())
