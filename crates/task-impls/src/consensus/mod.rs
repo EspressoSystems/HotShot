@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use async_broadcast::{Receiver, Sender};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
@@ -56,9 +55,6 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     /// A map of `TimeoutVote` collector tasks.
     pub timeout_vote_collectors:
         VoteCollectorsMap<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>, V>,
-
-    /// This node's storage ref
-    pub storage: Arc<RwLock<I::Storage>>,
 
     /// The view number that this node is currently executing in.
     pub cur_view: TYPES::View,
