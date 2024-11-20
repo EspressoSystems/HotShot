@@ -19,7 +19,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
 bincode = { workspace = true }
-custom_debug = { workspace = true }
+derive_more = { workspace = true }
 delegate = "0.13"
 derive_builder = "0.20"
 futures = { workspace = true }

@@ -19,7 +19,7 @@ bincode = { workspace = true }
 bitvec = { workspace = true }
 blake3 = { workspace = true }
 committable = { workspace = true }
-custom_debug = { workspace = true }
+derive_more = { workspace = true, features = ["debug"] }
 digest = { workspace = true, features = ["rand_core"] }
 either = { workspace = true }
 primitive-types = { workspace = true }
@@ -33,7 +33,6 @@ thiserror = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
 typenum = { workspace = true }
-derivative = "2"
 jf-vid = { workspace = true }
 jf-pcs = { workspace = true }
 jf-signature = { workspace = true, features = ["bls", "schnorr"] }

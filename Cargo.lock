@@ -511,7 +511,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
- "synstructure 0.13.1",
+ "synstructure",
 ]
 
 [[package]]
@@ -1803,26 +1803,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "custom_debug"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e89e0ae2c2a42be29595d05c50e3ce6096c0698a97e021c3289790f0750cc8e2"
-dependencies = [
- "custom_debug_derive",
-]
-
-[[package]]
-name = "custom_debug_derive"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08a9f3941234c9f62ceaa2782974827749de9b0a8a6487275a278da068e1baf7"
-dependencies = [
- "proc-macro2",
- "syn 1.0.109",
- "synstructure 0.12.6",
-]
-
-[[package]]
 name = "darling"
 version = "0.20.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2027,6 +2007,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -2900,8 +2881,8 @@ dependencies = [
  "cdn-marshal",
  "chrono",
  "committable",
- "custom_debug",
  "dashmap",
+ "derive_more 1.0.0",
  "either",
  "futures",
  "hotshot-task",
@@ -3172,8 +3153,7 @@ dependencies = [
  "blake3",
  "clap",
  "committable",
- "custom_debug",
- "derivative",
+ "derive_more 1.0.0",
  "digest 0.10.7",
  "displaydoc",
  "dyn-clone",
@@ -4411,9 +4391,9 @@ dependencies = [
  "bincode",
  "blake3",
  "cbor4ii",
- "custom_debug",
  "delegate",
  "derive_builder",
+ "derive_more 1.0.0",
  "futures",
  "hotshot-example-types",
  "hotshot-types",
@@ -7279,18 +7259,6 @@ dependencies = [
 
 [[package]]
 name = "synstructure"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "unicode-xid",
-]
-
-[[package]]
-name = "synstructure"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
@@ -8776,7 +8744,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
- "synstructure 0.13.1",
+ "synstructure",
 ]
 
 [[package]]
@@ -8818,7 +8786,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
- "synstructure 0.13.1",
+ "synstructure",
 ]
 
 [[package]]

@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 async-trait = { workspace = true }
 clap = { workspace = true }
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["from"] }
 futures = { workspace = true }
 hotshot-types = { path = "../types" }
 serde = { workspace = true }
