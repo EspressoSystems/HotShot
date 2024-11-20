@@ -13,6 +13,7 @@ use async_broadcast::{Receiver, SendError, Sender};
 use async_lock::RwLock;
 use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
+use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::utils::epoch_from_block_number;
 use hotshot_types::{
     consensus::OuterConsensus,
@@ -23,7 +24,6 @@ use hotshot_types::{
     simple_certificate::{QuorumCertificate, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
-        election::Membership,
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
@@ -33,7 +33,6 @@ use hotshot_types::{
 };
 use tokio::time::timeout;
 use tracing::instrument;
-use hotshot_types::simple_vote::HasEpoch;
 use utils::anytrace::*;
 
 use crate::{events::HotShotEvent, quorum_proposal_recv::ValidationInfo, request::REQUEST_TIMEOUT};
@@ -548,7 +547,7 @@ pub async fn validate_proposal_safety_and_liveness<
             upgrade_certificate_epoch,
             &validation_info.upgrade_lock,
         )
-            .await?;
+        .await?;
     }
 
     // Validate that the upgrade certificate is re-attached, if we saw one on the parent
@@ -736,7 +735,7 @@ pub(crate) async fn validate_proposal_view_and_certs<
             upgrade_certificate_epoch,
             &validation_info.upgrade_lock,
         )
-            .await?;
+        .await?;
     }
 
     Ok(())

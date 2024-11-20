@@ -19,6 +19,7 @@ use hotshot_task::{
     dependency::{Dependency, EventDependency},
     task::TaskState,
 };
+use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::OuterConsensus,
     traits::{
@@ -37,7 +38,6 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tracing::instrument;
-use hotshot_types::simple_vote::HasEpoch;
 use utils::anytrace::Result;
 
 use crate::{events::HotShotEvent, helpers::broadcast_event};

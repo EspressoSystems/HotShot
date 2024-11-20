@@ -19,6 +19,7 @@ use hotshot_task::{
     dependency_task::{DependencyTask, HandleDepOutput},
     task::TaskState,
 };
+use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf, QuorumProposal},
@@ -40,7 +41,6 @@ use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-use hotshot_types::simple_vote::HasEpoch;
 
 /// Event handlers for `QuorumProposalValidated`.
 mod handlers;

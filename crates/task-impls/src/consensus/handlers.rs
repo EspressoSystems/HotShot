@@ -156,7 +156,11 @@ pub(crate) async fn handle_view_change<
 ) -> Result<()> {
     if epoch_number > task_state.cur_epoch {
         task_state.cur_epoch = epoch_number;
-        let _ = task_state.consensus.write().await.update_epoch(epoch_number);
+        let _ = task_state
+            .consensus
+            .write()
+            .await
+            .update_epoch(epoch_number);
         tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
     }
 

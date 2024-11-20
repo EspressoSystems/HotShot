@@ -21,7 +21,7 @@ use hotshot_types::{
     },
 };
 use tracing::{debug, error, info, instrument};
-use utils::anytrace::{Context, Result};
+use utils::anytrace::Result;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
