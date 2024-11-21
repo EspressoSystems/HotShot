@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_REPLICATION_FACTOR","_DERIVE_core_fmt_Debug_FOR_NetworkNodeConfig"],"enum":["NetworkNodeConfigBuilderError"],"struct":["GossipConfig","NetworkNodeConfig","NetworkNodeConfigBuilder","RequestResponseConfig"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_REPLICATION_FACTOR"],"enum":["NetworkNodeConfigBuilderError"],"struct":["GossipConfig","NetworkNodeConfig","NetworkNodeConfigBuilder","RequestResponseConfig"]};

@@ -387,6 +387,7 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -396,7 +397,8 @@
 </span><span class="kw">use </span>std::{fs, ops::Range, path::Path, time::Duration, vec};
 
 <span class="kw">use </span>clap::ValueEnum;
-<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
+<span class="kw">use </span>libp2p_identity::PeerId;
+<span class="kw">use </span>multiaddr::Multiaddr;
 <span class="kw">use </span>serde_inline_default::serde_inline_default;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>tracing::error;

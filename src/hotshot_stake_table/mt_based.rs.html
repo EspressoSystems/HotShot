@@ -360,8 +360,8 @@
 
 <span class="kw">use </span>ark_std::{collections::HashMap, rand::SeedableRng, sync::Arc};
 <span class="kw">use </span>digest::crypto_common::rand_core::CryptoRngCore;
-<span class="kw">use </span>ethereum_types::{U256, U512};
 <span class="kw">use </span>hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
+<span class="kw">use </span>primitive_types::{U256, U512};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="self">self</span>::internal::{to_merkle_path, Key, MerkleCommitment, MerkleProof, PersistentMerkleNode};
@@ -579,8 +579,8 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>ark_std::{rand::SeedableRng, vec::Vec};
-    <span class="kw">use </span>ethereum_types::U256;
     <span class="kw">use </span>hotshot_types::traits::stake_table::{SnapshotVersion, StakeTableError, StakeTableScheme};
+    <span class="kw">use </span>primitive_types::U256;
 
     <span class="kw">use </span><span class="kw">super</span>::StakeTable;
 

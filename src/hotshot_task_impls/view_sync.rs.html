@@ -1346,7 +1346,7 @@
                 <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.cur_epoch)<span class="question-mark">?</span>;
                 <span class="macro">tracing::warn!</span>(
                     %leader,
-                    leader_mnemonic = cdn_proto::util::mnemonic(<span class="kw-2">&amp;</span>leader),
+                    leader_mnemonic = hotshot_types::utils::mnemonic(<span class="kw-2">&amp;</span>leader),
                     view_number = <span class="kw-2">*</span>view_number,
                     num_timeouts_tracked = <span class="self">self</span>.num_timeouts_tracked,
                     <span class="string">"view timed out"</span>,

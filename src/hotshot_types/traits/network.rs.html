@@ -597,7 +597,6 @@
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -618,7 +617,6 @@
 };
 
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>dyn_clone::DynClone;
 <span class="kw">use </span>futures::{future::join_all, Future};
 <span class="kw">use </span>rand::{
@@ -721,7 +719,7 @@
 }
 
 <span class="doccomment">/// A request for some data that the consensus layer is asking for.
-</span><span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>DataRequest&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Request
@@ -734,7 +732,7 @@
 }
 
 <span class="doccomment">/// Underlying data request
-</span><span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub enum </span>RequestKind&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Request VID data by our key and the VID commitment
     </span>Vid(TYPES::View, TYPES::SignatureKey),
@@ -746,7 +744,7 @@
 
 <span class="doccomment">/// A response for a request.  `SequencingMessage` is the same as other network messages
 /// The kind of message `M` is is determined by what we requested
-</span><span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 #[allow(clippy::large_enum_variant)]
 </span><span class="doccomment">/// TODO: Put `Found` content in a `Box` to make enum smaller

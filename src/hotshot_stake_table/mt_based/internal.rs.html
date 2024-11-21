@@ -788,10 +788,10 @@
 
 </span><span class="kw">use </span>ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 <span class="kw">use </span>ark_std::{hash::Hash, sync::Arc, vec, vec::Vec};
-<span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_types::traits::stake_table::StakeTableError;
 <span class="kw">use </span>jf_crhf::CRHF;
 <span class="kw">use </span>jf_utils::canonical;
+<span class="kw">use </span>primitive_types::U256;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tagged_base64::tagged;
 
@@ -1411,8 +1411,8 @@
         vec,
         vec::Vec,
     };
-    <span class="kw">use </span>ethereum_types::U256;
     <span class="kw">use </span>jf_utils::test_rng;
+    <span class="kw">use </span>primitive_types::U256;
 
     <span class="kw">use super</span>::{<span class="kw">super</span>::config, to_merkle_path, PersistentMerkleNode};
 

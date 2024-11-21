@@ -182,7 +182,6 @@
 
 </span><span class="kw">use </span>std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
-<span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>hotshot_types::{
     traits::{
         election::Membership,
@@ -192,6 +191,7 @@
     },
     PeerConfig,
 };
+<span class="kw">use </span>primitive_types::U256;
 <span class="kw">use </span>utils::anytrace::Result;
 
 <span class="attr">#[derive(Clone, Debug, Eq, PartialEq, Hash)]

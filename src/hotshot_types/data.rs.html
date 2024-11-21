@@ -1247,7 +1247,6 @@
 <a href="#1247" id="1247">1247</a>
 <a href="#1248" id="1248">1248</a>
 <a href="#1249" id="1249">1249</a>
-<a href="#1250" id="1250">1250</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1270,7 +1269,6 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -1386,7 +1384,7 @@
 <span class="macro">impl_u64_wrapper!</span>(EpochNumber);
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+</span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound = <span class="string">"TYPES: NodeType"</span>)]
 </span><span class="kw">pub struct </span>DaProposal&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Encoded transactions in the block to be applied.
@@ -1398,7 +1396,7 @@
 }
 
 <span class="doccomment">/// A proposal to upgrade the network
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+</span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound = <span class="string">"TYPES: NodeType"</span>)]
 </span><span class="kw">pub struct </span>UpgradeProposal&lt;TYPES&gt;
 <span class="kw">where
@@ -1483,7 +1481,7 @@
 
 <span class="doccomment">/// Helper type to encapsulate the various ways that proposal certificates can be captured and
 /// stored.
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+</span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub enum </span>ViewChangeEvidence&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Holds a timeout certificate.
@@ -1601,7 +1599,7 @@
 }
 
 <span class="doccomment">/// Proposal to append a block.
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+</span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>QuorumProposal&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The block header to append
@@ -1624,7 +1622,7 @@
 }
 
 <span class="doccomment">/// Proposal to append a block.
-</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+</span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>QuorumProposal2&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The block header to append
@@ -1759,7 +1757,7 @@
 <span class="doccomment">/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::BlockPayload`
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Eq)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>Leaf&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// CurView from leader when proposing leaf
@@ -1786,7 +1784,7 @@
 
 <span class="doccomment">/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, Eq)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>Leaf2&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// CurView from leader when proposing leaf

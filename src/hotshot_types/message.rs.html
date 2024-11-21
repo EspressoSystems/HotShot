@@ -530,7 +530,6 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -549,9 +548,7 @@
 };
 
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>cdn_proto::util::mnemonic;
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::{
@@ -578,11 +575,12 @@
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::mnemonic,
     vote::HasViewNumber,
 };
 
 <span class="doccomment">/// Incoming message
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Derivative, PartialEq, Eq, Hash)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>, serialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>Message&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The sender of this message
@@ -829,7 +827,7 @@
     }
 }
 
-<span class="attr">#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 #[allow(clippy::large_enum_variant)]
 </span><span class="doccomment">/// TODO: Put `DataResponse` content in a `Box` to make enum smaller

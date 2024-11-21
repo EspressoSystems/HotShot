@@ -519,6 +519,7 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -534,7 +535,8 @@
     traits::signature_key::SignatureKey,
     PeerConfig, ValidatorConfig,
 };
-<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
+<span class="kw">use </span>libp2p_identity::PeerId;
+<span class="kw">use </span>multiaddr::Multiaddr;
 <span class="kw">use </span>surf_disco::{error::ClientError, Client};
 <span class="kw">use </span>tide_disco::Url;
 <span class="kw">use </span>tokio::time::sleep;

@@ -382,7 +382,7 @@
 }
 
 <span class="doccomment">/// Holds configuration for a `HotShot`
-</span><span class="attr">#[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
+</span><span class="attr">#[derive(Clone, derive_more::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = <span class="string">""</span>))]
 </span><span class="kw">pub struct </span>HotShotConfig&lt;KEY: SignatureKey&gt; {
     <span class="doccomment">/// The proportion of nodes required before the orchestrator issues the ready signal,

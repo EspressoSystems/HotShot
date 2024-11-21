@@ -192,11 +192,11 @@
 </span><span class="kw">use </span>ark_serialize::SerializationError;
 <span class="kw">use </span>bitvec::{slice::BitSlice, vec::BitVec};
 <span class="kw">use </span>digest::generic_array::GenericArray;
-<span class="kw">use </span>ethereum_types::U256;
 <span class="kw">use </span>jf_signature::{
     bls_over_bn254::{BLSOverBN254CurveSignatureScheme, KeyPair, SignKey, VerKey},
     SignatureError, SignatureScheme,
 };
+<span class="kw">use </span>primitive_types::U256;
 <span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>rand_chacha::ChaCha20Rng;
 <span class="kw">use </span>tracing::instrument;

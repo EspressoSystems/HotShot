@@ -377,11 +377,6 @@
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -417,7 +412,6 @@
     },
     BoxSyncFuture,
 };
-<span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>tokio::{
     spawn,
     sync::mpsc::{channel, error::SendError, Receiver, Sender},
@@ -430,7 +424,7 @@
 ///
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
-</span><span class="attr">#[derive(custom_debug::Debug)]
+</span><span class="attr">#[derive(derive_more::Debug)]
 </span><span class="kw">pub struct </span>MasterMap&lt;K: SignatureKey&gt; {
     <span class="doccomment">/// The list of `MemoryNetwork`s
     </span><span class="attr">#[debug(skip)]
@@ -438,9 +432,6 @@
 
     <span class="doccomment">/// The list of `MemoryNetwork`s aggregated by topic
     </span>subscribed_map: DashMap&lt;Topic, Vec&lt;(K, MemoryNetwork&lt;K&gt;)&gt;&gt;,
-
-    <span class="doccomment">/// The id of this `MemoryNetwork` cluster
-    </span>id: u64,
 }
 
 <span class="kw">impl</span>&lt;K: SignatureKey&gt; MasterMap&lt;K&gt; {
@@ -450,7 +441,6 @@
         Arc::new(MasterMap {
             map: DashMap::new(),
             subscribed_map: DashMap::new(),
-            id: rand::thread_rng().gen(),
         })
     }
 }

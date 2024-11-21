@@ -191,7 +191,7 @@
 </span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt; = NonZeroUsize::new(<span class="number">10</span>);
 
 <span class="doccomment">/// describe the configuration of the network
-</span><span class="attr">#[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
+</span><span class="attr">#[derive(Clone, Default, derive_builder::Builder, derive_more::Debug)]
 </span><span class="kw">pub struct </span>NetworkNodeConfig&lt;T: NodeType&gt; {
     <span class="doccomment">/// The keypair for the node
     </span><span class="attr">#[builder(setter(into, strip_option), default)]

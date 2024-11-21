@@ -750,15 +750,6 @@
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -819,7 +810,7 @@
 };
 <span class="kw">use super</span>::{
     behaviours::dht::{
-        bootstrap::{<span class="self">self</span>, DHTBootstrapTask, InputEvent},
+        bootstrap::{DHTBootstrapTask, InputEvent},
         store::ValidatedStore,
     },
     cbor::Cbor,
@@ -842,17 +833,13 @@
 </span><span class="kw">pub const </span>ESTABLISHED_LIMIT_UNWR: u32 = <span class="number">10</span>;
 
 <span class="doccomment">/// Network definition
-</span><span class="attr">#[derive(custom_debug::Debug)]
+</span><span class="attr">#[derive(derive_more::Debug)]
 </span><span class="kw">pub struct </span>NetworkNode&lt;T: NodeType&gt; {
-    <span class="doccomment">/// The keypair for the node
-    </span>keypair: Keypair,
     <span class="doccomment">/// peer id of network node
     </span>peer_id: PeerId,
     <span class="doccomment">/// the swarm of networkbehaviours
     </span><span class="attr">#[debug(skip)]
     </span>swarm: Swarm&lt;NetworkDef&lt;T::SignatureKey&gt;&gt;,
-    <span class="doccomment">/// the configuration parameters of the netework
-    </span>config: NetworkNodeConfig&lt;T&gt;,
     <span class="doccomment">/// the listener id we are listening on, if it exists
     </span>listener_id: <span class="prelude-ty">Option</span>&lt;ListenerId&gt;,
     <span class="doccomment">/// Handler for direct messages
@@ -861,8 +848,6 @@
     </span>dht_handler: DHTBehaviour&lt;T::SignatureKey&gt;,
     <span class="doccomment">/// Channel to resend requests, set to Some when we call `spawn_listeners`
     </span>resend_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ClientRequest&gt;&gt;,
-    <span class="doccomment">/// Send to the bootstrap task to tell it to start a bootstrap
-    </span>bootstrap_tx: <span class="prelude-ty">Option</span>&lt;mpsc::Sender&lt;bootstrap::InputEvent&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;T: NodeType&gt; NetworkNode&lt;T&gt; {
@@ -1077,10 +1062,8 @@
         }
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            keypair,
             peer_id,
             swarm,
-            config: config.clone(),
             listener_id: <span class="prelude-val">None</span>,
             direct_message_state: DMBehaviour::default(),
             dht_handler: DHTBehaviour::new(
@@ -1090,7 +1073,6 @@
                     .unwrap_or(NonZeroUsize::new(<span class="number">4</span>).unwrap()),
             ),
             resend_tx: <span class="prelude-val">None</span>,
-            bootstrap_tx: <span class="prelude-val">None</span>,
         })
     }
 

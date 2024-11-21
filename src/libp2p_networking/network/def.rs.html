@@ -177,7 +177,7 @@
 /// - direct messaging
 /// - p2p broadcast
 /// - connection management
-</span><span class="attr">#[derive(NetworkBehaviour, custom_debug::Debug)]
+</span><span class="attr">#[derive(NetworkBehaviour, derive_more::Debug)]
 #[behaviour(to_swarm = <span class="string">"NetworkEventInternal"</span>)]
 </span><span class="kw">pub struct </span>NetworkDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
     <span class="doccomment">/// purpose: broadcasting messages to many peers
