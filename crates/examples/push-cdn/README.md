@@ -1,7 +1,7 @@
 Steps
 ---------------
 
-KeyDB is the ephemeral database, it's like Redis but with extra features. The only thing we run it with is with `--requirepass` to set a password.
+KeyDB is the ephemeral database, it's like Redis but with extra features. The only thing we run it with `--requirepass` to set a password.
 
 **Marshals:**
 The marshal is the entry point of the push CDN, all users connect there first. It tells users which broker to connect to.
