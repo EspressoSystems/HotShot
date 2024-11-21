@@ -106,7 +106,7 @@ just careful
 
 ## Testing on CI
 
-To test as if running on CI, one must limit the number of cores and ram to match github runners (2 core, 7 gig ram). To limit the ram, spin up a virtual machine or container with 7 gigs ram. To limit the core count when running tests:
+To test as if running on CI, one must limit the number of cores and ram to match github runners (2 cores, 7GB ram). To limit the ram, spin up a virtual machine or container with 7 gigs ram. To limit the core count when running tests:
 
 ```
 ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just tokio test
@@ -177,7 +177,7 @@ heaptrack $(fd -I "counter*" -t x | rg release) --ignored -- test_stress_dht_man
 # palette provides memory statistics, omission will provide cpu cycle stats as colors
 # NOTE: must be run as root on macos
 flamegraph --palette=mem $(fd -I "counter*" -t x | rg release) --ignored -- test_stress_dht_one_round
-# code coveragte statistics
+# code coverage statistics
 cargo-llvm-cov llvm-cov --test=test_stress_dht_many_round --workspace --all-targets --release --html --output-path lcov.html
 ```
 
