@@ -261,16 +261,17 @@ impl Versions for EpochsTestVersions {
 
 #[cfg(test)]
 mod tests {
-    use crate::node_types::{MarketplaceTestVersions, NodeType, TestTypes};
     use committable::{Commitment, Committable};
-    use hotshot_types::data::EpochNumber;
     use hotshot_types::{
+        data::EpochNumber,
         impl_has_epoch,
         message::UpgradeLock,
         simple_vote::{HasEpoch, VersionedVoteData},
         traits::node_implementation::ConsensusTime,
     };
     use serde::{Deserialize, Serialize};
+
+    use crate::node_types::{MarketplaceTestVersions, NodeType, TestTypes};
     #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Hash, Eq)]
     /// Dummy data used for test
     struct TestData<TYPES: NodeType> {

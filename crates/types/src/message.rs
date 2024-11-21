@@ -34,7 +34,7 @@ use crate::{
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote, HasEpoch, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
+        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
         ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
     traits::{
@@ -169,10 +169,10 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
 /// Messages related to both validating and sequencing consensus.
 pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with a quorum proposal.
-    Proposal(Proposal<TYPES, QuorumProposal2<TYPES>>),
+    Proposal(Proposal<TYPES, QuorumProposal<TYPES>>),
 
     /// Message with a quorum vote.
-    Vote(QuorumVote2<TYPES>),
+    Vote(QuorumVote<TYPES>),
 
     /// Message with a view sync pre-commit vote
     ViewSyncPreCommitVote(ViewSyncPreCommitVote<TYPES>),
@@ -201,6 +201,12 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with an upgrade vote
     UpgradeVote(UpgradeVote<TYPES>),
 
+    /// Message with a quorum proposal.
+    Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
+
+    /// Message with a quorum vote.
+    Vote2(QuorumVote2<TYPES>),
+
     /// A peer node needs a proposal from the leader.
     ProposalRequested(
         ProposalRequestPayload<TYPES>,
@@ -208,7 +214,10 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     ),
 
     /// A replica has responded with a valid proposal.
-    ProposalResponse(Proposal<TYPES, QuorumProposal2<TYPES>>),
+    ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
+
+    /// A replica has responded with a valid proposal.
+    ProposalResponse2(Proposal<TYPES, QuorumProposal2<TYPES>>),
 
     /// Message for the next leader containing our highest QC
     HighQc(QuorumCertificate<TYPES>),
@@ -255,11 +264,20 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                         // this should match replica upon receipt
                         p.data.view_number()
                     }
+                    GeneralConsensusMessage::Proposal2(p) => {
+                        // view of leader in the leaf when proposal
+                        // this should match replica upon receipt
+                        p.data.view_number()
+                    }
                     GeneralConsensusMessage::ProposalRequested(req, _) => req.view_number,
                     GeneralConsensusMessage::ProposalResponse(proposal) => {
                         proposal.data.view_number()
                     }
+                    GeneralConsensusMessage::ProposalResponse2(proposal) => {
+                        proposal.data.view_number()
+                    }
                     GeneralConsensusMessage::Vote(vote_message) => vote_message.view_number(),
+                    GeneralConsensusMessage::Vote2(vote_message) => vote_message.view_number(),
                     GeneralConsensusMessage::TimeoutVote(message) => message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) => {
                         message.view_number()
@@ -326,30 +344,14 @@ pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + Deserializ
     pub _pd: PhantomData<TYPES>,
 }
 
-/// Convert a `Proposal` by converting the underlying proposal type into `Proposal2`
-pub fn convert_proposal_to_new_proposal<TYPES, PROPOSAL, PROPOSAL2>(
+/// Convert a `Proposal` by converting the underlying proposal type
+pub fn convert_proposal<TYPES, PROPOSAL, PROPOSAL2>(
     proposal: Proposal<TYPES, PROPOSAL>,
 ) -> Proposal<TYPES, PROPOSAL2>
 where
     TYPES: NodeType,
     PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned,
-    PROPOSAL2: HasViewNumber<TYPES> + HasEpoch<TYPES> + DeserializeOwned + From<PROPOSAL>,
-{
-    Proposal {
-        data: proposal.data.into(),
-        signature: proposal.signature,
-        _pd: proposal._pd,
-    }
-}
-
-/// Convert a `Proposal2` by converting the underlying proposal type into `Proposal`
-pub fn convert_proposal_to_old_proposal<TYPES, PROPOSAL, PROPOSAL2>(
-    proposal: Proposal<TYPES, PROPOSAL2>,
-) -> Proposal<TYPES, PROPOSAL>
-where
-    TYPES: NodeType,
-    PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned + From<PROPOSAL2>,
-    PROPOSAL2: HasViewNumber<TYPES> + HasEpoch<TYPES> + DeserializeOwned,
+    PROPOSAL2: HasViewNumber<TYPES> + DeserializeOwned + From<PROPOSAL>,
 {
     Proposal {
         data: proposal.data.into(),

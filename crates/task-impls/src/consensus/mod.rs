@@ -6,17 +6,10 @@
 
 use std::sync::Arc;
 
-use self::handlers::{
-    handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
-};
-use crate::helpers::broadcast_event;
-use crate::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use either::Either;
 use hotshot_task::task::TaskState;
-use hotshot_types::utils::epoch_from_block_number;
-use hotshot_types::vote::HasViewNumber;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
@@ -27,10 +20,17 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
+    vote::HasViewNumber,
 };
 use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
+
+use self::handlers::{
+    handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
+};
+use crate::{events::HotShotEvent, helpers::broadcast_event, vote_collection::VoteCollectorsMap};
 
 /// Event handlers for use in the `handle` method.
 mod handlers;

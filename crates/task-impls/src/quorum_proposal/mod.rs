@@ -15,7 +15,6 @@ use hotshot_task::{
     dependency_task::DependencyTask,
     task::TaskState,
 };
-use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     consensus::OuterConsensus,
     message::UpgradeLock,
@@ -26,6 +25,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::EpochTransitionIndicator,
     vote::{Certificate, HasViewNumber},
 };
 use tokio::task::JoinHandle;

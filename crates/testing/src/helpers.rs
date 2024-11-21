@@ -7,7 +7,6 @@
 #![allow(clippy::panic)]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
@@ -47,6 +46,8 @@ use hotshot_types::{
 use jf_vid::VidScheme;
 use primitive_types::U256;
 use serde::Serialize;
+
+use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
@@ -419,7 +420,7 @@ pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     )
     .await
     .expect("Failed to create quorum vote");
-    GeneralConsensusMessage::<TYPES>::Vote(vote)
+    GeneralConsensusMessage::<TYPES>::Vote(vote.to_vote())
 }
 
 /// This function permutes the provided input vector `inputs`, given some order provided within the

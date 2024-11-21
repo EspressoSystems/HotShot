@@ -51,7 +51,7 @@ use hotshot_types::{
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
-    message::{DataMessage, Message, MessageKind, Proposal},
+    message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
@@ -66,6 +66,11 @@ use hotshot_types::{
     utils::epoch_from_block_number,
     HotShotConfig,
 };
+/// Reexport rand crate
+pub use rand;
+use tokio::{spawn, time::sleep};
+use tracing::{debug, instrument, trace};
+
 // -- Rexports
 // External
 use crate::{
@@ -73,11 +78,6 @@ use crate::{
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
-use hotshot_types::message::convert_proposal_to_new_proposal;
-/// Reexport rand crate
-pub use rand;
-use tokio::{spawn, time::sleep};
-use tracing::{debug, instrument, trace};
 
 /// Length, in bytes, of a 512 bit hash
 pub const H_512: usize = 64;
@@ -219,11 +219,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         match storage
             .migrate_consensus(
                 Into::<Leaf2<TYPES>>::into,
-                convert_proposal_to_new_proposal::<
-                    TYPES,
-                    QuorumProposal<TYPES>,
-                    QuorumProposal2<TYPES>,
-                >,
+                convert_proposal::<TYPES, QuorumProposal<TYPES>, QuorumProposal2<TYPES>>,
             )
             .await
         {
