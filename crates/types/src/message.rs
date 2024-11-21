@@ -36,8 +36,8 @@ use crate::{
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote, HasEpoch, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
-        ViewSyncFinalizeVote, ViewSyncPreCommitVote,
+        DaVote, HasEpoch, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        ViewSyncPreCommitVote,
     },
     traits::{
         block_contents::BlockHeader,
@@ -174,7 +174,7 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     Proposal(Proposal<TYPES, QuorumProposal2<TYPES>>),
 
     /// Message with a quorum vote.
-    Vote(QuorumVote<TYPES>),
+    Vote(QuorumVote2<TYPES>),
 
     /// Message with a view sync pre-commit vote
     ViewSyncPreCommitVote(ViewSyncPreCommitVote<TYPES>),

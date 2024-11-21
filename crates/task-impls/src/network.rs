@@ -81,9 +81,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::ProposalResponse(proposal) => {
                             HotShotEvent::QuorumProposalResponseRecv(proposal)
                         }
-                        GeneralConsensusMessage::Vote(vote) => {
-                            HotShotEvent::QuorumVoteRecv(vote.to_vote2())
-                        }
+                        GeneralConsensusMessage::Vote(vote) => HotShotEvent::QuorumVoteRecv(vote),
                         GeneralConsensusMessage::ViewSyncPreCommitVote(view_sync_message) => {
                             HotShotEvent::ViewSyncPreCommitVoteRecv(view_sync_message)
                         }
@@ -407,7 +405,7 @@ impl<
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Vote(vote.clone().to_vote()),
+                        GeneralConsensusMessage::Vote(vote.clone()),
                     )),
                     TransmitType::Direct(leader),
                 ))
@@ -417,7 +415,7 @@ impl<
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Vote(vote.clone().to_vote()),
+                        GeneralConsensusMessage::Vote(vote.clone()),
                     )),
                     TransmitType::Broadcast,
                 ))

@@ -27,12 +27,10 @@ use hotshot_example_types::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, Leaf2, QuorumProposal, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
-    simple_vote::{
-        DaData, DaVote, HasEpoch, QuorumData, QuorumVote, SimpleVote, VersionedVoteData,
-    },
+    simple_vote::{DaData, DaVote, HasEpoch, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -47,6 +45,7 @@ use hotshot_types::{
 };
 use jf_vid::VidScheme;
 use serde::Serialize;
+
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
 /// if cannot create a [`HotShotInitializer`]
@@ -401,14 +400,15 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
 
 pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &SystemContextHandle<TYPES, I, V>,
-    proposal: QuorumProposal<TYPES>,
+    proposal: QuorumProposal2<TYPES>,
 ) -> GeneralConsensusMessage<TYPES> {
     let view = proposal.view_number;
 
-    let leaf: Leaf<_> = Leaf::from_quorum_proposal(&proposal);
-    let vote = QuorumVote::<TYPES>::create_signed_vote(
-        QuorumData {
-            leaf_commit: leaf.commit(&handle.hotshot.upgrade_lock).await,
+    let leaf: Leaf2<_> = Leaf2::from_quorum_proposal(&proposal);
+    let vote = QuorumVote2::<TYPES>::create_signed_vote(
+        QuorumData2 {
+            leaf_commit: leaf.commit(),
+            epoch: leaf.epoch(),
         },
         view,
         &handle.public_key(),

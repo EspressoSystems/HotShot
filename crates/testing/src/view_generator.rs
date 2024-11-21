@@ -22,13 +22,13 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
+        DaProposal, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate2,
+        DaCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
         DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
@@ -127,12 +127,11 @@ impl TestView {
         .await;
 
         let block_header = TestBlockHeader::new(
-            &Leaf::<TestTypes>::genesis(
+            &Leaf2::<TestTypes>::genesis(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await
-            .into(),
+            .await,
             payload_commitment,
             builder_commitment,
             metadata,
@@ -141,12 +140,11 @@ impl TestView {
         let quorum_proposal_inner = QuorumProposal2::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis::<TestVersions>(
+            justify_qc: QuorumCertificate2::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await
-            .to_qc2(),
+            .await,
             upgrade_certificate: None,
             view_change_evidence: None,
             epoch: genesis_epoch,

@@ -49,10 +49,10 @@ pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
-    data::{Leaf, Leaf2, QuorumProposal, QuorumProposal2},
+    data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
     message::{DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -458,9 +458,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                     TYPES::ValidatedState::genesis(&self.instance_state);
 
                 let qc = Arc::new(
-                    QuorumCertificate::genesis::<V>(&validated_state, self.instance_state.as_ref())
-                        .await
-                        .to_qc2(),
+                    QuorumCertificate2::genesis::<V>(
+                        &validated_state,
+                        self.instance_state.as_ref(),
+                    )
+                    .await,
                 );
 
                 broadcast_event(
@@ -1031,14 +1033,10 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         instance_state: TYPES::InstanceState,
     ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
-        let high_qc = QuorumCertificate::genesis::<V>(&validated_state, &instance_state)
-            .await
-            .to_qc2();
+        let high_qc = QuorumCertificate2::genesis::<V>(&validated_state, &instance_state).await;
 
         Ok(Self {
-            inner: Leaf::genesis(&validated_state, &instance_state)
-                .await
-                .into(),
+            inner: Leaf2::genesis(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::View::new(0),

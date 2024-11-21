@@ -294,6 +294,7 @@ impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Quorum data")
             .var_size_bytes(self.leaf_commit.as_ref())
+            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -302,6 +303,7 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
+            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -310,6 +312,7 @@ impl<TYPES: NodeType> Committable for DaData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("DA data")
             .var_size_bytes(self.payload_commit.as_ref())
+            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -318,6 +321,7 @@ impl<TYPES: NodeType> Committable for VidData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("VID data")
             .var_size_bytes(self.payload_commit.as_ref())
+            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -334,6 +338,7 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
             .u16(self.new_version.major)
             .u16(self.old_version.minor)
             .u16(self.old_version.major)
+            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -342,26 +347,37 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
 fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     view: TYPES::View,
     relay: u64,
+    epoch: TYPES::Epoch,
     tag: &str,
 ) -> Commitment<T> {
     let builder = committable::RawCommitmentBuilder::new(tag);
-    builder.u64(*view).u64(relay).finalize()
+    builder.u64(*view).u64(relay).u64(*epoch).finalize()
 }
 
 impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Precommit")
+        view_and_relay_commit::<TYPES, Self>(
+            self.round,
+            self.relay,
+            self.epoch,
+            "View Sync Precommit",
+        )
     }
 }
 
 impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
+        view_and_relay_commit::<TYPES, Self>(
+            self.round,
+            self.relay,
+            self.epoch,
+            "View Sync Finalize",
+        )
     }
 }
 impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, self.epoch, "View Sync Commit")
     }
 }
 

@@ -37,7 +37,7 @@ use crate::{
         QuorumCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
     },
-    simple_vote::{HasEpoch, QuorumData, UpgradeProposalData, VersionedVoteData},
+    simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData},
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
@@ -605,6 +605,59 @@ pub struct Leaf2<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> Leaf2<TYPES> {
+    /// Create a new leaf from its components.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
+    /// interpreted as bytes).
+    #[must_use]
+    pub async fn genesis(
+        validated_state: &TYPES::ValidatedState,
+        instance_state: &TYPES::InstanceState,
+    ) -> Self {
+        let (payload, metadata) =
+            TYPES::BlockPayload::from_transactions([], validated_state, instance_state)
+                .await
+                .unwrap();
+        let builder_commitment = payload.builder_commitment(&metadata);
+        let payload_bytes = payload.encode();
+
+        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+
+        let block_header = TYPES::BlockHeader::genesis(
+            instance_state,
+            payload_commitment,
+            builder_commitment,
+            metadata,
+        );
+
+        let null_quorum_data = QuorumData2 {
+            leaf_commit: Commitment::<Leaf2<TYPES>>::default_commitment_no_preimage(),
+            epoch: TYPES::Epoch::genesis(),
+        };
+
+        let justify_qc = QuorumCertificate2::new(
+            null_quorum_data.clone(),
+            null_quorum_data.commit(),
+            <TYPES::View as ConsensusTime>::genesis(),
+            None,
+            PhantomData,
+        );
+
+        Self {
+            view_number: TYPES::View::genesis(),
+            justify_qc,
+            parent_commitment: null_quorum_data.leaf_commit,
+            upgrade_certificate: None,
+            block_header: block_header.clone(),
+            block_payload: Some(payload),
+            epoch: TYPES::Epoch::genesis(),
+            view_change_evidence: None,
+            drb_seed: [0; 96],
+            drb_result: [0; 32],
+        }
+    }
     /// Time when this leaf was created.
     pub fn view_number(&self) -> TYPES::View {
         self.view_number
@@ -728,6 +781,7 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
         if self.drb_seed == [0; 96] && self.drb_result == [0; 32] {
             RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
+                .u64_field("epoch number", *self.epoch)
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
                 .field("justify qc", self.justify_qc.commit())
@@ -736,6 +790,7 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
         } else {
             RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
+                .u64_field("epoch number", *self.epoch)
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
                 .field("justify qc", self.justify_qc.commit())
@@ -843,6 +898,41 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
                 .await
                 .commit(&upgrade_lock)
                 .await,
+        };
+
+        let versioned_data =
+            VersionedVoteData::<_, _, V>::new_infallible(data.clone(), genesis_view, &upgrade_lock)
+                .await;
+
+        let bytes: [u8; 32] = versioned_data.commit().into();
+
+        Self::new(
+            data,
+            Commitment::from_raw(bytes),
+            genesis_view,
+            None,
+            PhantomData,
+        )
+    }
+}
+
+impl<TYPES: NodeType> QuorumCertificate2<TYPES> {
+    #[must_use]
+    /// Creat the Genesis certificate
+    pub async fn genesis<V: Versions>(
+        validated_state: &TYPES::ValidatedState,
+        instance_state: &TYPES::InstanceState,
+    ) -> Self {
+        // since this is genesis, we should never have a decided upgrade certificate.
+        let upgrade_lock = UpgradeLock::<TYPES, V>::new();
+
+        let genesis_view = <TYPES::View as ConsensusTime>::genesis();
+
+        let data = QuorumData2 {
+            leaf_commit: Leaf2::genesis(validated_state, instance_state)
+                .await
+                .commit(),
+            epoch: TYPES::Epoch::genesis(),
         };
 
         let versioned_data =
