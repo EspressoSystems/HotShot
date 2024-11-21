@@ -124,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     tracing::debug!("Failed to handle Timeout event; error = {e}");
                 }
             }
-            HotShotEvent::QcFormed(Either::Left(quorum_cert)) => {
+            HotShotEvent::Qc2Formed(Either::Left(quorum_cert)) => {
                 if !self
                     .consensus
                     .read()

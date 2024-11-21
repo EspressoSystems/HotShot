@@ -20,8 +20,8 @@ use hotshot_types::{
     data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
-        convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
-        MessageKind, Proposal, SequencingMessage, UpgradeLock,
+        DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind, Proposal,
+        SequencingMessage, UpgradeLock,
     },
     traits::{
         election::Membership,
@@ -73,13 +73,13 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                 let event = match consensus_message {
                     SequencingMessage::General(general_message) => match general_message {
                         GeneralConsensusMessage::Proposal(proposal) => {
-                            HotShotEvent::QuorumProposalRecv(convert_proposal(proposal), sender)
+                            HotShotEvent::QuorumProposalRecv(proposal, sender)
                         }
                         GeneralConsensusMessage::ProposalRequested(req, sig) => {
                             HotShotEvent::QuorumProposalRequestRecv(req, sig)
                         }
                         GeneralConsensusMessage::ProposalResponse(proposal) => {
-                            HotShotEvent::QuorumProposalResponseRecv(convert_proposal(proposal))
+                            HotShotEvent::QuorumProposalResponseRecv(proposal)
                         }
                         GeneralConsensusMessage::Vote(vote) => {
                             HotShotEvent::QuorumVoteRecv(vote.to_vote2())
@@ -382,7 +382,7 @@ impl<
                 Some((
                     sender,
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Proposal(convert_proposal(proposal)),
+                        GeneralConsensusMessage::Proposal(proposal),
                     )),
                     TransmitType::Broadcast,
                 ))
@@ -432,7 +432,7 @@ impl<
             HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
                 sender_key.clone(),
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ProposalResponse(convert_proposal(proposal)),
+                    GeneralConsensusMessage::ProposalResponse(proposal),
                 )),
                 TransmitType::Direct(sender_key),
             )),
@@ -704,7 +704,7 @@ impl<
                 GeneralConsensusMessage::Proposal(prop),
             )) = &message.kind
             {
-                if storage.write().await.append_proposal(prop).await.is_err() {
+                if storage.write().await.append_proposal2(prop).await.is_err() {
                     return;
                 }
             }

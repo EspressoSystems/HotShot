@@ -376,9 +376,6 @@ pub struct QuorumProposal<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::View,
 
-    /// Epoch this proposal applies to
-    pub epoch: TYPES::Epoch,
-
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
 
@@ -401,6 +398,9 @@ pub struct QuorumProposal2<TYPES: NodeType> {
 
     /// view number for the proposal
     pub view_number: TYPES::View,
+
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
 
     /// certificate that the proposal is chaining from
     pub justify_qc: QuorumCertificate2<TYPES>,
@@ -425,6 +425,7 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
         Self {
             block_header: quorum_proposal.block_header,
             view_number: quorum_proposal.view_number,
+            epoch: TYPES::Epoch::genesis(),
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
@@ -452,6 +453,7 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
 
         Self {
             view_number: leaf.view_number,
+            epoch: TYPES::Epoch::genesis(),
             justify_qc: leaf.justify_qc.to_qc2(),
             parent_commitment: Commitment::from_raw(bytes),
             block_header: leaf.block_header,
@@ -501,7 +503,7 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
 }
 
 impl_has_epoch!(
-    QuorumProposal<TYPES>,
+    QuorumProposal2<TYPES>,
     DaProposal<TYPES>,
     UpgradeProposal<TYPES>,
     VidDisperse<TYPES>,
@@ -542,9 +544,6 @@ pub struct Leaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     view_number: TYPES::View,
 
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    epoch: TYPES::Epoch,
-
     /// Per spec, justification
     justify_qc: QuorumCertificate<TYPES>,
 
@@ -571,6 +570,9 @@ pub struct Leaf<TYPES: NodeType> {
 pub struct Leaf2<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     view_number: TYPES::View,
+
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    epoch: TYPES::Epoch,
 
     /// Per spec, justification
     justify_qc: QuorumCertificate2<TYPES>,
@@ -606,6 +608,10 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
     /// Time when this leaf was created.
     pub fn view_number(&self) -> TYPES::View {
         self.view_number
+    }
+    /// Epoch in which this leaf was created.
+    pub fn epoch(&self) -> TYPES::Epoch {
+        self.epoch
     }
     /// Height of this leaf in the chain.
     ///
@@ -766,6 +772,7 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
     fn eq(&self, other: &Self) -> bool {
         let Leaf2 {
             view_number,
+            epoch,
             justify_qc,
             parent_commitment,
             block_header,
@@ -777,6 +784,7 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
         } = self;
 
         *view_number == other.view_number
+            && *epoch == other.epoch
             && *justify_qc == other.justify_qc
             && *parent_commitment == other.parent_commitment
             && *block_header == other.block_header
@@ -829,14 +837,12 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         let upgrade_lock = UpgradeLock::<TYPES, V>::new();
 
         let genesis_view = <TYPES::View as ConsensusTime>::genesis();
-        let genesis_epoch = <TYPES::Epoch as ConsensusTime>::genesis();
 
         let data = QuorumData {
             leaf_commit: Leaf::genesis(validated_state, instance_state)
                 .await
                 .commit(&upgrade_lock)
                 .await,
-            epoch: genesis_epoch,
         };
 
         let versioned_data =
@@ -883,11 +889,8 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             metadata,
         );
 
-        let genesis_epoch = <TYPES::Epoch as ConsensusTime>::genesis();
-
         let null_quorum_data = QuorumData {
             leaf_commit: Commitment::<Leaf<TYPES>>::default_commitment_no_preimage(),
-            epoch: genesis_epoch,
         };
 
         let justify_qc = QuorumCertificate::new(
@@ -905,17 +908,12 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             upgrade_certificate: None,
             block_header: block_header.clone(),
             block_payload: Some(payload),
-            epoch: TYPES::Epoch::genesis(),
         }
     }
 
     /// Time when this leaf was created.
     pub fn view_number(&self) -> TYPES::View {
         self.view_number
-    }
-    /// Epoch in which this leaf was created.
-    pub fn epoch(&self) -> TYPES::Epoch {
-        self.epoch
     }
     /// Height of this leaf in the chain.
     ///
@@ -1117,6 +1115,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         // The point of this match is that we will get a compile-time error if we add a field without updating this.
         let QuorumProposal2 {
             view_number,
+            epoch,
             justify_qc,
             block_header,
             upgrade_certificate,
@@ -1127,6 +1126,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
         Self {
             view_number: *view_number,
+            epoch: *epoch,
             justify_qc: justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,
             block_header: block_header.clone(),
@@ -1150,7 +1150,6 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_header,
             upgrade_certificate,
             proposal_certificate: _,
-            epoch,
         } = quorum_proposal;
 
         Self {
@@ -1160,7 +1159,6 @@ impl<TYPES: NodeType> Leaf<TYPES> {
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: None,
-            epoch: *epoch,
         }
     }
 }

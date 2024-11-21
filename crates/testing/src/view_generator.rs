@@ -228,7 +228,7 @@ impl TestView {
         let transactions = &self.transactions;
 
         let quorum_data = QuorumData2 {
-            leaf_commit: old.leaf.commit(&self.upgrade_lock).await,
+            leaf_commit: old.leaf.commit(),
             epoch: old_epoch,
         };
 

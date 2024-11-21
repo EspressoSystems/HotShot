@@ -171,7 +171,7 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
 /// Messages related to both validating and sequencing consensus.
 pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with a quorum proposal.
-    Proposal(Proposal<TYPES, QuorumProposal<TYPES>>),
+    Proposal(Proposal<TYPES, QuorumProposal2<TYPES>>),
 
     /// Message with a quorum vote.
     Vote(QuorumVote<TYPES>),
@@ -210,7 +210,7 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     ),
 
     /// A replica has responded with a valid proposal.
-    ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
+    ProposalResponse(Proposal<TYPES, QuorumProposal2<TYPES>>),
 
     /// Message for the next leader containing our highest QC
     HighQc(QuorumCertificate<TYPES>),
@@ -317,10 +317,7 @@ pub enum DataMessage<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Prepare qc from the leader
-pub struct Proposal<
-    TYPES: NodeType,
-    PROPOSAL: HasViewNumber<TYPES> + HasEpoch<TYPES> + DeserializeOwned,
-> {
+pub struct Proposal<TYPES: NodeType, PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The data being proposed.
@@ -331,14 +328,30 @@ pub struct Proposal<
     pub _pd: PhantomData<TYPES>,
 }
 
-/// Convert a `Proposal` by converting the underlying proposal type
-pub fn convert_proposal<TYPES, PROPOSAL, PROPOSAL2>(
+/// Convert a `Proposal` by converting the underlying proposal type into `Proposal2`
+pub fn convert_proposal_to_new_proposal<TYPES, PROPOSAL, PROPOSAL2>(
     proposal: Proposal<TYPES, PROPOSAL>,
 ) -> Proposal<TYPES, PROPOSAL2>
 where
     TYPES: NodeType,
     PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned,
-    PROPOSAL2: HasViewNumber<TYPES> + DeserializeOwned + From<PROPOSAL>,
+    PROPOSAL2: HasViewNumber<TYPES> + HasEpoch<TYPES> + DeserializeOwned + From<PROPOSAL>,
+{
+    Proposal {
+        data: proposal.data.into(),
+        signature: proposal.signature,
+        _pd: proposal._pd,
+    }
+}
+
+/// Convert a `Proposal2` by converting the underlying proposal type into `Proposal`
+pub fn convert_proposal_to_old_proposal<TYPES, PROPOSAL, PROPOSAL2>(
+    proposal: Proposal<TYPES, PROPOSAL2>,
+) -> Proposal<TYPES, PROPOSAL>
+where
+    TYPES: NodeType,
+    PROPOSAL: HasViewNumber<TYPES> + DeserializeOwned + From<PROPOSAL2>,
+    PROPOSAL2: HasViewNumber<TYPES> + HasEpoch<TYPES> + DeserializeOwned,
 {
     Proposal {
         data: proposal.data.into(),
@@ -390,10 +403,14 @@ where
     pub fn validate_signature(
         &self,
         quorum_membership: &TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch_height: u64,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = quorum_membership.leader(view_number, epoch)?;
+        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            self.data.block_header.block_number(),
+            epoch_height,
+        ));
+        let view_leader_key = quorum_membership.leader(view_number, proposal_epoch)?;
         let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
 
         ensure!(

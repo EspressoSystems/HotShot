@@ -51,7 +51,7 @@ use hotshot_types::{
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf, Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
-    message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
+    message::{DataMessage, Message, MessageKind, Proposal},
     simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
@@ -73,6 +73,7 @@ use crate::{
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
 };
+use hotshot_types::message::convert_proposal_to_new_proposal;
 /// Reexport rand crate
 pub use rand;
 use tokio::{spawn, time::sleep};
@@ -218,7 +219,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         match storage
             .migrate_consensus(
                 Into::<Leaf2<TYPES>>::into,
-                convert_proposal::<TYPES, QuorumProposal<TYPES>, QuorumProposal2<TYPES>>,
+                convert_proposal_to_new_proposal::<
+                    TYPES,
+                    QuorumProposal<TYPES>,
+                    QuorumProposal2<TYPES>,
+                >,
             )
             .await
         {

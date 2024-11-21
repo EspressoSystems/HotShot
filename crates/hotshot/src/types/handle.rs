@@ -141,7 +141,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         &self,
         view: TYPES::View,
         leaf_commitment: Commitment<Leaf2<TYPES>>,
-    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal<TYPES>>>>> {
+    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal2<TYPES>>>>>
+    {
         // We need to be able to sign this request before submitting it to the network. Compute the
         // payload first.
         let signed_proposal_request = ProposalRequestPayload {

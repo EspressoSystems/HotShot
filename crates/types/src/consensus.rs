@@ -653,12 +653,13 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
     ) -> Result<()> {
         let view_number = leaf.view_number();
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(leaf.height(), self.epoch_height));
         let view = View {
             view_inner: ViewInner::Leaf {
                 leaf: leaf.commit(),
                 state,
                 delta,
-                epoch: leaf.epoch(),
+                epoch,
             },
         };
         self.update_validated_state_map(view_number, view)?;

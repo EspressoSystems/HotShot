@@ -404,13 +404,11 @@ pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     proposal: QuorumProposal<TYPES>,
 ) -> GeneralConsensusMessage<TYPES> {
     let view = proposal.view_number;
-    let epoch = proposal.epoch;
 
     let leaf: Leaf<_> = Leaf::from_quorum_proposal(&proposal);
     let vote = QuorumVote::<TYPES>::create_signed_vote(
         QuorumData {
             leaf_commit: leaf.commit(&handle.hotshot.upgrade_lock).await,
-            epoch,
         },
         view,
         &handle.public_key(),

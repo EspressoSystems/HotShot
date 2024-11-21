@@ -17,7 +17,7 @@ use crate::{
     data::{Leaf, Leaf2},
     message::UpgradeLock,
     traits::{
-        node_implementation::{NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vid::VidCommitment,
@@ -30,8 +30,6 @@ use crate::{
 pub struct QuorumData<TYPES: NodeType> {
     /// Commitment to the leaf
     pub leaf_commit: Commitment<Leaf<TYPES>>,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a yes vote.
@@ -39,6 +37,8 @@ pub struct QuorumData<TYPES: NodeType> {
 pub struct QuorumData2<TYPES: NodeType> {
     /// Commitment to the leaf
     pub leaf_commit: Commitment<Leaf2<TYPES>>,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
@@ -118,6 +118,14 @@ pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
 /// Only structs in this file can implement voteable.  This is enforced with the `Sealed` trait
 /// Sealing this trait prevents creating new vote types outside this file.
 pub trait Voteable<TYPES: NodeType>:
+    sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq
+{
+}
+
+/// Marker trait for data or commitments that can be voted on.
+/// Only structs in this file can implement voteable.  This is enforced with the `Sealed` trait
+/// Sealing this trait prevents creating new vote types outside this file.
+pub trait Voteable2<TYPES: NodeType>:
     sealed::Sealed + HasEpoch<TYPES> + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq
 {
 }
@@ -378,7 +386,7 @@ macro_rules! impl_has_epoch {
 }
 
 impl_has_epoch!(
-    QuorumData<TYPES>,
+    QuorumData2<TYPES>,
     DaData<TYPES>,
     TimeoutData<TYPES>,
     VidData<TYPES>,
@@ -387,6 +395,15 @@ impl_has_epoch!(
     ViewSyncFinalizeData<TYPES>,
     UpgradeProposalData<TYPES>
 );
+
+// impl votable for all the data types in this file sealed marker should ensure nothing is accidently
+// implemented for structs that aren't "voteable"
+impl<
+        TYPES: NodeType,
+        V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq,
+    > Voteable<TYPES> for V
+{
+}
 
 // impl votable for all the data types in this file sealed marker should ensure nothing is accidently
 // implemented for structs that aren't "voteable"
@@ -401,7 +418,7 @@ impl<
             + PartialEq
             + Hash
             + Eq,
-    > Voteable<TYPES> for V
+    > Voteable2<TYPES> for V
 {
 }
 
@@ -413,6 +430,7 @@ impl<TYPES: NodeType> QuorumVote<TYPES> {
         let signature = self.signature;
         let data = QuorumData2 {
             leaf_commit: Commitment::from_raw(bytes),
+            epoch: TYPES::Epoch::genesis(),
         };
         let view_number = self.view_number;
 
