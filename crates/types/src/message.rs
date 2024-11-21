@@ -36,7 +36,7 @@ use crate::{
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
     traits::{
@@ -201,6 +201,15 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with an upgrade vote
     UpgradeVote(UpgradeVote<TYPES>),
 
+    /// Message for the next leader containing our highest QC
+    HighQc(QuorumCertificate<TYPES>),
+
+    /// Message with a quorum proposal.
+    Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
+
+    /// Message with a quorum vote.
+    Vote2(QuorumVote2<TYPES>),
+
     /// A peer node needs a proposal from the leader.
     ProposalRequested(
         ProposalRequestPayload<TYPES>,
@@ -210,8 +219,8 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// A replica has responded with a valid proposal.
     ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
 
-    /// Message for the next leader containing our highest QC
-    HighQc(QuorumCertificate<TYPES>),
+    /// A replica has responded with a valid proposal.
+    Proposal2Response(Proposal<TYPES, QuorumProposal2<TYPES>>),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -259,6 +268,9 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::ProposalResponse(proposal) => {
                         proposal.data.view_number()
                     }
+                    GeneralConsensusMessage::Proposal2Response(proposal) => {
+                        proposal.data.view_number()
+                    }
                     GeneralConsensusMessage::Vote(vote_message) => vote_message.view_number(),
                     GeneralConsensusMessage::TimeoutVote(message) => message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) => {
@@ -278,6 +290,12 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::UpgradeProposal(message) => message.data.view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) => message.view_number(),
                     GeneralConsensusMessage::HighQc(qc) => qc.view_number(),
+                    GeneralConsensusMessage::Proposal2(p) => {
+                        // view of leader in the leaf when proposal
+                        // this should match replica upon receipt
+                        p.data.view_number()
+                    }
+                    GeneralConsensusMessage::Vote2(vote_message) => vote_message.view_number(),
                 }
             }
             SequencingMessage::Da(da_message) => {

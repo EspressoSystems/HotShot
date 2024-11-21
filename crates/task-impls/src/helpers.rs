@@ -106,6 +106,8 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                         // Make sure that the quorum_proposal is valid
                         if quorum_proposal.validate_signature(&mem, cur_epoch).is_ok() {
                             proposal = Some(quorum_proposal.clone());
+                        } else {
+                          panic!("Bad signature!")
                         }
 
                     }

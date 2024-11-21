@@ -30,6 +30,7 @@ use hotshot_types::{
         DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
+    utils::{epoch_from_block_number},
     simple_vote::{
         DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
         UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
@@ -226,6 +227,7 @@ impl TestView {
 
         let quorum_data = QuorumData2 {
             leaf_commit: old.leaf.commit(),
+            epoch: EpochNumber::new(0),
         };
 
         let (old_private_key, old_public_key) = key_pair_for_id::<TestTypes>(*old_view);
@@ -456,6 +458,7 @@ impl TestView {
         QuorumVote2::<TestTypes>::create_signed_vote(
             QuorumData2 {
                 leaf_commit: self.leaf.commit(),
+                epoch: EpochNumber::new(epoch_from_block_number(self.leaf.height(), handle.hotshot.config.epoch_height)),
             },
             self.view_number,
             &handle.public_key(),

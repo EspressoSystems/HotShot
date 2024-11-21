@@ -17,7 +17,7 @@ use crate::{
     data::{Leaf, Leaf2},
     message::UpgradeLock,
     traits::{
-        node_implementation::{NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vid::VidCommitment,
@@ -37,6 +37,8 @@ pub struct QuorumData<TYPES: NodeType> {
 pub struct QuorumData2<TYPES: NodeType> {
     /// Commitment to the leaf
     pub leaf_commit: Commitment<Leaf2<TYPES>>,
+    /// Epoch number
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
@@ -45,16 +47,40 @@ pub struct DaData {
     pub payload_commit: VidCommitment,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a DA vote.
+pub struct DaData2<TYPES: NodeType> {
+    /// Commitment to a block payload
+    pub payload_commit: VidCommitment,
+    /// Epoch number
+    pub epoch: TYPES::Epoch,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a timeout vote.
 pub struct TimeoutData<TYPES: NodeType> {
     /// View the timeout is for
     pub view: TYPES::View,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a timeout vote.
+pub struct TimeoutData2<TYPES: NodeType> {
+    /// View the timeout is for
+    pub view: TYPES::View,
+    /// Epoch number
+    pub epoch: TYPES::Epoch,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a VID vote.
 pub struct VidData {
     /// Commitment to the block payload the VID vote is on.
     pub payload_commit: VidCommitment,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a VID vote.
+pub struct VidData2<TYPES: NodeType> {
+    /// Commitment to the block payload the VID vote is on.
+    pub payload_commit: VidCommitment,
+    /// Epoch number
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Pre Commit vote.
@@ -65,6 +91,16 @@ pub struct ViewSyncPreCommitData<TYPES: NodeType> {
     pub round: TYPES::View,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a Pre Commit vote.
+pub struct ViewSyncPreCommitData2<TYPES: NodeType> {
+    /// The relay this vote is intended for
+    pub relay: u64,
+    /// The view number we are trying to sync on
+    pub round: TYPES::View,
+    /// Epoch number
+    pub epoch: TYPES::Epoch,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Commit vote.
 pub struct ViewSyncCommitData<TYPES: NodeType> {
     /// The relay this vote is intended for
@@ -73,12 +109,32 @@ pub struct ViewSyncCommitData<TYPES: NodeType> {
     pub round: TYPES::View,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a Commit vote.
+pub struct ViewSyncCommitData2<TYPES: NodeType> {
+    /// The relay this vote is intended for
+    pub relay: u64,
+    /// The view number we are trying to sync on
+    pub round: TYPES::View,
+    /// Epoch number
+    pub epoch: TYPES::Epoch,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Finalize vote.
 pub struct ViewSyncFinalizeData<TYPES: NodeType> {
     /// The relay this vote is intended for
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+/// Data used for a Finalize vote.
+pub struct ViewSyncFinalizeData2<TYPES: NodeType> {
+    /// The relay this vote is intended for
+    pub relay: u64,
+    /// The view number we are trying to sync on
+    pub round: TYPES::View,
+    /// Epoch number
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Upgrade vote.
@@ -266,9 +322,18 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
 
 impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        committable::RawCommitmentBuilder::new("Quorum data")
-            .var_size_bytes(self.leaf_commit.as_ref())
-            .finalize()
+        let QuorumData2 { leaf_commit, epoch } = self;
+
+        if **epoch == 0 {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(leaf_commit.as_ref())
+                .finalize()
+        } else {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(leaf_commit.as_ref())
+                .u64(**epoch)
+                .finalize()
+        }
     }
 }
 
@@ -277,6 +342,23 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
         committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
             .finalize()
+    }
+}
+
+impl<TYPES: NodeType> Committable for TimeoutData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let TimeoutData2 { view, epoch } = self;
+
+        if **epoch == 0 {
+            committable::RawCommitmentBuilder::new("Timeout data")
+                .u64(**view)
+                .finalize()
+        } else {
+            committable::RawCommitmentBuilder::new("Timeout data")
+                .u64(**view)
+                .u64(**epoch)
+                .finalize()
+        }
     }
 }
 
@@ -354,6 +436,7 @@ impl<TYPES: NodeType> QuorumVote<TYPES> {
         let signature = self.signature;
         let data = QuorumData2 {
             leaf_commit: Commitment::from_raw(bytes),
+            epoch: TYPES::Epoch::new(0),
         };
         let view_number = self.view_number;
 

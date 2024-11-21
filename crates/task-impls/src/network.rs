@@ -36,6 +36,7 @@ use hotshot_types::{
 use tokio::{spawn, task::JoinHandle};
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -117,6 +118,39 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::HighQc(qc) => {
                             HotShotEvent::HighQcRecv(qc.to_qc2(), sender)
                         }
+                        GeneralConsensusMessage::Proposal2(proposal) => {
+                            HotShotEvent::QuorumProposalRecv(proposal, sender)
+                        }
+                        GeneralConsensusMessage::Proposal2Response(proposal) => {
+                            HotShotEvent::QuorumProposalResponseRecv(proposal)
+                        }
+                        GeneralConsensusMessage::Vote2(vote) => HotShotEvent::QuorumVoteRecv(vote), //                        GeneralConsensusMessage::ViewSyncPreCommitVote(view_sync_message) => {
+                                                                                                    //                            HotShotEvent::ViewSyncPreCommitVoteRecv(view_sync_message)
+                                                                                                    //                        }
+                                                                                                    //                        GeneralConsensusMessage::ViewSyncPreCommitCertificate(
+                                                                                                    //                            view_sync_message,
+                                                                                                    //                        ) => HotShotEvent::ViewSyncPreCommitCertificate2Recv(view_sync_message),
+                                                                                                    //
+                                                                                                    //                        GeneralConsensusMessage::ViewSyncCommitVote(view_sync_message) => {
+                                                                                                    //                            HotShotEvent::ViewSyncCommitVoteRecv(view_sync_message)
+                                                                                                    //                        }
+                                                                                                    //                        GeneralConsensusMessage::ViewSyncCommitCertificate(view_sync_message) => {
+                                                                                                    //                            HotShotEvent::ViewSyncCommitCertificate2Recv(view_sync_message)
+                                                                                                    //                        }
+                                                                                                    //
+                                                                                                    //                        GeneralConsensusMessage::ViewSyncFinalizeVote(view_sync_message) => {
+                                                                                                    //                            HotShotEvent::ViewSyncFinalizeVoteRecv(view_sync_message)
+                                                                                                    //                        }
+                                                                                                    //                        GeneralConsensusMessage::ViewSyncFinalizeCertificate(view_sync_message) => {
+                                                                                                    //                            HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message)
+                                                                                                    //                        }
+                                                                                                    //
+                                                                                                    //                        GeneralConsensusMessage::TimeoutVote(message) => {
+                                                                                                    //                            HotShotEvent::TimeoutVoteRecv(message)
+                                                                                                    //                        }
+                                                                                                    //                        GeneralConsensusMessage::HighQc(qc) => {
+                                                                                                    //                            HotShotEvent::HighQcRecv(qc.to_qc2(), sender)
+                                                                                                    //                        }
                     },
                     SequencingMessage::Da(da_message) => match da_message {
                         DaConsensusMessage::DaProposal(proposal) => {
@@ -378,13 +412,23 @@ impl<
         match event.as_ref().clone() {
             HotShotEvent::QuorumProposalSend(proposal, sender) => {
                 *maybe_action = Some(HotShotAction::Propose);
-                Some((
-                    sender,
+
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(proposal.data.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Proposal2(proposal),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Proposal(convert_proposal(proposal)),
-                    )),
-                    TransmitType::Broadcast,
-                ))
+                    ))
+                };
+
+                Some((sender, message, TransmitType::Broadcast))
             }
 
             // ED Each network task is subscribed to all these message types.  Need filters per network task
@@ -403,21 +447,43 @@ impl<
                     }
                 };
 
-                Some((
-                    vote.signing_key(),
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote2(vote.clone()),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone().to_vote()),
-                    )),
-                    TransmitType::Direct(leader),
-                ))
+                    ))
+                };
+
+                Some((vote.signing_key(), message, TransmitType::Direct(leader)))
             }
             HotShotEvent::ExtendedQuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
-                Some((
-                    vote.signing_key(),
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote2(vote.clone()),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone().to_vote()),
-                    )),
+                    ))
+                };
+
+                Some((
+                    vote.signing_key(),
+                    message,
                     TransmitType::Broadcast,
                 ))
             }
