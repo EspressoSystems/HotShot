@@ -11,7 +11,6 @@ use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 use async_broadcast::{Receiver, Sender};
 use bitvec::bitvec;
 use committable::Committable;
-use ethereum_types::U256;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{SignatureKey, SystemContextHandle},
@@ -30,7 +29,9 @@ use hotshot_types::{
     data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote, HasEpoch, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData},
+    simple_vote::{
+        DaData, DaVote, HasEpoch, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData,
+    },
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -44,6 +45,7 @@ use hotshot_types::{
     ValidatorConfig,
 };
 use jf_vid::VidScheme;
+use primitive_types::U256;
 use serde::Serialize;
 
 /// create the [`SystemContextHandle`] from a node id
