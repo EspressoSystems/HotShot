@@ -12,6 +12,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
@@ -21,16 +22,16 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf, QuorumProposal, VidDisperse, VidDisperseShare,
+        DaProposal, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DaData, DaVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
+        DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
         UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
@@ -49,8 +50,8 @@ use crate::helpers::{
 #[derive(Clone)]
 pub struct TestView {
     pub da_proposal: Proposal<TestTypes, DaProposal<TestTypes>>,
-    pub quorum_proposal: Proposal<TestTypes, QuorumProposal<TestTypes>>,
-    pub leaf: Leaf<TestTypes>,
+    pub quorum_proposal: Proposal<TestTypes, QuorumProposal2<TestTypes>>,
+    pub leaf: Leaf2<TestTypes>,
     pub view_number: ViewNumber,
     pub epoch_number: EpochNumber,
     pub quorum_membership: <TestTypes as NodeType>::Membership,
@@ -130,23 +131,27 @@ impl TestView {
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await,
+            .await
+            .into(),
             payload_commitment,
             builder_commitment,
             metadata,
         );
 
-        let quorum_proposal_inner = QuorumProposal::<TestTypes> {
+        let quorum_proposal_inner = QuorumProposal2::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
             justify_qc: QuorumCertificate::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await,
+            .await
+            .to_qc2(),
             upgrade_certificate: None,
-            proposal_certificate: None,
+            view_change_evidence: None,
             epoch: genesis_epoch,
+            drb_result: [0; 32],
+            drb_seed: [0; 96],
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -168,16 +173,13 @@ impl TestView {
             _pd: PhantomData,
         };
 
-        let mut leaf = Leaf::from_quorum_proposal(&quorum_proposal_inner);
+        let mut leaf = Leaf2::from_quorum_proposal(&quorum_proposal_inner);
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
 
-        let signature = <BLSPubKey as SignatureKey>::sign(
-            &private_key,
-            leaf.commit(&upgrade_lock).await.as_ref(),
-        )
-        .expect("Failed to sign leaf commitment!");
+        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
+            .expect("Failed to sign leaf commitment!");
 
         let quorum_proposal = Proposal {
             data: quorum_proposal_inner,
@@ -225,7 +227,7 @@ impl TestView {
 
         let transactions = &self.transactions;
 
-        let quorum_data = QuorumData {
+        let quorum_data = QuorumData2 {
             leaf_commit: old.leaf.commit(&self.upgrade_lock).await,
             epoch: old_epoch,
         };
@@ -278,9 +280,9 @@ impl TestView {
         let quorum_certificate = build_cert::<
             TestTypes,
             TestVersions,
-            QuorumData<TestTypes>,
-            QuorumVote<TestTypes>,
-            QuorumCertificate<TestTypes>,
+            QuorumData2<TestTypes>,
+            QuorumVote2<TestTypes>,
+            QuorumCertificate2<TestTypes>,
         >(
             quorum_data,
             quorum_membership,
@@ -361,7 +363,7 @@ impl TestView {
             None
         };
 
-        let proposal_certificate = if let Some(tc) = timeout_certificate {
+        let view_change_evidence = if let Some(tc) = timeout_certificate {
             Some(ViewChangeEvidence::Timeout(tc))
         } else {
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
@@ -378,25 +380,24 @@ impl TestView {
             random,
         };
 
-        let proposal = QuorumProposal::<TestTypes> {
+        let proposal = QuorumProposal2::<TestTypes> {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
-            proposal_certificate,
+            view_change_evidence,
             epoch: old_epoch,
+            drb_result: [0; 32],
+            drb_seed: [0; 96],
         };
 
-        let mut leaf = Leaf::from_quorum_proposal(&proposal);
+        let mut leaf = Leaf2::from_quorum_proposal(&proposal);
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
 
-        let signature = <BLSPubKey as SignatureKey>::sign(
-            &private_key,
-            leaf.commit(&self.upgrade_lock).await.as_ref(),
-        )
-        .expect("Failed to sign leaf commitment.");
+        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
+            .expect("Failed to sign leaf commitment.");
 
         let quorum_proposal = Proposal {
             data: proposal,
@@ -457,10 +458,10 @@ impl TestView {
     pub async fn create_quorum_vote(
         &self,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
-    ) -> QuorumVote<TestTypes> {
-        QuorumVote::<TestTypes>::create_signed_vote(
-            QuorumData {
-                leaf_commit: self.leaf.commit(&handle.hotshot.upgrade_lock).await,
+    ) -> QuorumVote2<TestTypes> {
+        QuorumVote2::<TestTypes>::create_signed_vote(
+            QuorumData2 {
+                leaf_commit: self.leaf.commit(),
                 epoch: self.epoch_number,
             },
             self.view_number,

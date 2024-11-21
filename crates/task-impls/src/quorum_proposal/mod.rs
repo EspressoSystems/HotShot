@@ -18,9 +18,8 @@ use hotshot_task::{
 use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     consensus::OuterConsensus,
-    event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -49,17 +48,8 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Table for the in-progress proposal dependency tasks.
     pub proposal_dependencies: BTreeMap<TYPES::View, JoinHandle<()>>,
 
-    /// The underlying network
-    pub network: Arc<I::Network>,
-
-    /// Output events to application
-    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
-
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
-
-    /// Membership for Timeout votes/certs
-    pub timeout_membership: Arc<TYPES::Membership>,
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
@@ -97,7 +87,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub epoch_height: u64,
 
     /// The higest_qc we've seen at the start of this task
-    pub highest_qc: QuorumCertificate<TYPES>,
+    pub highest_qc: QuorumCertificate2<TYPES>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
@@ -118,14 +108,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let event = event.as_ref();
                 let event_view = match dependency_type {
                     ProposalDependency::Qc => {
-                        if let HotShotEvent::QcFormed(either::Left(qc)) = event {
+                        if let HotShotEvent::Qc2Formed(either::Left(qc)) = event {
                             qc.view_number() + 1
                         } else {
                             return false;
                         }
                     }
                     ProposalDependency::TimeoutCert => {
-                        if let HotShotEvent::QcFormed(either::Right(timeout)) = event {
+                        if let HotShotEvent::Qc2Formed(either::Right(timeout)) = event {
                             timeout.view_number() + 1
                         } else {
                             return false;
@@ -240,7 +230,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 );
                 proposal_dependency.mark_as_completed(event);
             }
-            HotShotEvent::QcFormed(quorum_certificate) => match quorum_certificate {
+            HotShotEvent::Qc2Formed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
                     tracing::error!(
                         "lrzasik: Completed proposal dependency with event {:?}",
@@ -280,7 +270,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             // 2. A view sync cert was received.
             AndDependency::from_deps(vec![view_sync_dependency]),
         ];
-        // 3. A `QcFormed`` event (and `QuorumProposalRecv` event)
+        // 3. A `Qc2Formed`` event (and `QuorumProposalRecv` event)
         if *view_number > 1 {
             secondary_deps.push(AndDependency::from_deps(vec![
                 qc_dependency,
@@ -430,7 +420,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     self.formed_upgrade_certificate = Some(cert.clone());
                 }
             }
-            HotShotEvent::QcFormed(cert) => match cert.clone() {
+            HotShotEvent::Qc2Formed(cert) => match cert.clone() {
                 either::Right(timeout_cert) => {
                     let view_number = timeout_cert.view_number + 1;
                     self.create_dependency_task_if_new(
@@ -462,7 +452,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     self.storage
                         .write()
                         .await
-                        .update_high_qc(qc.clone())
+                        .update_high_qc2(qc.clone())
                         .await
                         .wrap()
                         .context(error!("Failed to update high QC in storage!"))?;
