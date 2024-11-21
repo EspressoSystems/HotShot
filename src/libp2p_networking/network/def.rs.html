@@ -173,7 +173,7 @@
 <span class="kw">use super</span>::{behaviours::dht::store::ValidatedStore, cbor, NetworkEventInternal};
 
 <span class="doccomment">/// Overarching network behaviour performing:
-/// - network topology discovoery
+/// - network topology discovery
 /// - direct messaging
 /// - p2p broadcast
 /// - connection management
@@ -231,7 +231,7 @@
     <span class="doccomment">/// Add an address
     </span><span class="kw">pub fn </span>add_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, address: Multiaddr) {
         <span class="comment">// NOTE to get this address to play nice with the other
-        // behaviours using the DHT for ouring
+        // behaviours using the DHT for routing
         // we only need to add this address to the DHT since it
         // is always enabled. If it were not always enabled,
         // we would need to manually add the address to
