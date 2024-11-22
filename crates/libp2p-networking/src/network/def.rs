@@ -20,11 +20,11 @@ use tracing::{debug, error};
 use super::{behaviours::dht::store::ValidatedStore, cbor, NetworkEventInternal};
 
 /// Overarching network behaviour performing:
-/// - network topology discovoery
+/// - network topology discovery
 /// - direct messaging
 /// - p2p broadcast
 /// - connection management
-#[derive(NetworkBehaviour, custom_debug::Debug)]
+#[derive(NetworkBehaviour, derive_more::Debug)]
 #[behaviour(to_swarm = "NetworkEventInternal")]
 pub struct NetworkDef<K: SignatureKey + 'static> {
     /// purpose: broadcasting messages to many peers
@@ -78,7 +78,7 @@ impl<K: SignatureKey + 'static> NetworkDef<K> {
     /// Add an address
     pub fn add_address(&mut self, peer_id: &PeerId, address: Multiaddr) {
         // NOTE to get this address to play nice with the other
-        // behaviours using the DHT for ouring
+        // behaviours using the DHT for routing
         // we only need to add this address to the DHT since it
         // is always enabled. If it were not always enabled,
         // we would need to manually add the address to
