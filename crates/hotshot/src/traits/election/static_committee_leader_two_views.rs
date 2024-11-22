@@ -25,8 +25,6 @@ pub struct StaticCommitteeLeaderForTwoViews<T: NodeType> {
     /// NOTE: This is currently a hack because the DA leader needs to be the quorum
     /// leader but without voting rights.
     eligible_leaders: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
-    /// The nodes eligible for leadership.
-    da_eligible_leaders: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
 
     /// The nodes on the committee and their stake
     stake_table: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
@@ -54,14 +52,6 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
         // For each eligible leader, get the stake table entry
         let eligible_leaders: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
             committee_members
-                .iter()
-                .map(|member| member.stake_table_entry.clone())
-                .filter(|entry| entry.stake() > U256::zero())
-                .collect();
-
-        // For each eligible leader, get the stake table entry
-        let da_eligible_leaders: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
-            da_members
                 .iter()
                 .map(|member| member.stake_table_entry.clone())
                 .filter(|entry| entry.stake() > U256::zero())
@@ -102,7 +92,6 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
 
         Self {
             eligible_leaders,
-            da_eligible_leaders,
             stake_table: members,
             da_stake_table: da_members,
             indexed_stake_table,
@@ -224,8 +213,8 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
         _epoch: <TYPES as NodeType>::Epoch,
     ) -> Result<TYPES::SignatureKey> {
         let index =
-            usize::try_from((*view_number / 2) % self.da_eligible_leaders.len() as u64).unwrap();
-        let res = self.da_eligible_leaders[index].clone();
+            usize::try_from((*view_number / 2) % self.eligible_leaders.len() as u64).unwrap();
+        let res = self.eligible_leaders[index].clone();
 
         Ok(TYPES::SignatureKey::public_key(&res))
     }

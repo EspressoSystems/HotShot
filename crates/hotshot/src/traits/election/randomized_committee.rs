@@ -27,8 +27,6 @@ pub struct RandomizedCommittee<T: NodeType> {
     /// NOTE: This is currently a hack because the DA leader needs to be the quorum
     /// leader but without voting rights.
     eligible_leaders: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
-    /// The nodes eligible for leadership.
-    da_eligible_leaders: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
 
     /// The nodes on the committee and their stake
     stake_table: Vec<<T::SignatureKey as SignatureKey>::StakeTableEntry>,
@@ -56,14 +54,6 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
         // For each eligible leader, get the stake table entry
         let eligible_leaders: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
             committee_members
-                .iter()
-                .map(|member| member.stake_table_entry.clone())
-                .filter(|entry| entry.stake() > U256::zero())
-                .collect();
-
-        // For each eligible leader, get the stake table entry
-        let da_eligible_leaders: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
-            da_members
                 .iter()
                 .map(|member| member.stake_table_entry.clone())
                 .filter(|entry| entry.stake() > U256::zero())
@@ -104,7 +94,6 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
 
         Self {
             eligible_leaders,
-            da_eligible_leaders,
             stake_table: members,
             da_stake_table: da_members,
             indexed_stake_table,
@@ -238,9 +227,9 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
 
         let randomized_view_number: u64 = rng.gen_range(0..=u64::MAX);
         #[allow(clippy::cast_possible_truncation)]
-        let index = randomized_view_number as usize % self.da_eligible_leaders.len();
+        let index = randomized_view_number as usize % self.eligible_leaders.len();
 
-        let res = self.da_eligible_leaders[index].clone();
+        let res = self.eligible_leaders[index].clone();
 
         Ok(TYPES::SignatureKey::public_key(&res))
     }
