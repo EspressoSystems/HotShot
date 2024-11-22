@@ -51,7 +51,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             view: handle.cur_view().await,
             delay: handle.hotshot.config.data_request_delay,
-            da_membership: (*handle.hotshot.memberships).clone(),
+            membership: (*handle.hotshot.memberships).clone(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
