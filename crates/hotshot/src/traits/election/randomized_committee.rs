@@ -94,7 +94,6 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
 
         Self {
             eligible_leaders,
-            da_eligible_leaders,
             stake_table: members,
             da_stake_table: da_members,
             indexed_stake_table,
