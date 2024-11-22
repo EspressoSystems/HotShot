@@ -383,7 +383,7 @@ pub trait RunDa<
 
         // Create the quorum membership from all nodes, specifying the committee
         // as the known da nodes
-        let memberships = <TYPES as NodeType>::Membership::new(all_nodes.clone(), da_nodes);
+        let memberships = <TYPES as NodeType>::Membership::new(all_nodes, da_nodes);
 
         let marketplace_config = MarketplaceConfig {
             auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
