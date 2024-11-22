@@ -470,11 +470,11 @@ impl<
                     >= V::Epochs::VERSION
                 {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Proposal2(proposal),
+                        GeneralConsensusMessage::ProposalResponse2(proposal),
                     ))
                 } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                        GeneralConsensusMessage::Proposal(convert_proposal(proposal)),
+                        GeneralConsensusMessage::ProposalResponse(convert_proposal(proposal)),
                     ))
                 };
 
