@@ -222,7 +222,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
     }
 
     /// Get the voting success threshold for the committee
-    fn da_success_threshold(&self) -> NonZeroU64 {
+    fn da_success_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
         NonZeroU64::new(((self.da_stake_table.len() as u64 * 2) / 3) + 1).unwrap()
     }
 

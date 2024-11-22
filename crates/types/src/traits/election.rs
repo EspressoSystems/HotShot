@@ -133,7 +133,7 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
     fn success_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;
 
     /// Returns the DA threshold for a specific `Membership` implementation
-    fn da_success_threshold(&self) -> NonZeroU64;
+    fn da_success_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;
 
     /// Returns the threshold for a specific `Membership` implementation
     fn failure_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;

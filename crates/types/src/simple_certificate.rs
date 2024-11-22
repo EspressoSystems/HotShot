@@ -24,7 +24,7 @@ use crate::{
     data::serialize_signature2,
     message::UpgradeLock,
     simple_vote::{
-        DaData, QuorumData, QuorumData2, QuorumMaker, TimeoutData, UpgradeProposalData,
+        DaData, QuorumData, QuorumData2, QuorumMarker, TimeoutData, UpgradeProposalData,
         VersionedVoteData, ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData,
         Voteable,
     },
@@ -204,8 +204,11 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
     ) -> usize {
         membership.da_total_nodes(epoch)
     }
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64 {
-        membership.da_success_threshold().into()
+    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> u64 {
+        membership.da_success_threshold(epoch).into()
     }
     fn data(&self) -> &Self::Voteable {
         &self.data
@@ -222,7 +225,7 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable + 'static + QuorumMaker, THRESHOLD: Threshold<TYPES>>
+impl<TYPES: NodeType, VOTEABLE: Voteable + 'static + QuorumMarker, THRESHOLD: Threshold<TYPES>>
     Certificate<TYPES, VOTEABLE> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     type Voteable = VOTEABLE;

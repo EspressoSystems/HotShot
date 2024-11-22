@@ -444,7 +444,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     certificate
                         .is_valid_cert(
                             self.quorum_membership.stake_table(epoch_number),
-                            self.quorum_membership.success_threshold(),
+                            self.quorum_membership.success_threshold(epoch_number),
                             &self.upgrade_lock
                         )
                         .await,
@@ -508,7 +508,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 ensure!(
                     qc.is_valid_cert(
                         self.quorum_membership.stake_table(epoch_number),
-                        self.quorum_membership.success_threshold(),
+                        self.quorum_membership.success_threshold(epoch_number),
                         &self.upgrade_lock
                     )
                     .await,
