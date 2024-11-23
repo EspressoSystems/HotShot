@@ -6,8 +6,9 @@
 
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 use sha2::{Digest, Sha256};
+
+use crate::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 
 // TODO: Add the following consts once we bench the hash time.
 // <https://github.com/EspressoSystems/HotShot/issues/3880>
@@ -21,6 +22,12 @@ use sha2::{Digest, Sha256};
 // <https://github.com/EspressoSystems/HotShot/issues/3880>
 /// Arbitrary number of times the hash function will be repeatedly called.
 const DIFFICULTY_LEVEL: u64 = 10;
+
+/// Alias for DRB seed input for `compute_drb_result`, serialized from the QC signature.
+pub type DrbSeedInput = [u8; 32];
+
+/// Alias for DRB result from `compute_drb_result`.
+pub type DrbResult = [u8; 32];
 
 // TODO: Use `HASHES_PER_SECOND` * `VIEW_TIMEOUT` * `DRB_CALCULATION_NUM_VIEW` to calculate this
 // once we bench the hash time.
@@ -40,7 +47,7 @@ pub fn difficulty_level() -> u64 {
 /// # Arguments
 /// * `drb_seed_input` - Serialized QC signature.
 #[must_use]
-pub fn compute_drb_result<TYPES: NodeType>(drb_seed_input: [u8; 32]) -> [u8; 32] {
+pub fn compute_drb_result<TYPES: NodeType>(drb_seed_input: DrbSeedInput) -> DrbResult {
     let mut hash = drb_seed_input.to_vec();
     for _iter in 0..DIFFICULTY_LEVEL {
         // TODO: This may be optimized to avoid memcopies after we bench the hash time.
@@ -61,7 +68,7 @@ pub fn compute_drb_result<TYPES: NodeType>(drb_seed_input: [u8; 32]) -> [u8; 32]
 pub fn leader<TYPES: NodeType>(
     view_number: usize,
     stake_table: &[<TYPES::SignatureKey as SignatureKey>::StakeTableEntry],
-    drb_result: [u8; 32],
+    drb_result: DrbResult,
 ) -> TYPES::SignatureKey {
     let mut hasher = DefaultHasher::new();
     drb_result.hash(&mut hasher);
