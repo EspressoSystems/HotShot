@@ -204,18 +204,6 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
         Ok(TYPES::SignatureKey::public_key(&res))
     }
 
-    /// Index the vector of public keys with the current view number
-    fn lookup_da_leader(
-        &self,
-        view_number: TYPES::View,
-        _epoch: <TYPES as NodeType>::Epoch,
-    ) -> Result<TYPES::SignatureKey> {
-        #[allow(clippy::cast_possible_truncation)]
-        let index = *view_number as usize % self.eligible_leaders.len();
-        let res = self.eligible_leaders[index].clone();
-        Ok(TYPES::SignatureKey::public_key(&res))
-    }
-
     /// Get the total number of nodes in the committee
     fn total_nodes(&self, _epoch: <TYPES as NodeType>::Epoch) -> usize {
         self.stake_table.len()

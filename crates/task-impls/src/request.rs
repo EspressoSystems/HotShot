@@ -181,7 +181,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
 
         // Get the committee members for the view and the leader, if applicable
         let mut da_committee_for_view = self.membership.da_committee_members(view, epoch);
-        if let Ok(leader) = self.membership.da_leader(view, epoch) {
+        if let Ok(leader) = self.membership.leader(view, epoch) {
             da_committee_for_view.insert(leader);
         }
 

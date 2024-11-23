@@ -121,7 +121,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
-                let view_leader_key = self.membership.da_leader(view, self.cur_epoch)?;
+                let view_leader_key = self.membership.leader(view, self.cur_epoch)?;
                 ensure!(
                     view_leader_key == sender,
                     warn!(
@@ -261,11 +261,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let view = vote.view_number();
 
                 ensure!(
-                    self.membership.da_leader(view, self.cur_epoch)? == self.public_key,
+                    self.membership.leader(view, self.cur_epoch)? == self.public_key,
                     debug!(
                       "We are not the DA committee leader for view {} are we leader for next view? {}",
                       *view,
-                      self.membership.da_leader(view + 1, self.cur_epoch)? == self.public_key
+                      self.membership.leader(view + 1, self.cur_epoch)? == self.public_key
                     )
                 );
 

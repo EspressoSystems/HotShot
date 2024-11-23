@@ -95,36 +95,14 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         ))
     }
 
-    /// The DA leader of the committee for view `view_number` in `epoch`.
-    ///
-    /// Note: this function uses a HotShot-internal error type.
-    /// You should implement `lookup_leader`, rather than implementing this function directly.
-    ///
-    /// # Errors
-    /// Returns an error if the leader cannot be calculated.
-    fn da_leader(&self, view: TYPES::View, epoch: TYPES::Epoch) -> Result<TYPES::SignatureKey> {
-        use utils::anytrace::*;
-
-        self.lookup_da_leader(view, epoch).wrap().context(info!(
-            "Failed to get leader for view {view} in epoch {epoch}"
-        ))
-    }
-
     /// The leader of the committee for view `view_number` in `epoch`.
+    ///
+    /// Note: There is no such thing as a DA leader, so any consumer
+    /// requiring a leader should call this.
     ///
     /// # Errors
     /// Returns an error if the leader cannot be calculated
     fn lookup_leader(
-        &self,
-        view: TYPES::View,
-        epoch: TYPES::Epoch,
-    ) -> std::result::Result<TYPES::SignatureKey, Self::Error>;
-
-    /// The leader of the DA committee for view `view_number` in `epoch`.
-    ///
-    /// # Errors
-    /// Returns an error if the leader cannot be calculated
-    fn lookup_da_leader(
         &self,
         view: TYPES::View,
         epoch: TYPES::Epoch,
