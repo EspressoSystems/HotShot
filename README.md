@@ -227,3 +227,5 @@ NOTE: Do NOT configure dap at all with rust-tools. Do it manually.
 ## Vscode
 
 Install the extension and load the `launch.json` file. Then run the desired test target.
+
+A typo: extenion
