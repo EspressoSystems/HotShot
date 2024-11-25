@@ -777,19 +777,22 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-        if self.drb_seed == [0; 96] && self.drb_result == [0; 32] {
+        let part_commit = if *self.epoch == 0 {
+            RawCommitmentBuilder::new("leaf commitment").u64_field("view number", *self.view_number)
+        } else {
             RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
                 .u64_field("epoch number", *self.epoch)
+        };
+        if self.drb_seed == [0; 96] && self.drb_result == [0; 32] {
+            part_commit
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
                 .field("justify qc", self.justify_qc.commit())
                 .optional("upgrade certificate", &self.upgrade_certificate)
                 .finalize()
         } else {
-            RawCommitmentBuilder::new("leaf commitment")
-                .u64_field("view number", *self.view_number)
-                .u64_field("epoch number", *self.epoch)
+            part_commit
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
                 .field("justify qc", self.justify_qc.commit())

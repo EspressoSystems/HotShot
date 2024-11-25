@@ -77,7 +77,7 @@ impl TestView {
         da_membership: &<TestTypes as NodeType>::Membership,
     ) -> Self {
         let genesis_view = ViewNumber::new(1);
-        let genesis_epoch = EpochNumber::new(1);
+        let genesis_epoch = EpochNumber::new(0);
         let upgrade_lock = UpgradeLock::new();
 
         let transactions = Vec::new();

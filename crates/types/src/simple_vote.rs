@@ -292,10 +292,16 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
 
 impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        committable::RawCommitmentBuilder::new("Quorum data")
-            .var_size_bytes(self.leaf_commit.as_ref())
-            .u64(*self.epoch)
-            .finalize()
+        if *self.epoch == 0 {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .finalize()
+        } else {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .u64(*self.epoch)
+                .finalize()
+        }
     }
 }
 
