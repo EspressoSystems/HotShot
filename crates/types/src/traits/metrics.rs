@@ -217,7 +217,7 @@ pub trait Gauge: Send + Sync + Debug + DynClone {
     /// Set the gauge value
     fn set(&self, amount: usize);
 
-    /// Update the gage value
+    /// Update the gauge value
     fn update(&self, delts: i64);
 }
 
