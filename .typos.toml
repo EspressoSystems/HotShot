@@ -1,0 +1,5 @@
+[files]
+extend-exclude = [
+  "*.drawio",
+  "crates/orchestrator/run-config.toml"
+]
