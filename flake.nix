@@ -173,6 +173,7 @@
             cargo-audit
             nixpkgs-fmt
             git-chglog
+            typos
             protobuf
             python3
             zlib.dev
