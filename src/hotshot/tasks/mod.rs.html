@@ -566,20 +566,6 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -628,7 +614,7 @@
 <span class="kw">use crate</span>::{
     tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
     ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+    MarketplaceConfig, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
 };
 
 <span class="doccomment">/// event for global event stream
@@ -664,7 +650,7 @@
 ) {
     <span class="kw">let </span>state = NetworkResponseState::&lt;TYPES&gt;::new(
         handle.hotshot.consensus(),
-        handle.hotshot.memberships.quorum_membership.clone().into(),
+        (<span class="kw-2">*</span>handle.hotshot.memberships).clone().into(),
         handle.public_key().clone(),
         handle.private_key().clone(),
         handle.hotshot.id,
@@ -772,15 +758,13 @@
 &gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
     network: Arc&lt;NET&gt;,
-    quorum_membership: TYPES::Membership,
-    da_membership: TYPES::Membership,
+    membership: TYPES::Membership,
 ) {
     <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, V, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
         network,
         view: TYPES::View::genesis(),
         epoch: TYPES::Epoch::genesis(),
-        quorum_membership,
-        da_membership,
+        membership,
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         consensus: OuterConsensus::new(handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
@@ -905,7 +889,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
-        memberships: Memberships&lt;TYPES&gt;,
+        memberships: TYPES::Membership,
         network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
@@ -1100,15 +1084,8 @@
     <span class="doccomment">/// Adds the `NetworkEventTaskState` tasks possibly modifying them as well.
     </span><span class="kw">fn </span>add_network_event_tasks(<span class="kw-2">&amp;</span><span class="self">self</span>, handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;) {
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>handle.network);
-        <span class="kw">let </span>quorum_membership = handle.memberships.quorum_membership.clone();
-        <span class="kw">let </span>da_membership = handle.memberships.da_membership.clone();
 
-        <span class="self">self</span>.add_network_event_task(
-            handle,
-            Arc::clone(<span class="kw-2">&amp;</span>network),
-            quorum_membership.clone(),
-            da_membership,
-        );
+        <span class="self">self</span>.add_network_event_task(handle, Arc::clone(<span class="kw-2">&amp;</span>network), (<span class="kw-2">*</span>handle.memberships).clone());
     }
 
     <span class="doccomment">/// Adds a `NetworkEventTaskState` task. Can be reimplemented to modify its behaviour.
@@ -1116,10 +1093,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
         channel: Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Network&gt;,
-        quorum_membership: TYPES::Membership,
-        da_membership: TYPES::Membership,
+        membership: TYPES::Membership,
     ) {
-        add_network_event_task(handle, channel, quorum_membership, da_membership);
+        add_network_event_task(handle, channel, membership);
     }
 }
 
@@ -1152,14 +1128,10 @@
 </span><span class="kw">pub fn </span>add_network_event_tasks&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
 ) {
-    <span class="kw">let </span>quorum_membership = handle.memberships.quorum_membership.clone();
-    <span class="kw">let </span>da_membership = handle.memberships.da_membership.clone();
-
     add_network_event_task(
         handle,
         Arc::clone(<span class="kw-2">&amp;</span>handle.network),
-        quorum_membership,
-        da_membership,
+        (<span class="kw-2">*</span>handle.memberships).clone(),
     );
 }
 </code></pre></div></section></main></body></html>

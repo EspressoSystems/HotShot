@@ -227,6 +227,27 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -238,6 +259,7 @@
 </span><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
+    num::NonZeroU64,
 };
 
 <span class="kw">use </span>bitvec::{bitvec, vec::BitVec};
@@ -285,7 +307,7 @@ The certificate formed from the collection of signatures a committee.
 The committee is defined by the `Membership` associated type.
 The votes all must be over the `Commitment` associated type.
 */
-</span><span class="kw">pub trait </span>Certificate&lt;TYPES: NodeType&gt;: HasViewNumber&lt;TYPES&gt; {
+</span><span class="kw">pub trait </span>Certificate&lt;TYPES: NodeType, T&gt;: HasViewNumber&lt;TYPES&gt; {
     <span class="doccomment">/// The data commitment this certificate certifies.
     </span><span class="kw">type </span>Voteable: Voteable;
 
@@ -301,17 +323,38 @@ The votes all must be over the `Commitment` associated type.
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Checks if the cert is valid in the given epoch
-    </span><span class="kw">fn </span>is_valid_cert&lt;MEMBERSHIP: Membership&lt;TYPES&gt;, V: Versions&gt;(
+    </span><span class="kw">fn </span>is_valid_cert&lt;V: Versions&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
-        epoch: TYPES::Epoch,
+        stake_table: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
+        threshold: NonZeroU64,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = bool&gt;;
     <span class="doccomment">/// Returns the amount of stake needed to create this certificate
     </span><span class="comment">// TODO: Make this a static ratio of the total stake of `Membership`
     </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64;
+
+    <span class="doccomment">/// Get  Stake Table from Membership implementation.
+    </span><span class="kw">fn </span>stake_table&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: TYPES::Epoch,
+    ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
+
+    <span class="doccomment">/// Get Total Nodes from Membership implementation.
+    </span><span class="kw">fn </span>total_nodes&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: TYPES::Epoch,
+    ) -&gt; usize;
+
+    <span class="doccomment">/// Get  `StakeTableEntry` from Membership implementation.
+    </span><span class="kw">fn </span>stake_table_entry&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+        epoch: TYPES::Epoch,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
+
     <span class="doccomment">/// Get the commitment which was voted on
     </span><span class="kw">fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable;
+
     <span class="doccomment">/// Get the vote commitment which the votes commit to
     </span><span class="kw">fn </span>data_commitment&lt;V: Versions&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -332,7 +375,7 @@ The votes all must be over the `Commitment` associated type.
 </span><span class="kw">pub struct </span>VoteAccumulator&lt;
     TYPES: NodeType,
     VOTE: Vote&lt;TYPES&gt;,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;,
     V: Versions,
 &gt; {
     <span class="doccomment">/// Map of all signatures accumulated so far
@@ -356,7 +399,7 @@ The votes all must be over the `Commitment` associated type.
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         VOTE: Vote&lt;TYPES&gt;,
-        CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
+        CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;,
         V: Versions,
     &gt; VoteAccumulator&lt;TYPES, VOTE, CERT, V&gt;
 {
@@ -390,10 +433,10 @@ The votes all must be over the `Commitment` associated type.
             <span class="kw">return </span>Either::Left(());
         }
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = membership.stake(<span class="kw-2">&amp;</span>key, epoch) <span class="kw">else </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = CERT::stake_table_entry(membership, <span class="kw-2">&amp;</span>key, epoch) <span class="kw">else </span>{
             <span class="kw">return </span>Either::Left(());
         };
-        <span class="kw">let </span>stake_table = membership.stake_table(epoch);
+        <span class="kw">let </span>stake_table = CERT::stake_table(membership, epoch);
         <span class="kw">let </span><span class="prelude-val">Some</span>(vote_node_id) = stake_table
             .iter()
             .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
@@ -416,7 +459,7 @@ The votes all must be over the `Commitment` associated type.
         <span class="kw">let </span>(signers, sig_list) = <span class="self">self
             </span>.signers
             .entry(vote_commitment)
-            .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; membership.total_nodes(epoch)], Vec::new()));
+            .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; CERT::total_nodes(membership, epoch)], Vec::new()));
         <span class="kw">if </span>signers.get(vote_node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
             <span class="macro">error!</span>(<span class="string">"Node id is already in signers list"</span>);
             <span class="kw">return </span>Either::Left(());
@@ -424,8 +467,7 @@ The votes all must be over the `Commitment` associated type.
         signers.set(vote_node_id, <span class="bool-val">true</span>);
         sig_list.push(original_signature);
 
-        <span class="comment">// TODO: Get the stake from the stake table entry.
-        </span><span class="kw-2">*</span>total_stake_casted += stake_table_entry.stake();
+        <span class="kw-2">*</span>total_stake_casted += stake_table_entry.stake();
         total_vote_map.insert(key, (vote.signature(), vote_commitment));
 
         <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= CERT::threshold(membership).into() {

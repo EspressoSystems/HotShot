@@ -439,8 +439,8 @@
     </span><span class="kw">pub </span>view: TYPES::View,
     <span class="doccomment">/// Delay before requesting peers
     </span><span class="kw">pub </span>delay: Duration,
-    <span class="doccomment">/// DA Membership
-    </span><span class="kw">pub </span>da_membership: TYPES::Membership,
+    <span class="doccomment">/// Membership (Here containing only DA)
+    </span><span class="kw">pub </span>membership: TYPES::Membership,
     <span class="doccomment">/// This nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// This nodes private/signing key, used to sign requests.
@@ -560,15 +560,15 @@
         <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
 
         <span class="comment">// Get the committee members for the view and the leader, if applicable
-        </span><span class="kw">let </span><span class="kw-2">mut </span>da_committee_for_view = <span class="self">self</span>.da_membership.committee_members(view, epoch);
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(leader) = <span class="self">self</span>.da_membership.leader(view, epoch) {
+        </span><span class="kw">let </span><span class="kw-2">mut </span>da_committee_for_view = <span class="self">self</span>.membership.da_committee_members(view, epoch);
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(leader) = <span class="self">self</span>.membership.leader(view, epoch) {
             da_committee_for_view.insert(leader);
         }
 
         <span class="comment">// Get committee members for view
         </span><span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;TYPES::SignatureKey&gt; = <span class="self">self
-            </span>.da_membership
-            .committee_members(view, epoch)
+            </span>.membership
+            .da_committee_members(view, epoch)
             .into_iter()
             .collect();
         <span class="comment">// Randomize the recipients so all replicas don't overload the same 1 recipients

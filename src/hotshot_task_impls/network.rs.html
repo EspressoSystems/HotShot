@@ -853,8 +853,6 @@
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
 <a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -882,7 +880,7 @@
     traits::{
         election::Membership,
         network::{
-            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, TransmitType,
+            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, Topic, TransmitType,
             ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType, Versions},
@@ -1065,10 +1063,8 @@
     </span><span class="kw">pub </span>view: TYPES::View,
     <span class="doccomment">/// epoch number
     </span><span class="kw">pub </span>epoch: TYPES::Epoch,
-    <span class="doccomment">/// quorum for the network
-    </span><span class="kw">pub </span>quorum_membership: TYPES::Membership,
-    <span class="doccomment">/// da for the network
-    </span><span class="kw">pub </span>da_membership: TYPES::Membership,
+    <span class="doccomment">/// network memberships
+    </span><span class="kw">pub </span>membership: TYPES::Membership,
     <span class="doccomment">/// Storage to store actionable events
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;S&gt;&gt;,
     <span class="doccomment">/// Shared consensus state
@@ -1248,7 +1244,7 @@
             </span>HotShotEvent::QuorumVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
                 <span class="kw">let </span>view_number = vote.view_number() + <span class="number">1</span>;
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
@@ -1309,7 +1305,7 @@
             HotShotEvent::DaVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaVote);
                 <span class="kw">let </span>view_number = vote.view_number();
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
@@ -1341,7 +1337,7 @@
             }
             HotShotEvent::ViewSyncPreCommitVoteSend(vote) =&gt; {
                 <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
@@ -1364,7 +1360,7 @@
             HotShotEvent::ViewSyncCommitVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::ViewSyncVote);
                 <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
@@ -1387,7 +1383,7 @@
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::ViewSyncVote);
                 <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
@@ -1431,7 +1427,7 @@
             HotShotEvent::TimeoutVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
                 <span class="kw">let </span>view_number = vote.view_number() + <span class="number">1</span>;
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
@@ -1460,7 +1456,7 @@
             HotShotEvent::UpgradeVoteSend(vote) =&gt; {
                 <span class="macro">tracing::error!</span>(<span class="string">"Sending upgrade vote!"</span>);
                 <span class="kw">let </span>view_number = vote.view_number();
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.quorum_membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
@@ -1487,7 +1483,7 @@
                 <span class="self">self</span>.cancel_tasks(view);
                 <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
                 <span class="kw">let </span>epoch = <span class="self">self</span>.epoch.u64();
-                <span class="kw">let </span>mem = <span class="self">self</span>.quorum_membership.clone();
+                <span class="kw">let </span>mem = <span class="self">self</span>.membership.clone();
                 spawn(<span class="kw">async move </span>{
                     net.update_view::&lt;TYPES&gt;(view.saturating_sub(<span class="number">1</span>), epoch, <span class="kw-2">&amp;</span>mem)
                         .<span class="kw">await</span>;
@@ -1533,10 +1529,10 @@
             kind: message_kind,
         };
         <span class="kw">let </span>view_number = message.kind.view_number();
-        <span class="kw">let </span>committee_topic = <span class="self">self</span>.quorum_membership.committee_topic();
+        <span class="kw">let </span>committee_topic = Topic::Global;
         <span class="kw">let </span>da_committee = <span class="self">self
-            </span>.da_membership
-            .committee_members(view_number, <span class="self">self</span>.epoch);
+            </span>.membership
+            .da_committee_members(view_number, <span class="self">self</span>.epoch);
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
         <span class="kw">let </span>storage = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage);
         <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
@@ -1655,7 +1651,7 @@
                     <span class="kw-2">&amp;mut </span>sender,
                     <span class="kw-2">&amp;mut </span>message_kind,
                     <span class="kw-2">&amp;mut </span>transmit,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.membership,
                 );
                 <span class="self">self</span>.spawn_transmit_task(message_kind, maybe_action, transmit, sender);
             }

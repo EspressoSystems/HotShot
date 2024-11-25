@@ -400,8 +400,6 @@
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -427,6 +425,9 @@
     vid::VidCommitment,
     vote::{HasViewNumber, Vote},
 };
+
+<span class="doccomment">/// Marker that data should use the quorum cert type
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>QuorumMaker {}
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a yes vote.
@@ -454,12 +455,7 @@
     <span class="doccomment">/// View the timeout is for
     </span><span class="kw">pub </span>view: TYPES::View,
 }
-<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-</span><span class="doccomment">/// Data used for a VID vote.
-</span><span class="kw">pub struct </span>VidData {
-    <span class="doccomment">/// Commitment to the block payload the VID vote is on.
-    </span><span class="kw">pub </span>payload_commit: VidCommitment,
-}
+
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Pre Commit vote.
 </span><span class="kw">pub struct </span>ViewSyncPreCommitData&lt;TYPES: NodeType&gt; {
@@ -522,6 +518,14 @@
     <span class="comment">// TODO: Does the implement for things outside this file that are committable?
     </span><span class="kw">impl</span>&lt;C: Committable&gt; Sealed <span class="kw">for </span>C {}
 }
+
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>QuorumData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>QuorumData2&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>TimeoutData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>ViewSyncPreCommitData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>ViewSyncCommitData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>ViewSyncFinalizeData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType + DeserializeOwned&gt; QuorumMaker <span class="kw">for </span>UpgradeProposalData&lt;T&gt; {}
 
 <span class="doccomment">/// A simple yes vote over some votable type.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -687,14 +691,6 @@
 <span class="kw">impl </span>Committable <span class="kw">for </span>DaData {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         committable::RawCommitmentBuilder::new(<span class="string">"DA data"</span>)
-            .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())
-            .finalize()
-    }
-}
-
-<span class="kw">impl </span>Committable <span class="kw">for </span>VidData {
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
-        committable::RawCommitmentBuilder::new(<span class="string">"VID data"</span>)
             .var_size_bytes(<span class="self">self</span>.payload_commit.as_ref())
             .finalize()
     }

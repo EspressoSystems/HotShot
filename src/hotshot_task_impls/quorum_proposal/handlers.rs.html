@@ -431,6 +431,9 @@
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
 <a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -458,6 +461,7 @@
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -557,8 +561,10 @@
             <span class="kw">if let </span>HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
                 <span class="kw">if </span>qc
                     .is_valid_cert(
-                        <span class="self">self</span>.quorum_membership.as_ref(),
-                        TYPES::Epoch::new(<span class="number">0</span>),
+                        <span class="comment">// TODO take epoch from `qc`
+                        // https://github.com/EspressoSystems/HotShot/issues/3917
+                        </span><span class="self">self</span>.quorum_membership.stake_table(TYPES::Epoch::new(<span class="number">0</span>)),
+                        <span class="self">self</span>.quorum_membership.success_threshold(),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await

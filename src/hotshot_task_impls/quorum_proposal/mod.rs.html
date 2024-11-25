@@ -997,8 +997,8 @@
                 <span class="macro">ensure!</span>(
                     certificate
                         .is_valid_cert(
-                            <span class="self">self</span>.quorum_membership.as_ref(),
-                            epoch_number,
+                            <span class="self">self</span>.quorum_membership.stake_table(epoch_number),
+                            <span class="self">self</span>.quorum_membership.success_threshold(),
                             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                         )
                         .<span class="kw">await</span>,
@@ -1061,8 +1061,8 @@
                 <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="macro">ensure!</span>(
                     qc.is_valid_cert(
-                        <span class="self">self</span>.quorum_membership.as_ref(),
-                        epoch_number,
+                        <span class="self">self</span>.quorum_membership.stake_table(epoch_number),
+                        <span class="self">self</span>.quorum_membership.success_threshold(),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                     )
                     .<span class="kw">await</span>,

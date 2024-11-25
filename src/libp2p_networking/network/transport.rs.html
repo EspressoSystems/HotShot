@@ -742,14 +742,6 @@
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind},
@@ -1274,9 +1266,7 @@
 
     <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
     <span class="kw">use </span>hotshot_types::{
-        light_client::StateVerKey,
-        signature_key::BLSPubKey,
-        traits::{network::Topic, signature_key::SignatureKey},
+        light_client::StateVerKey, signature_key::BLSPubKey, traits::signature_key::SignatureKey,
         PeerConfig,
     };
     <span class="kw">use </span>libp2p::{core::transport::dummy::DummyTransport, quic::Connection};
@@ -1395,11 +1385,8 @@
             stake_table_entry: keypair.<span class="number">0</span>.stake_table_entry(<span class="number">1</span>),
             state_ver_key: StateVerKey::default(),
         };
-        <span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
-            <span class="macro">vec!</span>[peer_config.clone()],
-            <span class="macro">vec!</span>[peer_config],
-            Topic::Global,
-        );
+        <span class="kw">let </span>stake_table =
+            &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[peer_config.clone()], <span class="macro">vec!</span>[peer_config]);
 
         <span class="comment">// Verify the authentication message
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
@@ -1424,7 +1411,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="macro">cursor_from!</span>(auth_message);
 
         <span class="comment">// Create an empty stake table
-        </span><span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[], <span class="macro">vec!</span>[], Topic::Global);
+        </span><span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[], <span class="macro">vec!</span>[]);
 
         <span class="comment">// Verify the authentication message
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
@@ -1460,11 +1447,8 @@
             stake_table_entry: keypair.<span class="number">0</span>.stake_table_entry(<span class="number">1</span>),
             state_ver_key: StateVerKey::default(),
         };
-        <span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
-            <span class="macro">vec!</span>[peer_config.clone()],
-            <span class="macro">vec!</span>[peer_config],
-            Topic::Global,
-        );
+        <span class="kw">let </span>stake_table =
+            &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[peer_config.clone()], <span class="macro">vec!</span>[peer_config]);
 
         <span class="comment">// Check against the malicious peer ID
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(

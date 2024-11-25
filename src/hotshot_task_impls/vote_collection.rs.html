@@ -619,6 +619,10 @@
 <a href="#619" id="619">619</a>
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -664,7 +668,7 @@
 </span><span class="kw">pub struct </span>VoteCollectionTaskState&lt;
     TYPES: NodeType,
     VOTE: Vote&lt;TYPES&gt;,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Debug,
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt; + Debug,
     V: Versions,
 &gt; {
     <span class="doccomment">/// Public key for this node.
@@ -693,7 +697,7 @@
 </span><span class="kw">pub trait </span>AggregatableVote&lt;
     TYPES: NodeType,
     VOTE: Vote&lt;TYPES&gt;,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;,
 &gt;
 {
     <span class="doccomment">/// return the leader for this votes
@@ -713,7 +717,7 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         VOTE: Vote&lt;TYPES&gt; + AggregatableVote&lt;TYPES, VOTE, CERT&gt;,
-        CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Clone + Debug,
+        CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt; + Clone + Debug,
         V: Versions,
     &gt; VoteCollectionTaskState&lt;TYPES, VOTE, CERT, V&gt;
 {
@@ -774,7 +778,7 @@
 <span class="kw">where
     </span>TYPES: NodeType,
     VOTE: Vote&lt;TYPES&gt; + AggregatableVote&lt;TYPES, VOTE, CERT&gt;,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Debug,
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt; + Debug,
 {
     <span class="doccomment">/// Handle a vote event
     ///
@@ -825,7 +829,7 @@
         + std::marker::Send
         + std::marker::Sync
         + <span class="lifetime">'static</span>,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;
         + Debug
         + std::marker::Send
         + std::marker::Sync
@@ -863,7 +867,11 @@
 </span><span class="kw">pub async fn </span>handle_vote&lt;
     TYPES: NodeType,
     VOTE: Vote&lt;TYPES&gt; + AggregatableVote&lt;TYPES, VOTE, CERT&gt; + Send + Sync + <span class="lifetime">'static</span>,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt; + Debug + Send + Sync + <span class="lifetime">'static</span>,
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;
+        + Debug
+        + Send
+        + Sync
+        + <span class="lifetime">'static</span>,
     V: Versions,
 &gt;(
     collectors: <span class="kw-2">&amp;mut </span>VoteCollectorsMap&lt;TYPES, VOTE, CERT, V&gt;,

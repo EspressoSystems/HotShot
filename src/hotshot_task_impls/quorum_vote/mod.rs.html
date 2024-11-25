@@ -723,6 +723,7 @@
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -994,11 +995,8 @@
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
-    <span class="doccomment">/// Membership for Quorum certs/votes.
-    </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
-
-    <span class="doccomment">/// Membership for DA committee certs/votes.
-    </span><span class="kw">pub </span>da_membership: Arc&lt;TYPES::Membership&gt;,
+    <span class="doccomment">/// Membership for Quorum certs/votes and DA committee certs/votes.
+    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -1102,7 +1100,7 @@
                 private_key: <span class="self">self</span>.private_key.clone(),
                 consensus: OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
                 instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
-                quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+                quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                 storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
                 view_number,
                 sender: event_sender.clone(),
@@ -1204,8 +1202,12 @@
                 <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="comment">// Validate the DAC.
                 </span><span class="macro">ensure!</span>(
-                    cert.is_valid_cert(<span class="self">self</span>.da_membership.as_ref(), cur_epoch, <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock)
-                        .<span class="kw">await</span>,
+                    cert.is_valid_cert(
+                        <span class="self">self</span>.membership.da_stake_table(cur_epoch),
+                        <span class="self">self</span>.membership.da_success_threshold(),
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
+                    )
+                    .<span class="kw">await</span>,
                     <span class="macro">warn!</span>(<span class="string">"Invalid DAC"</span>)
                 );
 
@@ -1243,16 +1245,16 @@
 
                 <span class="comment">// ensure that the VID share was sent by a DA member OR the view leader
                 </span><span class="macro">ensure!</span>(
-                    <span class="self">self</span>.da_membership
-                        .committee_members(view, cur_epoch)
+                    <span class="self">self</span>.membership
+                        .da_committee_members(view, cur_epoch)
                         .contains(sender)
-                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.quorum_membership.leader(view, cur_epoch)<span class="question-mark">?</span>,
+                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.membership.leader(view, cur_epoch)<span class="question-mark">?</span>,
                     <span class="string">"VID share was not sent by a DA member or the view leader."
                 </span>);
 
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.quorum_membership.total_nodes(cur_epoch)).verify_share(
+                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.membership.total_nodes(cur_epoch)).verify_share(
                     <span class="kw-2">&amp;</span>disperse.data.share,
                     <span class="kw-2">&amp;</span>disperse.data.common,
                     payload_commitment,
@@ -1366,7 +1368,7 @@
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             event_sender.clone(),
             event_receiver.clone().deactivate(),
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
             <span class="self">self</span>.upgrade_lock.clone(),
@@ -1409,7 +1411,7 @@
             </span>.is_leaf_extended(proposed_leaf.commit());
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = submit_vote::&lt;TYPES, I, V&gt;(
             event_sender.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
             <span class="self">self</span>.upgrade_lock.clone(),

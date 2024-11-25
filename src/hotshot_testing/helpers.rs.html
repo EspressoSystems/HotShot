@@ -446,17 +446,6 @@
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -472,7 +461,7 @@
 <span class="kw">use </span>hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{SignatureKey, SystemContextHandle},
-    HotShotInitializer, Memberships, SystemContext,
+    HotShotInitializer, SystemContext,
 };
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -492,7 +481,6 @@
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
-        network::Topic,
         node_implementation::{NodeType, Versions},
     },
     utils::{View, ViewInner},
@@ -568,17 +556,10 @@
     <span class="kw">let </span>private_key = validator_config.private_key.clone();
     <span class="kw">let </span>public_key = validator_config.public_key.clone();
 
-    <span class="kw">let </span>all_nodes = config.known_nodes_with_stake.clone();
-    <span class="kw">let </span>da_nodes = config.known_da_nodes.clone();
-
-    <span class="kw">let </span>memberships = Memberships {
-        quorum_membership: TYPES::Membership::new(
-            all_nodes.clone(),
-            all_nodes.clone(),
-            Topic::Global,
-        ),
-        da_membership: TYPES::Membership::new(all_nodes, da_nodes, Topic::Da),
-    };
+    <span class="kw">let </span>memberships = TYPES::Membership::new(
+        config.known_nodes_with_stake.clone(),
+        config.known_da_nodes.clone(),
+    );
 
     SystemContext::init(
         public_key,
@@ -604,7 +585,7 @@
     V: Versions,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + <span class="lifetime">'static</span>,
     VOTE: Vote&lt;TYPES, Commitment = DATAType&gt;,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;,
 &gt;(
     data: DATAType,
     membership: <span class="kw-2">&amp;</span>TYPES::Membership,
@@ -669,7 +650,7 @@
     TYPES: NodeType,
     V: Versions,
     VOTE: Vote&lt;TYPES&gt;,
-    CERT: Certificate&lt;TYPES, Voteable = VOTE::Commitment&gt;,
+    CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + <span class="lifetime">'static</span>,
 &gt;(
     data: <span class="kw-2">&amp;</span>DATAType,
@@ -678,7 +659,7 @@
     epoch: TYPES::Epoch,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType {
-    <span class="kw">let </span>stake_table = membership.stake_table(epoch);
+    <span class="kw">let </span>stake_table = CERT::stake_table(membership, epoch);
     <span class="kw">let </span>real_qc_pp: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table.clone(),
@@ -824,8 +805,7 @@
 
 <span class="attr">#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub async fn </span>build_da_certificate&lt;TYPES: NodeType, V: Versions&gt;(
-    quorum_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
-    da_membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
+    membership: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership,
     view_number: TYPES::View,
     epoch_number: TYPES::Epoch,
     transactions: Vec&lt;TestTransaction&gt;,
@@ -835,10 +815,8 @@
 ) -&gt; DaCertificate&lt;TYPES&gt; {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
-    <span class="kw">let </span>da_payload_commitment = vid_commitment(
-        <span class="kw-2">&amp;</span>encoded_transactions,
-        quorum_membership.total_nodes(epoch_number),
-    );
+    <span class="kw">let </span>da_payload_commitment =
+        vid_commitment(<span class="kw-2">&amp;</span>encoded_transactions, membership.total_nodes(epoch_number));
 
     <span class="kw">let </span>da_data = DaData {
         payload_commit: da_payload_commitment,
@@ -846,7 +824,7 @@
 
     build_cert::&lt;TYPES, V, DaData, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;&gt;(
         da_data,
-        da_membership,
+        membership,
         view_number,
         epoch_number,
         public_key,

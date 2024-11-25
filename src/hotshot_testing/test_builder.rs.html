@@ -572,7 +572,7 @@
     tasks::EventTransformerState,
     traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
     types::SystemContextHandle,
-    HotShotInitializer, MarketplaceConfig, Memberships, SystemContext, TwinsHandlerState,
+    HotShotInitializer, MarketplaceConfig, SystemContext, TwinsHandlerState,
 };
 <span class="kw">use </span>hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
@@ -736,7 +736,7 @@
     metadata: TestDescription&lt;TYPES, I, V&gt;,
     node_id: u64,
     network: Network&lt;TYPES, I&gt;,
-    memberships: Memberships&lt;TYPES&gt;,
+    memberships: TYPES::Membership,
     config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
     storage: I::Storage,
     marketplace_config: MarketplaceConfig&lt;TYPES, I&gt;,

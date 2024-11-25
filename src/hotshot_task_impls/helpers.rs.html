@@ -741,6 +741,15 @@
 <a href="#741" id="741">741</a>
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -868,7 +877,11 @@
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
 
     <span class="kw">if </span>!justify_qc
-        .is_valid_cert(quorum_membership.as_ref(), cur_epoch, upgrade_lock)
+        .is_valid_cert(
+            quorum_membership.stake_table(cur_epoch),
+            quorum_membership.success_threshold(),
+            upgrade_lock,
+        )
         .<span class="kw">await
     </span>{
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
@@ -1418,11 +1431,14 @@
                     <span class="string">"Timeout certificate for view {} was not for the immediately preceding view"</span>,
                     <span class="kw-2">*</span>view_number
                 );
+
                 <span class="macro">ensure!</span>(
                     timeout_cert
                         .is_valid_cert(
-                            validation_info.quorum_membership.as_ref(),
-                            validation_info.cur_epoch,
+                            validation_info
+                                .quorum_membership
+                                .stake_table(validation_info.cur_epoch),
+                            validation_info.quorum_membership.success_threshold(),
                             <span class="kw-2">&amp;</span>validation_info.upgrade_lock
                         )
                         .<span class="kw">await</span>,
@@ -1442,8 +1458,10 @@
                 </span><span class="macro">ensure!</span>(
                     view_sync_cert
                         .is_valid_cert(
-                            validation_info.quorum_membership.as_ref(),
-                            validation_info.cur_epoch,
+                            validation_info
+                                .quorum_membership
+                                .stake_table(validation_info.cur_epoch),
+                            validation_info.quorum_membership.success_threshold(),
                             <span class="kw-2">&amp;</span>validation_info.upgrade_lock
                         )
                         .<span class="kw">await</span>,

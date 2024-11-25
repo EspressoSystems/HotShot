@@ -386,7 +386,7 @@
         .<span class="kw">await
         </span>.is_leaf_extended(vote.data.leaf_commit);
     <span class="kw">let </span>we_are_leader = task_state
-        .quorum_membership
+        .membership
         .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
         </span>== task_state.public_key;
     <span class="macro">ensure!</span>(
@@ -401,7 +401,7 @@
         <span class="kw-2">&amp;mut </span>task_state.vote_collectors,
         vote,
         task_state.public_key.clone(),
-        <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        <span class="kw-2">&amp;</span>task_state.membership,
         task_state.cur_epoch,
         task_state.id,
         <span class="kw-2">&amp;</span>event,
@@ -428,7 +428,7 @@
     <span class="comment">// Are we the leader for this view?
     </span><span class="macro">ensure!</span>(
         task_state
-            .quorum_membership
+            .membership
             .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
             </span>== task_state.public_key,
         <span class="macro">info!</span>(
@@ -441,7 +441,7 @@
         <span class="kw-2">&amp;mut </span>task_state.timeout_vote_collectors,
         vote,
         task_state.public_key.clone(),
-        <span class="kw-2">&amp;</span>task_state.quorum_membership,
+        <span class="kw-2">&amp;</span>task_state.membership,
         task_state.cur_epoch,
         task_state.id,
         <span class="kw-2">&amp;</span>event,
@@ -472,7 +472,7 @@
     );
     <span class="kw">let </span>high_qc = task_state.consensus.read().<span class="kw">await</span>.high_qc().clone();
     <span class="kw">let </span>leader = task_state
-        .quorum_membership
+        .membership
         .leader(new_view_number, TYPES::Epoch::new(<span class="number">0</span>))<span class="question-mark">?</span>;
     broadcast_event(Arc::new(HotShotEvent::HighQcSend(high_qc, leader)), sender).<span class="kw">await</span>;
     <span class="prelude-val">Ok</span>(())
@@ -564,7 +564,7 @@
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     <span class="kw">let </span>cur_view_time = Utc::now().timestamp();
     <span class="kw">if </span>task_state
-        .quorum_membership
+        .membership
         .leader(old_view_number, task_state.cur_epoch)<span class="question-mark">?
         </span>== task_state.public_key
     {
@@ -617,7 +617,7 @@
 
     <span class="macro">ensure!</span>(
         task_state
-            .quorum_membership
+            .membership
             .has_stake(<span class="kw-2">&amp;</span>task_state.public_key, task_state.cur_epoch),
         <span class="macro">debug!</span>(<span class="string">"We were not chosen for the consensus committee for view {view_number:?}"</span>)
     );
@@ -665,7 +665,7 @@
         .number_of_timeouts
         .add(<span class="number">1</span>);
     <span class="kw">if </span>task_state
-        .quorum_membership
+        .membership
         .leader(view_number, task_state.cur_epoch)<span class="question-mark">?
         </span>== task_state.public_key
     {
