@@ -1612,7 +1612,7 @@
             HotShotEvent::ViewSyncTrigger(view_number) =&gt; {
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
                 <span class="kw">if </span><span class="self">self</span>.next_view != TYPES::View::new(<span class="kw-2">*</span>view_number) {
-                    <span class="macro">tracing::error!</span>(<span class="string">"Unexpected view number to triger view sync"</span>);
+                    <span class="macro">tracing::error!</span>(<span class="string">"Unexpected view number to trigger view sync"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 

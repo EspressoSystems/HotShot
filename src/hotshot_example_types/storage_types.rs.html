@@ -501,7 +501,7 @@
     }
     <span class="kw">async fn </span>update_undecided_state(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _leafs: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
+        _leaves: CommitmentMap&lt;Leaf&lt;TYPES&gt;&gt;,
         _state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
@@ -512,7 +512,7 @@
     }
     <span class="kw">async fn </span>update_undecided_state2(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _leafs: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
+        _leaves: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
         _state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {

@@ -31,7 +31,7 @@ to allow the application to communicate with HotShot.</p>
     &amp;self,
     msg: <a class="struct" href="https://doc.rust-lang.org/1.82.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.u8.html">u8</a>&gt;,
     recipients: <a class="enum" href="../../../hotshot_types/message/enum.RecipientList.html" title="enum hotshot_types::message::RecipientList">RecipientList</a>&lt;TYPES::<a class="associatedtype" href="../../../hotshot_types/traits/node_implementation/trait.NodeType.html#associatedtype.SignatureKey" title="type hotshot_types::traits::node_implementation::NodeType::SignatureKey">SignatureKey</a>&gt;,
-) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.93/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Message other participents with a serialized message from the application
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.93/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Message other participants with a serialized message from the application
 Receivers of this message will get an <code>Event::ExternalMessageReceived</code> via
 the event stream.</p>
 <h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>

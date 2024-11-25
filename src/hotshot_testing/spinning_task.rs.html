@@ -456,7 +456,7 @@
     test_task::{TestResult, TestTaskState},
 };
 
-<span class="doccomment">/// convience type for state and block
+<span class="doccomment">/// convenience type for state and block
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
 
 <span class="doccomment">/// Spinning task state
@@ -638,7 +638,7 @@
                                     context: LateNodeContext::Restart,
                                 }) = <span class="self">self</span>.late_start.get(<span class="kw-2">&amp;</span>node_id)
                                 <span class="kw">else </span>{
-                                    <span class="macro">panic!</span>(<span class="string">"Restarted Nodes must have an unitialized context"</span>);
+                                    <span class="macro">panic!</span>(<span class="string">"Restarted Nodes must have an uninitialized context"</span>);
                                 };
 
                                 <span class="kw">let </span>storage = node.handle.storage().clone();
@@ -804,7 +804,7 @@
     <span class="doccomment">/// Take a node down to be restarted after a number of views
     </span>RestartDown(u64),
     <span class="doccomment">/// Start a node up again after it's been shutdown for restart.  This
-    /// should only be created following a `ResartDown`
+    /// should only be created following a `RestartDown`
     </span>RestartUp,
 }
 

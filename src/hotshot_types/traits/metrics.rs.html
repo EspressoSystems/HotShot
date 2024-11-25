@@ -508,7 +508,7 @@
 <span class="doccomment">/// A family of related metrics, partitioned by their label values.
 ///
 /// All metrics in a family have the same name. They are distinguished by a vector of strings
-/// called labels. Each label has a name and a value, and each distinct vector of lable values
+/// called labels. Each label has a name and a value, and each distinct vector of label values
 /// within a family acts like a distinct metric.
 ///
 /// The family object is used to instantiate individual metrics within the family via the
@@ -667,7 +667,7 @@
     <span class="doccomment">/// Set the gauge value
     </span><span class="kw">fn </span>set(<span class="kw-2">&amp;</span><span class="self">self</span>, amount: usize);
 
-    <span class="doccomment">/// Update the guage value
+    <span class="doccomment">/// Update the gauge value
     </span><span class="kw">fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>, delts: i64);
 }
 

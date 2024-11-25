@@ -7,7 +7,7 @@
     fn <a href="#tymethod.create" class="fn">create</a>(&amp;self, labels: <a class="struct" href="https://doc.rust-lang.org/1.82.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.82.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;) -&gt; M;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A family of related metrics, partitioned by their label values.</p>
 <p>All metrics in a family have the same name. They are distinguished by a vector of strings
-called labels. Each label has a name and a value, and each distinct vector of lable values
+called labels. Each label has a name and a value, and each distinct vector of label values
 within a family acts like a distinct metric.</p>
 <p>The family object is used to instantiate individual metrics within the family via the
 <a href="trait.MetricsFamily.html#tymethod.create"><code>create</code></a> method.</p>

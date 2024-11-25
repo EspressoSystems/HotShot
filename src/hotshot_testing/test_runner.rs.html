@@ -1382,7 +1382,7 @@
     </span><span class="kw">pub </span>handle: SystemContextHandle&lt;TYPES, I, V&gt;,
 }
 
-<span class="doccomment">/// This type combines all of the paramters needed to build the context for a node that started
+<span class="doccomment">/// This type combines all of the parameters needed to build the context for a node that started
 /// late during a unit test or integration test.
 </span><span class="kw">pub struct </span>LateNodeContextParameters&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The storage trait for Sequencer persistence.
@@ -1391,7 +1391,7 @@
     <span class="doccomment">/// The memberships of this particular node.
     </span><span class="kw">pub </span>memberships: Memberships&lt;TYPES&gt;,
 
-    <span class="doccomment">/// The config associted with this node.
+    <span class="doccomment">/// The config associated with this node.
     </span><span class="kw">pub </span>config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
 
     <span class="doccomment">/// The marketplace config for this node.

@@ -488,7 +488,7 @@
     <span class="doccomment">/// For the `Qc2Formed` event timeout branch.
     </span>TimeoutCert,
 
-    <span class="doccomment">/// For the `QuroumProposalRecv` event.
+    <span class="doccomment">/// For the `QuorumProposalRecv` event.
     </span>Proposal,
 
     <span class="doccomment">/// For the `VidShareValidated` event.
@@ -543,7 +543,7 @@
     <span class="doccomment">/// The time this view started
     </span><span class="kw">pub </span>view_start_time: Instant,
 
-    <span class="doccomment">/// The higest_qc we've seen at the start of this task
+    <span class="doccomment">/// The highest_qc we've seen at the start of this task
     </span><span class="kw">pub </span>highest_qc: QuorumCertificate2&lt;TYPES&gt;,
 }
 
@@ -570,7 +570,7 @@
         <span class="prelude-val">None
     </span>}
     <span class="doccomment">/// Waits for the ocnfigured timeout for nodes to send HighQc messages to us.  We'll
-    /// then propose with the higest QC from among these proposals.
+    /// then propose with the highest QC from among these proposals.
     </span><span class="kw">async fn </span>wait_for_highest_qc(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="macro">tracing::error!</span>(<span class="string">"waiting for QC"</span>);
         <span class="comment">// If we haven't upgraded to Hotstuff 2 just return the high qc right away

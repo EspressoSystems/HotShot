@@ -590,7 +590,7 @@
     /// // NOTE: broken due to staticelectionconfig not being importable
     /// // cannot import staticelectionconfig from hotshot without creating circular dependency
     /// // making this work probably involves the `types` crate implementing a dummy
-    /// // electionconfigtype just ot make this example work
+    /// // electionconfigtype just to make this example work
     /// let config = NetworkConfig::&lt;BLSPubKey, StaticElectionConfig&gt;::from_file(file).unwrap();
     /// ```
     </span><span class="kw">pub fn </span>from_file(file: String) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkConfigError&gt; {

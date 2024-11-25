@@ -1589,7 +1589,7 @@
                 }
                 <span class="comment">// TODO Add logic to prevent double voting.  For now the simple check if
                 // the last voted view is less than the view we are trying to vote doesn't work
-                // becuase the leader of view n + 1 may propose to the DA (and we would vote)
+                // because the leader of view n + 1 may propose to the DA (and we would vote)
                 // before the leader of view n.
                 </span><span class="kw">return </span><span class="bool-val">true</span>;
             }
@@ -1657,7 +1657,7 @@
     <span class="doccomment">/// Update the validated state map with a new view_number/view combo.
     ///
     /// # Errors
-    /// Can return an error when the new view contains less information than the exisiting view
+    /// Can return an error when the new view contains less information than the existing view
     /// with the same view number.
     </span><span class="kw">pub fn </span>update_da_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1673,7 +1673,7 @@
     <span class="doccomment">/// Update the validated state map with a new view_number/view combo.
     ///
     /// # Errors
-    /// Can return an error when the new view contains less information than the exisiting view
+    /// Can return an error when the new view contains less information than the existing view
     /// with the same view number.
     </span><span class="kw">pub fn </span>update_leaf(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1697,7 +1697,7 @@
     <span class="doccomment">/// Update the validated state map with a new view_number/view combo.
     ///
     /// # Errors
-    /// Can return an error when the new view contains less information than the exisiting view
+    /// Can return an error when the new view contains less information than the existing view
     /// with the same view number.
     </span><span class="kw">fn </span>update_validated_state_map(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,

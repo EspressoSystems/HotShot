@@ -69,7 +69,7 @@ well.</p>
 ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.82.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Self&gt;</h4></section></summary><div class="docblock"><p>Creates a new <a href="https://doc.rust-lang.org/1.82.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc"><code>Arc&lt;SystemContext&gt;</code></a> with the given configuration options.</p>
 <p>To do a full initialization, use <code>fn init</code> instead, which will set up background tasks as
 well.</p>
-<p>Use this function if you want to use some prexisting channels and to spin up the tasks
+<p>Use this function if you want to use some preexisting channels and to spin up the tasks
 and start consensus manually.  Mostly useful for tests</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.start_consensus" class="method"><a class="src rightside" href="../src/hotshot/lib.rs.html#388">source</a><h4 class="code-header">pub async fn <a href="#method.start_consensus" class="fn">start_consensus</a>(&amp;self)</h4></section></summary><div class="docblock"><p>“Starts” consensus by sending a <code>Qc2Formed</code>, <code>ViewChange</code> events</p>
 <h5 id="panics-1"><a class="doc-anchor" href="#panics-1">§</a>Panics</h5>

@@ -77,12 +77,12 @@ terminates on shut down of network</p>
     Self: 'async_trait,
     'a: 'async_trait,
     'life0: 'async_trait,</div></h4></section></summary><div class="docblock"><p>The libp2p view update is a special operation intrinsic to its internal behavior.</p>
-<p>Libp2p needs to do a lookup because a libp2p address is not releated to
+<p>Libp2p needs to do a lookup because a libp2p address is not related to
 hotshot keys. So in libp2p we store a mapping of HotShot key to libp2p address
 in a distributed hash table.</p>
 <p>This means to directly message someone on libp2p we need to lookup in the hash
 table what their libp2p address is, using their HotShot public key as the key.</p>
-<p>So the logic with libp2p is to prefetch upcomming leaders libp2p address to
+<p>So the logic with libp2p is to prefetch upcoming leaders libp2p address to
 save time when we later need to direct message the leader our vote. Hence the
 use of the future view and leader to queue the lookups.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.wait_for_ready-1" class="method trait-impl"><a class="src rightside" href="../../../../src/hotshot/traits/networking/libp2p_network.rs.html#752">source</a><a href="#method.wait_for_ready-1" class="anchor">§</a><h4 class="code-header">fn <a href="../../../../hotshot_types/traits/network/trait.ConnectedNetwork.html#tymethod.wait_for_ready" class="fn">wait_for_ready</a>&lt;'life0, 'async_trait&gt;(

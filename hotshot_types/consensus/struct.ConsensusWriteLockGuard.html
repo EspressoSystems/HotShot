@@ -56,7 +56,7 @@ Returns None if we don’t have the data in out state</p>
     payload_commitment: <a class="type" href="../vid/type.VidCommitment.html" title="type hotshot_types::vid::VidCommitment">VidCommitment</a>,
 ) -&gt; <a class="type" href="../../utils/anytrace/type.Result.html" title="type utils::anytrace::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Update the validated state map with a new view_number/view combo.</p>
 <h5 id="errors-5"><a class="doc-anchor" href="#errors-5">§</a>Errors</h5>
-<p>Can return an error when the new view contains less information than the exisiting view
+<p>Can return an error when the new view contains less information than the existing view
 with the same view number.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.update_leaf" class="method"><a class="src rightside" href="../../src/hotshot_types/consensus.rs.html#645-662">source</a><h4 class="code-header">pub fn <a href="#method.update_leaf" class="fn">update_leaf</a>(
     &amp;mut self,
@@ -65,7 +65,7 @@ with the same view number.</p>
     delta: <a class="enum" href="https://doc.rust-lang.org/1.82.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.82.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;&lt;TYPES::<a class="associatedtype" href="../traits/node_implementation/trait.NodeType.html#associatedtype.ValidatedState" title="type hotshot_types::traits::node_implementation::NodeType::ValidatedState">ValidatedState</a> as <a class="trait" href="../traits/states/trait.ValidatedState.html" title="trait hotshot_types::traits::states::ValidatedState">ValidatedState</a>&lt;TYPES&gt;&gt;::<a class="associatedtype" href="../traits/states/trait.ValidatedState.html#associatedtype.Delta" title="type hotshot_types::traits::states::ValidatedState::Delta">Delta</a>&gt;&gt;,
 ) -&gt; <a class="type" href="../../utils/anytrace/type.Result.html" title="type utils::anytrace::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Update the validated state map with a new view_number/view combo.</p>
 <h5 id="errors-6"><a class="doc-anchor" href="#errors-6">§</a>Errors</h5>
-<p>Can return an error when the new view contains less information than the exisiting view
+<p>Can return an error when the new view contains less information than the existing view
 with the same view number.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.update_validated_state_map" class="method"><a class="src rightside" href="../../src/hotshot_types/consensus.rs.html#669-696">source</a><h4 class="code-header">fn <a href="#method.update_validated_state_map" class="fn">update_validated_state_map</a>(
     &amp;mut self,
@@ -73,7 +73,7 @@ with the same view number.</p>
     new_view: <a class="struct" href="../utils/struct.View.html" title="struct hotshot_types::utils::View">View</a>&lt;TYPES&gt;,
 ) -&gt; <a class="type" href="../../utils/anytrace/type.Result.html" title="type utils::anytrace::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Update the validated state map with a new view_number/view combo.</p>
 <h5 id="errors-7"><a class="doc-anchor" href="#errors-7">§</a>Errors</h5>
-<p>Can return an error when the new view contains less information than the exisiting view
+<p>Can return an error when the new view contains less information than the existing view
 with the same view number.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.update_saved_leaves" class="method"><a class="src rightside" href="../../src/hotshot_types/consensus.rs.html#699-701">source</a><h4 class="code-header">fn <a href="#method.update_saved_leaves" class="fn">update_saved_leaves</a>(&amp;mut self, leaf: <a class="struct" href="../data/struct.Leaf2.html" title="struct hotshot_types::data::Leaf2">Leaf2</a>&lt;TYPES&gt;)</h4></section></summary><div class="docblock"><p>Update the saved leaves with a new leaf.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.update_saved_payloads" class="method"><a class="src rightside" href="../../src/hotshot_types/consensus.rs.html#707-718">source</a><h4 class="code-header">pub fn <a href="#method.update_saved_payloads" class="fn">update_saved_payloads</a>(

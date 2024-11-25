@@ -587,7 +587,7 @@
 {
     <span class="doccomment">/// Create new [`RandomBuilderSource`]
     </span><span class="attr">#[must_use]
-    #[allow(clippy::missing_panics_doc)] </span><span class="comment">// ony panics if 256 == 0
+    #[allow(clippy::missing_panics_doc)] </span><span class="comment">// only panics if 256 == 0
     </span><span class="kw">pub fn </span>new(pub_key: TYPES::BuilderSignatureKey, num_nodes: Arc&lt;RwLock&lt;usize&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             blocks: Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(<span class="number">256</span>).unwrap()))),

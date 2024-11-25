@@ -469,7 +469,7 @@
         <span class="self">self</span>.output_event_stream.<span class="number">1</span>.activate_cloned()
     }
 
-    <span class="doccomment">/// Message other participents with a serialized message from the application
+    <span class="doccomment">/// Message other participants with a serialized message from the application
     /// Receivers of this message will get an `Event::ExternalMessageReceived` via
     /// the event stream.
     ///
@@ -572,7 +572,7 @@
                     <span class="kw">if </span>commit == leaf_commitment {
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(quorum_proposal.clone());
                     }
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}"</span>, leaf_commitment, commit);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"Proposal received from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}"</span>, leaf_commitment, commit);
                 }
             }
         })

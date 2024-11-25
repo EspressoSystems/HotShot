@@ -1188,7 +1188,7 @@
         }
     }
 
-    <span class="kw">pub async fn </span>next_from_anscestor_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ancestor: TestView) {
+    <span class="kw">pub async fn </span>next_from_ancestor_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ancestor: TestView) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>view) = <span class="self">self</span>.current_view {
             <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(view.next_view_from_ancestor(ancestor).<span class="kw">await</span>)
         } <span class="kw">else </span>{

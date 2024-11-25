@@ -147,7 +147,7 @@
 
 <span class="doccomment">/// A task that runs until it's dependency completes and it handles the result
 </span><span class="kw">pub struct </span>DependencyTask&lt;D: Dependency&lt;H::Output&gt; + Send, H: HandleDepOutput + Send&gt; {
-    <span class="doccomment">/// Dependency this taks waits for
+    <span class="doccomment">/// Dependency this tasks waits for
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) dep: D,
     <span class="doccomment">/// Handles the results returned from `self.dep.completed().await`
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) handle: H,

@@ -1309,7 +1309,7 @@
             }
         }
 
-        <span class="kw">let </span>interal_chan = broadcast(EVENT_CHANNEL_SIZE);
+        <span class="kw">let </span>internal_chan = broadcast(EVENT_CHANNEL_SIZE);
         <span class="kw">let </span>external_chan = broadcast(EXTERNAL_EVENT_CHANNEL_SIZE);
 
         <span class="self">Self</span>::new_from_channels(
@@ -1323,7 +1323,7 @@
             metrics,
             storage,
             marketplace_config,
-            interal_chan,
+            internal_chan,
             external_chan,
         )
     }
@@ -1333,7 +1333,7 @@
     /// To do a full initialization, use `fn init` instead, which will set up background tasks as
     /// well.
     ///
-    /// Use this function if you want to use some prexisting channels and to spin up the tasks
+    /// Use this function if you want to use some preexisting channels and to spin up the tasks
     /// and start consensus manually.  Mostly useful for tests
     </span><span class="attr">#[allow(clippy::too_many_arguments, clippy::type_complexity)]
     </span><span class="kw">pub fn </span>new_from_channels(
@@ -1401,7 +1401,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leafs {
+        <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leaves {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.block_payload() {
@@ -2071,9 +2071,9 @@
     /// If it's given, we'll use it to construct the `SystemContext`.
     </span>state_delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
 
-    <span class="doccomment">/// Starting view number that should be equivelant to the view the node shut down with last.
+    <span class="doccomment">/// Starting view number that should be equivalent to the view the node shut down with last.
     </span>start_view: TYPES::View,
-    <span class="doccomment">/// Starting epoch number that should be equivelant to the epoch the node shut down with last.
+    <span class="doccomment">/// Starting epoch number that should be equivalent to the epoch the node shut down with last.
     </span>start_epoch: TYPES::Epoch,
     <span class="doccomment">/// The view we last performed an action in.  An action is Proposing or voting for
     /// Either the quorum or DA.
@@ -2084,9 +2084,9 @@
     </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
     <span class="doccomment">/// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-    <span class="doccomment">/// Undecided leafs that were seen, but not yet decided on.  These allow a restarting node
+    <span class="doccomment">/// Undecided leaves that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
-    </span>undecided_leafs: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
+    </span>undecided_leaves: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Not yet decided state
     </span>undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
@@ -2117,7 +2117,7 @@
             saved_proposals: BTreeMap::new(),
             high_qc,
             decided_upgrade_certificate: <span class="prelude-val">None</span>,
-            undecided_leafs: Vec::new(),
+            undecided_leaves: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,
         })
@@ -2141,7 +2141,7 @@
         saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
         high_qc: QuorumCertificate2&lt;TYPES&gt;,
         decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-        undecided_leafs: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
+        undecided_leaves: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
         undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -2155,7 +2155,7 @@
             saved_proposals,
             high_qc,
             decided_upgrade_certificate,
-            undecided_leafs,
+            undecided_leaves,
             undecided_state,
         }
     }

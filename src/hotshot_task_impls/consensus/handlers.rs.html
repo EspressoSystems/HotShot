@@ -468,7 +468,7 @@
     <span class="kw">let </span>version = task_state.upgrade_lock.version(new_view_number).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="macro">ensure!</span>(
         version &gt;= V::Epochs::VERSION,
-        <span class="macro">debug!</span>(<span class="string">"HotStuff 2 updgrade not yet in effect"</span>)
+        <span class="macro">debug!</span>(<span class="string">"HotStuff 2 upgrade not yet in effect"</span>)
     );
     <span class="kw">let </span>high_qc = task_state.consensus.read().<span class="kw">await</span>.high_qc().clone();
     <span class="kw">let </span>leader = task_state

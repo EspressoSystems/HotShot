@@ -1698,7 +1698,7 @@
         </span><span class="kw">let </span>total_time_elapsed = start.elapsed(); <span class="comment">// in seconds
         </span><span class="macro">println!</span>(<span class="string">"[{node_index}]: {rounds} rounds completed in {total_time_elapsed:?} - Total transactions sent: {total_transactions_sent} - Total transactions committed: {total_transactions_committed} - Total commitments: {num_successful_commits}"</span>);
         <span class="kw">if </span>total_transactions_committed != <span class="number">0 </span>{
-            <span class="comment">// prevent devision by 0
+            <span class="comment">// prevent division by 0
             </span><span class="kw">let </span>total_time_elapsed_sec = std::cmp::max(total_time_elapsed.as_secs(), <span class="number">1u64</span>);
             <span class="comment">// extra 8 bytes for timestamp
             </span><span class="kw">let </span>throughput_bytes_per_sec = total_transactions_committed
