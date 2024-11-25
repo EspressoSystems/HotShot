@@ -485,8 +485,8 @@
 }
 
 <span class="doccomment">/// Version 0.3: marketplace. Bundles.
-</span><span class="kw">pub mod </span>v0_3 {
-    <span class="kw">pub use </span>hotshot_builder_api::v0_3::Version;
+</span><span class="kw">pub mod </span>v0_99 {
+    <span class="kw">pub use </span>hotshot_builder_api::v0_99::Version;
     <span class="kw">use </span>hotshot_types::{
         bundle::Bundle, constants::MARKETPLACE_BUILDER_MODULE,
         traits::node_implementation::NodeType, vid::VidCommitment,
@@ -496,7 +496,7 @@
     <span class="kw">pub use </span><span class="kw">super</span>::BuilderClientError;
 
     <span class="doccomment">/// Client for builder API
-    </span><span class="kw">pub type </span>BuilderClient&lt;TYPES&gt; = <span class="kw">super</span>::BuilderClient&lt;TYPES, StaticVersion&lt;<span class="number">0</span>, <span class="number">3</span>&gt;&gt;;
+    </span><span class="kw">pub type </span>BuilderClient&lt;TYPES&gt; = <span class="kw">super</span>::BuilderClient&lt;TYPES, StaticVersion&lt;<span class="number">0</span>, <span class="number">99</span>&gt;&gt;;
 
     <span class="kw">impl</span>&lt;TYPES: NodeType&gt; BuilderClient&lt;TYPES&gt; {
         <span class="doccomment">/// Claim block

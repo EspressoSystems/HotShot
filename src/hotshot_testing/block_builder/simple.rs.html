@@ -486,7 +486,7 @@
         block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
         builder::{BuildError, Error, Options},
     },
-    v0_3,
+    v0_99,
 };
 <span class="kw">use </span>hotshot_types::{
     bundle::Bundle,
@@ -589,7 +589,7 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; v0_3::data_source::BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderSource&lt;TYPES&gt;
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; v0_99::data_source::BuilderDataSource&lt;TYPES&gt; <span class="kw">for </span>SimpleBuilderSource&lt;TYPES&gt;
 <span class="kw">where
     </span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::InstanceState: Default,
 {
@@ -799,7 +799,7 @@
         &gt;(<span class="kw-2">&amp;</span>Options::default())
         .expect(<span class="string">"Failed to construct the builder API"</span>);
 
-        <span class="kw">let </span>builder_api_0_3 = hotshot_builder_api::v0_3::builder::define_api::&lt;
+        <span class="kw">let </span>builder_api_0_3 = hotshot_builder_api::v0_99::builder::define_api::&lt;
             SimpleBuilderSource&lt;TYPES&gt;,
             TYPES,
         &gt;(<span class="kw-2">&amp;</span>Options::default())

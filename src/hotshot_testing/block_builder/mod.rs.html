@@ -255,7 +255,7 @@
         block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
         builder::{Error, Options},
     },
-    v0_3,
+    v0_99,
 };
 <span class="kw">use </span>hotshot_types::{
     constants::{LEGACY_BUILDER_MODULE, MARKETPLACE_BUILDER_MODULE},
@@ -322,7 +322,7 @@
     &lt;Source <span class="kw">as </span>ReadState&gt;::State: Sync
         + Send
         + v0_1::data_source::BuilderDataSource&lt;TYPES&gt;
-        + v0_3::data_source::BuilderDataSource&lt;TYPES&gt;,
+        + v0_99::data_source::BuilderDataSource&lt;TYPES&gt;,
 {
     spawn(<span class="kw">async move </span>{
         <span class="kw">let </span>start_builder = |url: Url, source: Source| -&gt; <span class="kw">_ </span>{
@@ -330,7 +330,7 @@
                 <span class="kw-2">&amp;</span>Options::default(),
             )
             .expect(<span class="string">"Failed to construct the builder API"</span>);
-            <span class="kw">let </span>builder_api_0_3 = hotshot_builder_api::v0_3::builder::define_api::&lt;Source, TYPES&gt;(
+            <span class="kw">let </span>builder_api_0_3 = hotshot_builder_api::v0_99::builder::define_api::&lt;Source, TYPES&gt;(
                 <span class="kw-2">&amp;</span>Options::default(),
             )
             .expect(<span class="string">"Failed to construct the builder API"</span>);
