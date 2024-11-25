@@ -125,6 +125,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
                 if qc
                     .is_valid_cert(
+                        // TODO take epoch from `qc`
+                        // https://github.com/EspressoSystems/HotShot/issues/3917
                         self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
                         self.quorum_membership.success_threshold(),
                         &self.upgrade_lock,
