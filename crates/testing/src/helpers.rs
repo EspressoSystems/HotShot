@@ -140,7 +140,7 @@ pub async fn build_cert<
     CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
 >(
     data: DATAType,
-    da_membership: &TYPES::Membership,
+    membership: &TYPES::Membership,
     view: TYPES::View,
     epoch: TYPES::Epoch,
     public_key: &TYPES::SignatureKey,
@@ -149,7 +149,7 @@ pub async fn build_cert<
 ) -> CERT {
     let real_qc_sig = build_assembled_sig::<TYPES, V, VOTE, CERT, DATAType>(
         &data,
-        da_membership,
+        membership,
         view,
         epoch,
         upgrade_lock,
