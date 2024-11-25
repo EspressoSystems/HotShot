@@ -72,7 +72,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         let qc_block_number = proposal.block_header.block_number() - 1;
 
         // Skip if this is not the expected block.
-        if qc_block_number + 3 == task_state.epoch_height {
+        if task_state.epoch_height != 0 && (qc_block_number + 3) % task_state.epoch_height == 0 {
             // Cancel old DRB computation tasks.
             let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
                 qc_block_number,

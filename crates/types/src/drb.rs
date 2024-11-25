@@ -23,6 +23,11 @@ use crate::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 /// Arbitrary number of times the hash function will be repeatedly called.
 const DIFFICULTY_LEVEL: u64 = 10;
 
+/// DRB seed input for epoch 1 and 2.
+pub const INITIAL_DRB_SEED_INPUT: [u8; 32] = [0; 32];
+/// DRB result for epoch 1 and 2.
+pub const INITIAL_DRB_RESULT: [u8; 32] = [0; 32];
+
 /// Alias for DRB seed input for `compute_drb_result`, serialized from the QC signature.
 pub type DrbSeedInput = [u8; 32];
 
