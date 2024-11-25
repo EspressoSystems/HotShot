@@ -652,6 +652,13 @@ impl<
                     TransmitType::Direct(to),
                 ))
             }
+            HotShotEvent::HighQcSend(quorum_cert, leader, sender) => Some((
+                sender,
+                MessageKind::Consensus(SequencingMessage::General(
+                    GeneralConsensusMessage::HighQc(quorum_cert.to_qc()),
+                )),
+                TransmitType::Direct(leader),
+            )),
             _ => None,
         }
     }
