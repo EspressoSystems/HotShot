@@ -39,11 +39,6 @@ pub(crate) async fn handle_quorum_vote_recv<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    tracing::error!(
-        "lrzasik: received vote for view {:?} and epoch {:?}",
-        vote.view_number(),
-        vote.data.epoch
-    );
     let in_transition = task_state
         .consensus
         .read()

@@ -217,47 +217,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
 
         match event.as_ref() {
             HotShotEvent::SendPayloadCommitmentAndMetadata(..) => {
-                tracing::error!(
-                    "lrzasik: Completed proposal dependency with event {:?}",
-                    event
-                );
                 payload_commitment_dependency.mark_as_completed(Arc::clone(&event));
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(..) => {
-                tracing::error!(
-                    "lrzasik: Completed proposal dependency with event {:?}",
-                    event
-                );
                 proposal_dependency.mark_as_completed(event);
             }
             HotShotEvent::Qc2Formed(quorum_certificate) => match quorum_certificate {
                 Either::Right(_) => {
-                    tracing::error!(
-                        "lrzasik: Completed proposal dependency with event {:?}",
-                        event
-                    );
                     timeout_dependency.mark_as_completed(event);
                 }
                 Either::Left(_) => {
-                    tracing::error!(
-                        "lrzasik: Completed proposal dependency with event {:?}",
-                        event
-                    );
                     qc_dependency.mark_as_completed(event);
                 }
             },
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
-                tracing::error!(
-                    "lrzasik: Completed proposal dependency with event {:?}",
-                    event
-                );
                 view_sync_dependency.mark_as_completed(event);
             }
             HotShotEvent::VidDisperseSend(_, _) => {
-                tracing::error!(
-                    "lrzasik: Completed proposal dependency with event {:?}",
-                    event
-                );
                 vid_share_dependency.mark_as_completed(event);
             }
             _ => {}

@@ -306,7 +306,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 self.cur_view = view;
             }
             HotShotEvent::BlockRecv(packed_bundle) => {
-                tracing::error!("lrzasik: received BlockRecv");
                 let PackedBundle::<TYPES> {
                     encoded_transactions,
                     metadata,
@@ -344,7 +343,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     _pd: PhantomData,
                 };
 
-                tracing::error!("lrzasik: sending DaProposalSend");
                 broadcast_event(
                     Arc::new(HotShotEvent::DaProposalSend(
                         message.clone(),
