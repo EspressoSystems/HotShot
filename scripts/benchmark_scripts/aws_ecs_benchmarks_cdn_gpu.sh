@@ -106,7 +106,7 @@ EOF
                                 sleep 30
 
                                 # start leaders need to run on GPU FIRST
-                                # and WAIT for enough time till it registerred at orchestrator
+                                # and WAIT for enough time till it registered at orchestrator
                                 # make sure you're able to access the remote nvidia gpu server
                                 echo -e "\e[35mGoing to start leaders on remote gpu server $REMOTE_GPU_HOST\e[0m"
                                 
