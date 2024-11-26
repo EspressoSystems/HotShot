@@ -19,6 +19,7 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
+use crate::utils::is_last_block_in_epoch;
 pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
@@ -39,7 +40,6 @@ use crate::{
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
-use crate::utils::is_last_block_in_epoch;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -914,7 +914,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .get(&view)?
             .view_inner
             .epoch()?;
-        let vid = VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None).await;
+        let vid =
+            VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None, None).await;
         let shares = VidDisperseShare::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {

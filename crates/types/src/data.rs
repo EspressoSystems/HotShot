@@ -184,17 +184,18 @@ pub struct VidDisperse<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> VidDisperse<TYPES> {
-    /// Create VID dispersal from a specified membership for a given epoch.
+    /// Create VID dispersal from a specified membership for the target epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
     pub fn from_membership(
         view_number: TYPES::View,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
         membership: &TYPES::Membership,
-        epoch: TYPES::Epoch,
+        target_epoch: TYPES::Epoch,
+        sender_epoch: Option<TYPES::Epoch>,
     ) -> Self {
         let shares = membership
-            .committee_members(view_number, epoch)
+            .committee_members(view_number, target_epoch)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(0)))
             .collect();
@@ -204,12 +205,13 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
             shares,
             common: vid_disperse.common,
             payload_commitment: vid_disperse.commit,
-            epoch,
+            epoch: sender_epoch.unwrap_or(target_epoch),
         }
     }
 
     /// Calculate the vid disperse information from the payload given a view, epoch and membership,
-    /// optionally using precompute data from builder
+    /// optionally using precompute data from builder.
+    /// If the sender epoch is missing, it means it's the same as the target epoch.
     ///
     /// # Panics
     /// Panics if the VID calculation fails, this should not happen.
@@ -218,10 +220,11 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         txns: Arc<[u8]>,
         membership: &Arc<TYPES::Membership>,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
+        target_epoch: TYPES::Epoch,
+        sender_epoch: Option<TYPES::Epoch>,
         precompute_data: Option<VidPrecomputeData>,
     ) -> Self {
-        let num_nodes = membership.total_nodes(epoch);
+        let num_nodes = membership.total_nodes(target_epoch);
 
         let vid_disperse = spawn_blocking(move || {
             precompute_data
@@ -234,7 +237,13 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         let vid_disperse = vid_disperse.unwrap();
 
-        Self::from_membership(view, vid_disperse, membership.as_ref(), epoch)
+        Self::from_membership(
+            view,
+            vid_disperse,
+            membership.as_ref(),
+            target_epoch,
+            sender_epoch,
+        )
     }
 }
 

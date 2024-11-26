@@ -93,6 +93,7 @@ async fn test_vid_task() {
         vid_disperse,
         &quorum_membership,
         EpochNumber::new(0),
+        None,
     );
 
     let vid_proposal = Proposal {

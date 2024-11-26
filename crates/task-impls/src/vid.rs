@@ -9,6 +9,8 @@ use std::{marker::PhantomData, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
+use hotshot_types::traits::block_contents::BlockHeader;
+use hotshot_types::utils::epoch_from_block_number;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare},
@@ -53,6 +55,9 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// This state's ID
     pub id: u64,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
@@ -89,6 +94,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     &Arc::clone(&self.membership),
                     *view_number,
                     epoch,
+                    None,
                     vid_precompute.clone(),
                 )
                 .await;
@@ -124,7 +130,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     error!("VID: failed to sign dispersal payload");
                     return None;
                 };
-                debug!("publishing VID disperse for view {} and epoch {}", *view_number, *epoch);
+                debug!(
+                    "publishing VID disperse for view {} and epoch {}",
+                    *view_number, *epoch
+                );
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
                         Proposal {
@@ -137,39 +146,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     &event_stream,
                 )
                 .await;
-                if !self.consensus.read().await.is_high_qc_forming_eqc() {
-                    // This is not the epoch transition, we're finished here.
-                    return None;
+                // Save the payload early because we might need it to calculate VID for the next epoch nodes.
+                if let Err(e) = self
+                    .consensus
+                    .write()
+                    .await
+                    .update_saved_payloads(view_number, Arc::clone(encoded_transactions))
+                {
+                    tracing::trace!("{e:?}");
                 }
-                let next_epoch = self.cur_epoch + 1;
-                let next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse(
-                    Arc::clone(encoded_transactions),
-                    &Arc::clone(&self.membership),
-                    view_number,
-                    next_epoch,
-                    vid_precompute.clone(),
-                )
-                .await;
-                let Ok(next_epoch_signature) = TYPES::SignatureKey::sign(
-                    &self.private_key,
-                    next_epoch_vid_disperse.payload_commitment.as_ref(),
-                ) else {
-                    error!("VID: failed to sign dispersal payload for the next epoch");
-                    return None;
-                };
-                debug!("publishing VID disperse for view {} and epoch {}", *view_number, *next_epoch);
-                broadcast_event(
-                    Arc::new(HotShotEvent::VidDisperseSend(
-                        Proposal {
-                            signature: next_epoch_signature,
-                            data: next_epoch_vid_disperse.clone(),
-                            _pd: PhantomData,
-                        },
-                        self.public_key.clone(),
-                    )),
-                    &event_stream,
-                )
-                    .await;
             }
 
             HotShotEvent::ViewChange(view, epoch) => {
@@ -190,6 +175,65 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 return None;
             }
 
+            HotShotEvent::QuorumProposalSend(proposal, _) => {
+                let proposed_block_number = proposal.data.block_header.block_number();
+                if self.epoch_height == 0 || proposed_block_number % self.epoch_height != 0 {
+                    // This is not the last block in the epoch, do nothing.
+                    return None;
+                }
+                // We just sent a proposal for the last block in the epoch. We need to calculate
+                // and send VID for the nodes in the next epoch so that they can vote.
+                let proposal_view_number = proposal.data.view_number;
+                let sender_epoch = proposal.data.epoch;
+                let target_epoch = TYPES::Epoch::new(
+                    epoch_from_block_number(proposed_block_number, self.epoch_height) + 1,
+                );
+
+                let consensus_reader = self.consensus.read().await;
+                let Some(txns) = consensus_reader.saved_payloads().get(&proposal_view_number)
+                else {
+                    tracing::warn!(
+                        "We need to calculate VID for the nodes in the next epoch \
+                         but we don't have the transactions"
+                    );
+                    return None;
+                };
+                let txns = Arc::clone(txns);
+                drop(consensus_reader);
+
+                let next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse(
+                    txns,
+                    &Arc::clone(&self.membership),
+                    proposal_view_number,
+                    target_epoch,
+                    Some(sender_epoch),
+                    None,
+                )
+                .await;
+                let Ok(next_epoch_signature) = TYPES::SignatureKey::sign(
+                    &self.private_key,
+                    next_epoch_vid_disperse.payload_commitment.as_ref(),
+                ) else {
+                    error!("VID: failed to sign dispersal payload for the next epoch");
+                    return None;
+                };
+                debug!(
+                    "publishing VID disperse for view {} and epoch {}",
+                    *proposal_view_number, *target_epoch
+                );
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidDisperseSend(
+                        Proposal {
+                            signature: next_epoch_signature,
+                            data: next_epoch_vid_disperse.clone(),
+                            _pd: PhantomData,
+                        },
+                        self.public_key.clone(),
+                    )),
+                    &event_stream,
+                )
+                .await;
+            }
             HotShotEvent::Shutdown => {
                 return Some(HotShotTaskCompleted);
             }
