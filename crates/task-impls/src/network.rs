@@ -4,15 +4,13 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
+use tokio::spawn;
 use hotshot_types::{
     consensus::Consensus,
     data::{VidDisperse, VidDisperseShare},
@@ -32,8 +30,6 @@ use hotshot_types::{
     },
     vote::{HasViewNumber, Vote},
 };
-use tokio::spawn;
-use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
 
@@ -207,8 +203,6 @@ pub struct NetworkEventTaskState<
     pub consensus: Arc<RwLock<Consensus<TYPES>>>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
-    /// map view number to transmit tasks
-    pub transmit_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
 }
 
 #[async_trait]
@@ -335,19 +329,6 @@ impl<
         } else {
             Ok(())
         }
-    }
-
-    /// Cancel all tasks for previous views
-    pub fn cancel_tasks(&mut self, view: TYPES::View) {
-        let keep = self.transmit_tasks.split_off(&view);
-
-        while let Some((_, tasks)) = self.transmit_tasks.pop_first() {
-            for task in tasks {
-                task.abort();
-            }
-        }
-
-        self.transmit_tasks = keep;
     }
 
     /// Parses a `HotShotEvent` and returns a tuple of: (sender's public key, `MessageKind`, `TransmitType`)
@@ -603,14 +584,13 @@ impl<
             }
             HotShotEvent::ViewChange(view) => {
                 self.view = view;
-                self.cancel_tasks(view);
-                let net = Arc::clone(&self.network);
-                let epoch = self.epoch.u64();
-                let mem = self.quorum_membership.clone();
-                spawn(async move {
-                    net.update_view::<TYPES>(view.saturating_sub(1), epoch, &mem)
-                        .await;
-                });
+                self.network
+                    .update_view::<TYPES>(
+                        self.view.u64(),
+                        self.epoch.u64(),
+                        &self.quorum_membership,
+                    )
+                    .await;
                 None
             }
             HotShotEvent::VidRequestSend(req, sender, to) => Some((
@@ -634,7 +614,7 @@ impl<
 
     /// Creates a network message and spawns a task that transmits it on the wire.
     fn spawn_transmit_task(
-        &mut self,
+        &self,
         message_kind: MessageKind<TYPES>,
         maybe_action: Option<HotShotAction>,
         transmit: TransmitType<TYPES>,
@@ -660,7 +640,7 @@ impl<
         let storage = Arc::clone(&self.storage);
         let consensus = Arc::clone(&self.consensus);
         let upgrade_lock = self.upgrade_lock.clone();
-        let handle = spawn(async move {
+        spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 maybe_action,
                 Arc::clone(&storage),
@@ -714,10 +694,6 @@ impl<
                 Err(e) => tracing::warn!("Failed to send message task: {:?}", e),
             }
         });
-        self.transmit_tasks
-            .entry(view_number)
-            .or_default()
-            .push(handle);
     }
 }
 

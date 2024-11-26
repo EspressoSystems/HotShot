@@ -34,7 +34,8 @@ pub struct TxnTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Ver
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TxnTask<TYPES, I, V> {
     pub fn run(mut self) -> JoinHandle<()> {
-        spawn(async move {
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(100)).await;
             loop {
                 sleep(self.duration).await;
                 if let Ok(TestEvent::Shutdown) = self.shutdown_chan.try_recv() {

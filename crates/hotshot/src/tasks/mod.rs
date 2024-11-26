@@ -8,7 +8,7 @@
 
 /// Provides trait to create task states from a `SystemContextHandle`
 pub mod task_state;
-use std::{collections::BTreeMap, fmt::Debug, sync::Arc, time::Duration};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 
 use async_broadcast::{broadcast, RecvError};
 use async_lock::RwLock;
@@ -201,7 +201,6 @@ pub fn add_network_event_task<
         storage: Arc::clone(&handle.storage()),
         consensus: Arc::clone(&handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
-        transmit_tasks: BTreeMap::new(),
     };
     let task = Task::new(
         network_state,

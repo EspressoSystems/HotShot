@@ -124,17 +124,8 @@ pub(crate) async fn handle_view_change<
     let old_view_number = task_state.cur_view;
     tracing::debug!("Updating view from {old_view_number:?} to {new_view_number:?}");
 
-    if *old_view_number / 100 != *new_view_number / 100 {
-        tracing::info!("Progress: entered view {:>6}", *new_view_number);
-    }
     // Move this node to the next view
     task_state.cur_view = new_view_number;
-
-    task_state
-        .consensus
-        .write()
-        .await
-        .update_view(new_view_number)?;
 
     // If we have a decided upgrade certificate, the protocol version may also have been upgraded.
     let decided_upgrade_certificate_read = task_state
@@ -156,7 +147,9 @@ pub(crate) async fn handle_view_change<
     let timeout = task_state.timeout;
     let new_timeout_task = spawn({
         let stream = sender.clone();
-        let view_number = new_view_number;
+        // Nuance: We timeout on the view + 1 here because that means that we have
+        // not seen evidence to transition to this new view
+        let view_number = new_view_number + 1;
         async move {
             sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
@@ -224,7 +217,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
     ensure!(
-        task_state.cur_view <= view_number,
+        task_state.cur_view < view_number,
         "Timeout event is for an old view"
     );
 
@@ -256,7 +249,7 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    tracing::error!(
+    tracing::debug!(
         "We did not receive evidence for view {} in time, sending timeout vote for that view!",
         *view_number
     );

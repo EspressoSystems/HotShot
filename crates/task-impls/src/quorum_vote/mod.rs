@@ -175,11 +175,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             &self.sender,
         )
         .await;
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(self.view_number + 1)),
-            &self.sender,
-        )
-        .await;
+
         let Some(vid_share) = vid_share else {
             tracing::error!(
                 "We don't have the VID share for this view {:?}, but we should, because the vote dependencies have completed.",
@@ -574,9 +570,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 }
             }
             HotShotEvent::Timeout(view) => {
-                let view = TYPES::View::new(view.saturating_sub(1));
                 // cancel old tasks
-                let current_tasks = self.vote_dependencies.split_off(&view);
+                let current_tasks = self.vote_dependencies.split_off(view);
                 while let Some((_, task)) = self.vote_dependencies.pop_last() {
                     task.abort();
                 }
@@ -655,11 +650,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             Arc::new(HotShotEvent::QuorumVoteDependenciesValidated(
                 proposal.data.view_number(),
             )),
-            &event_sender,
-        )
-        .await;
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(proposal.data.view_number() + 1)),
             &event_sender,
         )
         .await;

@@ -167,8 +167,5 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
     }
 
     /// Joins all subtasks.
-    fn cancel_subtasks(&mut self) {
-        // Cancel the old timeout task
-        std::mem::replace(&mut self.timeout_task, tokio::spawn(async {})).abort();
-    }
+    fn cancel_subtasks(&mut self) {}
 }
