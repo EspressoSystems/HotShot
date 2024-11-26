@@ -39,6 +39,7 @@ use crate::{
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
 };
+use crate::utils::is_last_block_in_epoch;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
@@ -1007,11 +1008,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             return false;
         };
         let block_height = leaf.height();
-        if block_height == 0 || self.epoch_height == 0 {
-            false
-        } else {
-            block_height % self.epoch_height == 0
-        }
+        is_last_block_in_epoch(block_height, self.epoch_height)
     }
 
     /// Returns true if our high QC is for the last block in the epoch
@@ -1021,11 +1018,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             return false;
         };
         let block_height = leaf.height();
-        if block_height == 0 || self.epoch_height == 0 {
-            false
-        } else {
-            block_height % self.epoch_height == 0
-        }
+        is_last_block_in_epoch(block_height, self.epoch_height)
     }
 
     /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`

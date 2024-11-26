@@ -268,3 +268,11 @@ pub enum EpochTransitionIndicator {
     /// A node is not in the epoch transition
     NotInTransition,
 }
+
+pub fn is_last_block_in_epoch(block_number: u64, epoch_height: u64) -> bool {
+    if block_number == 0 || epoch_height == 0 {
+        false
+    } else {
+        block_number % epoch_height == 0
+    }
+}

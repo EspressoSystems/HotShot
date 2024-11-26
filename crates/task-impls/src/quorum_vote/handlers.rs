@@ -28,7 +28,7 @@ use hotshot_types::{
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
+use hotshot_types::utils::is_last_block_in_epoch;
 use super::QuorumVoteTaskState;
 use crate::{
     events::HotShotEvent,
@@ -302,9 +302,16 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     leaf: Leaf2<TYPES>,
     vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
     extended_vote: bool,
+    epoch_height: u64,
 ) -> Result<()> {
+    let committee_member_in_current_epoch = quorum_membership.has_stake(&public_key, epoch_number);
+    // If the proposed leaf is for the last block in the epoch and the node is part of the quorum committee
+    // in the next epoch, the node should vote to achieve the double quorum.
+    let committee_member_in_next_epoch =
+        is_last_block_in_epoch(leaf.height(), epoch_height)
+            && quorum_membership.has_stake(&public_key, epoch_number + 1);
     ensure!(
-        quorum_membership.has_stake(&public_key, epoch_number),
+        committee_member_in_current_epoch || committee_member_in_next_epoch,
         info!(
             "We were not chosen for quorum committee on {:?}",
             view_number

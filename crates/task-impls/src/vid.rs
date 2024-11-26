@@ -15,7 +15,7 @@ use hotshot_types::{
     message::Proposal,
     traits::{
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
     },
@@ -124,7 +124,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     error!("VID: failed to sign dispersal payload");
                     return None;
                 };
-                debug!("publishing VID disperse for view {}", *view_number);
+                debug!("publishing VID disperse for view {} and epoch {}", *view_number, *epoch);
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
                         Proposal {
@@ -137,6 +137,39 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     &event_stream,
                 )
                 .await;
+                if !self.consensus.read().await.is_high_qc_forming_eqc() {
+                    // This is not the epoch transition, we're finished here.
+                    return None;
+                }
+                let next_epoch = self.cur_epoch + 1;
+                let next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse(
+                    Arc::clone(encoded_transactions),
+                    &Arc::clone(&self.membership),
+                    view_number,
+                    next_epoch,
+                    vid_precompute.clone(),
+                )
+                .await;
+                let Ok(next_epoch_signature) = TYPES::SignatureKey::sign(
+                    &self.private_key,
+                    next_epoch_vid_disperse.payload_commitment.as_ref(),
+                ) else {
+                    error!("VID: failed to sign dispersal payload for the next epoch");
+                    return None;
+                };
+                debug!("publishing VID disperse for view {} and epoch {}", *view_number, *next_epoch);
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidDisperseSend(
+                        Proposal {
+                            signature: next_epoch_signature,
+                            data: next_epoch_vid_disperse.clone(),
+                            _pd: PhantomData,
+                        },
+                        self.public_key.clone(),
+                    )),
+                    &event_stream,
+                )
+                    .await;
             }
 
             HotShotEvent::ViewChange(view, epoch) => {
