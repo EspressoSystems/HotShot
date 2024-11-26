@@ -533,7 +533,11 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
 
                 // If certificate is not valid, return current state
                 if !certificate
-                    .is_valid_cert(self.membership.as_ref(), self.cur_epoch, &self.upgrade_lock)
+                    .is_valid_cert(
+                        self.membership.stake_table(self.cur_epoch),
+                        self.membership.failure_threshold(),
+                        &self.upgrade_lock,
+                    )
                     .await
                 {
                     tracing::error!("Not valid view sync cert! {:?}", certificate.data());
@@ -616,7 +620,11 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
 
                 // If certificate is not valid, return current state
                 if !certificate
-                    .is_valid_cert(self.membership.as_ref(), self.cur_epoch, &self.upgrade_lock)
+                    .is_valid_cert(
+                        self.membership.stake_table(self.cur_epoch),
+                        self.membership.success_threshold(),
+                        &self.upgrade_lock,
+                    )
                     .await
                 {
                     tracing::error!("Not valid view sync cert! {:?}", certificate.data());
@@ -710,7 +718,11 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
 
                 // If certificate is not valid, return current state
                 if !certificate
-                    .is_valid_cert(self.membership.as_ref(), self.cur_epoch, &self.upgrade_lock)
+                    .is_valid_cert(
+                        self.membership.stake_table(self.cur_epoch),
+                        self.membership.success_threshold(),
+                        &self.upgrade_lock,
+                    )
                     .await
                 {
                     tracing::error!("Not valid view sync cert! {:?}", certificate.data());

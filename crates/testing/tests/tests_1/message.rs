@@ -68,6 +68,7 @@ async fn test_certificate2_validity() {
     use hotshot_testing::{helpers::build_system_handle, view_generator::TestViewGenerator};
     use hotshot_types::{
         data::{EpochNumber, Leaf, Leaf2},
+        traits::election::Membership,
         traits::node_implementation::ConsensusTime,
         vote::Certificate,
     };
@@ -78,10 +79,9 @@ async fn test_certificate2_validity() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+    let membership = (*handle.hotshot.memberships).clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -106,8 +106,8 @@ async fn test_certificate2_validity() {
 
     assert!(
         qc.is_valid_cert(
-            &quorum_membership,
-            EpochNumber::new(0),
+            membership.stake_table(EpochNumber::new(0)),
+            membership.success_threshold(),
             &handle.hotshot.upgrade_lock
         )
         .await
@@ -115,8 +115,8 @@ async fn test_certificate2_validity() {
 
     assert!(
         qc2.is_valid_cert(
-            &quorum_membership,
-            EpochNumber::new(0),
+            membership.stake_table(EpochNumber::new(0)),
+            membership.success_threshold(),
             &handle.hotshot.upgrade_lock
         )
         .await
