@@ -318,6 +318,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             justify_qc: parent_qc,
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
+            // TODO fix these to use the proper values
             drb_seed: [0; 96],
             drb_result: [0; 32],
         };
