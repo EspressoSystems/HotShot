@@ -25,7 +25,7 @@ use hotshot_types::{
     traits::{
         election::Membership,
         network::{
-            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, TransmitType,
+            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, Topic, TransmitType,
             ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType, Versions},
@@ -242,10 +242,8 @@ pub struct NetworkEventTaskState<
     pub view: TYPES::View,
     /// epoch number
     pub epoch: TYPES::Epoch,
-    /// quorum for the network
-    pub quorum_membership: TYPES::Membership,
-    /// da for the network
-    pub da_membership: TYPES::Membership,
+    /// network memberships
+    pub membership: TYPES::Membership,
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,
     /// Shared consensus state
@@ -366,7 +364,7 @@ impl<
                 return Err(());
             }
             // If the action was view sync record it as a vote, but we don't
-            // want to limit to 1 View sycn vote above so change the action here.
+            // want to limit to 1 View sync vote above so change the action here.
             if matches!(action, HotShotAction::ViewSyncVote) {
                 action = HotShotAction::Vote;
             }
@@ -435,7 +433,7 @@ impl<
             HotShotEvent::QuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -481,11 +479,7 @@ impl<
                     ))
                 };
 
-                Some((
-                    vote.signing_key(),
-                    message,
-                    TransmitType::Broadcast,
-                ))
+                Some((vote.signing_key(), message, TransmitType::Broadcast))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
                 req.key.clone(),
@@ -518,7 +512,7 @@ impl<
             HotShotEvent::DaVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::DaVote);
                 let view_number = vote.view_number();
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -550,7 +544,7 @@ impl<
             }
             HotShotEvent::ViewSyncPreCommitVoteSend(vote) => {
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -573,7 +567,7 @@ impl<
             HotShotEvent::ViewSyncCommitVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::ViewSyncVote);
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -596,7 +590,7 @@ impl<
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::ViewSyncVote);
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -640,7 +634,7 @@ impl<
             HotShotEvent::TimeoutVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -669,7 +663,7 @@ impl<
             HotShotEvent::UpgradeVoteSend(vote) => {
                 tracing::error!("Sending upgrade vote!");
                 let view_number = vote.view_number();
-                let leader = match self.quorum_membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, self.epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -696,7 +690,7 @@ impl<
                 self.cancel_tasks(view);
                 let net = Arc::clone(&self.network);
                 let epoch = self.epoch.u64();
-                let mem = self.quorum_membership.clone();
+                let mem = self.membership.clone();
                 spawn(async move {
                     net.update_view::<TYPES>(view.saturating_sub(1), epoch, &mem)
                         .await;
@@ -742,10 +736,10 @@ impl<
             kind: message_kind,
         };
         let view_number = message.kind.view_number();
-        let committee_topic = self.quorum_membership.committee_topic();
+        let committee_topic = Topic::Global;
         let da_committee = self
-            .da_membership
-            .committee_members(view_number, self.epoch);
+            .membership
+            .da_committee_members(view_number, self.epoch);
         let network = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
@@ -864,7 +858,7 @@ pub mod test {
                     &mut sender,
                     &mut message_kind,
                     &mut transmit,
-                    &self.quorum_membership,
+                    &self.membership,
                 );
                 self.spawn_transmit_task(message_kind, maybe_action, transmit, sender);
             }

@@ -51,7 +51,7 @@ test-ci-5 *ARGS:
   echo Testing {{ARGS}}
   RUST_LOG=info cargo nextest run --profile ci tests_5 --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}}
 
-test_basic: test_success test_with_failures test_network_task test_consensus_task test_da_task test_vid_task test_view_sync_task
+test_basic: test_success test_with_failures test_network_task test_da_task test_vid_task test_view_sync_task
 
 test_catchup:
   echo Testing catchup
@@ -87,10 +87,6 @@ test_network_task:
 test_memory_network:
   echo Testing the DA task
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast memory_network -- --test-threads=1 --nocapture
-
-test_consensus_task:
-  echo Testing the consensus task
-  cargo test  --lib --bins --tests --benches --workspace --no-fail-fast test_consensus -- --test-threads=1 --nocapture
 
 test_quorum_vote_task:
   echo Testing the quorum vote task

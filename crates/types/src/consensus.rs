@@ -271,7 +271,7 @@ impl<T: ConsensusTime> HotShotActionViews<T> {
 /// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
-#[derive(custom_debug::Debug, Clone)]
+#[derive(derive_more::Debug, Clone)]
 pub struct Consensus<TYPES: NodeType> {
     /// The validated states that are currently loaded in memory.
     validated_state_map: BTreeMap<TYPES::View, View<TYPES>>,
@@ -556,7 +556,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                 }
                 // TODO Add logic to prevent double voting.  For now the simple check if
                 // the last voted view is less than the view we are trying to vote doesn't work
-                // becuase the leader of view n + 1 may propose to the DA (and we would vote)
+                // because the leader of view n + 1 may propose to the DA (and we would vote)
                 // before the leader of view n.
                 return true;
             }
@@ -624,7 +624,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Update the validated state map with a new view_number/view combo.
     ///
     /// # Errors
-    /// Can return an error when the new view contains less information than the exisiting view
+    /// Can return an error when the new view contains less information than the existing view
     /// with the same view number.
     pub fn update_da_view(
         &mut self,
@@ -640,7 +640,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Update the validated state map with a new view_number/view combo.
     ///
     /// # Errors
-    /// Can return an error when the new view contains less information than the exisiting view
+    /// Can return an error when the new view contains less information than the existing view
     /// with the same view number.
     pub fn update_leaf(
         &mut self,
@@ -664,7 +664,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Update the validated state map with a new view_number/view combo.
     ///
     /// # Errors
-    /// Can return an error when the new view contains less information than the exisiting view
+    /// Can return an error when the new view contains less information than the existing view
     /// with the same view number.
     fn update_validated_state_map(
         &mut self,

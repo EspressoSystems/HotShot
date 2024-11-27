@@ -17,7 +17,6 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    event::Event,
     message::UpgradeLock,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -45,17 +44,8 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Table for the in-progress proposal dependency tasks.
     pub proposal_dependencies: BTreeMap<TYPES::View, JoinHandle<()>>,
 
-    /// The underlying network
-    pub network: Arc<I::Network>,
-
-    /// Output events to application
-    pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
-
     /// Immutable instance state
     pub instance_state: Arc<TYPES::InstanceState>,
-
-    /// Membership for Timeout votes/certs
-    pub timeout_membership: Arc<TYPES::Membership>,
 
     /// Membership for Quorum Certs/votes
     pub quorum_membership: Arc<TYPES::Membership>,
@@ -92,7 +82,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
 
-    /// The higest_qc we've seen at the start of this task
+    /// The highest_qc we've seen at the start of this task
     pub highest_qc: QuorumCertificate2<TYPES>,
 }
 
@@ -453,8 +443,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 ensure!(
                     certificate
                         .is_valid_cert(
-                            self.quorum_membership.as_ref(),
-                            epoch_number,
+                            self.quorum_membership.stake_table(epoch_number),
+                            self.quorum_membership.success_threshold(),
                             &self.upgrade_lock
                         )
                         .await,
@@ -517,8 +507,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let epoch_number = self.consensus.read().await.cur_epoch();
                 ensure!(
                     qc.is_valid_cert(
-                        self.quorum_membership.as_ref(),
-                        epoch_number,
+                        self.quorum_membership.stake_table(epoch_number),
+                        self.quorum_membership.success_threshold(),
                         &self.upgrade_lock
                     )
                     .await,

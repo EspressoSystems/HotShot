@@ -39,7 +39,7 @@ use vec1::Vec1;
 
 use crate::{
     builder::{
-        v0_1::BuilderClient as BuilderClientBase, v0_3::BuilderClient as BuilderClientMarketplace,
+        v0_1::BuilderClient as BuilderClientBase, v0_99::BuilderClient as BuilderClientMarketplace,
     },
     events::{HotShotEvent, HotShotTaskCompleted},
     helpers::broadcast_event,
@@ -92,9 +92,6 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: OuterConsensus<TYPES>,
-
-    /// The underlying network
-    pub network: Arc<I::Network>,
 
     /// Membership for the quorum
     pub membership: Arc<TYPES::Membership>,

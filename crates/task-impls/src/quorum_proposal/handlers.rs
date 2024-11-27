@@ -25,6 +25,7 @@ use hotshot_types::{
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -55,7 +56,7 @@ pub(crate) enum ProposalDependency {
     /// For the `Qc2Formed` event timeout branch.
     TimeoutCert,
 
-    /// For the `QuroumProposalRecv` event.
+    /// For the `QuorumProposalRecv` event.
     Proposal,
 
     /// For the `VidShareValidated` event.
@@ -110,7 +111,7 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     /// The time this view started
     pub view_start_time: Instant,
 
-    /// The higest_qc we've seen at the start of this task
+    /// The highest_qc we've seen at the start of this task
     pub highest_qc: QuorumCertificate2<TYPES>,
 }
 
@@ -124,8 +125,10 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
                 if qc
                     .is_valid_cert(
-                        self.quorum_membership.as_ref(),
-                        TYPES::Epoch::new(0),
+                        // TODO take epoch from `qc`
+                        // https://github.com/EspressoSystems/HotShot/issues/3917
+                        self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
+                        self.quorum_membership.success_threshold(),
                         &self.upgrade_lock,
                     )
                     .await
@@ -137,7 +140,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         None
     }
     /// Waits for the ocnfigured timeout for nodes to send HighQc messages to us.  We'll
-    /// then propose with the higest QC from among these proposals.
+    /// then propose with the highest QC from among these proposals.
     async fn wait_for_highest_qc(&mut self) {
         tracing::error!("waiting for QC");
         // If we haven't upgraded to Hotstuff 2 just return the high qc right away

@@ -5,7 +5,6 @@
 # 
 # Usage:
 # `./scripts/runfail.sh cargo test --profile=release-lto --features=full-ci --manifest-path testing/Cargo.toml`
-$@
 
 while [ $? -eq 0 ]; do
     $@

@@ -12,20 +12,20 @@ repository = "https://github.com/EspressoSystems/HotShot"
 # when implementing traits externally
 [workspace]
 members = [
-  "crates/hotshot",
-  "crates/hotshot-stake-table",
-  "crates/libp2p-networking",
-  "crates/macros",
-  "crates/task",
-  "crates/task-impls",
-  "crates/testing",
-  "crates/examples",
-  "crates/example-types",
-  "crates/types",
-  "crates/builder-api",
-  "crates/fakeapi",
-  "crates/utils",
-  "crates/orchestrator"
+    "crates/builder-api",
+    "crates/example-types",
+    "crates/examples",
+    "crates/fakeapi",
+    "crates/hotshot",
+    "crates/hotshot-stake-table",
+    "crates/libp2p-networking",
+    "crates/macros",
+    "crates/orchestrator",
+    "crates/task",
+    "crates/task-impls",
+    "crates/testing",
+    "crates/types",
+    "crates/utils",
 ]
 resolver = "2"
 
@@ -41,21 +41,20 @@ async-lock = "3"
 async-trait = "0.1"
 bincode = "1"
 bitvec = { version = "1", default-features = false, features = [
-  "alloc",
-  "atomic",
-  "serde",
+    "alloc",
+    "atomic",
+    "serde",
 ] }
 blake3 = "1.5"
 chrono = { version = "0.4", default-features = false, features = ["now"] }
 committable = "0.2"
-custom_debug = "0.5"
+derive_more = { version = "1.0" }
 digest = "0.10"
 either = "1.13"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
-ethereum-types = { version = "0.14", default-features = false, features = [
-  "serialize",
+primitive-types = { version = "0.13.1", default-features = false, features = [
+    "serde",
 ] }
-derive_more = { version = "1.0", features = ["from"] }
 futures = { version = "0.3", default-features = false }
 jf-crhf = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
 jf-vid = { version = "0.1.0", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
@@ -68,6 +67,7 @@ libp2p-identity = "0.2"
 libp2p-networking = { path = "./crates/libp2p-networking", version = "0.5", default-features = false }
 libp2p-swarm-derive = { version = "0.34" }
 lru = "0.12"
+multiaddr = { version = "0.18" }
 portpicker = "0.1"
 rand = { version = "0.8", features = ["small_rng"] }
 rand_chacha = { version = "0.3", default-features = false }
@@ -92,29 +92,28 @@ vec1 = { version = "1", features = ["serde"] }
 reqwest = { version = "0.12", features = ["json"] }
 
 libp2p = { package = "libp2p", version = "0.53", default-features = false, features = [
-  "macros",
-  "autonat",
-  "cbor",
-  "dns",
-  "gossipsub",
-  "identify",
-  "kad",
-  "quic",
-  "request-response",
-  "secp256k1",
-  "serde",
+    "macros",
+    "autonat",
+    "cbor",
+    "dns",
+    "gossipsub",
+    "identify",
+    "kad",
+    "quic",
+    "request-response",
+    "secp256k1",
+    "serde",
 ] }
 tokio = { version = "1", default-features = false, features = [
-  "macros",
-  "net",
-  "parking_lot",
-  "rt-multi-thread",
-  "sync",
-  "time",
-  "tracing",
+    "macros",
+    "net",
+    "parking_lot",
+    "rt-multi-thread",
+    "sync",
+    "time",
+    "tracing",
 ] }
 anyhow = "1"
-
 
 # Push CDN imports
 cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
@@ -127,8 +126,7 @@ cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6"
 ### Note: these only apply to example executables or tests built from within this crate. They have
 ### no effect on crates that depend on this crate.
 
-## Apply some optimizations to test dependencies in debug/test builds
-
+# Apply some optimizations to test dependencies in debug/test builds
 [profile.dev]
 strip = true
 debug = 0

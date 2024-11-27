@@ -17,7 +17,7 @@ use futures::future::join_all;
 use hotshot::{
     traits::TestableNodeImplementation,
     types::{Event, SystemContextHandle},
-    HotShotInitializer, MarketplaceConfig, Memberships, SystemContext,
+    HotShotInitializer, MarketplaceConfig, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -34,7 +34,7 @@ use hotshot_types::{
     simple_certificate::QuorumCertificate,
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, Topic},
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
     HotShotConfig, ValidatorConfig,
@@ -419,17 +419,10 @@ where
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
 
-            let all_nodes = config.known_nodes_with_stake.clone();
-            let da_nodes = config.known_da_nodes.clone();
-
-            let memberships = Memberships {
-                quorum_membership: <TYPES as NodeType>::Membership::new(
-                    all_nodes.clone(),
-                    all_nodes.clone(),
-                    Topic::Global,
-                ),
-                da_membership: <TYPES as NodeType>::Membership::new(all_nodes, da_nodes, Topic::Da),
-            };
+            let memberships = <TYPES as NodeType>::Membership::new(
+                config.known_nodes_with_stake.clone(),
+                config.known_da_nodes.clone(),
+            );
             config.builder_urls = builder_urls
                 .clone()
                 .try_into()
@@ -584,7 +577,7 @@ where
     pub async fn add_node_with_config(
         node_id: u64,
         network: Network<TYPES, I>,
-        memberships: Memberships<TYPES>,
+        memberships: TYPES::Membership,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
@@ -617,7 +610,7 @@ where
     pub async fn add_node_with_config_and_channels(
         node_id: u64,
         network: Network<TYPES, I>,
-        memberships: Memberships<TYPES>,
+        memberships: TYPES::Membership,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
@@ -660,16 +653,16 @@ pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versio
     pub handle: SystemContextHandle<TYPES, I, V>,
 }
 
-/// This type combines all of the paramters needed to build the context for a node that started
+/// This type combines all of the parameters needed to build the context for a node that started
 /// late during a unit test or integration test.
 pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The storage trait for Sequencer persistence.
     pub storage: I::Storage,
 
     /// The memberships of this particular node.
-    pub memberships: Memberships<TYPES>,
+    pub memberships: TYPES::Membership,
 
-    /// The config associted with this node.
+    /// The config associated with this node.
     pub config: HotShotConfig<TYPES::SignatureKey>,
 
     /// The marketplace config for this node.
