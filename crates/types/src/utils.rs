@@ -262,6 +262,7 @@ pub fn mnemonic<H: Hash>(bytes: H) -> String {
 
 /// A helper enum to indicate whether a node is in the epoch transition
 /// A node is in epoch transition when its high QC is for the last block in an epoch
+#[derive(Debug, Clone)]
 pub enum EpochTransitionIndicator {
     /// A node is currently in the epoch transition
     InTransition,

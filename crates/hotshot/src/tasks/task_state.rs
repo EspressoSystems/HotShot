@@ -307,6 +307,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             network: Arc::clone(&handle.hotshot.network),
             membership: (*handle.hotshot.memberships).clone().into(),
             vote_collectors: BTreeMap::default(),
+            next_epoch_vote_collectors: BTreeMap::default(),
             timeout_vote_collectors: BTreeMap::default(),
             cur_view: handle.cur_view().await,
             cur_view_time: Utc::now().timestamp(),

@@ -10,6 +10,7 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
+use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{DaProposal, PackedBundle},
@@ -277,12 +278,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     vote,
                     self.public_key.clone(),
                     &self.membership,
-                    epoch,
                     self.id,
                     &event,
                     &event_stream,
                     &self.upgrade_lock,
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await?;
             }

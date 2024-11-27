@@ -6,7 +6,12 @@
 
 //! Implementations of the simple vote types.
 
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{
+    fmt::Debug,
+    hash::Hash,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use committable::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -43,6 +48,18 @@ pub struct QuorumData2<TYPES: NodeType> {
     /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
     pub epoch: TYPES::Epoch,
 }
+/// Data used for a yes vote. Used to distinguish votes sent by the next epoch nodes.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+#[serde(bound(deserialize = ""))]
+pub struct NextEpochQuorumData2<TYPES: NodeType>(QuorumData2<TYPES>);
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+// #[serde(bound(deserialize = ""))]
+// pub struct NextEpochQuorumData2<TYPES: NodeType> {
+//     /// Commitment to the leaf
+//     pub leaf_commit: Commitment<Leaf2<TYPES>>,
+//     /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+//     pub epoch: TYPES::Epoch,
+// }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
 pub struct DaData<TYPES: NodeType> {
@@ -141,6 +158,7 @@ mod sealed {
 
 impl<T: NodeType> QuorumMaker for QuorumData<T> {}
 impl<T: NodeType> QuorumMaker for QuorumData2<T> {}
+impl<T: NodeType> QuorumMaker for NextEpochQuorumData2<T> {}
 impl<T: NodeType> QuorumMaker for TimeoutData<T> {}
 impl<T: NodeType> QuorumMaker for ViewSyncPreCommitData<T> {}
 impl<T: NodeType> QuorumMaker for ViewSyncCommitData<T> {}
@@ -309,6 +327,21 @@ impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> Committable for NextEpochQuorumData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        if *self.epoch == 0 {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .finalize()
+        } else {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .u64(*self.epoch)
+                .finalize()
+        }
+    }
+}
+
 impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
@@ -404,12 +437,38 @@ macro_rules! impl_has_epoch {
 
 impl_has_epoch!(
     QuorumData2<TYPES>,
+    NextEpochQuorumData2<TYPES>,
     DaData<TYPES>,
     TimeoutData<TYPES>,
     ViewSyncPreCommitData<TYPES>,
     ViewSyncCommitData<TYPES>,
     ViewSyncFinalizeData<TYPES>,
     UpgradeProposalData<TYPES>
+);
+
+/// Helper macro for trivial implementation of the `HasEpoch` trait for a vote type
+#[macro_export]
+macro_rules! impl_vote_has_epoch {
+    ($($t:ty),*) => {
+        $(
+            impl<TYPES: NodeType> HasEpoch<TYPES> for $t {
+                fn epoch(&self) -> TYPES::Epoch {
+                    self.data.epoch()
+                }
+            }
+        )*
+    };
+}
+
+impl_vote_has_epoch!(
+    QuorumVote2<TYPES>,
+    NextEpochQuorumVote2<TYPES>,
+    DaVote<TYPES>,
+    TimeoutVote<TYPES>,
+    ViewSyncPreCommitVote<TYPES>,
+    ViewSyncCommitVote<TYPES>,
+    ViewSyncFinalizeVote<TYPES>,
+    UpgradeVote<TYPES>
 );
 
 // impl votable for all the data types in this file sealed marker should ensure nothing is accidently
@@ -463,7 +522,7 @@ impl<TYPES: NodeType> QuorumVote2<TYPES> {
     pub fn to_vote(self) -> QuorumVote<TYPES> {
         let bytes: [u8; 32] = self.data.leaf_commit.into();
 
-        let signature = self.signature;
+        let signature = self.signature.clone();
         let data = QuorumData {
             leaf_commit: Commitment::from_raw(bytes),
         };
@@ -483,6 +542,8 @@ pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 /// Quorum vote Alias
 pub type QuorumVote2<TYPES> = SimpleVote<TYPES, QuorumData2<TYPES>>;
+/// Quorum vote Alias. This type is useful to distinguish the next epoch nodes' votes.
+pub type NextEpochQuorumVote2<TYPES> = SimpleVote<TYPES, NextEpochQuorumData2<TYPES>>;
 /// DA vote type alias
 pub type DaVote<TYPES> = SimpleVote<TYPES, DaData<TYPES>>;
 /// Timeout Vote type alias
@@ -495,3 +556,33 @@ pub type ViewSyncPreCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncPreCommitData<
 pub type ViewSyncFinalizeVote<TYPES> = SimpleVote<TYPES, ViewSyncFinalizeData<TYPES>>;
 /// Upgrade proposal vote
 pub type UpgradeVote<TYPES> = SimpleVote<TYPES, UpgradeProposalData<TYPES>>;
+
+impl<TYPES: NodeType> Deref for NextEpochQuorumData2<TYPES> {
+    type Target = QuorumData2<TYPES>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<TYPES: NodeType> DerefMut for NextEpochQuorumData2<TYPES> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<TYPES: NodeType> From<QuorumData2<TYPES>> for NextEpochQuorumData2<TYPES> {
+    fn from(data: QuorumData2<TYPES>) -> Self {
+        Self(QuorumData2 {
+            epoch: data.epoch,
+            leaf_commit: data.leaf_commit,
+        })
+    }
+}
+
+impl<TYPES: NodeType> From<QuorumVote2<TYPES>> for NextEpochQuorumVote2<TYPES> {
+    fn from(qvote: QuorumVote2<TYPES>) -> Self {
+        Self {
+            data: qvote.data.into(),
+            view_number: qvote.view_number,
+            signature: qvote.signature.clone(),
+        }
+    }
+}

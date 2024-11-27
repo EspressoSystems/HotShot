@@ -20,6 +20,7 @@ use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 use utils::anytrace::*;
 
+use crate::simple_vote::NextEpochQuorumData2;
 use crate::{
     data::serialize_signature2,
     message::UpgradeLock,
@@ -418,6 +419,9 @@ impl<TYPES: NodeType> QuorumCertificate2<TYPES> {
 pub type QuorumCertificate<TYPES> = SimpleCertificate<TYPES, QuorumData<TYPES>, SuccessThreshold>;
 /// Type alias for a `QuorumCertificate2`, which is a `SimpleCertificate` over `QuorumData2`
 pub type QuorumCertificate2<TYPES> = SimpleCertificate<TYPES, QuorumData2<TYPES>, SuccessThreshold>;
+/// Type alias for a `QuorumCertificate2`, which is a `SimpleCertificate` over `QuorumData2`
+pub type NextEpochQuorumCertificate2<TYPES> =
+    SimpleCertificate<TYPES, NextEpochQuorumData2<TYPES>, SuccessThreshold>;
 /// Type alias for a DA certificate over `DaData`
 pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData<TYPES>, SuccessThreshold>;
 /// Type alias for a Timeout certificate over a view number

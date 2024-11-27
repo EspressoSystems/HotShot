@@ -10,6 +10,8 @@ use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use either::Either;
 use hotshot_task::task::TaskState;
+use hotshot_types::simple_certificate::NextEpochQuorumCertificate2;
+use hotshot_types::simple_vote::NextEpochQuorumVote2;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
@@ -54,6 +56,14 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
 
     /// A map of `QuorumVote` collector tasks.
     pub vote_collectors: VoteCollectorsMap<TYPES, QuorumVote2<TYPES>, QuorumCertificate2<TYPES>, V>,
+
+    /// A map of `QuorumVote` collector tasks. They collect votes from the nodes in the next epoch.
+    pub next_epoch_vote_collectors: VoteCollectorsMap<
+        TYPES,
+        NextEpochQuorumVote2<TYPES>,
+        NextEpochQuorumCertificate2<TYPES>,
+        V,
+    >,
 
     /// A map of `TimeoutVote` collector tasks.
     pub timeout_vote_collectors:
