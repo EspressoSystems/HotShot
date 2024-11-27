@@ -468,8 +468,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 ensure!(
                     certificate
                         .is_valid_cert(
-                            self.quorum_membership.as_ref(),
-                            cert_epoch_number,
+                            self.quorum_membership.stake_table(cert_epoch_number),
+                            self.quorum_membership.success_threshold(),
                             &self.upgrade_lock
                         )
                         .await,
@@ -539,8 +539,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let cert_epoch_number = qc.data.epoch;
                 ensure!(
                     qc.is_valid_cert(
-                        self.quorum_membership.as_ref(),
-                        cert_epoch_number,
+                        self.quorum_membership.stake_table(cert_epoch_number),
+                        self.quorum_membership.success_threshold(),
                         &self.upgrade_lock
                     )
                     .await,

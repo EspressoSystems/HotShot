@@ -9,7 +9,6 @@ use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 use hotshot_types::{
     traits::{
         election::Membership,
-        network::Topic,
         node_implementation::NodeType,
         signature_key::{SignatureKey, StakeTableEntryType},
     },
@@ -53,11 +52,14 @@ pub struct TwoStaticCommittees<T: NodeType> {
     /// The nodes on the committee and their stake
     stake_table: StakeTables<T>,
 
+    /// The nodes on the committee and their stake
+    da_stake_table: StakeTables<T>,
+
     /// The nodes on the committee and their stake, indexed by public key
     indexed_stake_table: IndexedStakeTables<T>,
 
-    /// The network topic of the committee
-    committee_topic: Topic,
+    /// The nodes on the committee and their stake, indexed by public key
+    indexed_da_stake_table: IndexedStakeTables<T>,
 }
 
 impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
@@ -65,13 +67,12 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
 
     /// Create a new election
     fn new(
-        eligible_leaders: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
         committee_members: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
-        committee_topic: Topic,
+        da_members: Vec<PeerConfig<<TYPES as NodeType>::SignatureKey>>,
     ) -> Self {
         // For each eligible leader, get the stake table entry
         let eligible_leaders: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> =
-            eligible_leaders
+            committee_members
                 .iter()
                 .map(|member| member.stake_table_entry.clone())
                 .filter(|entry| entry.stake() > U256::zero())
@@ -111,6 +112,26 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
             .map(|(_, leader)| leader.clone())
             .collect();
 
+        // For each member, get the stake table entry
+        let da_members: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> = da_members
+            .iter()
+            .map(|member| member.stake_table_entry.clone())
+            .filter(|entry| entry.stake() > U256::zero())
+            .collect();
+
+        let da_members1: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> = da_members
+            .iter()
+            .enumerate()
+            .filter(|(idx, _)| idx % 2 == 0)
+            .map(|(_, leader)| leader.clone())
+            .collect();
+        let da_members2: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> = da_members
+            .iter()
+            .enumerate()
+            .filter(|(idx, _)| idx % 2 == 1)
+            .map(|(_, leader)| leader.clone())
+            .collect();
+
         // Index the stake table by public key
         let indexed_stake_table1: BTreeMap<
             TYPES::SignatureKey,
@@ -128,11 +149,29 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
             .map(|entry| (TYPES::SignatureKey::public_key(entry), entry.clone()))
             .collect();
 
+        // Index the stake table by public key
+        let indexed_da_stake_table1: BTreeMap<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        > = da_members1
+            .iter()
+            .map(|entry| (TYPES::SignatureKey::public_key(entry), entry.clone()))
+            .collect();
+
+        let indexed_da_stake_table2: BTreeMap<
+            TYPES::SignatureKey,
+            <TYPES::SignatureKey as SignatureKey>::StakeTableEntry,
+        > = da_members2
+            .iter()
+            .map(|entry| (TYPES::SignatureKey::public_key(entry), entry.clone()))
+            .collect();
+
         Self {
             eligible_leaders: (eligible_leaders1, eligible_leaders2),
             stake_table: (members1, members2),
+            da_stake_table: (da_members1, da_members2),
             indexed_stake_table: (indexed_stake_table1, indexed_stake_table2),
-            committee_topic,
+            indexed_da_stake_table: (indexed_da_stake_table1, indexed_da_stake_table2),
         }
     }
 
@@ -145,6 +184,18 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
             self.stake_table.0.clone()
         } else {
             self.stake_table.1.clone()
+        }
+    }
+
+    /// Get the stake table for the current view
+    fn da_stake_table(
+        &self,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> Vec<<<TYPES as NodeType>::SignatureKey as SignatureKey>::StakeTableEntry> {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            self.da_stake_table.0.clone()
+        } else {
+            self.da_stake_table.1.clone()
         }
     }
 
@@ -162,6 +213,27 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
                 .collect()
         } else {
             self.stake_table
+                .1
+                .iter()
+                .map(TYPES::SignatureKey::public_key)
+                .collect()
+        }
+    }
+
+    /// Get all members of the committee for the current view
+    fn da_committee_members(
+        &self,
+        _view_number: <TYPES as NodeType>::View,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            self.da_stake_table
+                .0
+                .iter()
+                .map(TYPES::SignatureKey::public_key)
+                .collect()
+        } else {
+            self.da_stake_table
                 .1
                 .iter()
                 .map(TYPES::SignatureKey::public_key)
@@ -204,6 +276,20 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
         }
     }
 
+    /// Get the DA stake table entry for a public key
+    fn da_stake(
+        &self,
+        pub_key: &<TYPES as NodeType>::SignatureKey,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
+        // Only return the stake if it is above zero
+        if *epoch != 0 && *epoch % 2 == 0 {
+            self.indexed_da_stake_table.0.get(pub_key).cloned()
+        } else {
+            self.indexed_da_stake_table.1.get(pub_key).cloned()
+        }
+    }
+
     /// Check if a node has stake in the committee
     fn has_stake(
         &self,
@@ -223,9 +309,23 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
         }
     }
 
-    /// Get the network topic for the committee
-    fn committee_topic(&self) -> Topic {
-        self.committee_topic.clone()
+    /// Check if a node has stake in the committee
+    fn has_da_stake(
+        &self,
+        pub_key: &<TYPES as NodeType>::SignatureKey,
+        epoch: <TYPES as NodeType>::Epoch,
+    ) -> bool {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            self.indexed_da_stake_table
+                .0
+                .get(pub_key)
+                .is_some_and(|x| x.stake() > U256::zero())
+        } else {
+            self.indexed_da_stake_table
+                .1
+                .get(pub_key)
+                .is_some_and(|x| x.stake() > U256::zero())
+        }
     }
 
     /// Index the vector of public keys with the current view number
@@ -256,9 +356,23 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
         }
     }
 
+    /// Get the total number of DA nodes in the committee
+    fn da_total_nodes(&self, epoch: <TYPES as NodeType>::Epoch) -> usize {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            self.da_stake_table.0.len()
+        } else {
+            self.da_stake_table.1.len()
+        }
+    }
+
     /// Get the voting success threshold for the committee
     fn success_threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.stake_table.0.len() as u64 * 2) / 3) + 1).unwrap()
+    }
+
+    /// Get the voting success threshold for the committee
+    fn da_success_threshold(&self) -> NonZeroU64 {
+        NonZeroU64::new(((self.da_stake_table.0.len() as u64 * 2) / 3) + 1).unwrap()
     }
 
     /// Get the voting failure threshold for the committee

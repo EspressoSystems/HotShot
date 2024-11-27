@@ -24,6 +24,9 @@ use crate::{
     vote::{HasViewNumber, Vote},
 };
 
+/// Marker that data should use the quorum cert type
+pub(crate) trait QuorumMaker {}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a yes vote.
 #[serde(bound(deserialize = ""))]
@@ -56,14 +59,7 @@ pub struct TimeoutData<TYPES: NodeType> {
     /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
     pub epoch: TYPES::Epoch,
 }
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-/// Data used for a VID vote.
-pub struct VidData<TYPES: NodeType> {
-    /// Commitment to the block payload the VID vote is on.
-    pub payload_commit: VidCommitment,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
-}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Pre Commit vote.
 pub struct ViewSyncPreCommitData<TYPES: NodeType> {
@@ -142,6 +138,14 @@ mod sealed {
     // TODO: Does the implement for things outside this file that are committable?
     impl<C: Committable> Sealed for C {}
 }
+
+impl<T: NodeType> QuorumMaker for QuorumData<T> {}
+impl<T: NodeType> QuorumMaker for QuorumData2<T> {}
+impl<T: NodeType> QuorumMaker for TimeoutData<T> {}
+impl<T: NodeType> QuorumMaker for ViewSyncPreCommitData<T> {}
+impl<T: NodeType> QuorumMaker for ViewSyncCommitData<T> {}
+impl<T: NodeType> QuorumMaker for ViewSyncFinalizeData<T> {}
+impl<T: NodeType + DeserializeOwned> QuorumMaker for UpgradeProposalData<T> {}
 
 /// A simple yes vote over some votable type.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -323,15 +327,6 @@ impl<TYPES: NodeType> Committable for DaData<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> Committable for VidData<TYPES> {
-    fn commit(&self) -> Commitment<Self> {
-        committable::RawCommitmentBuilder::new("VID data")
-            .var_size_bytes(self.payload_commit.as_ref())
-            .u64(*self.epoch)
-            .finalize()
-    }
-}
-
 impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         let builder = committable::RawCommitmentBuilder::new("Upgrade data");
@@ -411,7 +406,6 @@ impl_has_epoch!(
     QuorumData2<TYPES>,
     DaData<TYPES>,
     TimeoutData<TYPES>,
-    VidData<TYPES>,
     ViewSyncPreCommitData<TYPES>,
     ViewSyncCommitData<TYPES>,
     ViewSyncFinalizeData<TYPES>,

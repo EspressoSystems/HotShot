@@ -129,8 +129,10 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
                 if qc
                     .is_valid_cert(
-                        self.quorum_membership.as_ref(),
-                        TYPES::Epoch::new(0),
+                        // TODO take epoch from `qc`
+                        // https://github.com/EspressoSystems/HotShot/issues/3917
+                        self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
+                        self.quorum_membership.success_threshold(),
                         &self.upgrade_lock,
                     )
                     .await
@@ -316,6 +318,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             justify_qc: parent_qc,
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
+            // TODO fix these to use the proper values
             drb_seed: [0; 96],
             drb_result: [0; 32],
         };

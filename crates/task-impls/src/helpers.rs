@@ -23,6 +23,7 @@ use hotshot_types::{
     simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
@@ -126,7 +127,11 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
 
     let justify_qc_epoch = justify_qc.data.epoch();
     if !justify_qc
-        .is_valid_cert(quorum_membership.as_ref(), justify_qc_epoch, upgrade_lock)
+        .is_valid_cert(
+            quorum_membership.stake_table(justify_qc_epoch),
+            quorum_membership.success_threshold(),
+            upgrade_lock,
+        )
         .await
     {
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
@@ -676,8 +681,10 @@ pub(crate) async fn validate_proposal_view_and_certs<
                 ensure!(
                     timeout_cert
                         .is_valid_cert(
-                            validation_info.quorum_membership.as_ref(),
-                            timeout_cert_epoch,
+                            validation_info
+                                .quorum_membership
+                                .stake_table(timeout_cert_epoch),
+                            validation_info.quorum_membership.success_threshold(),
                             &validation_info.upgrade_lock
                         )
                         .await,
@@ -698,8 +705,10 @@ pub(crate) async fn validate_proposal_view_and_certs<
                 ensure!(
                     view_sync_cert
                         .is_valid_cert(
-                            validation_info.quorum_membership.as_ref(),
-                            view_sync_cert_epoch,
+                            validation_info
+                                .quorum_membership
+                                .stake_table(view_sync_cert_epoch),
+                            validation_info.quorum_membership.success_threshold(),
                             &validation_info.upgrade_lock
                         )
                         .await,
