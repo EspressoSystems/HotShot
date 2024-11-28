@@ -26,7 +26,7 @@ use crate::{
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate, QuorumCertificate2},
+    simple_certificate::{DaCertificate, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -318,6 +318,9 @@ pub struct Consensus<TYPES: NodeType> {
     /// the highqc per spec
     high_qc: QuorumCertificate2<TYPES>,
 
+    /// The high QC for the next epoch
+    next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
+
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
 
@@ -410,6 +413,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         saved_leaves: CommitmentMap<Leaf2<TYPES>>,
         saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
         high_qc: QuorumCertificate2<TYPES>,
+        next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
         metrics: Arc<ConsensusMetricsValue>,
         epoch_height: u64,
     ) -> Self {
@@ -426,6 +430,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             saved_leaves,
             saved_payloads,
             high_qc,
+            next_epoch_high_qc,
             metrics,
             epoch_height,
         }
@@ -454,6 +459,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the high QC.
     pub fn high_qc(&self) -> &QuorumCertificate2<TYPES> {
         &self.high_qc
+    }
+
+    /// Get the next epoch high QC.
+    pub fn next_epoch_high_qc(&self) -> Option<&NextEpochQuorumCertificate2<TYPES>> {
+        self.next_epoch_high_qc.as_ref()
     }
 
     /// Get the validated state map.
@@ -734,6 +744,27 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         );
         tracing::debug!("Updating high QC");
         self.high_qc = high_qc;
+
+        Ok(())
+    }
+
+    /// Update the next epoch high QC if given a newer one.
+    /// # Errors
+    /// Can return an error when the provided high_qc is not newer than the existing entry.
+    /// # Panics
+    /// It can't actually panic. If the option is None, we will not call unwrap on it.
+    pub fn update_next_epoch_high_qc(
+        &mut self,
+        high_qc: NextEpochQuorumCertificate2<TYPES>,
+    ) -> Result<()> {
+        ensure!(
+            self.next_epoch_high_qc().is_none()
+                || high_qc.view_number > self.next_epoch_high_qc.as_ref().unwrap().view_number
+                || high_qc == *self.next_epoch_high_qc.as_ref().unwrap(),
+            debug!("Next epoch high QC with an equal or higher view exists.")
+        );
+        tracing::debug!("Updating next epoch high QC");
+        self.next_epoch_high_qc = Some(high_qc);
 
         Ok(())
     }

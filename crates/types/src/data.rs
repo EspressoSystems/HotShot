@@ -33,8 +33,8 @@ use crate::{
     impl_has_epoch,
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        QuorumCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
     simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -413,6 +413,9 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// certificate that the proposal is chaining from
     pub justify_qc: QuorumCertificate2<TYPES>,
 
+    /// certificate that the proposal is chaining from formed by the next epoch nodes
+    pub next_epoch_justify_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
+
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
@@ -435,6 +438,7 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
             view_number: quorum_proposal.view_number,
             epoch: TYPES::Epoch::genesis(),
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
+            next_epoch_justify_qc: None,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
             drb_seed: [0; 96],
@@ -463,6 +467,7 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
             view_number: leaf.view_number,
             epoch: TYPES::Epoch::genesis(),
             justify_qc: leaf.justify_qc.to_qc2(),
+            next_epoch_justify_qc: None,
             parent_commitment: Commitment::from_raw(bytes),
             block_header: leaf.block_header,
             upgrade_certificate: leaf.upgrade_certificate,
@@ -585,6 +590,9 @@ pub struct Leaf2<TYPES: NodeType> {
     /// Per spec, justification
     justify_qc: QuorumCertificate2<TYPES>,
 
+    /// certificate that the proposal is chaining from formed by the next epoch nodes
+    next_epoch_justify_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
+
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
     parent_commitment: Commitment<Self>,
@@ -656,6 +664,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         Self {
             view_number: TYPES::View::genesis(),
             justify_qc,
+            next_epoch_justify_qc: None,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
             block_header: block_header.clone(),
@@ -792,6 +801,7 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
             RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
                 .u64_field("epoch number", *self.epoch)
+                .optional("next epoch justify qc", &self.next_epoch_justify_qc)
         };
         if self.drb_seed == [0; 96] && self.drb_result == [0; 32] {
             part_commit
@@ -840,6 +850,7 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
             view_number,
             epoch,
             justify_qc,
+            next_epoch_justify_qc,
             parent_commitment,
             block_header,
             upgrade_certificate,
@@ -852,6 +863,7 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
         *view_number == other.view_number
             && *epoch == other.epoch
             && *justify_qc == other.justify_qc
+            && *next_epoch_justify_qc == other.next_epoch_justify_qc
             && *parent_commitment == other.parent_commitment
             && *block_header == other.block_header
             && *upgrade_certificate == other.upgrade_certificate
@@ -1218,6 +1230,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             view_number,
             epoch,
             justify_qc,
+            next_epoch_justify_qc,
             block_header,
             upgrade_certificate,
             view_change_evidence,
@@ -1229,6 +1242,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             view_number: *view_number,
             epoch: *epoch,
             justify_qc: justify_qc.clone(),
+            next_epoch_justify_qc: next_epoch_justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),

@@ -189,6 +189,7 @@ where
                 &TestInstanceState::default(),
             )
             .await,
+            next_epoch_high_qc: None,
             async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
             channel_generator: launcher.resource_generator.channel_generator,
