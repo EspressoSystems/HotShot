@@ -107,18 +107,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     "Throwing away DA proposal that is more than one view older"
                 );
 
-                ensure!(
-                    !self
-                      .consensus
-                      .read()
-                      .await
-                      .saved_payloads()
-                      .contains_key(&view),
-                    info!(
-                      "Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away",
-                      view
-                    )
-                );
+                if let Some(payload) = self.consensus.read().await.saved_payloads().get(&view) {
+                    ensure!(*payload == proposal.data.encoded_transactions, error!(
+                      "Received DA proposal for view {:?} but we already have a payload for that view and they are not identical.  Throwing it away",
+                      view)
+                    );
+                }
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
 
@@ -348,6 +342,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     &event_stream,
                 )
                 .await;
+                // Save the payload early because we might need it to calculate VID for the next epoch nodes.
+                if let Err(e) = self
+                    .consensus
+                    .write()
+                    .await
+                    .update_saved_payloads(view_number, Arc::clone(encoded_transactions))
+                {
+                    tracing::trace!("{e:?}");
+                }
             }
             _ => {}
         }

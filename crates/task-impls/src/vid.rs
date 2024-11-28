@@ -146,15 +146,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     &event_stream,
                 )
                 .await;
-                // Save the payload early because we might need it to calculate VID for the next epoch nodes.
-                if let Err(e) = self
-                    .consensus
-                    .write()
-                    .await
-                    .update_saved_payloads(view_number, Arc::clone(encoded_transactions))
-                {
-                    tracing::trace!("{e:?}");
-                }
             }
 
             HotShotEvent::ViewChange(view, epoch) => {
