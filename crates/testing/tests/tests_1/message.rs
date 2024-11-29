@@ -107,7 +107,7 @@ async fn test_certificate2_validity() {
     assert!(
         qc.is_valid_cert(
             membership.stake_table(EpochNumber::new(0)),
-            membership.success_threshold(),
+            membership.success_threshold(EpochNumber::new(0)),
             &handle.hotshot.upgrade_lock
         )
         .await
@@ -116,7 +116,7 @@ async fn test_certificate2_validity() {
     assert!(
         qc2.is_valid_cert(
             membership.stake_table(EpochNumber::new(0)),
-            membership.success_threshold(),
+            membership.success_threshold(EpochNumber::new(0)),
             &handle.hotshot.upgrade_lock
         )
         .await

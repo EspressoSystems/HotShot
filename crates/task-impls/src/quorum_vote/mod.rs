@@ -487,7 +487,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 ensure!(
                     cert.is_valid_cert(
                         self.membership.da_stake_table(cert_epoch),
-                        self.membership.da_success_threshold(),
+                        self.membership.da_success_threshold(cert_epoch),
                         &self.upgrade_lock
                     )
                     .await,

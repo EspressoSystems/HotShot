@@ -174,7 +174,9 @@ pub(crate) async fn handle_quorum_proposal_recv<
             validation_info
                 .quorum_membership
                 .stake_table(justify_qc_epoch),
-            validation_info.quorum_membership.success_threshold(),
+            validation_info
+                .quorum_membership
+                .success_threshold(justify_qc_epoch),
             &validation_info.upgrade_lock,
         )
         .await
@@ -198,7 +200,9 @@ pub(crate) async fn handle_quorum_proposal_recv<
                 validation_info
                     .quorum_membership
                     .stake_table(justify_qc_epoch + 1),
-                validation_info.quorum_membership.success_threshold(),
+                validation_info
+                    .quorum_membership
+                    .success_threshold(justify_qc_epoch + 1),
                 &validation_info.upgrade_lock,
             )
             .await

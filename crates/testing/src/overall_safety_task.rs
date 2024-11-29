@@ -210,7 +210,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             .unwrap()
             .handle
             .memberships
-            .success_threshold()
+            .success_threshold(epoch)
             .get() as usize;
 
         let view = self.ctx.round_results.get_mut(&view_number).unwrap();
