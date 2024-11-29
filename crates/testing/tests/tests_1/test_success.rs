@@ -8,8 +8,9 @@ use std::{sync::Arc, time::Duration};
 
 use hotshot_example_types::{
     node_types::{
-        CombinedImpl, EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
-        TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader, TestVersions,
+        CombinedImpl, EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl,
+        TestConsecutiveLeaderTypes, TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader,
+        TestVersions,
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
