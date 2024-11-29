@@ -8,7 +8,7 @@ use std::{sync::Arc, time::Duration};
 
 use hotshot_example_types::{
     node_types::{
-        EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
+        CombinedImpl, EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
         TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader, TestVersions,
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
@@ -137,7 +137,7 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_epoch_end,
-    Impls: [PushCdnImpl],
+    Impls: [CombinedImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
