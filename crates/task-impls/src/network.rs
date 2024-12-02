@@ -97,14 +97,12 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::ViewSyncCommitCertificate(view_sync_message) => {
                             HotShotEvent::ViewSyncCommitCertificate2Recv(view_sync_message)
                         }
-
                         GeneralConsensusMessage::ViewSyncFinalizeVote(view_sync_message) => {
                             HotShotEvent::ViewSyncFinalizeVoteRecv(view_sync_message)
                         }
                         GeneralConsensusMessage::ViewSyncFinalizeCertificate(view_sync_message) => {
                             HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message)
                         }
-
                         GeneralConsensusMessage::TimeoutVote(message) => {
                             HotShotEvent::TimeoutVoteRecv(message)
                         }
@@ -115,42 +113,14 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             tracing::error!("Received upgrade vote!");
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
-                        GeneralConsensusMessage::HighQc(qc) => {
-                            HotShotEvent::HighQcRecv(qc.to_qc2(), sender)
-                        }
+                        GeneralConsensusMessage::HighQc(qc) => HotShotEvent::HighQcRecv(qc, sender),
                         GeneralConsensusMessage::Proposal2(proposal) => {
-                            HotShotEvent::QuorumProposalRecv(proposal, sender)
+                            HotShotEvent::QuorumProposalRecv(convert_proposal(proposal), sender)
                         }
+                        GeneralConsensusMessage::Vote2(vote) => HotShotEvent::QuorumVoteRecv(vote),
                         GeneralConsensusMessage::Proposal2Response(proposal) => {
                             HotShotEvent::QuorumProposalResponseRecv(proposal)
                         }
-                        GeneralConsensusMessage::Vote2(vote) => HotShotEvent::QuorumVoteRecv(vote), //                        GeneralConsensusMessage::ViewSyncPreCommitVote(view_sync_message) => {
-                                                                                                    //                            HotShotEvent::ViewSyncPreCommitVoteRecv(view_sync_message)
-                                                                                                    //                        }
-                                                                                                    //                        GeneralConsensusMessage::ViewSyncPreCommitCertificate(
-                                                                                                    //                            view_sync_message,
-                                                                                                    //                        ) => HotShotEvent::ViewSyncPreCommitCertificate2Recv(view_sync_message),
-                                                                                                    //
-                                                                                                    //                        GeneralConsensusMessage::ViewSyncCommitVote(view_sync_message) => {
-                                                                                                    //                            HotShotEvent::ViewSyncCommitVoteRecv(view_sync_message)
-                                                                                                    //                        }
-                                                                                                    //                        GeneralConsensusMessage::ViewSyncCommitCertificate(view_sync_message) => {
-                                                                                                    //                            HotShotEvent::ViewSyncCommitCertificate2Recv(view_sync_message)
-                                                                                                    //                        }
-                                                                                                    //
-                                                                                                    //                        GeneralConsensusMessage::ViewSyncFinalizeVote(view_sync_message) => {
-                                                                                                    //                            HotShotEvent::ViewSyncFinalizeVoteRecv(view_sync_message)
-                                                                                                    //                        }
-                                                                                                    //                        GeneralConsensusMessage::ViewSyncFinalizeCertificate(view_sync_message) => {
-                                                                                                    //                            HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message)
-                                                                                                    //                        }
-                                                                                                    //
-                                                                                                    //                        GeneralConsensusMessage::TimeoutVote(message) => {
-                                                                                                    //                            HotShotEvent::TimeoutVoteRecv(message)
-                                                                                                    //                        }
-                                                                                                    //                        GeneralConsensusMessage::HighQc(qc) => {
-                                                                                                    //                            HotShotEvent::HighQcRecv(qc.to_qc2(), sender)
-                                                                                                    //                        }
                     },
                     SequencingMessage::Da(da_message) => match da_message {
                         DaConsensusMessage::DaProposal(proposal) => {
@@ -712,6 +682,13 @@ impl<
                     TransmitType::Direct(to),
                 ))
             }
+            HotShotEvent::HighQcSend(quorum_cert, leader, sender) => Some((
+                sender,
+                MessageKind::Consensus(SequencingMessage::General(
+                    GeneralConsensusMessage::HighQc(quorum_cert),
+                )),
+                TransmitType::Direct(leader),
+            )),
             _ => None,
         }
     }

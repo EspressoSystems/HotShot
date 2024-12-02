@@ -30,7 +30,7 @@ use crate::{
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, QuorumCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
+        DaCertificate, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
@@ -201,7 +201,7 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     UpgradeVote(UpgradeVote<TYPES>),
 
     /// Message for the next leader containing our highest QC
-    HighQc(QuorumCertificate<TYPES>),
+    HighQc(QuorumCertificate2<TYPES>),
 
     /// Message with a quorum proposal.
     Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
