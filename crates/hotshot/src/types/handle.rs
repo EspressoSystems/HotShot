@@ -196,7 +196,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                     if commit == leaf_commitment {
                         return Ok(quorum_proposal.clone());
                     }
-                    tracing::warn!("Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
+                    tracing::warn!("Proposal received from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
                 }
             }
         })

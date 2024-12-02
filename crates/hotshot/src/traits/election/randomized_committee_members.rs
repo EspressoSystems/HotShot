@@ -317,32 +317,6 @@ impl<TYPES: NodeType, CONFIG: QuorumFilterConfig> Membership<TYPES>
         Ok(TYPES::SignatureKey::public_key(&res))
     }
 
-    /// Index the vector of public keys with the current view number
-    fn lookup_da_leader(
-        &self,
-        view_number: TYPES::View,
-        epoch: <TYPES as NodeType>::Epoch,
-    ) -> Result<TYPES::SignatureKey> {
-        let filter = self.make_da_quorum_filter(epoch);
-        let leader_vec: Vec<_> = self
-            .da_stake_table
-            .iter()
-            .enumerate()
-            .filter(|(idx, _)| filter.contains(idx))
-            .map(|(_, v)| v.clone())
-            .collect();
-
-        let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
-
-        let randomized_view_number: u64 = rng.gen_range(0..=u64::MAX);
-        #[allow(clippy::cast_possible_truncation)]
-        let index = randomized_view_number as usize % leader_vec.len();
-
-        let res = leader_vec[index].clone();
-
-        Ok(TYPES::SignatureKey::public_key(&res))
-    }
-
     /// Get the total number of nodes in the committee
     fn total_nodes(&self, epoch: <TYPES as NodeType>::Epoch) -> usize {
         self.make_quorum_filter(epoch).len()
