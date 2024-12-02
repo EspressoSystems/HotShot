@@ -257,7 +257,7 @@ impl<T: NodeType> NetworkNode<T> {
             let dht_file_path = config
                 .dht_file_path
                 .clone()
-                .unwrap_or_else(|| format!("libp2p_dht.json"));
+                .unwrap_or_else(|| "libp2p_dht.bin".into());
 
             // Create the DHT behaviour
             let mut kadem = Behaviour::with_config(
@@ -265,6 +265,7 @@ impl<T: NodeType> NetworkNode<T> {
                 FileBackedStore::new(
                     ValidatedStore::new(MemoryStore::new(peer_id)),
                     dht_file_path,
+                    10,
                 ),
                 kconfig,
             );
