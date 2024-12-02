@@ -332,6 +332,10 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -556,6 +560,9 @@
     <span class="kw">async fn </span>create_from(handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TYPES, I, V&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>consensus = handle.hotshot.consensus();
 
+        <span class="comment">// Clone the consensus metrics
+        </span><span class="kw">let </span>consensus_metrics = Arc::clone(<span class="kw-2">&amp;</span>consensus.read().<span class="kw">await</span>.metrics);
+
         <span class="self">Self </span>{
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -571,6 +578,7 @@
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
             epoch_height: handle.hotshot.config.epoch_height,
+            consensus_metrics,
         }
     }
 }

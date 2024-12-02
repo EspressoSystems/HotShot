@@ -1031,6 +1031,9 @@
 <a href="#1031" id="1031">1031</a>
 <a href="#1032" id="1032">1032</a>
 <a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1364,6 +1367,8 @@
     </span><span class="kw">pub </span>last_synced_block_height: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// The number of last decided view
     </span><span class="kw">pub </span>last_decided_view: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
+    <span class="doccomment">/// The number of the last voted view
+    </span><span class="kw">pub </span>last_voted_view: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// Number of timestamp for the last decided time
     </span><span class="kw">pub </span>last_decided_time: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
     <span class="doccomment">/// The current view
@@ -1398,6 +1403,7 @@
             last_synced_block_height: metrics
                 .create_gauge(String::from(<span class="string">"last_synced_block_height"</span>), <span class="prelude-val">None</span>),
             last_decided_view: metrics.create_gauge(String::from(<span class="string">"last_decided_view"</span>), <span class="prelude-val">None</span>),
+            last_voted_view: metrics.create_gauge(String::from(<span class="string">"last_voted_view"</span>), <span class="prelude-val">None</span>),
             last_decided_time: metrics.create_gauge(String::from(<span class="string">"last_decided_time"</span>), <span class="prelude-val">None</span>),
             current_view: metrics.create_gauge(String::from(<span class="string">"current_view"</span>), <span class="prelude-val">None</span>),
             number_of_views_since_last_decide: metrics

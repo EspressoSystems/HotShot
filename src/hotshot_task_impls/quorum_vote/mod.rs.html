@@ -728,6 +728,21 @@
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -746,7 +761,7 @@
     task::TaskState,
 };
 <span class="kw">use </span>hotshot_types::{
-    consensus::OuterConsensus,
+    consensus::{ConsensusMetricsValue, OuterConsensus},
     data::{Leaf2, QuorumProposal2},
     drb::DrbResult,
     event::Event,
@@ -810,6 +825,8 @@
     </span><span class="kw">pub </span>receiver: InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+    <span class="doccomment">/// The consensus metrics
+    </span><span class="kw">pub </span>consensus_metrics: Arc&lt;ConsensusMetricsValue&gt;,
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
@@ -1012,6 +1029,9 @@
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
 
+    <span class="doccomment">/// The consensus metrics
+    </span><span class="kw">pub </span>consensus_metrics: Arc&lt;ConsensusMetricsValue&gt;,
+
     <span class="doccomment">/// Reference to the storage.
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
 
@@ -1116,6 +1136,7 @@
                 upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),
                 id: <span class="self">self</span>.id,
                 epoch_height: <span class="self">self</span>.epoch_height,
+                consensus_metrics: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus_metrics),
             },
         );
         <span class="self">self</span>.vote_dependencies
@@ -1138,6 +1159,15 @@
                     dependency.abort();
                     <span class="macro">tracing::debug!</span>(<span class="string">"Vote dependency removed for view {:?}"</span>, view);
                 }
+            }
+
+            <span class="comment">// Update the metric for the last voted view
+            </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(last_voted_view_usize) = usize::try_from(<span class="kw-2">*</span>new_view) {
+                <span class="self">self</span>.consensus_metrics
+                    .last_voted_view
+                    .set(last_voted_view_usize);
+            } <span class="kw">else </span>{
+                <span class="macro">tracing::warn!</span>(<span class="string">"Failed to convert last voted view to a usize: {}"</span>, new_view);
             }
 
             <span class="self">self</span>.latest_voted_view = new_view;
