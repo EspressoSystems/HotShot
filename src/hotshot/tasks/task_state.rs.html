@@ -331,6 +331,7 @@
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -564,6 +565,7 @@
             vote_dependencies: BTreeMap::new(),
             network: Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.network),
             membership: (<span class="kw-2">*</span>handle.hotshot.memberships).clone().into(),
+            drb_computations: BTreeMap::new(),
             output_event_stream: handle.hotshot.external_event_stream.<span class="number">0</span>.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage),

@@ -588,6 +588,7 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -615,6 +616,7 @@
         DaProposal, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence, ViewNumber,
     },
+    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
         DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
@@ -731,8 +733,8 @@
             </span>.to_qc2(),
             upgrade_certificate: <span class="prelude-val">None</span>,
             view_change_evidence: <span class="prelude-val">None</span>,
-            drb_result: [<span class="number">0</span>; <span class="number">32</span>],
-            drb_seed: [<span class="number">0</span>; <span class="number">96</span>],
+            drb_result: INITIAL_DRB_RESULT,
+            drb_seed: INITIAL_DRB_SEED_INPUT,
         };
 
         <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(<span class="kw-2">&amp;</span>transactions));
@@ -958,8 +960,8 @@
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
-            drb_result: [<span class="number">0</span>; <span class="number">32</span>],
-            drb_seed: [<span class="number">0</span>; <span class="number">96</span>],
+            drb_result: INITIAL_DRB_RESULT,
+            drb_seed: INITIAL_DRB_SEED_INPUT,
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);

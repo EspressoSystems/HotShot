@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DIFFICULTY_LEVEL","INITIAL_DRB_RESULT","INITIAL_DRB_SEED_INPUT"],"fn":["compute_drb_result","difficulty_level","leader"],"type":["DrbResult","DrbSeedInput"]};
