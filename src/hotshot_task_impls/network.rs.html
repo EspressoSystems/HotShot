@@ -853,6 +853,11 @@
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
 <a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -969,9 +974,7 @@
                             <span class="macro">tracing::error!</span>(<span class="string">"Received upgrade vote!"</span>);
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
-                        GeneralConsensusMessage::HighQc(qc) =&gt; {
-                            HotShotEvent::HighQcRecv(qc.to_qc2(), sender)
-                        }
+                        GeneralConsensusMessage::HighQc(qc) =&gt; HotShotEvent::HighQcRecv(qc, sender),
                     },
                     SequencingMessage::Da(da_message) =&gt; <span class="kw">match </span>da_message {
                         DaConsensusMessage::DaProposal(proposal) =&gt; {
@@ -1505,6 +1508,13 @@
                     TransmitType::Direct(to),
                 ))
             }
+            HotShotEvent::HighQcSend(quorum_cert, leader, sender) =&gt; <span class="prelude-val">Some</span>((
+                sender,
+                MessageKind::Consensus(SequencingMessage::General(
+                    GeneralConsensusMessage::HighQc(quorum_cert),
+                )),
+                TransmitType::Direct(leader),
+            )),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }

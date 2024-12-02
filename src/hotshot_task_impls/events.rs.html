@@ -596,6 +596,10 @@
 <a href="#596" id="596">596</a>
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -840,7 +844,11 @@
     </span>HighQcRecv(QuorumCertificate2&lt;TYPES&gt;, TYPES::SignatureKey),
 
     <span class="doccomment">/// Send our HighQc to the next leader, should go to the same leader as our vote
-    </span>HighQcSend(QuorumCertificate2&lt;TYPES&gt;, TYPES::SignatureKey),
+    </span>HighQcSend(
+        QuorumCertificate2&lt;TYPES&gt;,
+        TYPES::SignatureKey,
+        TYPES::SignatureKey,
+    ),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotEvent&lt;TYPES&gt; {
@@ -920,7 +928,7 @@
             | HotShotEvent::VidRequestRecv(request, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(request.view),
             HotShotEvent::VidResponseSend(<span class="kw">_</span>, <span class="kw">_</span>, proposal)
             | HotShotEvent::VidResponseRecv(<span class="kw">_</span>, proposal) =&gt; <span class="prelude-val">Some</span>(proposal.data.view_number),
-            HotShotEvent::HighQcRecv(qc, <span class="kw">_</span>) | HotShotEvent::HighQcSend(qc, <span class="kw">_</span>) =&gt; {
+            HotShotEvent::HighQcRecv(qc, <span class="kw">_</span>) | HotShotEvent::HighQcSend(qc, ..) =&gt; {
                 <span class="prelude-val">Some</span>(qc.view_number())
             }
         }
@@ -1188,7 +1196,7 @@
             HotShotEvent::HighQcRecv(qc, <span class="kw">_</span>) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"HighQcRecv(view_number={:?}"</span>, qc.view_number())
             }
-            HotShotEvent::HighQcSend(qc, <span class="kw">_</span>) =&gt; {
+            HotShotEvent::HighQcSend(qc, ..) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"HighQcSend(view_number={:?}"</span>, qc.view_number())
             }
         }

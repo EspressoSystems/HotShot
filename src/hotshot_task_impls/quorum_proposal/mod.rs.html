@@ -1056,7 +1056,7 @@
             HotShotEvent::ViewChange(view, <span class="kw">_</span>) | HotShotEvent::Timeout(view) =&gt; {
                 <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
             }
-            HotShotEvent::HighQcSend(qc, _sender) =&gt; {
+            HotShotEvent::HighQcSend(qc, ..) =&gt; {
                 <span class="macro">ensure!</span>(qc.view_number() &gt; <span class="self">self</span>.highest_qc.view_number());
                 <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="macro">ensure!</span>(

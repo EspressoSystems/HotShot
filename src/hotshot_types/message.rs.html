@@ -562,7 +562,7 @@
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, QuorumCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
+        DaCertificate, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
@@ -742,7 +742,7 @@
     </span>ProposalResponse(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// Message for the next leader containing our highest QC
-    </span>HighQc(QuorumCertificate&lt;TYPES&gt;),
+    </span>HighQc(QuorumCertificate2&lt;TYPES&gt;),
 }
 
 <span class="attr">#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
