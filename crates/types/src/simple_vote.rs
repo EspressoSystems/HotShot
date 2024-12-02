@@ -569,20 +569,37 @@ impl<TYPES: NodeType> QuorumVote2<TYPES> {
 }
 
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
+
 /// Quorum vote Alias
 pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 /// Quorum vote Alias
 pub type QuorumVote2<TYPES> = SimpleVote<TYPES, QuorumData2<TYPES>>;
+
 /// DA vote type alias
 pub type DaVote<TYPES> = SimpleVote<TYPES, DaData>;
+/// DA vote 2 type alias
+pub type DaVote2<TYPES> = SimpleVote<TYPES, DaData2<TYPES>>;
+
 /// Timeout Vote type alias
 pub type TimeoutVote<TYPES> = SimpleVote<TYPES, TimeoutData<TYPES>>;
-/// View Sync Commit Vote type alias
-pub type ViewSyncCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncCommitData<TYPES>>;
+/// Timeout Vote 2 type alias
+pub type TimeoutVote2<TYPES> = SimpleVote<TYPES, TimeoutData2<TYPES>>;
+
 /// View Sync Pre Commit Vote type alias
 pub type ViewSyncPreCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncPreCommitData<TYPES>>;
+/// View Sync Pre Commit Vote 2 type alias
+pub type ViewSyncPreCommitVote2<TYPES> = SimpleVote<TYPES, ViewSyncPreCommitData2<TYPES>>;
 /// View Sync Finalize Vote type alias
 pub type ViewSyncFinalizeVote<TYPES> = SimpleVote<TYPES, ViewSyncFinalizeData<TYPES>>;
+/// View Sync Finalize Vote 2 type alias
+pub type ViewSyncFinalizeVote2<TYPES> = SimpleVote<TYPES, ViewSyncFinalizeData2<TYPES>>;
+/// View Sync Commit Vote type alias
+pub type ViewSyncCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncCommitData<TYPES>>;
+/// View Sync Commit Vote 2 type alias
+pub type ViewSyncCommitVote2<TYPES> = SimpleVote<TYPES, ViewSyncCommitData2<TYPES>>;
+
 /// Upgrade proposal vote
 pub type UpgradeVote<TYPES> = SimpleVote<TYPES, UpgradeProposalData<TYPES>>;
+/// Upgrade proposal 2 vote
+pub type UpgradeVote2<TYPES> = SimpleVote<TYPES, UpgradeData2<TYPES>>;
