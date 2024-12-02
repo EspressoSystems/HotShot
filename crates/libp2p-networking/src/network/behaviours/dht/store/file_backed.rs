@@ -50,14 +50,14 @@ fn instant_to_unix_seconds(instant: Instant) -> anyhow::Result<u64> {
     if instant > now_instant {
         Ok(now_system
             .checked_add(instant - now_instant)
-            .with_context(|| "SystemTime overflow when approximating expiration time")?
+            .with_context(|| "Overflow when approximating expiration time")?
             .duration_since(UNIX_EPOCH)
             .with_context(|| "Failed to get duration since Unix epoch")?
             .as_secs())
     } else {
         Ok(now_system
             .checked_sub(now_instant - instant)
-            .with_context(|| "SystemTime underflow when approximating expiration time")?
+            .with_context(|| "Underflow when approximating expiration time")?
             .duration_since(UNIX_EPOCH)
             .with_context(|| "Failed to get duration since Unix epoch")?
             .as_secs())
@@ -143,6 +143,40 @@ impl<R: RecordStore> FileBackedStore<R> {
         store
     }
 
+    /// Attempt to save the DHT to the file at the given path
+    ///
+    /// # Errors
+    /// - If we fail to serialize the DHT
+    /// - If we fail to write the serialized DHT to the file
+    pub fn save_to_file(&mut self) -> anyhow::Result<()> {
+        debug!("Saving DHT to file");
+
+        // Get all records and convert them to their serializable counterparts
+        let serializable_records: Vec<_> = self
+            .underlying_store
+            .records()
+            .filter_map(|record| {
+                SerializableRecord::try_from(record.into_owned())
+                    .map_err(|err| {
+                        warn!("Failed to convert record to serializable record: {:?}", err);
+                    })
+                    .ok()
+            })
+            .collect();
+
+        // Serialize the records
+        let contents = bincode::serialize(&serializable_records)
+            .with_context(|| "Failed to serialize records")?;
+
+        // Write the contents to the file
+        std::fs::write(self.path.clone(), contents)
+            .with_context(|| "Failed to write DHT to file")?;
+
+        debug!("Saved DHT to file");
+
+        Ok(())
+    }
+
     /// Attempt to restore the DHT to the underlying store from the file at the given path
     ///
     /// # Errors
@@ -158,7 +192,7 @@ impl<R: RecordStore> FileBackedStore<R> {
         let serializable_records: Vec<SerializableRecord> =
             bincode::deserialize(&contents).with_context(|| "Failed to parse DHT file")?;
 
-        // Get all records from the original store and put them in the new store
+        // Put all records into the new store
         for serializable_record in serializable_records {
             // Convert the serializable record back to a `libp2p::kad::Record`
             match libp2p::kad::Record::try_from(serializable_record) {
@@ -175,39 +209,6 @@ impl<R: RecordStore> FileBackedStore<R> {
         }
 
         debug!("Restored DHT from file");
-
-        Ok(())
-    }
-
-    /// Attempt to save the DHT to the file at the given path
-    ///
-    /// # Errors
-    /// - If we fail to serialize the DHT
-    /// - If we fail to write the serialized DHT to the file
-    pub fn save_to_file(&mut self) -> anyhow::Result<()> {
-        debug!("Saving DHT to file");
-
-        // Get all records from the underlying store
-        let records = self.underlying_store.records();
-
-        // Parse the records into their serializable counterparts
-        let mut serializable_records = Vec::new();
-        for record in records {
-            match SerializableRecord::try_from(record.into_owned()) {
-                Ok(serializable_record) => serializable_records.push(serializable_record),
-                Err(err) => warn!("Failed to parse record: {:?}", err),
-            }
-        }
-
-        // Serialize the records
-        let contents =
-            bincode::serialize(&serializable_records).with_context(|| "Failed to serialize DHT")?;
-
-        // Write the contents to the file
-        std::fs::write(self.path.clone(), contents)
-            .with_context(|| "Failed to write DHT to file")?;
-
-        debug!("Saved DHT to file");
 
         Ok(())
     }
