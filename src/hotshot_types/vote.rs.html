@@ -248,6 +248,9 @@
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -331,7 +334,10 @@ The votes all must be over the `Commitment` associated type.
     ) -&gt; <span class="kw">impl </span>std::future::Future&lt;Output = bool&gt;;
     <span class="doccomment">/// Returns the amount of stake needed to create this certificate
     </span><span class="comment">// TODO: Make this a static ratio of the total stake of `Membership`
-    </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64;
+    </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+    ) -&gt; u64;
 
     <span class="doccomment">/// Get  Stake Table from Membership implementation.
     </span><span class="kw">fn </span>stake_table&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
@@ -470,12 +476,12 @@ The votes all must be over the `Commitment` associated type.
         <span class="kw-2">*</span>total_stake_casted += stake_table_entry.stake();
         total_vote_map.insert(key, (vote.signature(), vote_commitment));
 
-        <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= CERT::threshold(membership).into() {
+        <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= CERT::threshold(membership, epoch).into() {
             <span class="comment">// Assemble QC
             </span><span class="kw">let </span>real_qc_pp: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
                 &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
                     stake_table,
-                    U256::from(CERT::threshold(membership)),
+                    U256::from(CERT::threshold(membership, epoch)),
                 );
 
             <span class="kw">let </span>real_qc_sig = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::assemble(

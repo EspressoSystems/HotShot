@@ -1023,7 +1023,7 @@
         <span class="kw">for </span>node <span class="kw">in </span><span class="kw-2">&amp;mut *</span>nodes {
             node.handle.shut_down().<span class="kw">await</span>;
         }
-        <span class="macro">tracing::info!</span>(<span class="string">"Nodes shtudown"</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Nodes shutdown"</span>);
 
         completion_handle.abort();
 

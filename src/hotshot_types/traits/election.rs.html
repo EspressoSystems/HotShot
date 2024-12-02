@@ -243,15 +243,15 @@
     </span><span class="kw">fn </span>da_total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; usize;
 
     <span class="doccomment">/// Returns the threshold for a specific `Membership` implementation
-    </span><span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
 
     <span class="doccomment">/// Returns the DA threshold for a specific `Membership` implementation
-    </span><span class="kw">fn </span>da_success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>da_success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
 
     <span class="doccomment">/// Returns the threshold for a specific `Membership` implementation
-    </span><span class="kw">fn </span>failure_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>failure_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
 
     <span class="doccomment">/// Returns the threshold required to upgrade the network protocol
-    </span><span class="kw">fn </span>upgrade_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>upgrade_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
 }
 </code></pre></div></section></main></body></html>

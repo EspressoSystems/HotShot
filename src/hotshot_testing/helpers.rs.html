@@ -588,7 +588,7 @@
     CERT: Certificate&lt;TYPES, VOTE::Commitment, Voteable = VOTE::Commitment&gt;,
 &gt;(
     data: DATAType,
-    membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+    da_membership: <span class="kw-2">&amp;</span>TYPES::Membership,
     view: TYPES::View,
     epoch: TYPES::Epoch,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
@@ -597,7 +597,7 @@
 ) -&gt; CERT {
     <span class="kw">let </span>real_qc_sig = build_assembled_sig::&lt;TYPES, V, VOTE, CERT, DATAType&gt;(
         <span class="kw-2">&amp;</span>data,
-        membership,
+        da_membership,
         view,
         epoch,
         upgrade_lock,
@@ -663,7 +663,7 @@
     <span class="kw">let </span>real_qc_pp: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table.clone(),
-            U256::from(CERT::threshold(membership)),
+            U256::from(CERT::threshold(membership, epoch)),
         );
     <span class="kw">let </span>total_nodes = stake_table.len();
     <span class="kw">let </span>signers = <span class="macro">bitvec!</span>[<span class="number">1</span>; total_nodes];

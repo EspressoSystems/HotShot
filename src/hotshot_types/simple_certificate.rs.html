@@ -426,6 +426,24 @@
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -452,7 +470,7 @@
     data::serialize_signature2,
     message::UpgradeLock,
     simple_vote::{
-        DaData, QuorumData, QuorumData2, QuorumMaker, TimeoutData, UpgradeProposalData,
+        DaData, QuorumData, QuorumData2, QuorumMarker, TimeoutData, UpgradeProposalData,
         VersionedVoteData, ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData,
         Voteable,
     },
@@ -467,7 +485,10 @@
 <span class="doccomment">/// Trait which allows use to inject different threshold calculations into a Certificate type
 </span><span class="kw">pub trait </span>Threshold&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Calculate a threshold based on the membership
-    </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64;
+    </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+    ) -&gt; u64;
 }
 
 <span class="doccomment">/// Defines a threshold which is 2f + 1 (Amount needed for Quorum)
@@ -475,8 +496,11 @@
 </span><span class="kw">pub struct </span>SuccessThreshold {}
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Threshold&lt;TYPES&gt; <span class="kw">for </span>SuccessThreshold {
-    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
-        membership.success_threshold().into()
+    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+    ) -&gt; u64 {
+        membership.success_threshold(epoch).into()
     }
 }
 
@@ -485,8 +509,11 @@
 </span><span class="kw">pub struct </span>OneHonestThreshold {}
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Threshold&lt;TYPES&gt; <span class="kw">for </span>OneHonestThreshold {
-    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
-        membership.failure_threshold().into()
+    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+    ) -&gt; u64 {
+        membership.failure_threshold(epoch).into()
     }
 }
 
@@ -495,8 +522,11 @@
 </span><span class="kw">pub struct </span>UpgradeThreshold {}
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Threshold&lt;TYPES&gt; <span class="kw">for </span>UpgradeThreshold {
-    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
-        membership.upgrade_threshold().into()
+    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+    ) -&gt; u64 {
+        membership.upgrade_threshold(epoch).into()
     }
 }
 
@@ -620,8 +650,11 @@
     ) -&gt; usize {
         membership.da_total_nodes(epoch)
     }
-    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
-        membership.da_success_threshold().into()
+    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+    ) -&gt; u64 {
+        membership.da_success_threshold(epoch).into()
     }
     <span class="kw">fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Voteable {
         <span class="kw-2">&amp;</span><span class="self">self</span>.data
@@ -638,7 +671,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">'static </span>+ QuorumMaker, THRESHOLD: Threshold&lt;TYPES&gt;&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, VOTEABLE: Voteable + <span class="lifetime">'static </span>+ QuorumMarker, THRESHOLD: Threshold&lt;TYPES&gt;&gt;
     Certificate&lt;TYPES, VOTEABLE&gt; <span class="kw">for </span>SimpleCertificate&lt;TYPES, VOTEABLE, THRESHOLD&gt;
 {
     <span class="kw">type </span>Voteable = VOTEABLE;
@@ -682,8 +715,11 @@
             <span class="self">self</span>.signatures.as_ref().unwrap(),
         )
     }
-    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(membership: <span class="kw-2">&amp;</span>MEMBERSHIP) -&gt; u64 {
-        THRESHOLD::threshold(membership)
+    <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
+        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+    ) -&gt; u64 {
+        THRESHOLD::threshold(membership, epoch)
     }
 
     <span class="kw">fn </span>stake_table_entry&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
@@ -773,7 +809,7 @@
             <span class="macro">ensure!</span>(
                 cert.is_valid_cert(
                     quorum_membership.stake_table(epoch),
-                    quorum_membership.upgrade_threshold(),
+                    quorum_membership.upgrade_threshold(epoch),
                     upgrade_lock
                 )
                 .<span class="kw">await</span>,

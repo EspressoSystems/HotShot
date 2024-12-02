@@ -427,7 +427,7 @@
 };
 
 <span class="doccomment">/// Marker that data should use the quorum cert type
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>QuorumMaker {}
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>QuorumMarker {}
 
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a yes vote.
@@ -519,13 +519,13 @@
     </span><span class="kw">impl</span>&lt;C: Committable&gt; Sealed <span class="kw">for </span>C {}
 }
 
-<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>QuorumData&lt;T&gt; {}
-<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>QuorumData2&lt;T&gt; {}
-<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>TimeoutData&lt;T&gt; {}
-<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>ViewSyncPreCommitData&lt;T&gt; {}
-<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>ViewSyncCommitData&lt;T&gt; {}
-<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMaker <span class="kw">for </span>ViewSyncFinalizeData&lt;T&gt; {}
-<span class="kw">impl</span>&lt;T: NodeType + DeserializeOwned&gt; QuorumMaker <span class="kw">for </span>UpgradeProposalData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>QuorumData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>QuorumData2&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>TimeoutData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>ViewSyncPreCommitData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>ViewSyncCommitData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>ViewSyncFinalizeData&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType + DeserializeOwned&gt; QuorumMarker <span class="kw">for </span>UpgradeProposalData&lt;T&gt; {}
 
 <span class="doccomment">/// A simple yes vote over some votable type.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]

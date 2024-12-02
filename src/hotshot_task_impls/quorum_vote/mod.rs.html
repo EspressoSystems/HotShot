@@ -1242,7 +1242,7 @@
                 </span><span class="macro">ensure!</span>(
                     cert.is_valid_cert(
                         <span class="self">self</span>.membership.da_stake_table(cur_epoch),
-                        <span class="self">self</span>.membership.da_success_threshold(),
+                        <span class="self">self</span>.membership.da_success_threshold(cur_epoch),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                     )
                     .<span class="kw">await</span>,

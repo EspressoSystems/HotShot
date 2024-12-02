@@ -568,6 +568,97 @@
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -581,25 +672,41 @@
 <span class="kw">use </span>quote::{format_ident, quote};
 <span class="kw">use </span>syn::{
     parse::{Parse, ParseStream, <span class="prelude-ty">Result</span>},
-    parse_macro_input, Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, Token,
+    parse_macro_input,
+    punctuated::Punctuated,
+    Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, PathArguments, Token, TypePath,
 };
+
+<span class="doccomment">/// Bracketed types, e.g. [A, B, C&lt;D&gt;]
+/// These types can have generic parameters, whereas ExprArray items must be Expr.
+</span><span class="attr">#[derive(derive_builder::Builder, Debug, Clone)]
+</span><span class="kw">struct </span>TypePathBracketedArray {
+    <span class="doccomment">/// elems
+    </span><span class="kw">pub </span>elems: Punctuated&lt;TypePath, <span class="macro">Token!</span>[,]&gt;,
+}
 
 <span class="doccomment">/// description of a crosstest
 </span><span class="attr">#[derive(derive_builder::Builder, Debug, Clone)]
 </span><span class="kw">struct </span>CrossTestData {
     <span class="doccomment">/// imlementations
     </span>impls: ExprArray,
+
     <span class="doccomment">/// builder impl
     </span><span class="attr">#[builder(default = <span class="string">"syn::parse_str(\"[SimpleBuilderImplementation]\").unwrap()"</span>)]
     </span>builder_impls: ExprArray,
+
     <span class="doccomment">/// versions
     </span>versions: ExprArray,
+
     <span class="doccomment">/// types
-    </span>types: ExprArray,
+    </span>types: TypePathBracketedArray,
+
     <span class="doccomment">/// name of the test
     </span>test_name: Ident,
+
     <span class="doccomment">/// test description/spec
     </span>metadata: Expr,
+
     <span class="doccomment">/// whether or not to ignore
     </span>ignore: LitBool,
 }
@@ -621,17 +728,23 @@
 </span><span class="attr">#[derive(derive_builder::Builder, Debug, Clone)]
 </span><span class="kw">struct </span>TestData {
     <span class="doccomment">/// type
-    </span>ty: ExprPath,
+    </span>ty: TypePath,
+
     <span class="doccomment">/// impl
     </span>imply: ExprPath,
+
     <span class="doccomment">/// builder implementation
     </span>builder_impl: ExprPath,
+
     <span class="doccomment">/// impl
     </span>version: ExprPath,
+
     <span class="doccomment">/// name of test
     </span>test_name: Ident,
+
     <span class="doccomment">/// test description
     </span>metadata: Expr,
+
     <span class="doccomment">/// whether or not to ignore the test
     </span>ignore: LitBool,
 }
@@ -649,6 +762,58 @@
             .iter()
             .fold(String::new(), |<span class="kw-2">mut </span>acc, s| {
                 acc.push_str(<span class="kw-2">&amp;</span>s.ident.to_string().to_lowercase());
+                acc.push(<span class="string">'_'</span>);
+                acc
+            })
+            .to_lowercase()
+    }
+}
+
+<span class="kw">impl </span>ToLowerSnakeStr <span class="kw">for </span>syn::GenericArgument {
+    <span class="doccomment">/// allow panic because this is a compiler error
+    </span><span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">fn </span>to_lower_snake_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">match </span><span class="self">self </span>{
+            syn::GenericArgument::Lifetime(l) =&gt; l.ident.to_string().to_lowercase(),
+            syn::GenericArgument::Type(t) =&gt; <span class="kw">match </span>t {
+                syn::Type::Path(p) =&gt; p.to_lower_snake_str(),
+                <span class="kw">_ </span>=&gt; {
+                    <span class="macro">panic!</span>(<span class="string">"Unexpected type for GenericArgument::Type: {t:?}"</span>);
+                }
+            },
+            syn::GenericArgument::Const(c) =&gt; <span class="kw">match </span>c {
+                syn::Expr::Lit(l) =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>l.lit {
+                    syn::Lit::Str(v) =&gt; <span class="macro">format!</span>(<span class="string">"{}_"</span>, v.value().to_lowercase()),
+                    syn::Lit::Int(v) =&gt; <span class="macro">format!</span>(<span class="string">"{}_"</span>, v.base10_digits()),
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="macro">panic!</span>(<span class="string">"Unexpected type for GenericArgument::Const::Lit: {l:?}"</span>);
+                    }
+                },
+                <span class="kw">_ </span>=&gt; {
+                    <span class="macro">panic!</span>(<span class="string">"Unexpected type for GenericArgument::Const: {c:?}"</span>);
+                }
+            },
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">panic!</span>(<span class="string">"Unexpected type for GenericArgument: {self:?}"</span>);
+            }
+        }
+    }
+}
+
+<span class="kw">impl </span>ToLowerSnakeStr <span class="kw">for </span>TypePath {
+    <span class="kw">fn </span>to_lower_snake_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="self">self</span>.path
+            .segments
+            .iter()
+            .fold(String::new(), |<span class="kw-2">mut </span>acc, s| {
+                acc.push_str(<span class="kw-2">&amp;</span>s.ident.to_string().to_lowercase());
+                <span class="kw">if let </span>PathArguments::AngleBracketed(a) = <span class="kw-2">&amp;</span>s.arguments {
+                    acc.push(<span class="string">'_'</span>);
+                    <span class="kw">for </span>arg <span class="kw">in </span><span class="kw-2">&amp;</span>a.args {
+                        acc.push_str(<span class="kw-2">&amp;</span>arg.to_lower_snake_str());
+                    }
+                }
+
                 acc.push(<span class="string">'_'</span>);
                 acc
             })
@@ -719,6 +884,28 @@
     <span class="macro">syn::custom_keyword!</span>(Versions);
 }
 
+<span class="kw">impl </span>Parse <span class="kw">for </span>TypePathBracketedArray {
+    <span class="doccomment">/// allow panic because this is a compiler error
+    </span><span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>content;
+        <span class="macro">syn::bracketed!</span>(content <span class="kw">in </span>input);
+        <span class="kw">let </span><span class="kw-2">mut </span>elems = Punctuated::new();
+
+        <span class="kw">while </span>!content.is_empty() {
+            <span class="kw">let </span>first: TypePath = content.parse()<span class="question-mark">?</span>;
+            elems.push_value(first);
+            <span class="kw">if </span>content.is_empty() {
+                <span class="kw">break</span>;
+            }
+            <span class="kw">let </span>punct = content.parse()<span class="question-mark">?</span>;
+            elems.push_punct(punct);
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ elems })
+    }
+}
+
 <span class="kw">impl </span>Parse <span class="kw">for </span>CrossTestData {
     <span class="doccomment">/// allow panic because this is a compiler error
     </span><span class="attr">#[allow(clippy::panic)]
@@ -729,8 +916,8 @@
             <span class="kw">if </span>input.peek(keywords::Types) {
                 <span class="kw">let _ </span>= input.parse::&lt;keywords::Types&gt;()<span class="question-mark">?</span>;
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
-                <span class="kw">let </span>types = input.parse::&lt;ExprArray&gt;()<span class="question-mark">?</span>;
-                description.types(types);
+                <span class="kw">let </span>types = input.parse::&lt;TypePathBracketedArray&gt;()<span class="question-mark">?</span>; <span class="comment">//ExprArray&gt;()?;
+                </span>description.types(types);
             } <span class="kw">else if </span>input.peek(keywords::Impls) {
                 <span class="kw">let _ </span>= input.parse::&lt;keywords::Impls&gt;()<span class="question-mark">?</span>;
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
@@ -786,13 +973,8 @@
         };
         p
     });
-    <span class="comment">//
-    </span><span class="kw">let </span>types = test_spec.types.elems.iter().map(|t| {
-        <span class="kw">let </span>Expr::Path(p) = t <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">"Expected Path for Type! Got {t:?}"</span>);
-        };
-        p
-    });
+
+    <span class="kw">let </span>types = test_spec.types.elems.iter();
 
     <span class="kw">let </span>versions = test_spec.versions.elems.iter().map(|t| {
         <span class="kw">let </span>Expr::Path(p) = t <span class="kw">else </span>{

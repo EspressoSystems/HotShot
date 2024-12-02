@@ -347,6 +347,9 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -635,7 +638,10 @@
         task_state
             .membership
             .has_stake(<span class="kw-2">&amp;</span>task_state.public_key, task_state.cur_epoch),
-        <span class="macro">debug!</span>(<span class="string">"We were not chosen for the consensus committee for view {view_number:?}"</span>)
+        <span class="macro">debug!</span>(
+            <span class="string">"We were not chosen for the consensus committee for view {:?}"</span>,
+            view_number
+        )
     );
 
     <span class="kw">let </span>vote = TimeoutVote::create_signed_vote(

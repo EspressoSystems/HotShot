@@ -448,6 +448,7 @@
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -662,13 +663,14 @@
     <span class="doccomment">/// Add a value to the counter
     </span><span class="kw">fn </span>add(<span class="kw-2">&amp;</span><span class="self">self</span>, amount: usize);
 }
+
 <span class="doccomment">/// A gauge that stores the latest value.
 </span><span class="kw">pub trait </span>Gauge: Send + Sync + Debug + DynClone {
     <span class="doccomment">/// Set the gauge value
     </span><span class="kw">fn </span>set(<span class="kw-2">&amp;</span><span class="self">self</span>, amount: usize);
 
     <span class="doccomment">/// Update the gauge value
-    </span><span class="kw">fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>, delts: i64);
+    </span><span class="kw">fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>, delta: i64);
 }
 
 <span class="doccomment">/// A histogram which will record a series of points.

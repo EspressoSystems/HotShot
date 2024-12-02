@@ -998,7 +998,7 @@
                     certificate
                         .is_valid_cert(
                             <span class="self">self</span>.quorum_membership.stake_table(epoch_number),
-                            <span class="self">self</span>.quorum_membership.success_threshold(),
+                            <span class="self">self</span>.quorum_membership.success_threshold(epoch_number),
                             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                         )
                         .<span class="kw">await</span>,
@@ -1062,11 +1062,11 @@
                 <span class="macro">ensure!</span>(
                     qc.is_valid_cert(
                         <span class="self">self</span>.quorum_membership.stake_table(epoch_number),
-                        <span class="self">self</span>.quorum_membership.success_threshold(),
+                        <span class="self">self</span>.quorum_membership.success_threshold(epoch_number),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                     )
                     .<span class="kw">await</span>,
-                    <span class="macro">warn!</span>(<span class="string">"Qurom certificate {:?} was invalid"</span>, qc.data())
+                    <span class="macro">warn!</span>(<span class="string">"Quorum certificate {:?} was invalid"</span>, qc.data())
                 );
                 <span class="self">self</span>.highest_qc = qc.clone();
             }

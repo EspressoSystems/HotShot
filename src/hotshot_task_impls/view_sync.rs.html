@@ -1417,7 +1417,7 @@
                 </span><span class="kw">if </span>!certificate
                     .is_valid_cert(
                         <span class="self">self</span>.membership.stake_table(<span class="self">self</span>.cur_epoch),
-                        <span class="self">self</span>.membership.failure_threshold(),
+                        <span class="self">self</span>.membership.failure_threshold(<span class="self">self</span>.cur_epoch),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await
@@ -1503,7 +1503,7 @@
                 </span><span class="kw">if </span>!certificate
                     .is_valid_cert(
                         <span class="self">self</span>.membership.stake_table(<span class="self">self</span>.cur_epoch),
-                        <span class="self">self</span>.membership.success_threshold(),
+                        <span class="self">self</span>.membership.success_threshold(<span class="self">self</span>.cur_epoch),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await
@@ -1600,7 +1600,7 @@
                 </span><span class="kw">if </span>!certificate
                     .is_valid_cert(
                         <span class="self">self</span>.membership.stake_table(<span class="self">self</span>.cur_epoch),
-                        <span class="self">self</span>.membership.success_threshold(),
+                        <span class="self">self</span>.membership.success_threshold(<span class="self">self</span>.cur_epoch),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await
