@@ -143,6 +143,18 @@ pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
     pub new_version_first_view: TYPES::View,
 }
 
+/// Data used for an upgrade once epochs are implemented
+pub struct UpgradeData2<TYPES: NodeType> {
+    /// The old version that we are upgrading from
+    pub old_version: Version,
+    /// The new version that we are upgrading to
+    pub new_version: Version,
+    /// A unique identifier for the specific protocol being voted on
+    pub hash: Vec<u8>,
+    /// The first epoch in which the upgrade will be in effect
+    pub epoch: TYPES::Epoch,
+}
+
 /// Marker trait for data or commitments that can be voted on.
 /// Only structs in this file can implement voteable.  This is enforced with the `Sealed` trait
 /// Sealing this trait prevents creating new vote types outside this file.
@@ -367,6 +379,25 @@ impl Committable for DaData {
     }
 }
 
+impl<TYPES: NodeType> Committable for DaData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let DaData2 {
+            payload_commit,
+            epoch,
+        } = self;
+        if **epoch == 0 {
+            committable::RawCommitmentBuilder::new("DA data")
+                .var_size_bytes(payload_commit.as_ref())
+                .finalize()
+        } else {
+            committable::RawCommitmentBuilder::new("DA data")
+                .var_size_bytes(payload_commit.as_ref())
+                .u64(**epoch)
+                .finalize()
+        }
+    }
+}
+
 impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         let builder = committable::RawCommitmentBuilder::new("Upgrade data");
@@ -379,6 +410,26 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
             .u16(self.new_version.major)
             .u16(self.old_version.minor)
             .u16(self.old_version.major)
+            .finalize()
+    }
+}
+
+impl<TYPES: NodeType> Committable for UpgradeData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let UpgradeData2 {
+            old_version,
+            new_version,
+            hash,
+            epoch,
+        } = self;
+
+        committable::RawCommitmentBuilder::new("Upgrade data")
+            .u16(old_version.minor)
+            .u16(old_version.major)
+            .u16(new_version.minor)
+            .u16(new_version.major)
+            .var_size_bytes(hash.as_slice())
+            .u64(**epoch)
             .finalize()
     }
 }
@@ -399,14 +450,75 @@ impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> Committable for ViewSyncPreCommitData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let ViewSyncPreCommitData2 {
+            relay,
+            round,
+            epoch,
+        } = self;
+
+        if **epoch == 0 {
+            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Precommit")
+        } else {
+            committable::RawCommitmentBuilder::new("View Sync Precommit")
+                .u64(*relay)
+                .u64(**round)
+                .u64(**epoch)
+                .finalize()
+        }
+    }
+}
+
 impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
     }
 }
+
+impl<TYPES: NodeType> Committable for ViewSyncFinalizeData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let ViewSyncFinalizeData2 {
+            relay,
+            round,
+            epoch,
+        } = self;
+
+        if **epoch == 0 {
+            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Finalize")
+        } else {
+            committable::RawCommitmentBuilder::new("View Sync Finalize")
+                .u64(*relay)
+                .u64(**round)
+                .u64(**epoch)
+                .finalize()
+        }
+    }
+}
+
 impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
+    }
+}
+
+impl<TYPES: NodeType> Committable for ViewSyncCommitData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let ViewSyncCommitData2 {
+            relay,
+            round,
+            epoch,
+        } = self;
+
+        if **epoch == 0 {
+            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Commit")
+        } else {
+            committable::RawCommitmentBuilder::new("View Sync Commit")
+                .u64(*relay)
+                .u64(**round)
+                .u64(**epoch)
+                .finalize()
+        }
     }
 }
 
