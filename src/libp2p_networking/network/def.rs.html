@@ -151,6 +151,9 @@
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -170,7 +173,10 @@
 <span class="kw">use </span>libp2p_swarm_derive::NetworkBehaviour;
 <span class="kw">use </span>tracing::{debug, error};
 
-<span class="kw">use super</span>::{behaviours::dht::store::ValidatedStore, cbor, NetworkEventInternal};
+<span class="kw">use super</span>::{
+    behaviours::dht::store::{file_backed::FileBackedStore, validated::ValidatedStore},
+    cbor, NetworkEventInternal,
+};
 
 <span class="doccomment">/// Overarching network behaviour performing:
 /// - network topology discovery
@@ -187,10 +193,10 @@
     </span><span class="attr">#[debug(skip)]
     </span>gossipsub: GossipBehaviour,
 
-    <span class="doccomment">/// purpose: peer routing
-    /// purpose: storing pub key &lt;-&gt; peer id bijection
+    <span class="doccomment">/// The DHT store. We use a `FileBackedStore` to occasionally save the DHT to
+    /// a file on disk and a `ValidatedStore` to validate the records stored.
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>dht: libp2p::kad::Behaviour&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;,
+    </span><span class="kw">pub </span>dht: libp2p::kad::Behaviour&lt;FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;&gt;,
 
     <span class="doccomment">/// purpose: identifying the addresses from an outside POV
     </span><span class="attr">#[debug(skip)]
@@ -211,7 +217,7 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
         gossipsub: GossipBehaviour,
-        dht: libp2p::kad::Behaviour&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;,
+        dht: libp2p::kad::Behaviour&lt;FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;&gt;,
         identify: IdentifyBehaviour,
         direct_message: <span class="kw">super</span>::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
         autonat: autonat::Behaviour,

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ValidatedStore"]};
+window.SIDEBAR_ITEMS = {"mod":["file_backed","validated"]};

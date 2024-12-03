@@ -750,6 +750,17 @@
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -811,7 +822,7 @@
 <span class="kw">use super</span>::{
     behaviours::dht::{
         bootstrap::{DHTBootstrapTask, InputEvent},
-        store::ValidatedStore,
+        store::{file_backed::FileBackedStore, validated::ValidatedStore},
     },
     cbor::Cbor,
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
@@ -1005,9 +1016,20 @@
                 <span class="macro">panic!</span>(<span class="string">"Replication factor not set"</span>);
             }
 
-            <span class="kw">let </span><span class="kw-2">mut </span>kadem = Behaviour::with_config(
+            <span class="comment">// Extract the DHT file path from the config, defaulting to `libp2p_dht.json`
+            </span><span class="kw">let </span>dht_file_path = config
+                .dht_file_path
+                .clone()
+                .unwrap_or_else(|| <span class="string">"libp2p_dht.bin"</span>.into());
+
+            <span class="comment">// Create the DHT behaviour
+            </span><span class="kw">let </span><span class="kw-2">mut </span>kadem = Behaviour::with_config(
                 peer_id,
-                ValidatedStore::new(MemoryStore::new(peer_id)),
+                FileBackedStore::new(
+                    ValidatedStore::new(MemoryStore::new(peer_id)),
+                    dht_file_path,
+                    <span class="number">10</span>,
+                ),
                 kconfig,
             );
             kadem.set_mode(<span class="prelude-val">Some</span>(Mode::Server));
