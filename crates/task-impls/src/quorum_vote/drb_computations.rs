@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{btree_map, BTreeMap};
 
 use hotshot_types::{
     drb::{compute_drb_result, DrbResult, DrbSeedInput},
@@ -71,12 +71,20 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
         }
     }
 
-    /// Starts a new task. If a previous task is currently live, will attempt to join it (if finished), or abort it.
-    pub async fn start_new_task(&mut self, epoch: TYPES::Epoch, drb_seed_input: DrbSeedInput) {
-        self.join_or_abort_task().await;
+    /// Stores a seed for a particular epoch for later use by start_new_task()
+    pub fn store_seed(&mut self, epoch: TYPES::Epoch, drb_seed_input: DrbSeedInput) {
         self.seeds.insert(epoch, drb_seed_input);
-        let new_drb_task = spawn(async move { compute_drb_result::<TYPES>(drb_seed_input) });
-        self.task = Some((epoch, new_drb_task));
+    }
+
+    /// Starts a new task. If a previous task is currently live, will attempt to join it (if finished), or abort it.
+    pub async fn start_new_task(&mut self, epoch: TYPES::Epoch) {
+        self.join_or_abort_task().await;
+        if let btree_map::Entry::Occupied(entry) = self.seeds.entry(epoch) {
+            let drb_seed_input = *entry.get();
+            let new_drb_task = spawn(async move { compute_drb_result::<TYPES>(drb_seed_input) });
+            self.task = Some((epoch, new_drb_task));
+            entry.remove();
+        }
     }
 
     /// Retrieves the result for a given epoch

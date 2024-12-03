@@ -173,9 +173,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
                 .block_number();
 
             // Skip if this is not the expected block.
-            if task_state.epoch_height != 0
-                && (decided_block_number + 3) % task_state.epoch_height == 0
-            {
+            if task_state.epoch_height != 0 && decided_block_number % task_state.epoch_height == 0 {
                 // Cancel old DRB computation tasks.
                 let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
                     decided_block_number,
@@ -189,9 +187,9 @@ pub(crate) async fn handle_quorum_proposal_validated<
                 // Skip if we are not in the committee of the next epoch.
                 if task_state
                     .membership
-                    .has_stake(&task_state.public_key, current_epoch_number + 1)
+                    .has_stake(&task_state.public_key, current_epoch_number)
                 {
-                    let new_epoch_number = current_epoch_number + 2;
+                    let new_epoch_number = current_epoch_number + 1;
                     let Ok(drb_seed_input_vec) =
                         bincode::serialize(&proposal.justify_qc.signatures)
                     else {
@@ -203,14 +201,16 @@ pub(crate) async fn handle_quorum_proposal_validated<
                         );
                     };
 
+                    // Store the drb seed input for the next calculation
+                    task_state
+                        .drb_computations
+                        .store_seed(new_epoch_number, drb_seed_input);
+
                     // This will join_or_abort_task before starting the new task
                     task_state
                         .drb_computations
-                        .start_new_task(new_epoch_number, drb_seed_input)
+                        .start_new_task(current_epoch_number)
                         .await;
-                } else {
-                    // Only needed if we aren't starting a new task
-                    task_state.drb_computations.join_or_abort_task().await;
                 }
             }
         }
