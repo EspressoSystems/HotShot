@@ -50,7 +50,7 @@ pub(crate) enum ProposalDependency {
     /// For the `Qc2Formed` event.
     Qc,
 
-    /// For the `ViewSyncFinalizeCertificate2Recv` event.
+    /// For the `ViewSyncFinalizeCertificateRecv` event.
     ViewSyncCert,
 
     /// For the `Qc2Formed` event timeout branch.
@@ -375,7 +375,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                         parent_qc = Some(qc.clone());
                     }
                 },
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
+                HotShotEvent::ViewSyncFinalizeCertificateRecv(cert) => {
                     view_sync_finalize_cert = Some(cert.clone());
                 }
                 HotShotEvent::VidDisperseSend(share, _) => {

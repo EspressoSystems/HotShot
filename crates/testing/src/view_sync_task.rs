@@ -50,10 +50,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             | HotShotEvent::ViewSyncFinalizeVoteSend(_)
             | HotShotEvent::ViewSyncPreCommitCertificateRecv(_)
             | HotShotEvent::ViewSyncCommitCertificateRecv(_)
-            | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
+            | HotShotEvent::ViewSyncFinalizeCertificateRecv(_)
             | HotShotEvent::ViewSyncPreCommitCertificateSend(_, _)
             | HotShotEvent::ViewSyncCommitCertificateSend(_, _)
-            | HotShotEvent::ViewSyncFinalizeCertificate2Send(_, _)
+            | HotShotEvent::ViewSyncFinalizeCertificateSend(_, _)
             | HotShotEvent::ViewSyncTrigger(_) => {
                 self.hit_view_sync.insert(id);
             }

@@ -18,7 +18,7 @@ use hotshot_types::{
     message::UpgradeLock,
     simple_certificate::{
         DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncCommitCertificate, ViewSyncFinalizeCertificate2,
+        UpgradeCertificate, ViewSyncCommitCertificate, ViewSyncFinalizeCertificate,
         ViewSyncPreCommitCertificate,
     },
     simple_vote::{
@@ -328,7 +328,7 @@ type ViewSyncCommitVoteState<TYPES, V> =
 type ViewSyncFinalizeVoteState<TYPES, V> = VoteCollectionTaskState<
     TYPES,
     ViewSyncFinalizeVote<TYPES>,
-    ViewSyncFinalizeCertificate2<TYPES>,
+    ViewSyncFinalizeCertificate<TYPES>,
     V,
 >;
 
@@ -461,7 +461,7 @@ impl<TYPES: NodeType>
 }
 
 impl<TYPES: NodeType>
-    AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
+    AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate<TYPES>>
     for ViewSyncFinalizeVote<TYPES>
 {
     fn leader(
@@ -472,10 +472,10 @@ impl<TYPES: NodeType>
         membership.leader(self.date().round + self.date().relay, epoch)
     }
     fn make_cert_event(
-        certificate: ViewSyncFinalizeCertificate2<TYPES>,
+        certificate: ViewSyncFinalizeCertificate<TYPES>,
         key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, key.clone())
+        HotShotEvent::ViewSyncFinalizeCertificateSend(certificate, key.clone())
     }
 }
 
@@ -604,14 +604,14 @@ impl<TYPES: NodeType, V: Versions>
 
 #[async_trait]
 impl<TYPES: NodeType, V: Versions>
-    HandleVoteEvent<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
+    HandleVoteEvent<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate<TYPES>>
     for ViewSyncFinalizeVoteState<TYPES, V>
 {
     async fn handle_vote_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<Option<ViewSyncFinalizeCertificate2<TYPES>>> {
+    ) -> Result<Option<ViewSyncFinalizeCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
                 self.accumulate_vote(vote, sender).await

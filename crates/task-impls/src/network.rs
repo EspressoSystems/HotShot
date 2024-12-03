@@ -101,7 +101,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::ViewSyncFinalizeVoteRecv(view_sync_message)
                         }
                         GeneralConsensusMessage::ViewSyncFinalizeCertificate(view_sync_message) => {
-                            HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message)
+                            HotShotEvent::ViewSyncFinalizeCertificateRecv(view_sync_message)
                         }
                         GeneralConsensusMessage::TimeoutVote(message) => {
                             HotShotEvent::TimeoutVoteRecv(message)
@@ -594,7 +594,7 @@ impl<
                 )),
                 TransmitType::Broadcast,
             )),
-            HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) => Some((
+            HotShotEvent::ViewSyncFinalizeCertificateSend(certificate, sender) => Some((
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(certificate),

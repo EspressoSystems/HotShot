@@ -33,7 +33,7 @@ use crate::{
     message::{Proposal, UpgradeLock},
     simple_certificate::{
         QuorumCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        ViewSyncFinalizeCertificate,
     },
     simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -238,7 +238,7 @@ pub enum ViewChangeEvidence<TYPES: NodeType> {
     /// Holds a timeout certificate.
     Timeout(TimeoutCertificate<TYPES>),
     /// Holds a view sync finalized certificate.
-    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
+    ViewSync(ViewSyncFinalizeCertificate<TYPES>),
 }
 
 impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {

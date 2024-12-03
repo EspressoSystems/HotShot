@@ -18,7 +18,7 @@ use hotshot_types::{
     request_response::ProposalRequestPayload,
     simple_certificate::{
         DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncCommitCertificate, ViewSyncFinalizeCertificate2,
+        UpgradeCertificate, ViewSyncCommitCertificate, ViewSyncFinalizeCertificate,
         ViewSyncPreCommitCertificate,
     },
     simple_vote::{
@@ -149,15 +149,15 @@ pub enum HotShotEvent<TYPES: NodeType> {
     ViewSyncPreCommitCertificateRecv(ViewSyncPreCommitCertificate<TYPES>),
     /// Receive a `ViewSyncCommitCertificate` from the network; received by a replica in the view sync task
     ViewSyncCommitCertificateRecv(ViewSyncCommitCertificate<TYPES>),
-    /// Receive a `ViewSyncFinalizeCertificate2` from the network; received by a replica in the view sync task
-    ViewSyncFinalizeCertificate2Recv(ViewSyncFinalizeCertificate2<TYPES>),
+    /// Receive a `ViewSyncFinalizeCertificate` from the network; received by a replica in the view sync task
+    ViewSyncFinalizeCertificateRecv(ViewSyncFinalizeCertificate<TYPES>),
 
     /// Send a `ViewSyncPreCommitCertificate` from the network; emitted by a relay in the view sync task
     ViewSyncPreCommitCertificateSend(ViewSyncPreCommitCertificate<TYPES>, TYPES::SignatureKey),
     /// Send a `ViewSyncCommitCertificate` from the network; emitted by a relay in the view sync task
     ViewSyncCommitCertificateSend(ViewSyncCommitCertificate<TYPES>, TYPES::SignatureKey),
-    /// Send a `ViewSyncFinalizeCertificate2` from the network; emitted by a relay in the view sync task
-    ViewSyncFinalizeCertificate2Send(ViewSyncFinalizeCertificate2<TYPES>, TYPES::SignatureKey),
+    /// Send a `ViewSyncFinalizeCertificate` from the network; emitted by a relay in the view sync task
+    ViewSyncFinalizeCertificateSend(ViewSyncFinalizeCertificate<TYPES>, TYPES::SignatureKey),
 
     /// Trigger the start of the view sync protocol; emitted by view sync task; internal trigger only
     ViewSyncTrigger(TYPES::View),
@@ -293,8 +293,8 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::ViewSyncPreCommitCertificateSend(cert, _) => Some(cert.view_number()),
             HotShotEvent::ViewSyncCommitCertificateRecv(cert)
             | HotShotEvent::ViewSyncCommitCertificateSend(cert, _) => Some(cert.view_number()),
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert)
-            | HotShotEvent::ViewSyncFinalizeCertificate2Send(cert, _) => Some(cert.view_number()),
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(cert)
+            | HotShotEvent::ViewSyncFinalizeCertificateSend(cert, _) => Some(cert.view_number()),
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _, _) => {
                 Some(*view_number)
             }
@@ -465,10 +465,10 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     cert.view_number()
                 )
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(cert) => {
                 write!(
                     f,
-                    "ViewSyncFinalizeCertificate2Recv(view_number={:?})",
+                    "ViewSyncFinalizeCertificateRecv(view_number={:?})",
                     cert.view_number()
                 )
             }
@@ -486,10 +486,10 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     cert.view_number()
                 )
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Send(cert, _) => {
+            HotShotEvent::ViewSyncFinalizeCertificateSend(cert, _) => {
                 write!(
                     f,
-                    "ViewSyncFinalizeCertificate2Send(view_number={:?})",
+                    "ViewSyncFinalizeCertificateSend(view_number={:?})",
                     cert.view_number()
                 )
             }

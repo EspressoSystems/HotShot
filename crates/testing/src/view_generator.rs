@@ -28,7 +28,7 @@ use hotshot_types::{
     message::{Proposal, UpgradeLock},
     simple_certificate::{
         DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate2,
+        UpgradeCertificate, ViewSyncFinalizeCertificate,
     },
     simple_vote::{
         DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
@@ -307,7 +307,7 @@ impl TestView {
                 TestVersions,
                 ViewSyncFinalizeData<TestTypes>,
                 ViewSyncFinalizeVote<TestTypes>,
-                ViewSyncFinalizeCertificate2<TestTypes>,
+                ViewSyncFinalizeCertificate<TestTypes>,
             >(
                 data.clone(),
                 membership,

@@ -550,7 +550,7 @@ pub type ViewSyncPreCommitCertificate<TYPES> =
 pub type ViewSyncCommitCertificate<TYPES> =
     SimpleCertificate<TYPES, ViewSyncCommitData<TYPES>, SuccessThreshold>;
 /// Type alias for a `ViewSyncFinalize` certificate over a view number
-pub type ViewSyncFinalizeCertificate2<TYPES> =
+pub type ViewSyncFinalizeCertificate<TYPES> =
     SimpleCertificate<TYPES, ViewSyncFinalizeData<TYPES>, SuccessThreshold>;
 /// Type alias for a `UpgradeCertificate`, which is a `SimpleCertificate` of `UpgradeProposalData`
 pub type UpgradeCertificate<TYPES> =
