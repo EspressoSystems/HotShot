@@ -187,7 +187,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
                 // Skip if we are not in the committee of the next epoch.
                 if task_state
                     .membership
-                    .has_stake(&task_state.public_key, current_epoch_number)
+                    .has_stake(&task_state.public_key, current_epoch_number + 1)
                 {
                     let new_epoch_number = current_epoch_number + 1;
                     let Ok(drb_seed_input_vec) =
@@ -205,7 +205,13 @@ pub(crate) async fn handle_quorum_proposal_validated<
                     task_state
                         .drb_computations
                         .store_seed(new_epoch_number, drb_seed_input);
+                }
 
+                // Start the new task if we're in the committee for this epoch
+                if task_state
+                    .membership
+                    .has_stake(&task_state.public_key, current_epoch_number)
+                {
                     // This will join_or_abort_task before starting the new task
                     task_state
                         .drb_computations
