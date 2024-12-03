@@ -11,18 +11,18 @@ use either::Either;
 use hotshot_task::task::TaskEvent;
 use hotshot_types::{
     data::{
-        DaProposal, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
+        DaProposal2, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
         VidDisperseShare,
     },
     message::Proposal,
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         UpgradeCertificate, ViewSyncCommitCertificate, ViewSyncFinalizeCertificate,
         ViewSyncPreCommitCertificate,
     },
     simple_vote::{
-        DaVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
+        DaVote2, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
         ViewSyncPreCommitVote,
     },
     traits::{
@@ -80,15 +80,15 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send a timeout vote to the network; emitted by consensus task replicas
     TimeoutVoteSend(TimeoutVote<TYPES>),
     /// A DA proposal has been received from the network; handled by the DA task
-    DaProposalRecv(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
+    DaProposalRecv(Proposal<TYPES, DaProposal2<TYPES>>, TYPES::SignatureKey),
     /// A DA proposal has been validated; handled by the DA task and VID task
-    DaProposalValidated(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
+    DaProposalValidated(Proposal<TYPES, DaProposal2<TYPES>>, TYPES::SignatureKey),
     /// A DA vote has been received by the network; handled by the DA task
-    DaVoteRecv(DaVote<TYPES>),
+    DaVoteRecv(DaVote2<TYPES>),
     /// A Data Availability Certificate (DAC) has been received by the network; handled by the consensus task
-    DaCertificateRecv(DaCertificate<TYPES>),
+    DaCertificateRecv(DaCertificate2<TYPES>),
     /// A DAC is validated.
-    DaCertificateValidated(DaCertificate<TYPES>),
+    DaCertificateValidated(DaCertificate2<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
     QuorumProposalSend(Proposal<TYPES, QuorumProposal2<TYPES>>, TYPES::SignatureKey),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
@@ -117,15 +117,15 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A quorum proposal was requested by a node for a view.
     QuorumProposalResponseRecv(Proposal<TYPES, QuorumProposal2<TYPES>>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
-    DaProposalSend(Proposal<TYPES, DaProposal<TYPES>>, TYPES::SignatureKey),
+    DaProposalSend(Proposal<TYPES, DaProposal2<TYPES>>, TYPES::SignatureKey),
     /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
-    DaVoteSend(DaVote<TYPES>),
+    DaVoteSend(DaVote2<TYPES>),
     /// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
     QcFormed(Either<QuorumCertificate<TYPES>, TimeoutCertificate<TYPES>>),
     /// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
     Qc2Formed(Either<QuorumCertificate2<TYPES>, TimeoutCertificate<TYPES>>),
     /// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
-    DacSend(DaCertificate<TYPES>, TYPES::SignatureKey),
+    DacSend(DaCertificate2<TYPES>, TYPES::SignatureKey),
     /// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
     ViewChange(TYPES::View, TYPES::Epoch),
     /// Timeout for the view sync protocol; emitted by a replica in the view sync task

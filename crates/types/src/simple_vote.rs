@@ -572,6 +572,41 @@ impl<TYPES: NodeType> QuorumVote2<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> DaVote<TYPES> {
+    /// Convert a `QuorumVote` to a `QuorumVote2`
+    pub fn to_vote2(self) -> DaVote2<TYPES> {
+        let signature = self.signature;
+        let data = DaData2 {
+            payload_commit: self.data.payload_commit,
+            epoch: TYPES::Epoch::new(0),
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> DaVote2<TYPES> {
+    /// Convert a `QuorumVote2` to a `QuorumVote`
+    pub fn to_vote(self) -> DaVote<TYPES> {
+        let signature = self.signature;
+        let data = DaData {
+            payload_commit: self.data.payload_commit,
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 
 /// Quorum vote Alias

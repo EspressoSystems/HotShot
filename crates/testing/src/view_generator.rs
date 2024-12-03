@@ -22,17 +22,17 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
+        DaProposal2, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence, ViewNumber,
     },
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         UpgradeCertificate, ViewSyncFinalizeCertificate,
     },
     simple_vote::{
-        DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
+        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
         UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
@@ -51,7 +51,7 @@ use crate::helpers::{
 
 #[derive(Clone)]
 pub struct TestView {
-    pub da_proposal: Proposal<TestTypes, DaProposal<TestTypes>>,
+    pub da_proposal: Proposal<TestTypes, DaProposal2<TestTypes>>,
     pub quorum_proposal: Proposal<TestTypes, QuorumProposal2<TestTypes>>,
     pub leaf: Leaf2<TestTypes>,
     pub view_number: ViewNumber,
@@ -63,7 +63,7 @@ pub struct TestView {
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
-    pub da_certificate: DaCertificate<TestTypes>,
+    pub da_certificate: DaCertificate2<TestTypes>,
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
     formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
@@ -75,7 +75,7 @@ pub struct TestView {
 impl TestView {
     pub async fn genesis(membership: &<TestTypes as NodeType>::Membership) -> Self {
         let genesis_view = ViewNumber::new(1);
-        let genesis_epoch = EpochNumber::new(1);
+        let genesis_epoch = EpochNumber::new(0);
         let upgrade_lock = UpgradeLock::new();
 
         let transactions = Vec::new();
@@ -153,10 +153,11 @@ impl TestView {
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
                 .expect("Failed to sign block payload");
 
-        let da_proposal_inner = DaProposal::<TestTypes> {
+        let da_proposal_inner = DaProposal2::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
+            epoch_number: genesis_epoch,
         };
 
         let da_proposal = Proposal {
@@ -395,10 +396,11 @@ impl TestView {
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
                 .expect("Failed to sign block payload");
 
-        let da_proposal_inner = DaProposal::<TestTypes> {
+        let da_proposal_inner = DaProposal2::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: next_view,
+            epoch_number: self.epoch_number,
         };
 
         let da_proposal = Proposal {
@@ -476,10 +478,10 @@ impl TestView {
 
     pub async fn create_da_vote(
         &self,
-        data: DaData,
+        data: DaData2<TestTypes>,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
-    ) -> DaVote<TestTypes> {
-        DaVote::create_signed_vote(
+    ) -> DaVote2<TestTypes> {
+        DaVote2::create_signed_vote(
             data,
             self.view_number,
             &handle.public_key(),

@@ -124,11 +124,13 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                     },
                     SequencingMessage::Da(da_message) => match da_message {
                         DaConsensusMessage::DaProposal(proposal) => {
-                            HotShotEvent::DaProposalRecv(proposal, sender)
+                            HotShotEvent::DaProposalRecv(convert_proposal(proposal), sender)
                         }
-                        DaConsensusMessage::DaVote(vote) => HotShotEvent::DaVoteRecv(vote.clone()),
+                        DaConsensusMessage::DaVote(vote) => {
+                            HotShotEvent::DaVoteRecv(vote.clone().to_vote2())
+                        }
                         DaConsensusMessage::DaCertificate(cert) => {
-                            HotShotEvent::DaCertificateRecv(cert)
+                            HotShotEvent::DaCertificateRecv(cert.to_dac2())
                         }
                         DaConsensusMessage::VidDisperseMsg(proposal) => {
                             HotShotEvent::VidShareRecv(sender, proposal)
@@ -474,7 +476,7 @@ impl<
                 Some((
                     sender,
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaProposal(proposal),
+                        DaConsensusMessage::DaProposal(convert_proposal(proposal)),
                     )),
                     TransmitType::DaCommitteeBroadcast,
                 ))
@@ -497,7 +499,7 @@ impl<
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaVote(vote.clone()),
+                        DaConsensusMessage::DaVote(vote.to_vote()),
                     )),
                     TransmitType::Direct(leader),
                 ))
@@ -507,7 +509,7 @@ impl<
                 Some((
                     sender,
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaCertificate(certificate),
+                        DaConsensusMessage::DaCertificate(certificate.to_dac()),
                     )),
                     TransmitType::Broadcast,
                 ))

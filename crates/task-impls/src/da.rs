@@ -12,11 +12,11 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
-    data::{DaProposal, PackedBundle},
+    data::{DaProposal2, PackedBundle},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
-    simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote},
+    simple_certificate::DaCertificate2,
+    simple_vote::{DaData2, DaVote2},
     traits::{
         block_contents::vid_commitment,
         election::Membership,
@@ -61,7 +61,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
     pub network: Arc<I::Network>,
 
     /// A map of `DaVote` collector tasks.
-    pub vote_collectors: VoteCollectorsMap<TYPES, DaVote<TYPES>, DaCertificate<TYPES>, V>,
+    pub vote_collectors: VoteCollectorsMap<TYPES, DaVote2<TYPES>, DaCertificate2<TYPES>, V>,
 
     /// This Nodes public key
     pub public_key: TYPES::SignatureKey,
@@ -182,15 +182,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 self.storage
                     .write()
                     .await
-                    .append_da(proposal, payload_commitment)
+                    .append_da2(proposal, payload_commitment)
                     .await
                     .wrap()
                     .context(error!("Failed to append DA proposal to storage"))?;
                 let view_number = proposal.data.view_number();
                 // Generate and send vote
-                let vote = DaVote::create_signed_vote(
-                    DaData {
+                let vote = DaVote2::create_signed_vote(
+                    DaData2 {
                         payload_commit: payload_commitment,
+                        epoch: self.cur_epoch,
                     },
                     view_number,
                     &self.public_key,
@@ -315,11 +316,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)
                         .wrap()?;
 
-                let data: DaProposal<TYPES> = DaProposal {
+                let data: DaProposal2<TYPES> = DaProposal2 {
                     encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number,
+                    epoch_number: self.cur_epoch,
                 };
 
                 let message = Proposal {
