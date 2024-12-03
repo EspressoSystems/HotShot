@@ -24,8 +24,9 @@ use crate::{
     data::serialize_signature2,
     message::UpgradeLock,
     simple_vote::{
-        DaData, DaData2, QuorumData, QuorumData2, QuorumMaker, TimeoutData, UpgradeProposalData,
-        VersionedVoteData, ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData,
+        DaData, DaData2, QuorumData, QuorumData2, QuorumMaker, TimeoutData, TimeoutData2,
+        UpgradeProposalData, VersionedVoteData, ViewSyncCommitData, ViewSyncCommitData2,
+        ViewSyncFinalizeData, ViewSyncFinalizeData2, ViewSyncPreCommitData, ViewSyncPreCommitData2,
         Voteable,
     },
     traits::{
@@ -543,15 +544,27 @@ pub type DaCertificate<TYPES> = SimpleCertificate<TYPES, DaData, SuccessThreshol
 pub type DaCertificate2<TYPES> = SimpleCertificate<TYPES, DaData2<TYPES>, SuccessThreshold>;
 /// Type alias for a Timeout certificate over a view number
 pub type TimeoutCertificate<TYPES> = SimpleCertificate<TYPES, TimeoutData<TYPES>, SuccessThreshold>;
+/// Type alias for a `TimeoutCertificate2`, which is a `SimpleCertificate` over `TimeoutData2`
+pub type TimeoutCertificate2<TYPES> =
+    SimpleCertificate<TYPES, TimeoutData2<TYPES>, SuccessThreshold>;
 /// Type alias for a `ViewSyncPreCommit` certificate over a view number
 pub type ViewSyncPreCommitCertificate<TYPES> =
     SimpleCertificate<TYPES, ViewSyncPreCommitData<TYPES>, OneHonestThreshold>;
+/// Type alias for a `ViewSyncPreCommitCertificate2`, which is a `SimpleCertificate` over `ViewSyncPreCommitData2`
+pub type ViewSyncPreCommitCertificate2<TYPES> =
+    SimpleCertificate<TYPES, ViewSyncPreCommitData2<TYPES>, OneHonestThreshold>;
 /// Type alias for a `ViewSyncCommit` certificate over a view number
 pub type ViewSyncCommitCertificate<TYPES> =
     SimpleCertificate<TYPES, ViewSyncCommitData<TYPES>, SuccessThreshold>;
+/// Type alias for a `ViewSyncCommitCertificate2`, which is a `SimpleCertificate` over `ViewSyncCommitData2`
+pub type ViewSyncCommitCertificate2<TYPES> =
+    SimpleCertificate<TYPES, ViewSyncCommitData2<TYPES>, SuccessThreshold>;
 /// Type alias for a `ViewSyncFinalize` certificate over a view number
 pub type ViewSyncFinalizeCertificate<TYPES> =
     SimpleCertificate<TYPES, ViewSyncFinalizeData<TYPES>, SuccessThreshold>;
+/// Type alias for a `ViewSyncFinalizeCertificate2`, which is a `SimpleCertificate` over `ViewSyncFinalizeData2`
+pub type ViewSyncFinalizeCertificate2<TYPES> =
+    SimpleCertificate<TYPES, ViewSyncFinalizeData2<TYPES>, SuccessThreshold>;
 /// Type alias for a `UpgradeCertificate`, which is a `SimpleCertificate` of `UpgradeProposalData`
 pub type UpgradeCertificate<TYPES> =
     SimpleCertificate<TYPES, UpgradeProposalData<TYPES>, UpgradeThreshold>;

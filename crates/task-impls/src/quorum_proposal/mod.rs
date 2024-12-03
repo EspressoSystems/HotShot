@@ -117,8 +117,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         }
                     }
                     ProposalDependency::ViewSyncCert => {
-                        if let HotShotEvent::ViewSyncFinalizeCertificateRecv(view_sync_cert) =
-                            event
+                        if let HotShotEvent::ViewSyncFinalizeCertificateRecv(view_sync_cert) = event
                         {
                             view_sync_cert.view_number()
                         } else {
