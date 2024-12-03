@@ -366,26 +366,46 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
     }
 
     /// Get the voting success threshold for the committee
-    fn success_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.stake_table.0.len() as u64 * 2) / 3) + 1).unwrap()
+    fn success_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64 {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            NonZeroU64::new(((self.stake_table.0.len() as u64 * 2) / 3) + 1).unwrap()
+        } else {
+            NonZeroU64::new(((self.stake_table.1.len() as u64 * 2) / 3) + 1).unwrap()
+        }
     }
 
     /// Get the voting success threshold for the committee
-    fn da_success_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.da_stake_table.0.len() as u64 * 2) / 3) + 1).unwrap()
+    fn da_success_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64 {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            NonZeroU64::new(((self.da_stake_table.0.len() as u64 * 2) / 3) + 1).unwrap()
+        } else {
+            NonZeroU64::new(((self.da_stake_table.1.len() as u64 * 2) / 3) + 1).unwrap()
+        }
     }
 
     /// Get the voting failure threshold for the committee
-    fn failure_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.stake_table.0.len() as u64) / 3) + 1).unwrap()
+    fn failure_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64 {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            NonZeroU64::new(((self.stake_table.0.len() as u64) / 3) + 1).unwrap()
+        } else {
+            NonZeroU64::new(((self.stake_table.1.len() as u64) / 3) + 1).unwrap()
+        }
     }
 
     /// Get the voting upgrade threshold for the committee
-    fn upgrade_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(max(
-            (self.stake_table.0.len() as u64 * 9) / 10,
-            ((self.stake_table.0.len() as u64 * 2) / 3) + 1,
-        ))
-        .unwrap()
+    fn upgrade_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64 {
+        if *epoch != 0 && *epoch % 2 == 0 {
+            NonZeroU64::new(max(
+                (self.stake_table.0.len() as u64 * 9) / 10,
+                ((self.stake_table.0.len() as u64 * 2) / 3) + 1,
+            ))
+            .unwrap()
+        } else {
+            NonZeroU64::new(max(
+                (self.stake_table.1.len() as u64 * 9) / 10,
+                ((self.stake_table.1.len() as u64 * 2) / 3) + 1,
+            ))
+            .unwrap()
+        }
     }
 }

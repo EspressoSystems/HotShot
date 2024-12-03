@@ -132,7 +132,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                         // TODO take epoch from `qc`
                         // https://github.com/EspressoSystems/HotShot/issues/3917
                         self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
-                        self.quorum_membership.success_threshold(),
+                        self.quorum_membership
+                            .success_threshold(TYPES::Epoch::new(0)),
                         &self.upgrade_lock,
                     )
                     .await
@@ -319,7 +320,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
             // TODO fix these to use the proper values
-            drb_seed: [0; 96],
+            drb_seed: [0; 32],
             drb_result: [0; 32],
         };
 

@@ -535,7 +535,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                 if !certificate
                     .is_valid_cert(
                         self.membership.stake_table(self.cur_epoch),
-                        self.membership.failure_threshold(),
+                        self.membership.failure_threshold(self.cur_epoch),
                         &self.upgrade_lock,
                     )
                     .await
@@ -622,7 +622,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                 if !certificate
                     .is_valid_cert(
                         self.membership.stake_table(self.cur_epoch),
-                        self.membership.success_threshold(),
+                        self.membership.success_threshold(self.cur_epoch),
                         &self.upgrade_lock,
                     )
                     .await
@@ -720,7 +720,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                 if !certificate
                     .is_valid_cert(
                         self.membership.stake_table(self.cur_epoch),
-                        self.membership.success_threshold(),
+                        self.membership.success_threshold(self.cur_epoch),
                         &self.upgrade_lock,
                     )
                     .await

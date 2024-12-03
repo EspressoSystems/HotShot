@@ -222,6 +222,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         let consensus = handle.hotshot.consensus();
 
+        // Clone the consensus metrics
+        let consensus_metrics = Arc::clone(&consensus.read().await.metrics);
+
         Self {
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -231,11 +234,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             vote_dependencies: BTreeMap::new(),
             network: Arc::clone(&handle.hotshot.network),
             membership: (*handle.hotshot.memberships).clone().into(),
+            drb_computations: BTreeMap::new(),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
             epoch_height: handle.hotshot.config.epoch_height,
+            consensus_metrics,
         }
     }
 }

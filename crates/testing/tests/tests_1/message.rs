@@ -68,8 +68,7 @@ async fn test_certificate2_validity() {
     use hotshot_testing::{helpers::build_system_handle, view_generator::TestViewGenerator};
     use hotshot_types::{
         data::{EpochNumber, Leaf, Leaf2},
-        traits::election::Membership,
-        traits::node_implementation::ConsensusTime,
+        traits::{election::Membership, node_implementation::ConsensusTime},
         vote::Certificate,
     };
 
@@ -107,7 +106,7 @@ async fn test_certificate2_validity() {
     assert!(
         qc.is_valid_cert(
             membership.stake_table(EpochNumber::new(0)),
-            membership.success_threshold(),
+            membership.success_threshold(EpochNumber::new(0)),
             &handle.hotshot.upgrade_lock
         )
         .await
@@ -116,7 +115,7 @@ async fn test_certificate2_validity() {
     assert!(
         qc2.is_valid_cert(
             membership.stake_table(EpochNumber::new(0)),
-            membership.success_threshold(),
+            membership.success_threshold(EpochNumber::new(0)),
             &handle.hotshot.upgrade_lock
         )
         .await
