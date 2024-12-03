@@ -13,7 +13,6 @@ use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf2, QuorumProposal2, VidDisperseShare},
-    drb::compute_drb_result,
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
@@ -28,7 +27,6 @@ use hotshot_types::{
     utils::epoch_from_block_number,
     vote::HasViewNumber,
 };
-use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
@@ -183,11 +181,10 @@ pub(crate) async fn handle_quorum_proposal_validated<
                     decided_block_number,
                     task_state.epoch_height,
                 ));
-                let current_tasks = task_state.drb_computations.split_off(&current_epoch_number);
-                while let Some((_, task)) = task_state.drb_computations.pop_last() {
-                    task.abort();
-                }
-                task_state.drb_computations = current_tasks;
+
+                task_state
+                    .drb_computations
+                    .garbage_collect(current_epoch_number);
 
                 // Skip if we are not in the committee of the next epoch.
                 if task_state
@@ -205,11 +202,15 @@ pub(crate) async fn handle_quorum_proposal_validated<
                             "Failed to convert the serialized QC signature into a DRB seed input."
                         );
                     };
-                    let new_drb_task =
-                        spawn(async move { compute_drb_result::<TYPES>(drb_seed_input) });
+
+                    // This will join_or_abort_task before starting the new task
                     task_state
                         .drb_computations
-                        .insert(new_epoch_number, new_drb_task);
+                        .start_new_task(new_epoch_number, drb_seed_input)
+                        .await;
+                } else {
+                    // Only needed if we aren't starting a new task
+                    task_state.drb_computations.join_or_abort_task().await;
                 }
             }
         }
