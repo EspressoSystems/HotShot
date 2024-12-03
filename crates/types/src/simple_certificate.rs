@@ -25,7 +25,7 @@ use crate::{
     data::serialize_signature2,
     message::UpgradeLock,
     simple_vote::{
-        DaData, QuorumData, QuorumData2, QuorumMaker, TimeoutData, UpgradeProposalData,
+        DaData, QuorumData, QuorumData2, QuorumMarker, TimeoutData, UpgradeProposalData,
         VersionedVoteData, ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData,
         Voteable,
     },
@@ -232,7 +232,7 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData<TYP
 
 impl<
         TYPES: NodeType,
-        VOTEABLE: Voteable<TYPES> + 'static + QuorumMaker,
+        VOTEABLE: Voteable<TYPES> + 'static + QuorumMarker,
         THRESHOLD: Threshold<TYPES>,
     > Certificate<TYPES, VOTEABLE> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {

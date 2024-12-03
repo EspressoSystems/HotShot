@@ -399,7 +399,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
             // TODO fix these to use the proper values
-            drb_seed: [0; 96],
+            drb_seed: [0; 32],
             drb_result: [0; 32],
         };
 

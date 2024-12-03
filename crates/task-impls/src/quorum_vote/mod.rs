@@ -16,8 +16,9 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::OuterConsensus,
+    consensus::{ConsensusMetricsValue, OuterConsensus},
     data::{Leaf2, QuorumProposal2},
+    drb::DrbResult,
     event::Event,
     message::{Proposal, UpgradeLock},
     simple_vote::HasEpoch,
@@ -80,6 +81,8 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     pub receiver: InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
+    /// The consensus metrics
+    pub consensus_metrics: Arc<ConsensusMetricsValue>,
     /// The node's id
     pub id: u64,
     /// Number of blocks in an epoch, zero means there are no epochs
@@ -275,11 +278,17 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     /// Membership for Quorum certs/votes and DA committee certs/votes.
     pub membership: Arc<TYPES::Membership>,
 
+    /// Table for the in-progress DRB computation tasks.
+    pub drb_computations: BTreeMap<TYPES::Epoch, JoinHandle<DrbResult>>,
+
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
     /// The node's id
     pub id: u64,
+
+    /// The consensus metrics
+    pub consensus_metrics: Arc<ConsensusMetricsValue>,
 
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
@@ -391,6 +400,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 upgrade_lock: self.upgrade_lock.clone(),
                 id: self.id,
                 epoch_height: self.epoch_height,
+                consensus_metrics: Arc::clone(&self.consensus_metrics),
             },
         );
         self.vote_dependencies
@@ -413,6 +423,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     dependency.abort();
                     tracing::debug!("Vote dependency removed for view {:?}", view);
                 }
+            }
+
+            // Update the metric for the last voted view
+            if let Ok(last_voted_view_usize) = usize::try_from(*new_view) {
+                self.consensus_metrics
+                    .last_voted_view
+                    .set(last_voted_view_usize);
+            } else {
+                tracing::warn!("Failed to convert last voted view to a usize: {}", new_view);
             }
 
             self.latest_voted_view = new_view;

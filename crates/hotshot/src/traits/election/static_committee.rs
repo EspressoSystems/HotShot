@@ -231,10 +231,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
 
     /// Get the voting upgrade threshold for the committee
     fn upgrade_threshold(&self, _epoch: TYPES::Epoch) -> NonZeroU64 {
-        NonZeroU64::new(max(
-            (self.stake_table.len() as u64 * 9) / 10,
-            ((self.stake_table.len() as u64 * 2) / 3) + 1,
-        ))
-        .unwrap()
+        let len = self.stake_table.len();
+        NonZeroU64::new(max((len as u64 * 9) / 10, ((len as u64 * 2) / 3) + 1)).unwrap()
     }
 }

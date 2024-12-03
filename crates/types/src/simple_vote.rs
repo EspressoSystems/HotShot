@@ -30,7 +30,7 @@ use crate::{
 };
 
 /// Marker that data should use the quorum cert type
-pub(crate) trait QuorumMaker {}
+pub(crate) trait QuorumMarker {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a yes vote.
@@ -156,14 +156,14 @@ mod sealed {
     impl<C: Committable> Sealed for C {}
 }
 
-impl<T: NodeType> QuorumMaker for QuorumData<T> {}
-impl<T: NodeType> QuorumMaker for QuorumData2<T> {}
-impl<T: NodeType> QuorumMaker for NextEpochQuorumData2<T> {}
-impl<T: NodeType> QuorumMaker for TimeoutData<T> {}
-impl<T: NodeType> QuorumMaker for ViewSyncPreCommitData<T> {}
-impl<T: NodeType> QuorumMaker for ViewSyncCommitData<T> {}
-impl<T: NodeType> QuorumMaker for ViewSyncFinalizeData<T> {}
-impl<T: NodeType + DeserializeOwned> QuorumMaker for UpgradeProposalData<T> {}
+impl<T: NodeType> QuorumMarker for QuorumData<T> {}
+impl<T: NodeType> QuorumMarker for QuorumData2<T> {}
+impl<T: NodeType> QuorumMarker for NextEpochQuorumData2<T> {}
+impl<T: NodeType> QuorumMarker for TimeoutData<T> {}
+impl<T: NodeType> QuorumMarker for ViewSyncPreCommitData<T> {}
+impl<T: NodeType> QuorumMarker for ViewSyncCommitData<T> {}
+impl<T: NodeType> QuorumMarker for ViewSyncFinalizeData<T> {}
+impl<T: NodeType + DeserializeOwned> QuorumMarker for UpgradeProposalData<T> {}
 
 /// A simple yes vote over some votable type.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]

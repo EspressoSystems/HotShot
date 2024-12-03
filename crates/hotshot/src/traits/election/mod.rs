@@ -6,13 +6,19 @@
 
 //! elections used for consensus
 
-/// Dynamic leader election with epochs.
-pub mod dynamic;
 /// leader completely randomized every view
 pub mod randomized_committee;
+
+/// quorum randomized every view, with configurable overlap
+pub mod randomized_committee_members;
+
 /// static (round robin) committee election
 pub mod static_committee;
+
 /// static (round robin leader for 2 consecutive views) committee election
 pub mod static_committee_leader_two_views;
-/// two static (round robin) committees for even and odd epochs  
+/// two static (round robin) committees for even and odd epochs
 pub mod two_static_committees;
+
+/// general helpers
+pub mod helpers;
