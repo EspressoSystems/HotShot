@@ -26,15 +26,15 @@ use vbs::{
 
 use crate::{
     data::{
-        DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal, VidDisperseShare,
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal, VidDisperseShare,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate,
+        DaCertificate, DaCertificate2, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate,
         ViewSyncFinalizeCertificate, ViewSyncPreCommitCertificate,
     },
     simple_vote::{
-        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
+        DaVote, DaVote2, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
         ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
     traits::{
@@ -239,6 +239,15 @@ pub enum DaConsensusMessage<TYPES: NodeType> {
     ///
     /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
     VidDisperseMsg(Proposal<TYPES, VidDisperseShare<TYPES>>),
+
+    /// Proposal for data availability committee
+    DaProposal2(Proposal<TYPES, DaProposal2<TYPES>>),
+
+    /// vote for data availability committee
+    DaVote2(DaVote2<TYPES>),
+
+    /// Certificate data is available
+    DaCertificate2(DaCertificate2<TYPES>),
 }
 
 /// Messages for sequencing consensus.
@@ -307,6 +316,13 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     DaConsensusMessage::DaVote(vote_message) => vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) => cert.view_number,
                     DaConsensusMessage::VidDisperseMsg(disperse) => disperse.data.view_number(),
+                    DaConsensusMessage::DaProposal2(p) => {
+                        // view of leader in the leaf when proposal
+                        // this should match replica upon receipt
+                        p.data.view_number()
+                    }
+                    DaConsensusMessage::DaVote2(vote_message) => vote_message.view_number(),
+                    DaConsensusMessage::DaCertificate2(cert) => cert.view_number,
                 }
             }
         }

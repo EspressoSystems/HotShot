@@ -135,6 +135,13 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         DaConsensusMessage::VidDisperseMsg(proposal) => {
                             HotShotEvent::VidShareRecv(sender, proposal)
                         }
+                        DaConsensusMessage::DaProposal2(proposal) => {
+                            HotShotEvent::DaProposalRecv(proposal, sender)
+                        }
+                        DaConsensusMessage::DaVote2(vote) => HotShotEvent::DaVoteRecv(vote.clone()),
+                        DaConsensusMessage::DaCertificate2(cert) => {
+                            HotShotEvent::DaCertificateRecv(cert)
+                        }
                     },
                 };
                 broadcast_event(Arc::new(event), &self.internal_event_stream).await;
@@ -473,13 +480,23 @@ impl<
             }
             HotShotEvent::DaProposalSend(proposal, sender) => {
                 *maybe_action = Some(HotShotAction::DaPropose);
-                Some((
-                    sender,
+
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(proposal.data.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::DaProposal2(proposal),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
                         DaConsensusMessage::DaProposal(convert_proposal(proposal)),
-                    )),
-                    TransmitType::DaCommitteeBroadcast,
-                ))
+                    ))
+                };
+
+                Some((sender, message, TransmitType::DaCommitteeBroadcast))
             }
             HotShotEvent::DaVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::DaVote);
@@ -496,23 +513,38 @@ impl<
                     }
                 };
 
-                Some((
-                    vote.signing_key(),
+                let message = if self.upgrade_lock.version_infallible(view_number).await
+                    >= V::Epochs::VERSION
+                {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaVote(vote.to_vote()),
-                    )),
-                    TransmitType::Direct(leader),
-                ))
+                        DaConsensusMessage::DaVote2(vote.clone()),
+                    ))
+                } else {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::DaVote(vote.clone().to_vote()),
+                    ))
+                };
+
+                Some((vote.signing_key(), message, TransmitType::Direct(leader)))
             }
             HotShotEvent::DacSend(certificate, sender) => {
                 *maybe_action = Some(HotShotAction::DaCert);
-                Some((
-                    sender,
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(certificate.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::DaCertificate2(certificate),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
                         DaConsensusMessage::DaCertificate(certificate.to_dac()),
-                    )),
-                    TransmitType::Broadcast,
-                ))
+                    ))
+                };
+
+                Some((sender, message, TransmitType::Broadcast))
             }
             HotShotEvent::ViewSyncPreCommitVoteSend(vote) => {
                 let view_number = vote.view_number() + vote.date().relay;
