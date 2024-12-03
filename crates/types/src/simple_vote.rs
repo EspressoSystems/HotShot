@@ -179,9 +179,13 @@ mod sealed {
 impl<T: NodeType> QuorumMarker for QuorumData<T> {}
 impl<T: NodeType> QuorumMarker for QuorumData2<T> {}
 impl<T: NodeType> QuorumMarker for TimeoutData<T> {}
+impl<T: NodeType> QuorumMarker for TimeoutData2<T> {}
 impl<T: NodeType> QuorumMarker for ViewSyncPreCommitData<T> {}
 impl<T: NodeType> QuorumMarker for ViewSyncCommitData<T> {}
 impl<T: NodeType> QuorumMarker for ViewSyncFinalizeData<T> {}
+impl<T: NodeType> QuorumMarker for ViewSyncPreCommitData2<T> {}
+impl<T: NodeType> QuorumMarker for ViewSyncCommitData2<T> {}
+impl<T: NodeType> QuorumMarker for ViewSyncFinalizeData2<T> {}
 impl<T: NodeType + DeserializeOwned> QuorumMarker for UpgradeProposalData<T> {}
 
 /// A simple yes vote over some votable type.
