@@ -30,7 +30,7 @@ use crate::{
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate2,
+        DaCertificate, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate,
     },
     simple_vote::{
@@ -186,7 +186,7 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     ViewSyncPreCommitCertificate(ViewSyncPreCommitCertificate<TYPES>),
 
     /// Message with a view sync commit certificate
-    ViewSyncCommitCertificate(ViewSyncCommitCertificate2<TYPES>),
+    ViewSyncCommitCertificate(ViewSyncCommitCertificate<TYPES>),
 
     /// Message with a view sync finalize certificate
     ViewSyncFinalizeCertificate(ViewSyncFinalizeCertificate2<TYPES>),

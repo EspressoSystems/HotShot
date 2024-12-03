@@ -547,7 +547,7 @@ pub type TimeoutCertificate<TYPES> = SimpleCertificate<TYPES, TimeoutData<TYPES>
 pub type ViewSyncPreCommitCertificate<TYPES> =
     SimpleCertificate<TYPES, ViewSyncPreCommitData<TYPES>, OneHonestThreshold>;
 /// Type alias for a `ViewSyncCommit` certificate over a view number
-pub type ViewSyncCommitCertificate2<TYPES> =
+pub type ViewSyncCommitCertificate<TYPES> =
     SimpleCertificate<TYPES, ViewSyncCommitData<TYPES>, SuccessThreshold>;
 /// Type alias for a `ViewSyncFinalize` certificate over a view number
 pub type ViewSyncFinalizeCertificate2<TYPES> =
