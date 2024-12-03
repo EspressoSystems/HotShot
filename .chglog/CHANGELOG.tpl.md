@@ -14,12 +14,14 @@
 
 {{ range .Versions }}
 <a name="{{ .Tag.Name }}"></a>
-## {{ if .Tag.Previous }}[{{ .Tag.Name }}]{{ else }}{{ .Tag.Name }}{{ end }} - {{ datetime "2006-01-02" .Tag.Date }}
+## {{ if .Tag.Previous }}[{{ .Tag.Name }}]{{ else }}{{ .Tag.Name }}{{ end }}{{ if .Tag.Date }} - {{ datetime "2006-01-02" .Tag.Date }}{{ end }}
 {{ range .CommitGroups -}}
+{{- if .Commits -}}
 ### {{ .Title }}
 {{ range .Commits -}}
 - {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Subject }}
-{{ end }}
+{{- end }}
+{{- end -}}
 {{ end -}}
 
 {{- if .RevertCommits -}}
