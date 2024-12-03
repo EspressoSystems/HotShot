@@ -7,7 +7,10 @@ Use `debug!` for routine events that occur frequently within the system.
 
 Example:
 ```rust
-debug!("View {} decided", view_number);
+debug!(
+    "View number={} decided",
+    view_number
+);
 ```
 
 ### Info
@@ -16,7 +19,10 @@ Use `info!` for events that occur under specific conditions, which are not issue
 Example:
 ```rust
 if missing_data {
-    info!("Fetching missing data for query {}", query_id);
+    info!(
+        "Fetching missing data: query_id={}",
+        query_id
+    );
 }
 ```
 
@@ -26,7 +32,11 @@ Use `warn!` for events that indicate a potential issue, which the system can han
 Example:
 ```rust
 if message_loss_rate > threshold {
-    warn!("Increased message loss detected: {}", message_loss_rate);
+    warn!(
+        "Increased message loss detected: rate={}, threshold={}",
+        message_loss_rate,
+        threshold
+    );
 }
 ```
 
@@ -36,6 +46,11 @@ Use `error!` for critical issues that could lead to a permanent degradation of t
 Example, we log an error when safety and liveness are violated:
 ```rust
 if !safety_check && !liveness_check {
-    error!("Failed safety and liveness check \n High QC is {:?}  Proposal QC is {:?}  Locked view is {:?}", consensus.high_qc(), proposal.data.clone(), consensus.locked_view());
+    error!(
+        "Failed safety and liveness check: High QC={:?}, Proposal QC={:?}, Locked view={:?}",
+        consensus.high_qc(),
+        proposal.data,
+        consensus.locked_view()
+    );
 }
 ```
