@@ -18,7 +18,7 @@ use hotshot_task::task::TaskState;
 use hotshot_types::{
     message::{GeneralConsensusMessage, UpgradeLock},
     simple_certificate::{
-        ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
+        ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate,
     },
     simple_vote::{
         ViewSyncCommitData, ViewSyncCommitVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
@@ -92,7 +92,7 @@ pub struct ViewSyncTaskState<TYPES: NodeType, V: Versions> {
 
     /// Map of pre-commit vote accumulates for the relay
     pub pre_commit_relay_map: RwLock<
-        RelayMap<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>, V>,
+        RelayMap<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate<TYPES>, V>,
     >,
 
     /// Map of commit vote accumulates for the relay
@@ -263,7 +263,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<()> {
         match event.as_ref() {
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
+            HotShotEvent::ViewSyncPreCommitCertificateRecv(certificate) => {
                 tracing::debug!("Received view sync cert for phase {:?}", certificate);
                 let view = certificate.view_number();
                 self.send_to_or_create_replica(event, view, &event_stream)
@@ -521,7 +521,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
         event_stream: Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Option<HotShotTaskCompleted> {
         match event.as_ref() {
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(certificate) => {
+            HotShotEvent::ViewSyncPreCommitCertificateRecv(certificate) => {
                 let last_seen_certificate = ViewSyncPhase::PreCommit;
 
                 // Ignore certificate if it is for an older round

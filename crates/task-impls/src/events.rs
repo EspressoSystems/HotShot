@@ -19,7 +19,7 @@ use hotshot_types::{
     simple_certificate::{
         DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-        ViewSyncPreCommitCertificate2,
+        ViewSyncPreCommitCertificate,
     },
     simple_vote::{
         DaVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
@@ -145,15 +145,15 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Send a `ViewSyncFinalizeVote` from the network; emitted by a replica in the view sync task
     ViewSyncFinalizeVoteSend(ViewSyncFinalizeVote<TYPES>),
 
-    /// Receive a `ViewSyncPreCommitCertificate2` from the network; received by a replica in the view sync task
-    ViewSyncPreCommitCertificate2Recv(ViewSyncPreCommitCertificate2<TYPES>),
+    /// Receive a `ViewSyncPreCommitCertificate` from the network; received by a replica in the view sync task
+    ViewSyncPreCommitCertificateRecv(ViewSyncPreCommitCertificate<TYPES>),
     /// Receive a `ViewSyncCommitCertificate2` from the network; received by a replica in the view sync task
     ViewSyncCommitCertificate2Recv(ViewSyncCommitCertificate2<TYPES>),
     /// Receive a `ViewSyncFinalizeCertificate2` from the network; received by a replica in the view sync task
     ViewSyncFinalizeCertificate2Recv(ViewSyncFinalizeCertificate2<TYPES>),
 
-    /// Send a `ViewSyncPreCommitCertificate2` from the network; emitted by a relay in the view sync task
-    ViewSyncPreCommitCertificate2Send(ViewSyncPreCommitCertificate2<TYPES>, TYPES::SignatureKey),
+    /// Send a `ViewSyncPreCommitCertificate` from the network; emitted by a relay in the view sync task
+    ViewSyncPreCommitCertificateSend(ViewSyncPreCommitCertificate<TYPES>, TYPES::SignatureKey),
     /// Send a `ViewSyncCommitCertificate2` from the network; emitted by a relay in the view sync task
     ViewSyncCommitCertificate2Send(ViewSyncCommitCertificate2<TYPES>, TYPES::SignatureKey),
     /// Send a `ViewSyncFinalizeCertificate2` from the network; emitted by a relay in the view sync task
@@ -289,8 +289,8 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             | HotShotEvent::ViewSyncPreCommitVoteSend(vote) => Some(vote.view_number()),
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote)
             | HotShotEvent::ViewSyncFinalizeVoteSend(vote) => Some(vote.view_number()),
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(cert)
-            | HotShotEvent::ViewSyncPreCommitCertificate2Send(cert, _) => Some(cert.view_number()),
+            HotShotEvent::ViewSyncPreCommitCertificateRecv(cert)
+            | HotShotEvent::ViewSyncPreCommitCertificateSend(cert, _) => Some(cert.view_number()),
             HotShotEvent::ViewSyncCommitCertificate2Recv(cert)
             | HotShotEvent::ViewSyncCommitCertificate2Send(cert, _) => Some(cert.view_number()),
             HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert)
@@ -451,10 +451,10 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 "ViewSyncFinalizeVoteSend(view_number={:?})",
                 vote.view_number()
             ),
-            HotShotEvent::ViewSyncPreCommitCertificate2Recv(cert) => {
+            HotShotEvent::ViewSyncPreCommitCertificateRecv(cert) => {
                 write!(
                     f,
-                    "ViewSyncPreCommitCertificate2Recv(view_number={:?})",
+                    "ViewSyncPreCommitCertificateRecv(view_number={:?})",
                     cert.view_number()
                 )
             }
@@ -472,10 +472,10 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                     cert.view_number()
                 )
             }
-            HotShotEvent::ViewSyncPreCommitCertificate2Send(cert, _) => {
+            HotShotEvent::ViewSyncPreCommitCertificateSend(cert, _) => {
                 write!(
                     f,
-                    "ViewSyncPreCommitCertificate2Send(view_number={:?})",
+                    "ViewSyncPreCommitCertificateSend(view_number={:?})",
                     cert.view_number()
                 )
             }

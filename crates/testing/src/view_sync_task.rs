@@ -48,10 +48,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestTaskState
             | HotShotEvent::ViewSyncPreCommitVoteSend(_)
             | HotShotEvent::ViewSyncCommitVoteSend(_)
             | HotShotEvent::ViewSyncFinalizeVoteSend(_)
-            | HotShotEvent::ViewSyncPreCommitCertificate2Recv(_)
+            | HotShotEvent::ViewSyncPreCommitCertificateRecv(_)
             | HotShotEvent::ViewSyncCommitCertificate2Recv(_)
             | HotShotEvent::ViewSyncFinalizeCertificate2Recv(_)
-            | HotShotEvent::ViewSyncPreCommitCertificate2Send(_, _)
+            | HotShotEvent::ViewSyncPreCommitCertificateSend(_, _)
             | HotShotEvent::ViewSyncCommitCertificate2Send(_, _)
             | HotShotEvent::ViewSyncFinalizeCertificate2Send(_, _)
             | HotShotEvent::ViewSyncTrigger(_) => {

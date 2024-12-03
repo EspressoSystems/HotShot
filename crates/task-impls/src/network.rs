@@ -89,7 +89,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         }
                         GeneralConsensusMessage::ViewSyncPreCommitCertificate(
                             view_sync_message,
-                        ) => HotShotEvent::ViewSyncPreCommitCertificate2Recv(view_sync_message),
+                        ) => HotShotEvent::ViewSyncPreCommitCertificateRecv(view_sync_message),
 
                         GeneralConsensusMessage::ViewSyncCommitVote(view_sync_message) => {
                             HotShotEvent::ViewSyncCommitVoteRecv(view_sync_message)
@@ -580,7 +580,7 @@ impl<
                     TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) => Some((
+            HotShotEvent::ViewSyncPreCommitCertificateSend(certificate, sender) => Some((
                 sender,
                 MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
