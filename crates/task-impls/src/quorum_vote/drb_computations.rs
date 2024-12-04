@@ -33,27 +33,9 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
     }
 
     /// If a task is currently live AND has finished, join it and save the result.
-    /// Does not block if a live task has not finished.
-    pub async fn try_join_task(&mut self) {
-        if let Some((epoch, join_handle)) = &mut self.task {
-            if join_handle.is_finished() {
-                match join_handle.await {
-                    Ok(result) => {
-                        self.results.insert(*epoch, result);
-                    }
-                    Err(e) => {
-                        tracing::error!("error joining DRB computation task: {e:?}");
-                    }
-                }
-                self.task = None;
-            }
-        }
-    }
-
-    /// If a task is currently live AND has finished, join it and save the result.
     /// If a task is currently live and NOT finished, abort it.
     /// self.task will always be None after this call.
-    pub async fn join_or_abort_task(&mut self) {
+    async fn join_or_abort_task(&mut self) {
         if let Some((epoch, join_handle)) = &mut self.task {
             if join_handle.is_finished() {
                 match join_handle.await {
