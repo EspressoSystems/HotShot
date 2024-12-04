@@ -10,12 +10,6 @@ build:
 build_release *ARGS:
   cargo build --profile=release {{ARGS}}
 
-example_fixed_leader *ARGS:
-  cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
-
-example_gpuvid_leader *ARGS:
-  cargo run --features "fixed-leader-election, gpu-vid" --profile=release-lto --example {{ARGS}}
-
 test *ARGS:
   echo Testing {{ARGS}}
   cargo test --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}} -- --test-threads=1 --nocapture --skip crypto_test
@@ -145,13 +139,11 @@ clippy_release:
 
 fmt:
   echo Running cargo fmt
-  cargo fmt -- crates/**/*.rs
-  cargo fmt -- crates/**/tests/**/**.rs
+  cargo fmt
 
 fmt_check:
   echo Running cargo fmt --check
-  cargo fmt --check -- crates/**/*.rs
-  cargo fmt --check -- crates/**/tests/**/**.rs
+  cargo fmt --check
 
 lint: clippy fmt_check
 
