@@ -84,24 +84,23 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
                         self.results.insert(*task_epoch, result);
                         let result = *task_epoch == epoch;
                         self.task = None;
-                        return result;
+                        result
                     }
                     Err(e) => {
                         tracing::error!("error joining DRB computation task: {e:?}");
-                        return false;
+                        false
                     }
                 }
+            } else if *task_epoch == epoch {
+                true
             } else {
-                if *task_epoch == epoch {
-                    return true;
-                } else {
-                    join_handle.abort();
-                    self.task = None;
-                    return false;
-                }
+                join_handle.abort();
+                self.task = None;
+                false
             }
+        } else {
+            false
         }
-        false
     }
 
     /// Stores a seed for a particular epoch for later use by start_new_task()
