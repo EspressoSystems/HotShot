@@ -26,12 +26,13 @@ use vbs::{
 
 use crate::{
     data::{
-        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal, VidDisperseShare,
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal,
+        VidDisperseShare,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, DaCertificate2, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate,
-        ViewSyncFinalizeCertificate, ViewSyncPreCommitCertificate,
+        DaCertificate, DaCertificate2, QuorumCertificate2, UpgradeCertificate,
+        ViewSyncCommitCertificate, ViewSyncFinalizeCertificate, ViewSyncPreCommitCertificate,
     },
     simple_vote::{
         DaVote, DaVote2, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
