@@ -64,7 +64,7 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
         }
     }
 
-    /// Stores a seed for a particular epoch for later use by start_new_task()
+    /// Stores a seed for a particular epoch for later use by start_task_if_not_running, called from handle_quorum_proposal_validated_drb_calculation_start
     pub fn store_seed(&mut self, epoch: TYPES::Epoch, drb_seed_input: DrbSeedInput) {
         self.seeds.insert(epoch, drb_seed_input);
     }
