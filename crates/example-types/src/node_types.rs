@@ -295,7 +295,7 @@ impl Versions for EpochsTestVersions {
         0, 0,
     ];
 
-    type Marketplace = StaticVersion<0, 3>;
+    type Marketplace = StaticVersion<0, 99>;
 
     type Epochs = StaticVersion<0, 4>;
 }
