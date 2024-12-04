@@ -81,6 +81,32 @@ pub(crate) async fn handle_quorum_proposal_validated<
         .await
     };
 
+    if version >= V::Epochs::VERSION {
+        // This is never none if we've reached a new decide, so this is safe to unwrap.
+        let decided_block_number = leaf_views
+            .last()
+            .unwrap()
+            .leaf
+            .block_header()
+            .block_number();
+
+        let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+            decided_block_number,
+            task_state.epoch_height,
+        ));
+
+        // Start the new task if we're in the committee for this epoch
+        if task_state
+            .membership
+            .has_stake(&task_state.public_key, current_epoch_number)
+        {
+            task_state
+                .drb_computations
+                .start_task_if_not_running(current_epoch_number + 1)
+                .await;
+        }
+    }
+
     if let Some(cert) = decided_upgrade_cert.clone() {
         let mut decided_certificate_lock = task_state
             .upgrade_lock
@@ -173,7 +199,9 @@ pub(crate) async fn handle_quorum_proposal_validated<
                 .block_number();
 
             // Skip if this is not the expected block.
-            if task_state.epoch_height != 0 && decided_block_number % task_state.epoch_height == 0 {
+            if task_state.epoch_height != 0
+                && (decided_block_number + 3) % task_state.epoch_height == 0
+            {
                 // Cancel old DRB computation tasks.
                 let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
                     decided_block_number,
@@ -189,7 +217,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
                     .membership
                     .has_stake(&task_state.public_key, current_epoch_number + 1)
                 {
-                    let new_epoch_number = current_epoch_number + 1;
+                    let new_epoch_number = current_epoch_number + 2;
                     let Ok(drb_seed_input_vec) =
                         bincode::serialize(&proposal.justify_qc.signatures)
                     else {
@@ -205,18 +233,6 @@ pub(crate) async fn handle_quorum_proposal_validated<
                     task_state
                         .drb_computations
                         .store_seed(new_epoch_number, drb_seed_input);
-                }
-
-                // Start the new task if we're in the committee for this epoch
-                if task_state
-                    .membership
-                    .has_stake(&task_state.public_key, current_epoch_number)
-                {
-                    // This will join_or_abort_task before starting the new task
-                    task_state
-                        .drb_computations
-                        .start_new_task(current_epoch_number)
-                        .await;
                 }
             }
         }
