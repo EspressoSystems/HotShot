@@ -27,7 +27,6 @@ use libp2p::kad::{
 use libp2p::kad::{
     store::RecordStore, Behaviour as KademliaBehaviour, BootstrapError, Event as KademliaEvent,
 };
-use libp2p_identity::PeerId;
 use store::{file_backed::FileBackedStore, validated::ValidatedStore};
 use tokio::{spawn, sync::mpsc::UnboundedSender, time::sleep};
 use tracing::{debug, error, warn};
@@ -68,10 +67,6 @@ pub struct DHTBehaviour<K: SignatureKey + 'static> {
     in_progress_put_record_queries: HashMap<QueryId, KadPutQuery>,
     /// State of bootstrapping
     pub bootstrap_state: Bootstrap,
-    /// the peer id (useful only for debugging right now)
-    pub peer_id: PeerId,
-    /// replication factor
-    pub replication_factor: NonZeroUsize,
     /// Sender to retry requests.
     retry_tx: Option<UnboundedSender<ClientRequest>>,
     /// Sender to the bootstrap task
@@ -79,6 +74,13 @@ pub struct DHTBehaviour<K: SignatureKey + 'static> {
 
     /// Phantom type for the key
     phantom: PhantomData<K>,
+}
+
+/// The default implementation just calls the constructor
+impl<K: SignatureKey + 'static> Default for DHTBehaviour<K> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// State of bootstrapping
@@ -117,14 +119,13 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
     }
     /// Create a new DHT behaviour
     #[must_use]
-    pub fn new(pid: PeerId, replication_factor: NonZeroUsize) -> Self {
+    pub fn new() -> Self {
         // needed because otherwise we stay in client mode when testing locally
         // and don't publish keys stuff
         // e.g. dht just doesn't work. We'd need to add mdns and that doesn't seem worth it since
         // we won't have a local network
         // <https://github.com/libp2p/rust-libp2p/issues/4194>
         Self {
-            peer_id: pid,
             in_progress_record_queries: HashMap::default(),
             in_progress_put_record_queries: HashMap::default(),
             outstanding_dht_query_keys: HashSet::default(),
@@ -133,7 +134,6 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                 backoff: ExponentialBackoff::new(2, Duration::from_secs(1)),
             },
             in_progress_get_closest_peers: HashMap::default(),
-            replication_factor,
             retry_tx: None,
             bootstrap_tx: None,
             phantom: PhantomData,
@@ -145,7 +145,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
         &mut self,
         kadem: &mut KademliaBehaviour<FileBackedStore<ValidatedStore<MemoryStore, K>>>,
     ) {
-        let mut err = format!("KBUCKETS: PID: {:?}, ", self.peer_id);
+        let mut err = "KBUCKETS: ".to_string();
         let v = kadem.kbuckets().collect::<Vec<_>>();
         for i in v {
             for j in i.iter() {
@@ -159,11 +159,6 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
         error!("{:?}", err);
     }
 
-    /// Get the replication factor for queries
-    #[must_use]
-    pub fn replication_factor(&self) -> NonZeroUsize {
-        self.replication_factor
-    }
     /// Publish a key/value to the kv store.
     /// Once replicated upon all nodes, the caller is notified over
     /// `chan`
@@ -381,10 +376,7 @@ impl<K: SignatureKey + 'static> DHTBehaviour<K> {
                     query.progress = DHTProgress::NotStarted;
                     query.backoff.start_next(false);
 
-                    warn!(
-                        "Put DHT: error performing put: {:?}. Retrying on pid {:?}.",
-                        e, self.peer_id
-                    );
+                    warn!("Put DHT: error performing put: {:?}. Retrying.", e);
                     // push back onto the queue
                     self.retry_put(query);
                 }

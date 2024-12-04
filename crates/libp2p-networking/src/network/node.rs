@@ -5,23 +5,22 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 /// configuration for the libp2p network (e.g. how it should be built)
-mod config;
+pub mod config;
 
 /// libp2p network handle
 /// allows for control over the libp2p network
 mod handle;
 
 use std::{
-    collections::{HashMap, HashSet},
-    iter,
+    collections::HashSet,
     num::{NonZeroU32, NonZeroUsize},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
+use anyhow::{anyhow, Context};
+use config::{KademliaConfig, Libp2pConfig};
 use futures::{channel::mpsc, SinkExt, StreamExt};
-use hotshot_types::{
-    constants::KAD_DEFAULT_REPUB_INTERVAL_SEC, traits::node_implementation::NodeType,
-};
+use hotshot_types::traits::node_implementation::NodeType;
 use libp2p::{
     autonat,
     core::transport::ListenerId,
@@ -33,8 +32,8 @@ use libp2p::{
         Behaviour as IdentifyBehaviour, Config as IdentifyConfig, Event as IdentifyEvent,
         Info as IdentifyInfo,
     },
-    identity::Keypair,
     kad::{store::MemoryStore, Behaviour, Config, Mode, Record},
+    multiaddr::Protocol,
     request_response::{
         Behaviour as RequestResponse, Config as Libp2pRequestResponseConfig, ProtocolSupport,
     },
@@ -42,18 +41,15 @@ use libp2p::{
     Multiaddr, StreamProtocol, Swarm, SwarmBuilder,
 };
 use libp2p_identity::PeerId;
-use rand::{prelude::SliceRandom, thread_rng};
 use tokio::{
     select, spawn,
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    time::timeout,
 };
-use tracing::{debug, error, info, info_span, instrument, warn, Instrument};
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
 pub use self::{
-    config::{
-        GossipConfig, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
-        RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
-    },
+    config::{GossipConfig, RequestResponseConfig},
     handle::{spawn_network_node, NetworkNodeHandle, NetworkNodeReceiver},
 };
 use super::{
@@ -81,21 +77,20 @@ pub const ESTABLISHED_LIMIT: NonZeroU32 =
 pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
-#[derive(derive_more::Debug)]
 pub struct NetworkNode<T: NodeType> {
-    /// peer id of network node
-    peer_id: PeerId,
-    /// the swarm of networkbehaviours
-    #[debug(skip)]
+    /// The swarm of network behaviours
     swarm: Swarm<NetworkDef<T::SignatureKey>>,
-    /// the listener id we are listening on, if it exists
+    /// The listener id we are listening on, if it is initialized
     listener_id: Option<ListenerId>,
-    /// Handler for direct messages
-    direct_message_state: DMBehaviour,
-    /// Handler for DHT Events
+    /// The handler for direct messages
+    direct_message_handler: DMBehaviour,
+    /// The handler for DHT events
     dht_handler: DHTBehaviour<T::SignatureKey>,
-    /// Channel to resend requests, set to Some when we call `spawn_listeners`
+    /// Channel to resend requests (set when we call `spawn_listeners`)
     resend_tx: Option<UnboundedSender<ClientRequest>>,
+
+    /// The Kademlia config
+    kademlia_config: KademliaConfig<T>,
 }
 
 impl<T: NodeType> NetworkNode<T> {
@@ -109,69 +104,61 @@ impl<T: NodeType> NetworkNode<T> {
         self.swarm.connected_peers().copied().collect()
     }
 
-    /// starts the swarm listening on `listen_addr`
-    /// and optionally dials into peer `known_peer`
-    /// returns the address the swarm is listening upon
+    /// Bind the swarm to a given address
     #[instrument(skip(self))]
-    pub async fn start_listen(
-        &mut self,
-        listen_addr: Multiaddr,
-    ) -> Result<Multiaddr, NetworkError> {
-        self.listener_id = Some(self.swarm.listen_on(listen_addr).map_err(|err| {
-            NetworkError::ListenError(format!("failed to listen for Libp2p: {err}"))
-        })?);
-        let addr = loop {
-            if let Some(SwarmEvent::NewListenAddr { address, .. }) = self.swarm.next().await {
-                break address;
-            }
-        };
-        info!("Libp2p listening on {:?}", addr);
-        Ok(addr)
-    }
+    pub async fn bind_to(&mut self, bind_address: &Multiaddr) -> anyhow::Result<()> {
+        // Debug log the address we are binding to
+        debug!("Libp2p binding to {:?}", bind_address);
 
-    /// initialize the DHT with known peers
-    /// add the peers to kademlia and then
-    /// the `spawn_listeners` function
-    /// will start connecting to peers
-    #[instrument(skip(self))]
-    pub fn add_known_peers(&mut self, known_peers: &[(PeerId, Multiaddr)]) {
-        debug!("Adding {} known peers", known_peers.len());
-        let behaviour = self.swarm.behaviour_mut();
-        let mut bs_nodes = HashMap::<PeerId, HashSet<Multiaddr>>::new();
-        let mut shuffled = known_peers.iter().collect::<Vec<_>>();
-        shuffled.shuffle(&mut thread_rng());
-        for (peer_id, addr) in shuffled {
-            if *peer_id != self.peer_id {
-                behaviour.dht.add_address(peer_id, addr.clone());
-                behaviour.autonat.add_server(*peer_id, Some(addr.clone()));
-                bs_nodes.insert(*peer_id, iter::once(addr.clone()).collect());
+        // Start listening on the given address
+        self.listener_id = Some(
+            self.swarm
+                .listen_on(bind_address.clone())
+                .with_context(|| "failed to bind to address")?,
+        );
+
+        // Wait for the listener to be bound with a 60s timeout
+        let start_time = Instant::now();
+        loop {
+            match timeout(Duration::from_secs(60), self.swarm.next()).await {
+                // If we successfully get a NewListenAddr event, break
+                Ok(Some(SwarmEvent::NewListenAddr { .. })) => break,
+                // If we timeout, return an error
+                Err(_) => {
+                    return Err(anyhow!("Timed out binding to address"));
+                }
+                // If we get any other event, continue waiting
+                _ => {}
+            }
+
+            // If we've been waiting for more than 60 seconds, return an error
+            if start_time.elapsed() > Duration::from_secs(60) {
+                return Err(anyhow!("Timed out binding to address"));
             }
         }
+
+        // Log the address we are listening on
+        info!("Libp2p listening on {:?}", bind_address);
+
+        Ok(())
     }
 
-    /// Creates a new `Network` with the given settings.
+    /// Creates a new `NetworkNode` with the given Libp2p configuration
     ///
-    /// Currently:
-    ///   * Generates a random key pair and associated [`PeerId`]
-    ///   * Launches a hopefully production ready transport:
-    ///       QUIC v1 (RFC 9000) + DNS
-    ///   * Generates a connection to the "broadcast" topic
-    ///   * Creates a swarm to manage peers and events
-    #[instrument]
-    pub async fn new(config: NetworkNodeConfig<T>) -> Result<Self, NetworkError> {
-        // Generate a random `KeyPair` if one is not specified
-        let keypair = config
-            .keypair
-            .clone()
-            .unwrap_or_else(Keypair::generate_ed25519);
-
+    /// # Errors
+    /// If the network node cannot be created
+    ///
+    /// # Panics
+    /// If `5 == 0`
+    #[allow(clippy::too_many_lines)]
+    pub async fn new(config: &Libp2pConfig<T>) -> anyhow::Result<Self> {
         // Get the `PeerId` from the `KeyPair`
-        let peer_id = PeerId::from(keypair.public());
+        let peer_id = PeerId::from(config.keypair.public());
 
         // Generate the transport from the keypair, stake table, and auth message
         let transport: BoxedTransport = gen_transport::<T>(
-            keypair.clone(),
-            config.stake_table.clone(),
+            config.keypair.clone(),
+            config.quorum_membership.clone(),
             config.auth_message.clone(),
         )
         .await?;
@@ -215,62 +202,41 @@ impl<T: NodeType> NetworkNode<T> {
                     NetworkError::ConfigError(format!("error building gossipsub config: {err:?}"))
                 })?;
 
-            // - Build a gossipsub network behavior
+            // Create the Gossipsub behaviour
             let gossipsub: Gossipsub = Gossipsub::new(
-                MessageAuthenticity::Signed(keypair.clone()),
+                MessageAuthenticity::Signed(config.keypair.clone()),
                 gossipsub_config,
             )
             .map_err(|err| {
                 NetworkError::ConfigError(format!("error building gossipsub behaviour: {err:?}"))
             })?;
 
-            //   Build a identify network behavior needed for own
-            //   node connection information
-            //   E.g. this will answer the question: how are other nodes
-            //   seeing the peer from behind a NAT
+            // Configure and create the Identify behaviour
             let identify_cfg =
-                IdentifyConfig::new("HotShot/identify/1.0".to_string(), keypair.public());
+                IdentifyConfig::new("HotShot/identify/1.0".to_string(), config.keypair.public());
             let identify = IdentifyBehaviour::new(identify_cfg);
 
-            // - Build DHT needed for peer discovery
+            // Configure the Kademlia behaviour
             let mut kconfig = Config::default();
-            // 8 hours by default
-            let record_republication_interval = config
-                .republication_interval
-                .unwrap_or(Duration::from_secs(KAD_DEFAULT_REPUB_INTERVAL_SEC));
-            let ttl = Some(config.ttl.unwrap_or(16 * record_republication_interval));
             kconfig
                 .set_parallelism(NonZeroUsize::new(5).unwrap())
-                .set_provider_publication_interval(Some(record_republication_interval))
-                .set_publication_interval(Some(record_republication_interval))
-                .set_record_ttl(ttl);
+                .set_provider_publication_interval(config.kademlia_config.publication_interval)
+                .set_publication_interval(config.kademlia_config.publication_interval)
+                .set_record_ttl(config.kademlia_config.record_ttl);
 
-            // allowing panic here because something is very wrong if this fales
-            #[allow(clippy::panic)]
-            if let Some(factor) = config.replication_factor {
-                kconfig.set_replication_factor(factor);
-            } else {
-                panic!("Replication factor not set");
-            }
-
-            // Extract the DHT file path from the config, defaulting to `libp2p_dht.json`
-            let dht_file_path = config
-                .dht_file_path
-                .clone()
-                .unwrap_or_else(|| "libp2p_dht.bin".into());
-
-            // Create the DHT behaviour
+            // Create the Kademlia behaviour
             let mut kadem = Behaviour::with_config(
                 peer_id,
                 FileBackedStore::new(
                     ValidatedStore::new(MemoryStore::new(peer_id)),
-                    dht_file_path,
+                    config.kademlia_config.file_path.clone(),
                     10,
                 ),
                 kconfig,
             );
             kadem.set_mode(Some(Mode::Server));
 
+            // Use the default request response config
             let rrconfig = Libp2pRequestResponseConfig::default();
 
             // Create a new `cbor` codec with the given request and response sizes
@@ -279,6 +245,7 @@ impl<T: NodeType> NetworkNode<T> {
                 config.request_response_config.response_size_maximum,
             );
 
+            // Create the direct message behaviour with our configured codec
             let direct_message: super::cbor::Behaviour<Vec<u8>, Vec<u8>> =
                 RequestResponse::with_codec(
                     cbor,
@@ -303,8 +270,8 @@ impl<T: NodeType> NetworkNode<T> {
                 autonat::Behaviour::new(peer_id, autonat_config),
             );
 
-            // build swarm
-            let swarm = SwarmBuilder::with_existing_identity(keypair.clone());
+            // Build the swarm
+            let swarm = SwarmBuilder::with_existing_identity(config.keypair.clone());
             let swarm = swarm.with_tokio();
 
             swarm
@@ -314,24 +281,41 @@ impl<T: NodeType> NetworkNode<T> {
                 .unwrap()
                 .build()
         };
-        for (peer, addr) in &config.to_connect_addrs {
-            if peer != swarm.local_peer_id() {
-                swarm.behaviour_mut().add_address(peer, addr.clone());
+
+        // Add the known peers to Libp2p
+        let mut num_known_peers_added = 0;
+        for mut known_peer in config.known_peers.clone() {
+            // Lob off the last protocol from the multiaddr
+            if let Some(protocol) = known_peer.pop() {
+                // Make sure it is the P2P protocol (which includes the peer id)
+                if let Protocol::P2p(peer_id) = protocol {
+                    // Add the address to Libp2p behaviors
+                    swarm.behaviour_mut().add_address(&peer_id, known_peer);
+                    num_known_peers_added += 1;
+                } else {
+                    warn!("Known peer {:?} has no P2P address", known_peer);
+                }
+            } else {
+                warn!("Known peer {:?} has no address", known_peer);
             }
         }
 
+        // If we hadn't found any suitable known peers, return an error
+        if num_known_peers_added == 0 {
+            return Err(anyhow!("No suitable known peers known"));
+        }
+
+        // Create our own DHT handler
+        let dht_handler = DHTBehaviour::new();
+
+        // Create and return the new network node
         Ok(Self {
-            peer_id,
             swarm,
             listener_id: None,
-            direct_message_state: DMBehaviour::default(),
-            dht_handler: DHTBehaviour::new(
-                peer_id,
-                config
-                    .replication_factor
-                    .unwrap_or(NonZeroUsize::new(4).unwrap()),
-            ),
+            direct_message_handler: DMBehaviour::default(),
+            dht_handler,
             resend_tx: None,
+            kademlia_config: config.kademlia_config.clone(),
         })
     }
 
@@ -344,7 +328,7 @@ impl<T: NodeType> NetworkNode<T> {
         match self.swarm.behaviour_mut().dht.put_record(
             record,
             libp2p::kad::Quorum::N(
-                NonZeroUsize::try_from(self.dht_handler.replication_factor().get() / 2)
+                NonZeroUsize::try_from(self.kademlia_config.replication_factor / 2)
                     .expect("replication factor should be bigger than 0"),
             ),
         ) {
@@ -352,7 +336,7 @@ impl<T: NodeType> NetworkNode<T> {
                 // failed try again later
                 query.progress = DHTProgress::NotStarted;
                 query.backoff.start_next(false);
-                error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
+                warn!("Error publishing to DHT: {e:?}");
             }
             Ok(qid) => {
                 debug!("Published record to DHT with qid {:?}", qid);
@@ -475,13 +459,10 @@ impl<T: NodeType> NetworkNode<T> {
                             backoff: ExponentialBackoff::default(),
                             retry_count,
                         };
-                        self.direct_message_state.add_direct_request(req, id);
+                        self.direct_message_handler.add_direct_request(req, id);
                     }
                     ClientRequest::DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);
-                    }
-                    ClientRequest::AddKnownPeers(peers) => {
-                        self.add_known_peers(&peers);
                     }
                     ClientRequest::Prune(pid) => {
                         if self.swarm.disconnect_peer_id(pid).is_err() {
@@ -634,7 +615,7 @@ impl<T: NodeType> NetworkNode<T> {
                         }
                     },
                     NetworkEventInternal::DMEvent(e) => self
-                        .direct_message_state
+                        .direct_message_handler
                         .handle_dm_event(e, self.resend_tx.clone()),
                     NetworkEventInternal::AutonatEvent(e) => {
                         match e {
@@ -711,8 +692,10 @@ impl<T: NodeType> NetworkNode<T> {
 
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
-    #[instrument]
-    pub async fn spawn_listeners(
+    ///
+    /// # Errors
+    /// If the listeners cannot be spawned
+    pub fn spawn_listeners(
         mut self,
     ) -> Result<
         (
@@ -733,14 +716,13 @@ impl<T: NodeType> NetworkNode<T> {
                 loop {
                     select! {
                         event = self.swarm.next() => {
-                            debug!("peerid {:?}\t\thandling maybe event {:?}", self.peer_id, event);
                             if let Some(event) = event {
-                                debug!("peerid {:?}\t\thandling event {:?}", self.peer_id, event);
+                                trace!("Libp2p handling event {:?}", event);
                                 self.handle_swarm_events(event, &r_input).await?;
                             }
                         },
                         msg = s_output.recv() => {
-                            debug!("peerid {:?}\t\thandling msg {:?}", self.peer_id, msg);
+                            trace!("Libp2p handling client request {:?}", msg);
                             let shutdown = self.handle_client_requests(msg).await?;
                             if shutdown {
                                 let _ = bootstrap_tx.send(InputEvent::ShutdownBootstrap).await;
@@ -754,10 +736,5 @@ impl<T: NodeType> NetworkNode<T> {
             .instrument(info_span!("Libp2p NetworkBehaviour Handler")),
         );
         Ok((s_input, r_output))
-    }
-
-    /// Get a reference to the network node's peer id.
-    pub fn peer_id(&self) -> PeerId {
-        self.peer_id
     }
 }

@@ -9,7 +9,7 @@ pub mod behaviours;
 /// defines the swarm and network definition (internal)
 mod def;
 /// functionality of a libp2p network node
-mod node;
+pub mod node;
 /// Alternative Libp2p transport implementations
 pub mod transport;
 
@@ -21,7 +21,6 @@ use std::{collections::HashSet, fmt::Debug};
 use futures::channel::oneshot::Sender;
 use hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 use libp2p::{
-    build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed},
     dns::tokio::Transport as DnsTransport,
     gossipsub::Event as GossipEvent,
@@ -29,7 +28,7 @@ use libp2p::{
     identity::Keypair,
     quic,
     request_response::ResponseChannel,
-    Multiaddr, Transport,
+    Transport,
 };
 use libp2p_identity::PeerId;
 use quic::tokio::Transport as QuicTransport;
@@ -39,9 +38,8 @@ use transport::StakeTableAuthentication;
 pub use self::{
     def::NetworkDef,
     node::{
-        spawn_network_node, GossipConfig, NetworkNode, NetworkNodeConfig, NetworkNodeConfigBuilder,
-        NetworkNodeConfigBuilderError, NetworkNodeHandle, NetworkNodeReceiver,
-        RequestResponseConfig, DEFAULT_REPLICATION_FACTOR,
+        spawn_network_node, GossipConfig, NetworkNode, NetworkNodeHandle, NetworkNodeReceiver,
+        RequestResponseConfig,
     },
 };
 
@@ -71,8 +69,6 @@ pub enum ClientRequest {
     DirectResponse(ResponseChannel<Vec<u8>>, Vec<u8>),
     /// prune a peer
     Prune(PeerId),
-    /// add vec of known peers or addresses
-    AddKnownPeers(Vec<(PeerId, Multiaddr)>),
     /// Ignore peers. Only here for debugging purposes.
     /// Allows us to have nodes that are never pruned
     IgnorePeers(Vec<PeerId>),
@@ -138,13 +134,6 @@ pub enum NetworkEventInternal {
     AutonatEvent(libp2p::autonat::Event),
 }
 
-/// Bind all interfaces on port `port`
-/// NOTE we may want something more general in the fture.
-#[must_use]
-pub fn gen_multiaddr(port: u16) -> Multiaddr {
-    build_multiaddr!(Ip4([0, 0, 0, 0]), Udp(port), QuicV1)
-}
-
 /// `BoxedTransport` is a type alias for a boxed tuple containing a `PeerId` and a `StreamMuxerBox`.
 ///
 /// This type is used to represent a transport in the libp2p network framework. The `PeerId` is a unique identifier for each peer in the network, and the `StreamMuxerBox` is a type of multiplexer that can handle multiple substreams over a single connection.
@@ -159,7 +148,7 @@ type BoxedTransport = Boxed<(PeerId, StreamMuxerBox)>;
 #[instrument(skip(identity))]
 pub async fn gen_transport<T: NodeType>(
     identity: Keypair,
-    stake_table: Option<T::Membership>,
+    quorum_membership: Option<T::Membership>,
     auth_message: Option<Vec<u8>>,
 ) -> Result<BoxedTransport, NetworkError> {
     // Create the initial `Quic` transport
@@ -171,7 +160,7 @@ pub async fn gen_transport<T: NodeType>(
 
     // Require authentication against the stake table
     let transport: StakeTableAuthentication<_, T, _> =
-        StakeTableAuthentication::new(transport, stake_table, auth_message);
+        StakeTableAuthentication::new(transport, quorum_membership, auth_message);
 
     // Support DNS resolution
     let transport = {

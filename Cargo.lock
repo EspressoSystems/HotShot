@@ -1010,12 +1010,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "bimap"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "230c5f1ca6a325a32553f8640d31ac9b49f2411e901e427570154868b46da4f7"
-
-[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1746,27 +1740,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "csv"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acdc4883a9c96732e4733212c01447ebd805833b7275a73ca3ee080fd77afdaf"
-dependencies = [
- "csv-core",
- "itoa",
- "ryu",
- "serde",
-]
-
-[[package]]
-name = "csv-core"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "ctr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2241,6 +2214,10 @@ dependencies = [
  "event-listener 5.3.1",
  "pin-project-lite 0.2.15",
 ]
+
+[[package]]
+name = "examples"
+version = "0.5.79"
 
 [[package]]
 name = "fastrand"
@@ -2873,7 +2850,6 @@ dependencies = [
  "async-broadcast",
  "async-lock 3.4.0",
  "async-trait",
- "bimap",
  "bincode",
  "blake3",
  "cdn-broker",
@@ -2897,7 +2873,6 @@ dependencies = [
  "primitive-types",
  "rand 0.8.5",
  "serde",
- "sha2 0.10.8",
  "time 0.3.37",
  "tokio",
  "tracing",
@@ -2950,37 +2925,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hotshot-examples"
-version = "0.5.79"
-dependencies = [
- "anyhow",
- "async-trait",
- "cdn-broker",
- "cdn-marshal",
- "chrono",
- "clap",
- "futures",
- "hotshot",
- "hotshot-example-types",
- "hotshot-orchestrator",
- "hotshot-testing",
- "hotshot-types",
- "libp2p-networking",
- "local-ip-address",
- "portpicker",
- "rand 0.8.5",
- "serde",
- "sha2 0.10.8",
- "surf-disco",
- "time 0.3.37",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber 0.3.19",
- "url",
-]
-
-[[package]]
 name = "hotshot-fakeapi"
 version = "0.5.79"
 dependencies = [
@@ -3005,28 +2949,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
-]
-
-[[package]]
-name = "hotshot-orchestrator"
-version = "0.5.79"
-dependencies = [
- "anyhow",
- "async-lock 3.4.0",
- "blake3",
- "clap",
- "csv",
- "futures",
- "hotshot-types",
- "libp2p-identity",
- "multiaddr",
- "serde",
- "surf-disco",
- "tide-disco",
- "tokio",
- "toml",
- "tracing",
- "vbs",
 ]
 
 [[package]]
@@ -3151,7 +3073,6 @@ dependencies = [
  "bincode",
  "bitvec",
  "blake3",
- "clap",
  "committable",
  "derive_more 1.0.0",
  "digest 0.10.7",
@@ -3164,17 +3085,13 @@ dependencies = [
  "jf-utils",
  "jf-vid",
  "lazy_static",
- "libp2p-identity",
  "memoize",
  "mnemonic",
- "multiaddr",
  "primitive-types",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
- "serde-inline-default",
  "serde_bytes",
- "serde_json",
  "sha2 0.10.8",
  "tagged-base64",
  "thiserror 2.0.4",
@@ -4392,8 +4309,6 @@ dependencies = [
  "blake3",
  "cbor4ii",
  "delegate",
- "derive_builder",
- "derive_more 1.0.0",
  "futures",
  "hotshot-example-types",
  "hotshot-types",
@@ -6440,17 +6355,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-inline-default"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59fb1bedd774187d304179493b0d3c41fbe97b04b14305363f68d2bdf5e47cb9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
 ]
 
 [[package]]

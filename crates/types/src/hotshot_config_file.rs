@@ -42,8 +42,6 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub next_view_timeout: u64,
     /// Duration for view sync round timeout
     pub view_sync_timeout: Duration,
-    /// Number of network bootstrap nodes
-    pub num_bootstrap: usize,
     /// The maximum amount of time a leader can wait to get a block from a builder
     pub builder_timeout: Duration,
     /// Time to wait until we request data associated with a proposal
@@ -68,7 +66,6 @@ impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
             fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
-            num_bootstrap: val.num_bootstrap,
             builder_timeout: val.builder_timeout,
             data_request_delay: val
                 .data_request_delay
@@ -122,7 +119,6 @@ impl<KEY: SignatureKey> HotShotConfigFile<KEY> {
             fixed_leader_for_gpuvid: 1,
             next_view_timeout: 10000,
             view_sync_timeout: Duration::from_millis(1000),
-            num_bootstrap: 5,
             builder_timeout: Duration::from_secs(10),
             data_request_delay: Some(Duration::from_millis(REQUEST_DATA_DELAY)),
             builder_urls: default_builder_urls(),

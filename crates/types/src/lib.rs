@@ -39,6 +39,9 @@ pub mod simple_vote;
 pub mod stake_table;
 pub mod traits;
 
+/// Holds test builder configuration structures
+pub mod builder;
+
 /// Holds the upgrade configuration specification for HotShot nodes.
 pub mod upgrade_config;
 pub mod utils;
@@ -182,8 +185,6 @@ pub struct HotShotConfig<KEY: SignatureKey> {
     pub next_view_timeout: u64,
     /// Duration of view sync round timeouts
     pub view_sync_timeout: Duration,
-    /// Number of network bootstrap nodes
-    pub num_bootstrap: usize,
     /// The maximum amount of time a leader can wait to get a block from a builder
     pub builder_timeout: Duration,
     /// time to wait until we request data associated with a proposal
