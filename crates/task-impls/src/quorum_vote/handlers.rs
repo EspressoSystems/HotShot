@@ -82,28 +82,24 @@ pub(crate) async fn handle_quorum_proposal_validated<
     };
 
     if version >= V::Epochs::VERSION {
-        // This is never none if we've reached a new decide, so this is safe to unwrap.
-        let decided_block_number = leaf_views
-            .last()
-            .unwrap()
-            .leaf
-            .block_header()
-            .block_number();
+        if let Some(last_leaf_view) = leaf_views.last() {
+            let decided_block_number = last_leaf_view.leaf.block_header().block_number();
 
-        let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
-            decided_block_number,
-            task_state.epoch_height,
-        ));
+            let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+                decided_block_number,
+                task_state.epoch_height,
+            ));
 
-        // Start the new task if we're in the committee for this epoch
-        if task_state
-            .membership
-            .has_stake(&task_state.public_key, current_epoch_number)
-        {
-            task_state
-                .drb_computations
-                .start_task_if_not_running(current_epoch_number + 1)
-                .await;
+            // Start the new task if we're in the committee for this epoch
+            if task_state
+                .membership
+                .has_stake(&task_state.public_key, current_epoch_number)
+            {
+                task_state
+                    .drb_computations
+                    .start_task_if_not_running(current_epoch_number + 1)
+                    .await;
+            }
         }
     }
 
