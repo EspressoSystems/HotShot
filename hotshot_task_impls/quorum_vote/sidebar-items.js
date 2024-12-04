@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["VoteDependency"],"mod":["handlers"],"struct":["QuorumVoteTaskState","VoteDependencyHandle"]};
+window.SIDEBAR_ITEMS = {"enum":["VoteDependency"],"mod":["drb_computations","handlers"],"struct":["QuorumVoteTaskState","VoteDependencyHandle"]};

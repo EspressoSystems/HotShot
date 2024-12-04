@@ -743,6 +743,10 @@
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -755,6 +759,7 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::Committable;
+<span class="kw">use </span>drb_computations::DrbComputations;
 <span class="kw">use </span>hotshot_task::{
     dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -763,7 +768,6 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::{ConsensusMetricsValue, OuterConsensus},
     data::{Leaf2, QuorumProposal2},
-    drb::DrbResult,
     event::Event,
     message::{Proposal, UpgradeLock},
     traits::{
@@ -788,6 +792,9 @@
     helpers::broadcast_event,
     quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
 };
+
+<span class="doccomment">/// Helper for DRB Computations
+</span><span class="kw">pub mod </span>drb_computations;
 
 <span class="doccomment">/// Event handlers for `QuorumProposalValidated`.
 </span><span class="kw">mod </span>handlers;
@@ -1021,7 +1028,8 @@
     </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
 
     <span class="doccomment">/// Table for the in-progress DRB computation tasks.
-    </span><span class="kw">pub </span>drb_computations: BTreeMap&lt;TYPES::Epoch, JoinHandle&lt;DrbResult&gt;&gt;,
+    </span><span class="comment">//pub drb_computations: BTreeMap&lt;TYPES::Epoch, JoinHandle&lt;DrbResult&gt;&gt;,
+    </span><span class="kw">pub </span>drb_computations: DrbComputations&lt;TYPES&gt;,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
