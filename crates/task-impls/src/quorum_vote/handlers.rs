@@ -53,6 +53,45 @@ pub(crate) async fn handle_quorum_proposal_validated<
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    let current_block_number = proposal.block_header.block_number();
+    let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        current_block_number,
+        task_state.epoch_height,
+    ));
+
+    // If this is the last block of an epoch, verify the DRB result for the next epoch.
+    let next_epoch_number = current_epoch_number + 1;
+    if task_state.epoch_height != 0 && (current_block_number + 1) % task_state.epoch_height == 0 {
+        match proposal.next_drb_result {
+            Some(proposal_result) => {
+                if let Some(computation) = &mut task_state.drb_computations.task.get(&next_epoch_number) {
+                    if computation.is_finished() {
+                        match computation.await {
+                            Ok(computed_result) => {
+                                if proposal_result != computed_result {
+                                    bail!(
+                                        "Inconsistent DRB result for the next epoch."
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                bail!(
+                                    "Failed to get the DRB result for the next epoch."
+                                );
+                            }
+                        }
+                        task_state.drb_computations.results.add(next_epoch_number, computed_result);
+                        task_state.drb_computations.task = None;
+                    }
+                }
+            }
+            None => {
+                bail!(
+                    "The proposal for the last block of an epoch should contain the DRB result for the next epoch."
+                );
+            }
+        }
+    }
     let version = task_state
         .upgrade_lock
         .version(proposal.view_number())
@@ -155,13 +194,12 @@ pub(crate) async fn handle_quorum_proposal_validated<
         .await;
         tracing::debug!("Successfully sent decide event");
 
-        // Start the DRB computation two epochs in advance, if the decided block is the last but
-        // third block in the current epoch and we are in the quorum committee of the next epoch.
+        // Store the DRB seed or start the DRB computation at the appropriate block.
         //
         // Special cases:
         // * Epoch 0: No DRB computation since we'll transition to epoch 1 immediately.
-        // * Epoch 1 and 2: Use `[0u8; 32]` as the DRB result since when we first start the
-        // computation in epoch 1, the result is for epoch 3.
+        // * Epoch 1 and 2: Use `[0u8; 32]` as the DRB result since when we first store the seed in
+        // epoch 1, the result is for epoch 3.
         //
         // We don't need to handle the special cases explicitly here, because the first proposal
         // with which we'll start the DRB computation is for epoch 3.
@@ -179,10 +217,6 @@ pub(crate) async fn handle_quorum_proposal_validated<
                 && (decided_block_number + 3) % task_state.epoch_height == 0
             {
                 // Cancel old DRB computation tasks.
-                let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
-                    decided_block_number,
-                    task_state.epoch_height,
-                ));
                 let current_tasks = task_state.drb_computations.split_off(&current_epoch_number);
                 while let Some((_, task)) = task_state.drb_computations.pop_last() {
                     task.abort();

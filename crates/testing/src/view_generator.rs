@@ -142,8 +142,9 @@ impl TestView {
             .to_qc2(),
             upgrade_certificate: None,
             view_change_evidence: None,
-            drb_result: INITIAL_DRB_RESULT,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
+            next_drb_seed: INITIAL_DRB_SEED_INPUT,
+            current_drb_result: INITIAL_DRB_RESULT,
+            next_drb_result: None,
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -369,8 +370,9 @@ impl TestView {
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
-            drb_result: INITIAL_DRB_RESULT,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
+            next_drb_seed: INITIAL_DRB_SEED_INPUT,
+            current_drb_result: INITIAL_DRB_RESULT,
+            next_drb_result: None,
         };
 
         let mut leaf = Leaf2::from_quorum_proposal(&proposal);
