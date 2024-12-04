@@ -56,6 +56,24 @@ pub(crate) async fn handle_quorum_proposal_validated<
         .version(proposal.view_number())
         .await?;
 
+    if version >= V::Epochs::VERSION {
+        let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+            proposal.block_header.block_number(),
+            task_state.epoch_height,
+        ));
+
+        // Start the new task if we're in the committee for this epoch
+        if task_state
+            .membership
+            .has_stake(&task_state.public_key, current_epoch_number)
+        {
+            task_state
+                .drb_computations
+                .start_task_if_not_running(current_epoch_number + 1)
+                .await;
+        }
+    }
+
     let LeafChainTraversalOutcome {
         new_locked_view_number,
         new_decided_view_number,
@@ -80,28 +98,6 @@ pub(crate) async fn handle_quorum_proposal_validated<
         )
         .await
     };
-
-    if version >= V::Epochs::VERSION {
-        if let Some(last_leaf_view) = leaf_views.last() {
-            let decided_block_number = last_leaf_view.leaf.block_header().block_number();
-
-            let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
-                decided_block_number,
-                task_state.epoch_height,
-            ));
-
-            // Start the new task if we're in the committee for this epoch
-            if task_state
-                .membership
-                .has_stake(&task_state.public_key, current_epoch_number)
-            {
-                task_state
-                    .drb_computations
-                    .start_task_if_not_running(current_epoch_number + 1)
-                    .await;
-            }
-        }
-    }
 
     if let Some(cert) = decided_upgrade_cert.clone() {
         let mut decided_certificate_lock = task_state

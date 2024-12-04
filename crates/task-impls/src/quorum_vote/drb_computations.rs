@@ -33,32 +33,11 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
     }
 
     /// If a task is currently live AND has finished, join it and save the result.
-    /// If a task is currently live and NOT finished, abort it.
-    /// self.task will always be None after this call.
-    async fn join_or_abort_task(&mut self) {
-        if let Some((epoch, join_handle)) = &mut self.task {
-            if join_handle.is_finished() {
-                match join_handle.await {
-                    Ok(result) => {
-                        self.results.insert(*epoch, result);
-                    }
-                    Err(e) => {
-                        tracing::error!("error joining DRB computation task: {e:?}");
-                    }
-                }
-            } else {
-                join_handle.abort();
-            }
-            self.task = None;
-        }
-    }
-
-    /// If a task is currently live AND has finished, join it and save the result.
     /// If the epoch for the calculation was the same as the provided epoch, return true
     /// If a task is currently live and NOT finished, abort it UNLESS the task epoch is the same as
     /// cur_epoch, in which case keep letting it run and return true.
     /// Return false if a task should be spawned for the given epoch.
-    async fn join_or_abort_task_for_epoch(&mut self, epoch: TYPES::Epoch) -> bool {
+    async fn join_or_abort_old_task(&mut self, epoch: TYPES::Epoch) -> bool {
         if let Some((task_epoch, join_handle)) = &mut self.task {
             if join_handle.is_finished() {
                 match join_handle.await {
@@ -90,24 +69,13 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
         self.seeds.insert(epoch, drb_seed_input);
     }
 
-    /// Starts a new task. If a previous task is currently live, will attempt to join it (if finished), or abort it.
-    pub async fn start_new_task(&mut self, epoch: TYPES::Epoch) {
-        self.join_or_abort_task().await;
-        if let btree_map::Entry::Occupied(entry) = self.seeds.entry(epoch) {
-            let drb_seed_input = *entry.get();
-            let new_drb_task = spawn(async move { compute_drb_result::<TYPES>(drb_seed_input) });
-            self.task = Some((epoch, new_drb_task));
-            entry.remove();
-        }
-    }
-
     /// Starts a new task. Cancels a current task if that task is not for the provided epoch. Allows a task to continue
     /// running if it was already started for the given epoch. Avoids running the task if we already have a result for
     /// the epoch.
     pub async fn start_task_if_not_running(&mut self, epoch: TYPES::Epoch) {
         // If join_or_abort_task returns true, then we either just completed a task for this epoch, or we currently
         // have a running task for the epoch.
-        if self.join_or_abort_task_for_epoch(epoch).await {
+        if self.join_or_abort_old_task(epoch).await {
             return;
         }
 
