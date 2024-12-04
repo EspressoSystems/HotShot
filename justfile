@@ -10,9 +10,6 @@ build:
 build_release *ARGS:
   cargo build --profile=release {{ARGS}}
 
-example *ARGS:
-  cargo run --profile=release-lto --package hotshot-examples --no-default-features --example {{ARGS}}
-
 example_fixed_leader *ARGS:
   cargo run --features "fixed-leader-election" --profile=release-lto --example {{ARGS}}
 
