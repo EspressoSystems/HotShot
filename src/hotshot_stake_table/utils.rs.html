@@ -47,7 +47,7 @@
 <span class="doccomment">/// convert a U256 to a field element.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>u256_to_field&lt;F: PrimeField&gt;(v: <span class="kw-2">&amp;</span>U256) -&gt; F {
     <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">32</span>];
-    v.write_as_little_endian(<span class="kw-2">&amp;mut </span>bytes);
+    v.to_little_endian(<span class="kw-2">&amp;mut </span>bytes);
     F::from_le_bytes_mod_order(<span class="kw-2">&amp;</span>bytes)
 }
 </code></pre></div></section></main></body></html>
