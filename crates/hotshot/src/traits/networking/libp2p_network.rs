@@ -247,7 +247,7 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
                     replication_factor: 2 * expected_node_count / 3,
                     record_ttl: None,
                     publication_interval: None,
-                    file_path: format!("/tmp/libp2p_dht-{node_id}.bin"),
+                    file_path: format!("/tmp/libp2p_dht-{test_id}-{node_id}.bin"),
                     lookup_record_value,
                 };
 
