@@ -9,6 +9,10 @@ use std::{
     sync::Arc,
 };
 
+use crate::{
+    test_runner::Node,
+    test_task::{TestEvent, TestResult, TestTaskState},
+};
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -19,16 +23,14 @@ use hotshot_types::{
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate2,
-    traits::node_implementation::{ConsensusTime, NodeType, Versions},
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType, Versions},
+    },
     vid::VidCommitment,
 };
 use thiserror::Error;
 use tracing::error;
-
-use crate::{
-    test_runner::Node,
-    test_task::{TestEvent, TestResult, TestTaskState},
-};
 /// convenience type alias for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -138,7 +140,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             check_block,
             num_failed_views,
             num_successful_views,
-            threshold_calculator,
             transaction_threshold,
             ..
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
@@ -183,10 +184,34 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             _ => return Ok(()),
         };
 
-        let len = self.handles.read().await.len();
+        if let Some(ref key) = key {
+            if *key.epoch() > self.ctx.latest_epoch {
+                self.ctx.latest_epoch = *key.epoch();
+            }
+        }
+
+        let epoch = TYPES::Epoch::new(self.ctx.latest_epoch);
+        let len = self
+            .handles
+            .read()
+            .await
+            .first()
+            .unwrap()
+            .handle
+            .memberships
+            .total_nodes(epoch);
 
         // update view count
-        let threshold = (threshold_calculator)(len, len);
+        let threshold = self
+            .handles
+            .read()
+            .await
+            .first()
+            .unwrap()
+            .handle
+            .memberships
+            .success_threshold(epoch)
+            .get() as usize;
 
         let view = self.ctx.round_results.get_mut(&view_number).unwrap();
         if let Some(key) = key {
@@ -352,6 +377,7 @@ impl<TYPES: NodeType> Default for RoundCtx<TYPES> {
             round_results: HashMap::default(),
             failed_views: HashSet::default(),
             successful_views: HashSet::default(),
+            latest_epoch: 0u64,
         }
     }
 }
@@ -369,6 +395,8 @@ pub struct RoundCtx<TYPES: NodeType> {
     pub failed_views: HashSet<TYPES::View>,
     /// successful views
     pub successful_views: HashSet<TYPES::View>,
+    /// latest epoch, updated when a leaf with a higher epoch is seen
+    pub latest_epoch: u64,
 }
 
 impl<TYPES: NodeType> RoundCtx<TYPES> {

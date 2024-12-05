@@ -21,6 +21,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
+    simple_vote::HasEpoch,
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},
@@ -97,7 +98,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.data.view_number();
-                let cur_epoch = self.consensus.read().await.cur_epoch();
+                let prop_epoch = proposal.data.epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
                 if prop_view >= self.view
@@ -108,7 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, cur_epoch, sender, receiver);
+                    self.spawn_requests(prop_view, prop_epoch, sender, receiver);
                 }
                 Ok(())
             }
@@ -327,7 +328,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         .await
     }
 
-    /// Returns true if we got the data we wanted, a shutdown even was received, or the view has moved on.
+    /// Returns true if we got the data we wanted, a shutdown event was received, or the view has moved on.
     async fn cancel_vid_request_task(
         consensus: &OuterConsensus<TYPES>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,

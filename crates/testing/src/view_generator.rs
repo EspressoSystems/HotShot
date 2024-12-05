@@ -22,14 +22,14 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
+        DaProposal, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence, ViewNumber,
     },
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate2,
+        DaCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
         DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
@@ -74,7 +74,7 @@ pub struct TestView {
 impl TestView {
     pub async fn genesis(membership: &<TestTypes as NodeType>::Membership) -> Self {
         let genesis_view = ViewNumber::new(1);
-        let genesis_epoch = EpochNumber::new(1);
+        let genesis_epoch = EpochNumber::new(0);
         let upgrade_lock = UpgradeLock::new();
 
         let transactions = Vec::new();
@@ -120,12 +120,11 @@ impl TestView {
         .await;
 
         let block_header = TestBlockHeader::new(
-            &Leaf::<TestTypes>::genesis(
+            &Leaf2::<TestTypes>::genesis(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await
-            .into(),
+            .await,
             payload_commitment,
             builder_commitment,
             metadata,
@@ -134,14 +133,15 @@ impl TestView {
         let quorum_proposal_inner = QuorumProposal2::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis::<TestVersions>(
+            justify_qc: QuorumCertificate2::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await
-            .to_qc2(),
+            .await,
+            next_epoch_justify_qc: None,
             upgrade_certificate: None,
             view_change_evidence: None,
+            epoch: genesis_epoch,
             next_drb_seed: INITIAL_DRB_SEED_INPUT,
             current_drb_result: INITIAL_DRB_RESULT,
             next_drb_result: None,
@@ -157,6 +157,7 @@ impl TestView {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
+            epoch: genesis_epoch,
         };
 
         let da_proposal = Proposal {
@@ -207,6 +208,7 @@ impl TestView {
     pub async fn next_view_from_ancestor(&self, ancestor: TestView) -> Self {
         let old = ancestor;
         let old_view = old.view_number;
+        let old_epoch = old.epoch_number;
 
         // This ensures that we're always moving forward in time since someone could pass in any
         // test view here.
@@ -218,6 +220,7 @@ impl TestView {
 
         let quorum_data = QuorumData2 {
             leaf_commit: old.leaf.commit(),
+            epoch: old_epoch,
         };
 
         let (old_private_key, old_public_key) = key_pair_for_id::<TestTypes>(*old_view);
@@ -368,8 +371,10 @@ impl TestView {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
+            next_epoch_justify_qc: None,
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
+            epoch: old_epoch,
             next_drb_seed: INITIAL_DRB_SEED_INPUT,
             current_drb_result: INITIAL_DRB_RESULT,
             next_drb_result: None,
@@ -399,6 +404,7 @@ impl TestView {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: next_view,
+            epoch: old_epoch,
         };
 
         let da_proposal = Proposal {
@@ -444,6 +450,7 @@ impl TestView {
         QuorumVote2::<TestTypes>::create_signed_vote(
             QuorumData2 {
                 leaf_commit: self.leaf.commit(),
+                epoch: self.epoch_number,
             },
             self.view_number,
             &handle.public_key(),
@@ -472,7 +479,7 @@ impl TestView {
 
     pub async fn create_da_vote(
         &self,
-        data: DaData,
+        data: DaData<TestTypes>,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
     ) -> DaVote<TestTypes> {
         DaVote::create_signed_vote(

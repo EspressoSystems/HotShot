@@ -146,7 +146,6 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             }
         }
 
-        let cur_epoch = consensus_reader.cur_epoch();
         drop(consensus_reader);
 
         if Consensus::calculate_and_update_vid(
@@ -154,7 +153,6 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             view,
             Arc::clone(&self.quorum),
             &self.private_key,
-            cur_epoch,
         )
         .await
         .is_none()
@@ -166,7 +164,6 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                 view,
                 Arc::clone(&self.quorum),
                 &self.private_key,
-                cur_epoch,
             )
             .await?;
         }

@@ -8,7 +8,10 @@ use std::sync::Arc;
 
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
+use either::Either;
 use hotshot_task::task::TaskState;
+use hotshot_types::simple_certificate::NextEpochQuorumCertificate2;
+use hotshot_types::simple_vote::NextEpochQuorumVote2;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
@@ -16,18 +19,20 @@ use hotshot_types::{
     simple_certificate::{QuorumCertificate2, TimeoutCertificate},
     simple_vote::{QuorumVote2, TimeoutVote},
     traits::{
-        node_implementation::{NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
+    vote::HasViewNumber,
 };
 use tokio::task::JoinHandle;
 use tracing::instrument;
-use utils::anytrace::Result;
+use utils::anytrace::*;
 
 use self::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
 };
-use crate::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
+use crate::{events::HotShotEvent, helpers::broadcast_event, vote_collection::VoteCollectorsMap};
 
 /// Event handlers for use in the `handle` method.
 mod handlers;
@@ -51,6 +56,14 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
 
     /// A map of `QuorumVote` collector tasks.
     pub vote_collectors: VoteCollectorsMap<TYPES, QuorumVote2<TYPES>, QuorumCertificate2<TYPES>, V>,
+
+    /// A map of `QuorumVote` collector tasks. They collect votes from the nodes in the next epoch.
+    pub next_epoch_vote_collectors: VoteCollectorsMap<
+        TYPES,
+        NextEpochQuorumVote2<TYPES>,
+        NextEpochQuorumCertificate2<TYPES>,
+        V,
+    >,
 
     /// A map of `TimeoutVote` collector tasks.
     pub timeout_vote_collectors:
@@ -116,10 +129,43 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskSt
                     tracing::trace!("Failed to handle ViewChange event; error = {e}");
                 }
             }
-            HotShotEvent::Timeout(view_number) => {
-                if let Err(e) = handle_timeout(*view_number, &sender, self).await {
+            HotShotEvent::Timeout(view_number, epoch) => {
+                if let Err(e) = handle_timeout(*view_number, *epoch, &sender, self).await {
                     tracing::debug!("Failed to handle Timeout event; error = {e}");
                 }
+            }
+            HotShotEvent::Qc2Formed(Either::Left(quorum_cert)) => {
+                if !self
+                    .consensus
+                    .read()
+                    .await
+                    .is_leaf_extended(quorum_cert.data.leaf_commit)
+                {
+                    tracing::debug!("We formed QC but not eQC. Do nothing");
+                    return Ok(());
+                }
+                let cert_view = quorum_cert.view_number();
+                let cert_block_number = self
+                    .consensus
+                    .read()
+                    .await
+                    .saved_leaves()
+                    .get(&quorum_cert.data.leaf_commit)
+                    .context(error!(
+                        "Could not find the leaf for the eQC. It shouldn't happen."
+                    ))?
+                    .height();
+                let cert_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    cert_block_number,
+                    self.epoch_height,
+                ));
+                // Transition to the new epoch by sending ViewChange
+                tracing::info!("Entering new epoch: {:?}", cert_epoch + 1);
+                broadcast_event(
+                    Arc::new(HotShotEvent::ViewChange(cert_view + 1, cert_epoch + 1)),
+                    &sender,
+                )
+                .await;
             }
             _ => {}
         }

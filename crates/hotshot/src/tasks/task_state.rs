@@ -132,6 +132,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
+            epoch_height: handle.epoch_height,
         }
     }
 }
@@ -261,6 +262,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 
         Self {
             latest_proposed_view: handle.cur_view().await,
+            cur_epoch: handle.cur_epoch().await,
             proposal_dependencies: BTreeMap::new(),
             consensus: OuterConsensus::new(consensus),
             instance_state: handle.hotshot.instance_state(),
@@ -317,6 +319,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             network: Arc::clone(&handle.hotshot.network),
             membership: (*handle.hotshot.memberships).clone().into(),
             vote_collectors: BTreeMap::default(),
+            next_epoch_vote_collectors: BTreeMap::default(),
             timeout_vote_collectors: BTreeMap::default(),
             cur_view: handle.cur_view().await,
             cur_view_time: Utc::now().timestamp(),

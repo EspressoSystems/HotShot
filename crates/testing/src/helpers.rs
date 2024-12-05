@@ -25,17 +25,19 @@ use hotshot_example_types::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf, Leaf2, QuorumProposal, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
     simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
+    simple_vote::{
+        DaData, DaVote, HasEpoch, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData,
+    },
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
-        node_implementation::{NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType, Versions},
     },
-    utils::{View, ViewInner},
+    utils::{epoch_from_block_number, View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidProposal, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
     ValidatorConfig,
@@ -45,6 +47,7 @@ use primitive_types::U256;
 use serde::Serialize;
 
 use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
+
 /// create the [`SystemContextHandle`] from a node id
 /// # Panics
 /// if cannot create a [`HotShotInitializer`]
@@ -135,7 +138,7 @@ pub async fn build_system_handle_from_launcher<
 pub async fn build_cert<
     TYPES: NodeType,
     V: Versions,
-    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
+    DATAType: Committable + HasEpoch<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
     VOTE: Vote<TYPES, Commitment = DATAType>,
     CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
 >(
@@ -203,7 +206,7 @@ pub async fn build_assembled_sig<
     V: Versions,
     VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
-    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
+    DATAType: Committable + HasEpoch<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
 >(
     data: &DATAType,
     membership: &TYPES::Membership,
@@ -331,6 +334,7 @@ pub fn build_vid_proposal<TYPES: NodeType>(
         vid.disperse(&encoded_transactions).unwrap(),
         quorum_membership,
         epoch_number,
+        None,
     );
 
     let signature =
@@ -372,9 +376,10 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
 
     let da_data = DaData {
         payload_commit: da_payload_commitment,
+        epoch: epoch_number,
     };
 
-    build_cert::<TYPES, V, DaData, DaVote<TYPES>, DaCertificate<TYPES>>(
+    build_cert::<TYPES, V, DaData<TYPES>, DaVote<TYPES>, DaCertificate<TYPES>>(
         da_data,
         membership,
         view_number,
@@ -388,14 +393,15 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
 
 pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &SystemContextHandle<TYPES, I, V>,
-    proposal: QuorumProposal<TYPES>,
+    proposal: QuorumProposal2<TYPES>,
 ) -> GeneralConsensusMessage<TYPES> {
     let view = proposal.view_number;
 
-    let leaf: Leaf<_> = Leaf::from_quorum_proposal(&proposal);
-    let vote = QuorumVote::<TYPES>::create_signed_vote(
-        QuorumData {
-            leaf_commit: leaf.commit(&handle.hotshot.upgrade_lock).await,
+    let leaf: Leaf2<_> = Leaf2::from_quorum_proposal(&proposal);
+    let vote = QuorumVote2::<TYPES>::create_signed_vote(
+        QuorumData2 {
+            leaf_commit: leaf.commit(),
+            epoch: leaf.epoch(),
         },
         view,
         &handle.public_key(),
@@ -404,7 +410,7 @@ pub async fn build_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     )
     .await
     .expect("Failed to create quorum vote");
-    GeneralConsensusMessage::<TYPES>::Vote(vote)
+    GeneralConsensusMessage::<TYPES>::Vote(vote.to_vote())
 }
 
 /// This function permutes the provided input vector `inputs`, given some order provided within the
@@ -428,8 +434,15 @@ where
 pub async fn build_fake_view_with_leaf<V: Versions>(
     leaf: Leaf2<TestTypes>,
     upgrade_lock: &UpgradeLock<TestTypes, V>,
+    epoch_height: u64,
 ) -> View<TestTypes> {
-    build_fake_view_with_leaf_and_state(leaf, TestValidatedState::default(), upgrade_lock).await
+    build_fake_view_with_leaf_and_state(
+        leaf,
+        TestValidatedState::default(),
+        upgrade_lock,
+        epoch_height,
+    )
+    .await
 }
 
 /// This function will create a fake [`View`] from a provided [`Leaf`] and `state`.
@@ -437,12 +450,16 @@ pub async fn build_fake_view_with_leaf_and_state<V: Versions>(
     leaf: Leaf2<TestTypes>,
     state: TestValidatedState,
     _upgrade_lock: &UpgradeLock<TestTypes, V>,
+    epoch_height: u64,
 ) -> View<TestTypes> {
+    let epoch =
+        <TestTypes as NodeType>::Epoch::new(epoch_from_block_number(leaf.height(), epoch_height));
     View {
         view_inner: ViewInner::Leaf {
             leaf: leaf.commit(),
             state: state.into(),
             delta: None,
+            epoch,
         },
     }
 }

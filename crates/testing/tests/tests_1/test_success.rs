@@ -8,8 +8,9 @@ use std::time::Duration;
 
 use hotshot_example_types::{
     node_types::{
-        EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
-        TestTypes, TestTypesRandomizedLeader, TestVersions,
+        CombinedImpl, EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl,
+        TestConsecutiveLeaderTypes, TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader,
+        TestVersions,
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
@@ -155,8 +156,8 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_epoch_end,
-    Impls: [MemoryImpl],
-    Types: [TestTypes],
+    Impls: [CombinedImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
@@ -167,6 +168,11 @@ cross_tests!(
                 },
             ),
             epoch_height: 10,
+            num_nodes_with_stake: 10,
+            start_nodes: 10,
+            num_bootstrap_nodes: 10,
+            da_staked_committee_size: 10,
+
             ..TestDescription::default()
         }
     },

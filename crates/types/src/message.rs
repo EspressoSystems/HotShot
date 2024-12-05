@@ -34,16 +34,17 @@ use crate::{
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-        ViewSyncPreCommitVote,
+        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
+        ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         network::{DataRequest, ResponseMessage, ViewMessage},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
-    utils::mnemonic,
+    utils::{epoch_from_block_number, mnemonic},
     vote::HasViewNumber,
 };
 
@@ -200,6 +201,12 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with an upgrade vote
     UpgradeVote(UpgradeVote<TYPES>),
 
+    /// Message with a quorum proposal.
+    Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
+
+    /// Message with a quorum vote.
+    Vote2(QuorumVote2<TYPES>),
+
     /// A peer node needs a proposal from the leader.
     ProposalRequested(
         ProposalRequestPayload<TYPES>,
@@ -208,6 +215,9 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
 
     /// A replica has responded with a valid proposal.
     ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
+
+    /// A replica has responded with a valid proposal.
+    ProposalResponse2(Proposal<TYPES, QuorumProposal2<TYPES>>),
 
     /// Message for the next leader containing our highest QC
     HighQc(QuorumCertificate2<TYPES>),
@@ -254,11 +264,20 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                         // this should match replica upon receipt
                         p.data.view_number()
                     }
+                    GeneralConsensusMessage::Proposal2(p) => {
+                        // view of leader in the leaf when proposal
+                        // this should match replica upon receipt
+                        p.data.view_number()
+                    }
                     GeneralConsensusMessage::ProposalRequested(req, _) => req.view_number,
                     GeneralConsensusMessage::ProposalResponse(proposal) => {
                         proposal.data.view_number()
                     }
+                    GeneralConsensusMessage::ProposalResponse2(proposal) => {
+                        proposal.data.view_number()
+                    }
                     GeneralConsensusMessage::Vote(vote_message) => vote_message.view_number(),
+                    GeneralConsensusMessage::Vote2(vote_message) => vote_message.view_number(),
                     GeneralConsensusMessage::TimeoutVote(message) => message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) => {
                         message.view_number()
@@ -351,11 +370,15 @@ where
     pub async fn validate_signature<V: Versions>(
         &self,
         quorum_membership: &TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch_height: u64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = quorum_membership.leader(view_number, epoch)?;
+        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            self.data.block_header.block_number(),
+            epoch_height,
+        ));
+        let view_leader_key = quorum_membership.leader(view_number, proposal_epoch)?;
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
         ensure!(
@@ -380,10 +403,14 @@ where
     pub fn validate_signature(
         &self,
         quorum_membership: &TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch_height: u64,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = quorum_membership.leader(view_number, epoch)?;
+        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            self.data.block_header.block_number(),
+            epoch_height,
+        ));
+        let view_leader_key = quorum_membership.leader(view_number, proposal_epoch)?;
         let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
 
         ensure!(

@@ -22,6 +22,7 @@ use hotshot_types::{
         convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
         MessageKind, Proposal, SequencingMessage, UpgradeLock,
     },
+    simple_vote::HasEpoch,
     traits::{
         election::Membership,
         network::{
@@ -36,6 +37,7 @@ use hotshot_types::{
 use tokio::{spawn, task::JoinHandle};
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::StaticVersionType;
 
 use crate::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -74,15 +76,22 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::Proposal(proposal) => {
                             HotShotEvent::QuorumProposalRecv(convert_proposal(proposal), sender)
                         }
+                        GeneralConsensusMessage::Proposal2(proposal) => {
+                            HotShotEvent::QuorumProposalRecv(proposal, sender)
+                        }
                         GeneralConsensusMessage::ProposalRequested(req, sig) => {
                             HotShotEvent::QuorumProposalRequestRecv(req, sig)
                         }
                         GeneralConsensusMessage::ProposalResponse(proposal) => {
                             HotShotEvent::QuorumProposalResponseRecv(convert_proposal(proposal))
                         }
+                        GeneralConsensusMessage::ProposalResponse2(proposal) => {
+                            HotShotEvent::QuorumProposalResponseRecv(proposal)
+                        }
                         GeneralConsensusMessage::Vote(vote) => {
                             HotShotEvent::QuorumVoteRecv(vote.to_vote2())
                         }
+                        GeneralConsensusMessage::Vote2(vote) => HotShotEvent::QuorumVoteRecv(vote),
                         GeneralConsensusMessage::ViewSyncPreCommitVote(view_sync_message) => {
                             HotShotEvent::ViewSyncPreCommitVoteRecv(view_sync_message)
                         }
@@ -103,7 +112,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         GeneralConsensusMessage::ViewSyncFinalizeCertificate(view_sync_message) => {
                             HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message)
                         }
-
                         GeneralConsensusMessage::TimeoutVote(message) => {
                             HotShotEvent::TimeoutVoteRecv(message)
                         }
@@ -374,20 +382,29 @@ impl<
         match event.as_ref().clone() {
             HotShotEvent::QuorumProposalSend(proposal, sender) => {
                 *maybe_action = Some(HotShotAction::Propose);
-                Some((
-                    sender,
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(proposal.data.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Proposal2(proposal),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Proposal(convert_proposal(proposal)),
-                    )),
-                    TransmitType::Broadcast,
-                ))
+                    ))
+                };
+
+                Some((sender, message, TransmitType::Broadcast))
             }
 
             // ED Each network task is subscribed to all these message types.  Need filters per network task
             HotShotEvent::QuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self.membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, vote.epoch()) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -398,24 +415,41 @@ impl<
                         return None;
                     }
                 };
-
-                Some((
-                    vote.signing_key(),
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote2(vote.clone()),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone().to_vote()),
-                    )),
-                    TransmitType::Direct(leader),
-                ))
+                    ))
+                };
+
+                Some((vote.signing_key(), message, TransmitType::Direct(leader)))
             }
             HotShotEvent::ExtendedQuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
-                Some((
-                    vote.signing_key(),
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote2(vote.clone()),
+                    ))
+                } else {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone().to_vote()),
-                    )),
-                    TransmitType::Broadcast,
-                ))
+                    ))
+                };
+
+                Some((vote.signing_key(), message, TransmitType::Broadcast))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) => Some((
                 req.key.clone(),
@@ -424,13 +458,28 @@ impl<
                 )),
                 TransmitType::Broadcast,
             )),
-            HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => Some((
-                sender_key.clone(),
-                MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
-                    GeneralConsensusMessage::ProposalResponse(convert_proposal(proposal)),
-                )),
-                TransmitType::Direct(sender_key),
-            )),
+            HotShotEvent::QuorumProposalResponseSend(sender_key, proposal) => {
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(proposal.data.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ProposalResponse2(proposal),
+                    ))
+                } else {
+                    MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::ProposalResponse(convert_proposal(proposal)),
+                    ))
+                };
+
+                Some((
+                    sender_key.clone(),
+                    message,
+                    TransmitType::Direct(sender_key),
+                ))
+            }
             HotShotEvent::VidDisperseSend(proposal, sender) => {
                 self.handle_vid_disperse_proposal(proposal, &sender).await;
                 None
@@ -448,7 +497,8 @@ impl<
             HotShotEvent::DaVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::DaVote);
                 let view_number = vote.view_number();
-                let leader = match self.membership.leader(view_number, self.epoch) {
+                let epoch = vote.data.epoch();
+                let leader = match self.membership.leader(view_number, epoch) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(
@@ -703,7 +753,13 @@ impl<
                 GeneralConsensusMessage::Proposal(prop),
             )) = &message.kind
             {
-                if storage.write().await.append_proposal(prop).await.is_err() {
+                if storage
+                    .write()
+                    .await
+                    .append_proposal2(&convert_proposal(prop.clone()))
+                    .await
+                    .is_err()
+                {
                     return;
                 }
             }

@@ -6,9 +6,11 @@
 
 use std::fmt::Display;
 
+use crate::view_sync::ViewSyncPhase;
 use async_broadcast::Sender;
 use either::Either;
 use hotshot_task::task::TaskEvent;
+use hotshot_types::simple_certificate::NextEpochQuorumCertificate2;
 use hotshot_types::{
     data::{
         DaProposal, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
@@ -34,8 +36,6 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use vec1::Vec1;
-
-use crate::view_sync::ViewSyncPhase;
 
 impl<TYPES: NodeType> TaskEvent for HotShotEvent<TYPES> {
     fn shutdown_event() -> Self {
@@ -124,6 +124,8 @@ pub enum HotShotEvent<TYPES: NodeType> {
     QcFormed(Either<QuorumCertificate<TYPES>, TimeoutCertificate<TYPES>>),
     /// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
     Qc2Formed(Either<QuorumCertificate2<TYPES>, TimeoutCertificate<TYPES>>),
+    /// The next leader has collected enough votes from the next epoch nodes to form a QC; emitted by the next leader in the consensus task; an internal event only
+    NextEpochQc2Formed(Either<NextEpochQuorumCertificate2<TYPES>, TimeoutCertificate<TYPES>>),
     /// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     DacSend(DaCertificate<TYPES>, TYPES::SignatureKey),
     /// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
@@ -162,7 +164,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Trigger the start of the view sync protocol; emitted by view sync task; internal trigger only
     ViewSyncTrigger(TYPES::View),
     /// A consensus view has timed out; emitted by a replica in the consensus task; received by the view sync task; internal event only
-    Timeout(TYPES::View),
+    Timeout(TYPES::View, TYPES::Epoch),
     /// Receive transactions from the network
     TransactionsRecv(Vec<TYPES::Transaction>),
     /// Send transactions to the network
@@ -283,6 +285,10 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
                 either::Left(qc) => Some(qc.view_number()),
                 either::Right(tc) => Some(tc.view_number()),
             },
+            HotShotEvent::NextEpochQc2Formed(cert) => match cert {
+                either::Left(qc) => Some(qc.view_number()),
+                either::Right(tc) => Some(tc.view_number()),
+            },
             HotShotEvent::ViewSyncCommitVoteSend(vote)
             | HotShotEvent::ViewSyncCommitVoteRecv(vote) => Some(vote.view_number()),
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote)
@@ -316,7 +322,7 @@ impl<TYPES: NodeType> HotShotEvent<TYPES> {
             HotShotEvent::ViewChange(view_number, _)
             | HotShotEvent::ViewSyncTimeout(view_number, _, _)
             | HotShotEvent::ViewSyncTrigger(view_number)
-            | HotShotEvent::Timeout(view_number) => Some(*view_number),
+            | HotShotEvent::Timeout(view_number, ..) => Some(*view_number),
             HotShotEvent::DaCertificateRecv(cert) | HotShotEvent::DacSend(cert, _) => {
                 Some(cert.view_number())
             }
@@ -406,8 +412,16 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
                 either::Right(tc) => write!(f, "QcFormed(view_number={:?})", tc.view_number()),
             },
             HotShotEvent::Qc2Formed(cert) => match cert {
-                either::Left(qc) => write!(f, "QcFormed(view_number={:?})", qc.view_number()),
-                either::Right(tc) => write!(f, "QcFormed(view_number={:?})", tc.view_number()),
+                either::Left(qc) => write!(f, "QcFormed2(view_number={:?})", qc.view_number()),
+                either::Right(tc) => write!(f, "QcFormed2(view_number={:?})", tc.view_number()),
+            },
+            HotShotEvent::NextEpochQc2Formed(cert) => match cert {
+                either::Left(qc) => {
+                    write!(f, "NextEpochQc2Formed(view_number={:?})", qc.view_number())
+                }
+                either::Right(tc) => {
+                    write!(f, "NextEpochQc2Formed(view_number={:?})", tc.view_number())
+                }
             },
             HotShotEvent::DacSend(cert, _) => {
                 write!(f, "DacSend(view_number={:?})", cert.view_number())
@@ -496,7 +510,9 @@ impl<TYPES: NodeType> Display for HotShotEvent<TYPES> {
             HotShotEvent::ViewSyncTrigger(view_number) => {
                 write!(f, "ViewSyncTrigger(view_number={view_number:?})")
             }
-            HotShotEvent::Timeout(view_number) => write!(f, "Timeout(view_number={view_number:?})"),
+            HotShotEvent::Timeout(view_number, epoch) => {
+                write!(f, "Timeout(view_number={view_number:?}, epoch={epoch:?})")
+            }
             HotShotEvent::TransactionsRecv(_) => write!(f, "TransactionsRecv"),
             HotShotEvent::TransactionSend(_, _) => write!(f, "TransactionSend"),
             HotShotEvent::SendPayloadCommitmentAndMetadata(_, _, _, view_number, _, _) => {

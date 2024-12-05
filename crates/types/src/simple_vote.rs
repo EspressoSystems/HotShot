@@ -6,7 +6,12 @@
 
 //! Implementations of the simple vote types.
 
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{
+    fmt::Debug,
+    hash::Hash,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use committable::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -17,7 +22,7 @@ use crate::{
     data::{Leaf, Leaf2},
     message::UpgradeLock,
     traits::{
-        node_implementation::{NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
     vid::VidCommitment,
@@ -40,18 +45,36 @@ pub struct QuorumData<TYPES: NodeType> {
 pub struct QuorumData2<TYPES: NodeType> {
     /// Commitment to the leaf
     pub leaf_commit: Commitment<Leaf2<TYPES>>,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
+/// Data used for a yes vote. Used to distinguish votes sent by the next epoch nodes.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+#[serde(bound(deserialize = ""))]
+pub struct NextEpochQuorumData2<TYPES: NodeType>(QuorumData2<TYPES>);
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+// #[serde(bound(deserialize = ""))]
+// pub struct NextEpochQuorumData2<TYPES: NodeType> {
+//     /// Commitment to the leaf
+//     pub leaf_commit: Commitment<Leaf2<TYPES>>,
+//     /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+//     pub epoch: TYPES::Epoch,
+// }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
-pub struct DaData {
+pub struct DaData<TYPES: NodeType> {
     /// Commitment to a block payload
     pub payload_commit: VidCommitment,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a timeout vote.
 pub struct TimeoutData<TYPES: NodeType> {
     /// View the timeout is for
     pub view: TYPES::View,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -61,6 +84,8 @@ pub struct ViewSyncPreCommitData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Commit vote.
@@ -69,6 +94,8 @@ pub struct ViewSyncCommitData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Finalize vote.
@@ -77,6 +104,8 @@ pub struct ViewSyncFinalizeData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Upgrade vote.
@@ -94,13 +123,23 @@ pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
     pub old_version_last_view: TYPES::View,
     /// The first block for which the new version will be in effect.
     pub new_version_first_view: TYPES::View,
+    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
+    pub epoch: TYPES::Epoch,
 }
 
 /// Marker trait for data or commitments that can be voted on.
 /// Only structs in this file can implement voteable.  This is enforced with the `Sealed` trait
 /// Sealing this trait prevents creating new vote types outside this file.
-pub trait Voteable:
+pub trait Voteable<TYPES: NodeType>:
     sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq
+{
+}
+
+/// Marker trait for data or commitments that can be voted on.
+/// Only structs in this file can implement voteable.  This is enforced with the `Sealed` trait
+/// Sealing this trait prevents creating new vote types outside this file.
+pub trait Voteable2<TYPES: NodeType>:
+    sealed::Sealed + HasEpoch<TYPES> + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq
 {
 }
 
@@ -119,6 +158,7 @@ mod sealed {
 
 impl<T: NodeType> QuorumMarker for QuorumData<T> {}
 impl<T: NodeType> QuorumMarker for QuorumData2<T> {}
+impl<T: NodeType> QuorumMarker for NextEpochQuorumData2<T> {}
 impl<T: NodeType> QuorumMarker for TimeoutData<T> {}
 impl<T: NodeType> QuorumMarker for ViewSyncPreCommitData<T> {}
 impl<T: NodeType> QuorumMarker for ViewSyncCommitData<T> {}
@@ -127,7 +167,7 @@ impl<T: NodeType + DeserializeOwned> QuorumMarker for UpgradeProposalData<T> {}
 
 /// A simple yes vote over some votable type.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
+pub struct SimpleVote<TYPES: NodeType, DATA: Voteable<TYPES>> {
     /// The signature share associated with this vote
     pub signature: (
         TYPES::SignatureKey,
@@ -139,13 +179,15 @@ pub struct SimpleVote<TYPES: NodeType, DATA: Voteable> {
     pub view_number: TYPES::View,
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> HasViewNumber<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable<TYPES> + 'static> HasViewNumber<TYPES>
+    for SimpleVote<TYPES, DATA>
+{
     fn view_number(&self) -> <TYPES as NodeType>::View {
         self.view_number
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable<TYPES> + 'static> Vote<TYPES> for SimpleVote<TYPES, DATA> {
     type Commitment = DATA;
 
     fn signing_key(&self) -> <TYPES as NodeType>::SignatureKey {
@@ -165,7 +207,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> Vote<TYPES> for SimpleVote<TYPES
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
+impl<TYPES: NodeType, DATA: Voteable<TYPES> + 'static> SimpleVote<TYPES, DATA> {
     /// Creates and signs a simple vote
     /// # Errors
     /// If we are unable to sign the data
@@ -197,7 +239,7 @@ impl<TYPES: NodeType, DATA: Voteable + 'static> SimpleVote<TYPES, DATA> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// A wrapper for vote data that carries a view number and an `upgrade_lock`, allowing switching the commitment calculation dynamically depending on the version
-pub struct VersionedVoteData<TYPES: NodeType, DATA: Voteable, V: Versions> {
+pub struct VersionedVoteData<TYPES: NodeType, DATA: Voteable<TYPES>, V: Versions> {
     /// underlying vote data
     data: DATA,
 
@@ -211,7 +253,7 @@ pub struct VersionedVoteData<TYPES: NodeType, DATA: Voteable, V: Versions> {
     _pd: PhantomData<V>,
 }
 
-impl<TYPES: NodeType, DATA: Voteable, V: Versions> VersionedVoteData<TYPES, DATA, V> {
+impl<TYPES: NodeType, DATA: Voteable<TYPES>, V: Versions> VersionedVoteData<TYPES, DATA, V> {
     /// Create a new `VersionedVoteData` struct
     ///
     /// # Errors
@@ -251,7 +293,7 @@ impl<TYPES: NodeType, DATA: Voteable, V: Versions> VersionedVoteData<TYPES, DATA
     }
 }
 
-impl<TYPES: NodeType, DATA: Voteable, V: Versions> Committable
+impl<TYPES: NodeType, DATA: Voteable<TYPES>, V: Versions> Committable
     for VersionedVoteData<TYPES, DATA, V>
 {
     fn commit(&self) -> Commitment<Self> {
@@ -272,9 +314,31 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
 
 impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        committable::RawCommitmentBuilder::new("Quorum data")
-            .var_size_bytes(self.leaf_commit.as_ref())
-            .finalize()
+        if *self.epoch == 0 {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .finalize()
+        } else {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .u64(*self.epoch)
+                .finalize()
+        }
+    }
+}
+
+impl<TYPES: NodeType> Committable for NextEpochQuorumData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        if *self.epoch == 0 {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .finalize()
+        } else {
+            committable::RawCommitmentBuilder::new("Quorum data")
+                .var_size_bytes(self.leaf_commit.as_ref())
+                .u64(*self.epoch)
+                .finalize()
+        }
     }
 }
 
@@ -282,14 +346,16 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
+            .u64(*self.epoch)
             .finalize()
     }
 }
 
-impl Committable for DaData {
+impl<TYPES: NodeType> Committable for DaData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("DA data")
             .var_size_bytes(self.payload_commit.as_ref())
+            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -306,6 +372,7 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
             .u16(self.new_version.major)
             .u16(self.old_version.minor)
             .u16(self.old_version.major)
+            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -314,33 +381,119 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
 fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     view: TYPES::View,
     relay: u64,
+    epoch: TYPES::Epoch,
     tag: &str,
 ) -> Commitment<T> {
     let builder = committable::RawCommitmentBuilder::new(tag);
-    builder.u64(*view).u64(relay).finalize()
+    builder.u64(*view).u64(relay).u64(*epoch).finalize()
 }
 
 impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Precommit")
+        view_and_relay_commit::<TYPES, Self>(
+            self.round,
+            self.relay,
+            self.epoch,
+            "View Sync Precommit",
+        )
     }
 }
 
 impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
+        view_and_relay_commit::<TYPES, Self>(
+            self.round,
+            self.relay,
+            self.epoch,
+            "View Sync Finalize",
+        )
     }
 }
 impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, self.epoch, "View Sync Commit")
     }
+}
+
+/// A trait for types belonging for specific epoch
+pub trait HasEpoch<TYPES: NodeType> {
+    /// Returns `Epoch`
+    fn epoch(&self) -> TYPES::Epoch;
+}
+
+/// Helper macro for trivial implementation of the `HasEpoch` trait
+#[macro_export]
+macro_rules! impl_has_epoch {
+    ($($t:ty),*) => {
+        $(
+            impl<TYPES: NodeType> HasEpoch<TYPES> for $t {
+                fn epoch(&self) -> TYPES::Epoch {
+                    self.epoch
+                }
+            }
+        )*
+    };
+}
+
+impl_has_epoch!(
+    QuorumData2<TYPES>,
+    NextEpochQuorumData2<TYPES>,
+    DaData<TYPES>,
+    TimeoutData<TYPES>,
+    ViewSyncPreCommitData<TYPES>,
+    ViewSyncCommitData<TYPES>,
+    ViewSyncFinalizeData<TYPES>,
+    UpgradeProposalData<TYPES>
+);
+
+/// Helper macro for trivial implementation of the `HasEpoch` trait for a vote type
+#[macro_export]
+macro_rules! impl_vote_has_epoch {
+    ($($t:ty),*) => {
+        $(
+            impl<TYPES: NodeType> HasEpoch<TYPES> for $t {
+                fn epoch(&self) -> TYPES::Epoch {
+                    self.data.epoch()
+                }
+            }
+        )*
+    };
+}
+
+impl_vote_has_epoch!(
+    QuorumVote2<TYPES>,
+    NextEpochQuorumVote2<TYPES>,
+    DaVote<TYPES>,
+    TimeoutVote<TYPES>,
+    ViewSyncPreCommitVote<TYPES>,
+    ViewSyncCommitVote<TYPES>,
+    ViewSyncFinalizeVote<TYPES>,
+    UpgradeVote<TYPES>
+);
+
+// impl votable for all the data types in this file sealed marker should ensure nothing is accidently
+// implemented for structs that aren't "voteable"
+impl<
+        TYPES: NodeType,
+        V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq,
+    > Voteable<TYPES> for V
+{
 }
 
 // impl votable for all the data types in this file sealed marker should ensure nothing is accidently
 // implemented for structs that aren't "voteable"
-impl<V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq> Voteable
-    for V
+impl<
+        TYPES: NodeType,
+        V: sealed::Sealed
+            + HasEpoch<TYPES>
+            + Committable
+            + Clone
+            + Serialize
+            + Debug
+            + PartialEq
+            + Hash
+            + Eq,
+    > Voteable2<TYPES> for V
 {
 }
 
@@ -352,6 +505,7 @@ impl<TYPES: NodeType> QuorumVote<TYPES> {
         let signature = self.signature;
         let data = QuorumData2 {
             leaf_commit: Commitment::from_raw(bytes),
+            epoch: TYPES::Epoch::genesis(),
         };
         let view_number = self.view_number;
 
@@ -368,7 +522,7 @@ impl<TYPES: NodeType> QuorumVote2<TYPES> {
     pub fn to_vote(self) -> QuorumVote<TYPES> {
         let bytes: [u8; 32] = self.data.leaf_commit.into();
 
-        let signature = self.signature;
+        let signature = self.signature.clone();
         let data = QuorumData {
             leaf_commit: Commitment::from_raw(bytes),
         };
@@ -388,8 +542,10 @@ pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;
 // Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 /// Quorum vote Alias
 pub type QuorumVote2<TYPES> = SimpleVote<TYPES, QuorumData2<TYPES>>;
+/// Quorum vote Alias. This type is useful to distinguish the next epoch nodes' votes.
+pub type NextEpochQuorumVote2<TYPES> = SimpleVote<TYPES, NextEpochQuorumData2<TYPES>>;
 /// DA vote type alias
-pub type DaVote<TYPES> = SimpleVote<TYPES, DaData>;
+pub type DaVote<TYPES> = SimpleVote<TYPES, DaData<TYPES>>;
 /// Timeout Vote type alias
 pub type TimeoutVote<TYPES> = SimpleVote<TYPES, TimeoutData<TYPES>>;
 /// View Sync Commit Vote type alias
@@ -400,3 +556,33 @@ pub type ViewSyncPreCommitVote<TYPES> = SimpleVote<TYPES, ViewSyncPreCommitData<
 pub type ViewSyncFinalizeVote<TYPES> = SimpleVote<TYPES, ViewSyncFinalizeData<TYPES>>;
 /// Upgrade proposal vote
 pub type UpgradeVote<TYPES> = SimpleVote<TYPES, UpgradeProposalData<TYPES>>;
+
+impl<TYPES: NodeType> Deref for NextEpochQuorumData2<TYPES> {
+    type Target = QuorumData2<TYPES>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<TYPES: NodeType> DerefMut for NextEpochQuorumData2<TYPES> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<TYPES: NodeType> From<QuorumData2<TYPES>> for NextEpochQuorumData2<TYPES> {
+    fn from(data: QuorumData2<TYPES>) -> Self {
+        Self(QuorumData2 {
+            epoch: data.epoch,
+            leaf_commit: data.leaf_commit,
+        })
+    }
+}
+
+impl<TYPES: NodeType> From<QuorumVote2<TYPES>> for NextEpochQuorumVote2<TYPES> {
+    fn from(qvote: QuorumVote2<TYPES>) -> Self {
+        Self {
+            data: qvote.data.into(),
+            view_number: qvote.view_number,
+            signature: qvote.signature.clone(),
+        }
+    }
+}
