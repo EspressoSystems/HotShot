@@ -5,6 +5,7 @@ use hotshot_types::{
     traits::node_implementation::{ConsensusTime, NodeType},
 };
 use tokio::{spawn, task::JoinHandle};
+use tracing::{error, info};
 
 /// Number of previous results and seeds to keep
 pub const KEEP_PREVIOUS_RESULT_COUNT: u64 = 8;
@@ -64,7 +65,7 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
         }
     }
 
-    /// Stores a seed for a particular epoch for later use by start_task_if_not_running, called from handle_quorum_proposal_validated_drb_calculation_start
+    /// Stores a seed for a particular epoch for later use by start_task_if_not_running, called from start_drb_task
     pub fn store_seed(&mut self, epoch: TYPES::Epoch, drb_seed_input: DrbSeedInput) {
         self.seeds.insert(epoch, drb_seed_input);
     }
@@ -92,9 +93,37 @@ impl<TYPES: NodeType> DrbComputations<TYPES> {
         }
     }
 
-    /// Retrieves the result for a given epoch
-    pub fn get_result(&self, epoch: TYPES::Epoch) -> Option<DrbResult> {
-        self.results.get(&epoch).copied()
+    /// Retrieve the DRB result for a given epoch from the stored results or computation task.
+    ///
+    /// If the computation is finished, removes the task and stores the result.
+    pub async fn get_result(&mut self, epoch: TYPES::Epoch) -> Option<DrbResult> {
+        if let Some(result) = self.results.get(&epoch) {
+            Some(*result)
+        } else {
+            if let Some((task_epoch, computation)) = &mut self.task {
+                if *task_epoch == epoch {
+                    if computation.is_finished() {
+                        match computation.await {
+                            Ok(computed_result) => {
+                                self.results.insert(epoch, computed_result);
+                                self.task = None;
+                                return Some(computed_result);
+                            }
+                            Err(e) => {
+                                error!("Failed to get the DRB result though the computation is finished: {:?}.", e);
+                            }
+                        }
+                    } else {
+                        info!("DRB computation isn't finished.");
+                    }
+                } else {
+                    info!("DRB computation isn't for the given epoch.");
+                }
+            } else {
+                info!("DRB computation task doesn't exist.");
+            }
+            None
+        }
     }
 
     /// Retrieves the seed for a given epoch

@@ -41,13 +41,58 @@ use crate::{
     quorum_vote::Versions,
 };
 
-/// Handles starting the DRB calculation. Uses the seed previously stored in
-/// handle_quorum_proposal_validated_drb_calculation_seed
-async fn handle_quorum_proposal_validated_drb_calculation_start<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    V: Versions,
->(
+/// Verify the DRB result from the proposal for the next epoch if this is the last block of the
+/// current epoch.
+///
+/// Uses the result from `start_drb_task`.
+///
+/// Returns an error if we should not vote.
+async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+    proposal: &QuorumProposal2<TYPES>,
+    task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
+) -> Result<()> {
+    let current_block_number = proposal.block_header.block_number();
+
+    // Skip if this is not the expected block.
+    if task_state.epoch_height != 0 && (current_block_number + 1) % task_state.epoch_height == 0 {
+        let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+            proposal.block_header.block_number(),
+            task_state.epoch_height,
+        ));
+
+        // Verify that we're in the committee for this epoch.
+        if !task_state
+            .membership
+            .has_stake(&task_state.public_key, current_epoch_number)
+        {
+            bail!("Not in the current committee.");
+        }
+
+        if let Some(proposal_result) = proposal.next_drb_result {
+            if let Some(computed_result) = task_state
+                .drb_computations
+                .get_result(current_epoch_number + 1)
+                .await
+            {
+                if proposal_result != computed_result {
+                    bail!("Inconsistent DRB result for the next epoch.");
+                }
+                return Ok(());
+            }
+            bail!("Failed to get the DRB result for the next epoch.");
+        } else {
+            bail!(
+                "The proposal for the last block of an epoch should contain the DRB result for the next epoch."
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Start the DRB computation task for the next epoch.
+///
+/// Uses the seed previously stored in `store_drb_seed`.
+async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) {
@@ -68,7 +113,7 @@ async fn handle_quorum_proposal_validated_drb_calculation_start<
     }
 }
 
-/// Handles storing the seed for an upcoming DRB calculation.
+/// Store the seed for an upcoming DRB calculation.
 ///
 /// We store the DRB computation seed 2 epochs in advance, if the decided block is the last but
 /// third block in the current epoch and we are in the quorum committee of the next epoch.
@@ -80,11 +125,7 @@ async fn handle_quorum_proposal_validated_drb_calculation_start<
 ///
 /// We don't need to handle the special cases explicitly here, because the first proposal
 /// with which we'll start the DRB computation is for epoch 3.
-fn handle_quorum_proposal_validated_drb_calculation_seed<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    V: Versions,
->(
+fn store_drb_seed<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
     leaf_views: &[LeafInfo<TYPES>],
@@ -141,53 +182,15 @@ pub(crate) async fn handle_quorum_proposal_validated<
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    let current_block_number = proposal.block_header.block_number();
-    let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
-        current_block_number,
-        task_state.epoch_height,
-    ));
-
-    // If this is the last block of an epoch, verify the DRB result for the next epoch.
-    let next_epoch_number = current_epoch_number + 1;
-    if task_state.epoch_height != 0 && (current_block_number + 1) % task_state.epoch_height == 0 {
-        match proposal.next_drb_result {
-            Some(proposal_result) => {
-                if let Some(computation) =
-                    &mut task_state.drb_computations.task.get(&next_epoch_number)
-                {
-                    if computation.is_finished() {
-                        match computation.await {
-                            Ok(computed_result) => {
-                                if proposal_result != computed_result {
-                                    bail!("Inconsistent DRB result for the next epoch.");
-                                }
-                            }
-                            Err(e) => {
-                                bail!("Failed to get the DRB result for the next epoch.");
-                            }
-                        }
-                        task_state
-                            .drb_computations
-                            .results
-                            .add(next_epoch_number, computed_result);
-                        task_state.drb_computations.task = None;
-                    }
-                }
-            }
-            None => {
-                bail!(
-                    "The proposal for the last block of an epoch should contain the DRB result for the next epoch."
-                );
-            }
-        }
-    }
     let version = task_state
         .upgrade_lock
         .version(proposal.view_number())
         .await?;
 
     if version >= V::Epochs::VERSION {
-        handle_quorum_proposal_validated_drb_calculation_start(proposal, task_state).await;
+        // Don't vote if the DRB result verification fails.
+        verify_drb_result(proposal, task_state).await?;
+        start_drb_task(proposal, task_state).await;
     }
 
     let LeafChainTraversalOutcome {
@@ -288,11 +291,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         tracing::debug!("Successfully sent decide event");
 
         if version >= V::Epochs::VERSION {
-            handle_quorum_proposal_validated_drb_calculation_seed(
-                proposal,
-                task_state,
-                &leaf_views,
-            )?;
+            store_drb_seed(proposal, task_state, &leaf_views)?;
         }
     }
 

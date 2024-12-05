@@ -709,7 +709,9 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-        if self.next_drb_seed == INITIAL_DRB_SEED_INPUT && self.current_drb_result == INITIAL_DRB_RESULT {
+        if self.next_drb_seed == INITIAL_DRB_SEED_INPUT
+            && self.current_drb_result == INITIAL_DRB_RESULT
+        {
             RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
                 .field("parent leaf commitment", self.parent_commitment)
