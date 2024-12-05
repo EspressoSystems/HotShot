@@ -97,7 +97,7 @@ RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT just run_test test_s
 
 ## Careful
 
-To double check for UB:
+To double-check for UB:
 
 ```bash
 nix develop .#correctnessShell

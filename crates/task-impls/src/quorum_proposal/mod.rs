@@ -444,7 +444,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     certificate
                         .is_valid_cert(
                             self.quorum_membership.stake_table(epoch_number),
-                            self.quorum_membership.success_threshold(),
+                            self.quorum_membership.success_threshold(epoch_number),
                             &self.upgrade_lock
                         )
                         .await,
@@ -502,17 +502,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
                 self.cancel_tasks(*view);
             }
-            HotShotEvent::HighQcSend(qc, _sender) => {
+            HotShotEvent::HighQcSend(qc, ..) => {
                 ensure!(qc.view_number() > self.highest_qc.view_number());
                 let epoch_number = self.consensus.read().await.cur_epoch();
                 ensure!(
                     qc.is_valid_cert(
                         self.quorum_membership.stake_table(epoch_number),
-                        self.quorum_membership.success_threshold(),
+                        self.quorum_membership.success_threshold(epoch_number),
                         &self.upgrade_lock
                     )
                     .await,
-                    warn!("Qurom certificate {:?} was invalid", qc.data())
+                    warn!("Quorum certificate {:?} was invalid", qc.data())
                 );
                 self.highest_qc = qc.clone();
             }

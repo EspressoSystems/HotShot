@@ -74,7 +74,7 @@ rand_chacha = { version = "0.3", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde-inline-default = "0.2"
 serde_bytes = { version = "0.11" }
-serde_json = { version = "1.0" }
+serde_json = { version = "1" }
 sha2 = "0.10"
 thiserror = "2"
 surf-disco = "0.9"
