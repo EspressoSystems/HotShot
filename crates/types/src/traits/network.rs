@@ -287,7 +287,7 @@ where
     #[allow(clippy::type_complexity)]
     fn generator(
         expected_node_count: usize,
-        network_id: usize,
+        test_id: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,

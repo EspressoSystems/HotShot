@@ -203,7 +203,7 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
     #[allow(clippy::panic, clippy::too_many_lines)]
     fn generator(
         expected_node_count: usize,
-        _network_id: usize,
+        test_id: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
@@ -221,7 +221,8 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
 
                 // Create the bind address
                 let bind_address =
-                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/udp/{port}/quic-v1")).unwrap();
+                    Multiaddr::from_str(&format!("/ip4/127.0.{test_id}.1/udp/{port}/quic-v1"))
+                        .unwrap();
 
                 // Deterministically generate the private key from the node ID
                 let hotshot_private_key =
