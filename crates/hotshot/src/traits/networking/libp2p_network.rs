@@ -243,7 +243,8 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
                 .expect("Failed to sign DHT lookup record");
 
                 // Create a random file path for the DHT database
-                let dht_file_path = format!("/tmp/libp2p_dht-{}.bin", rand::thread_rng().gen::<u32>());
+                let dht_file_path =
+                    format!("/tmp/libp2p_dht-{}.bin", rand::thread_rng().gen::<u32>());
 
                 // Configure Kademlia with our lookup record value
                 let kademlia_config = KademliaConfig::<T> {
