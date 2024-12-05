@@ -57,6 +57,7 @@ use libp2p_networking::{
     },
     reexport::Multiaddr,
 };
+use rand::Rng;
 use serde::Serialize;
 use tokio::{
     select, spawn,
@@ -221,7 +222,7 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
 
                 // Create the bind address
                 let bind_address =
-                    Multiaddr::from_str(&format!("/ip4/127.0.{test_id}.1/udp/{port}/quic-v1"))
+                    Multiaddr::from_str(&format!("/ip4/127.0.0.{test_id}/udp/{port}/quic-v1"))
                         .unwrap();
 
                 // Deterministically generate the private key from the node ID
@@ -241,13 +242,16 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
                 )
                 .expect("Failed to sign DHT lookup record");
 
+                // Create a random file path for the DHT database
+                let dht_file_path = format!("/tmp/libp2p_dht-{}.bin", rand::thread_rng().gen::<u32>());
+
                 // Configure Kademlia with our lookup record value
                 let kademlia_config = KademliaConfig::<T> {
                     // At least 2/3 of the nodes should have any given record
                     replication_factor: 2 * expected_node_count / 3,
                     record_ttl: None,
                     publication_interval: None,
-                    file_path: format!("/tmp/libp2p_dht-{test_id}-{node_id}.bin"),
+                    file_path: dht_file_path,
                     lookup_record_value,
                 };
 
