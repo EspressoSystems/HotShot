@@ -10,7 +10,7 @@
 #[cfg(feature = "hotshot-testing")]
 use std::str::FromStr;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt::Debug,
     net::{IpAddr, ToSocketAddrs},
     sync::{
@@ -171,8 +171,20 @@ pub struct Libp2pNetwork<T: NodeType> {
     inner: Arc<Libp2pNetworkInner<T>>,
 }
 
+/// Generate a [testing] multiaddr
+fn random_multiaddr() -> Multiaddr {
+    Multiaddr::from_str(&format!(
+        "/ip4/127.0.0.1/udp/{}/quic-v1",
+        portpicker::pick_unused_port().expect("All ports are in use")
+    ))
+    .expect("Failed to create multiaddr")
+}
+
 /// Generate the expected [testing] multiaddr from a node index
-fn multiaddr_from_node_index<T: NodeType>(i: usize, bind_addresses: &[Multiaddr]) -> Multiaddr {
+fn multiaddr_from_node_index<T: NodeType>(
+    i: usize,
+    bind_addresses: &HashMap<usize, Multiaddr>,
+) -> Multiaddr {
     // Generate the node's private key from the node ID
     let peers_hotshot_private_key =
         T::SignatureKey::generated_from_seed_indexed([0u8; 32], i as u64).1;
@@ -182,7 +194,7 @@ fn multiaddr_from_node_index<T: NodeType>(i: usize, bind_addresses: &[Multiaddr]
         .expect("Failed to derive libp2p keypair");
 
     // Generate the multiaddress using the peer id and port
-    bind_addresses[i]
+    bind_addresses[&i]
         .clone()
         .with_p2p(peers_libp2p_keypair.public().to_peer_id())
         .expect("Failed to append libp2p peer id to multiaddr")
@@ -212,22 +224,23 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
         );
 
         // Generate the bind addresses each node will use
-        let mut bind_addresses = Vec::new();
-        for _ in 0..expected_node_count {
-            bind_addresses.push(
-                Multiaddr::from_str(&format!(
-                    "/ip4/127.0.0.1/udp/{}/quic-v1",
-                    portpicker::pick_unused_port().expect("All ports are in use")
-                ))
-                .expect("Failed to create multiaddr"),
-            );
+        let bind_addresses = Arc::new(parking_lot::Mutex::new(HashMap::new()));
+        for i in 0..expected_node_count {
+            // Insert a random port for each node
+            bind_addresses.lock().insert(i, random_multiaddr());
         }
 
         // NOTE uncomment this for easier debugging
         Box::pin({
             move |node_id| {
-                // Get our bind address from the list
-                let bind_address = bind_addresses[usize::try_from(node_id).unwrap()].clone();
+                // Get and replace our bind address with a newly random port.
+                // We need this because Libp2p does not release the listener as soon
+                // as we tell it to.
+                let mut bind_addresses_lock = bind_addresses.lock();
+                let bind_address = bind_addresses_lock
+                    .insert(usize::try_from(node_id).unwrap(), random_multiaddr())
+                    .unwrap();
+                drop(bind_addresses_lock);
 
                 // Deterministically generate the private key from the node ID
                 let hotshot_private_key =
@@ -276,7 +289,7 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
 
                 // Create the list of known peers
                 let known_peers = (0..expected_node_count)
-                    .map(|i| multiaddr_from_node_index::<T>(i, &bind_addresses))
+                    .map(|i| multiaddr_from_node_index::<T>(i, &bind_addresses.lock().clone()))
                     .collect();
 
                 // Collect the `PeerConfig`s of all nodes
