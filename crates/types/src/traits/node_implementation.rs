@@ -19,7 +19,6 @@ use std::{
 
 use async_trait::async_trait;
 use committable::Committable;
-use rand::Rng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 use vbs::version::StaticVersionType;
@@ -149,8 +148,6 @@ where
     ) -> AsyncGenerator<Arc<Self::Network>> {
         <I::Network as TestableNetworkingImplementation<TYPES>>::generator(
             expected_node_count,
-            // Generate a unique-ish test id between 0 and 255
-            rand::thread_rng().gen_range(0..255),
             da_committee_size,
             reliability_config.clone(),
             secondary_network_delay,

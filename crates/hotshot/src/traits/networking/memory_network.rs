@@ -180,7 +180,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
 {
     fn generator(
         _expected_node_count: usize,
-        _test_id: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,

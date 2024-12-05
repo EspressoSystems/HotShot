@@ -172,7 +172,7 @@ pub struct Libp2pNetwork<T: NodeType> {
 }
 
 /// Generate the expected [testing] multiaddr from a node index
-fn multiaddr_from_node_index<T: NodeType>(i: usize) -> Multiaddr {
+fn multiaddr_from_node_index<T: NodeType>(i: usize, bind_addresses: &[Multiaddr]) -> Multiaddr {
     // Generate the node's private key from the node ID
     let peers_hotshot_private_key =
         T::SignatureKey::generated_from_seed_indexed([0u8; 32], i as u64).1;
@@ -182,12 +182,10 @@ fn multiaddr_from_node_index<T: NodeType>(i: usize) -> Multiaddr {
         .expect("Failed to derive libp2p keypair");
 
     // Generate the multiaddress using the peer id and port
-    Multiaddr::from_str(&format!(
-        "/ip4/127.0.0.1/udp/{}/quic-v1/p2p/{}",
-        48000 + i,
-        peers_libp2p_keypair.public().to_peer_id()
-    ))
-    .expect("Failed to create multiaddr")
+    bind_addresses[i]
+        .clone()
+        .with_p2p(peers_libp2p_keypair.public().to_peer_id())
+        .expect("Failed to append libp2p peer id to multiaddr")
 }
 
 #[cfg(feature = "hotshot-testing")]
@@ -204,7 +202,6 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
     #[allow(clippy::panic, clippy::too_many_lines)]
     fn generator(
         expected_node_count: usize,
-        test_id: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
@@ -214,16 +211,23 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
             "DA committee size must be less than or equal to total # nodes"
         );
 
+        // Generate the bind addresses each node will use
+        let mut bind_addresses = Vec::new();
+        for _ in 0..expected_node_count {
+            bind_addresses.push(
+                Multiaddr::from_str(&format!(
+                    "/ip4/127.0.0.1/udp/{}/quic-v1",
+                    portpicker::pick_unused_port().expect("All ports are in use")
+                ))
+                .expect("Failed to create multiaddr"),
+            );
+        }
+
         // NOTE uncomment this for easier debugging
         Box::pin({
             move |node_id| {
-                // The port is 48000 + the node id. This way it's deterministic and easy to connect nodes together
-                let port = 48000 + node_id;
-
-                // Create the bind address
-                let bind_address =
-                    Multiaddr::from_str(&format!("/ip4/127.0.0.{test_id}/udp/{port}/quic-v1"))
-                        .unwrap();
+                // Get our bind address from the list
+                let bind_address = bind_addresses[usize::try_from(node_id).unwrap()].clone();
 
                 // Deterministically generate the private key from the node ID
                 let hotshot_private_key =
@@ -272,7 +276,7 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
 
                 // Create the list of known peers
                 let known_peers = (0..expected_node_count)
-                    .map(|i| multiaddr_from_node_index::<T>(i))
+                    .map(|i| multiaddr_from_node_index::<T>(i, &bind_addresses))
                     .collect();
 
                 // Collect the `PeerConfig`s of all nodes
@@ -434,7 +438,7 @@ impl<T: NodeType> Libp2pNetwork<T> {
         // Spawn the network node with a copy of our config
         let (mut rx, network_handle) = spawn_network_node::<T>(config.clone())
             .await
-            .map_err(|e| NetworkError::ConfigError(format!("failed to spawn network node: {e}")))?;
+            .with_context(|| "failed to spawn network node")?;
 
         // Subscribe only to the global topic (DA messages are direct-broadcasted)
         let subscribed_topics = HashSet::from_iter(vec![GLOBAL_TOPIC.to_string()]);

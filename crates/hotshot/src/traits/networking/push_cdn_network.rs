@@ -281,7 +281,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     #[allow(clippy::too_many_lines)]
     fn generator(
         _expected_node_count: usize,
-        _test_id: usize,
         da_committee_size: usize,
         _reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,
