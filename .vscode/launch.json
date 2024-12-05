@@ -310,26 +310,6 @@
                     "--no-run",
                     "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
                     "--package=hotshot-testing",
-                    "centralized_server_network"
-                ],
-                "filter": {
-                    "name": "hotshot-testing",
-                    "kind": "lib"
-                }
-            },
-            "program": "${cargo:program}",
-            "cwd": "${workspaceFolder}",
-            "name": "Debug centralized_server_network test"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--cfg async_executor_impl=\"async-std\" --cfg async_channel_impl=\"async-std\"",
-                    "--package=hotshot-testing",
                     "test_bad_proposal"
                 ],
                 "filter": {
