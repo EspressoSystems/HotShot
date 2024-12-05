@@ -108,9 +108,6 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     /// InstanceState
     pub instance_state: Arc<TYPES::InstanceState>,
 
-    /// This state's ID
-    pub id: u64,
-
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 
@@ -146,7 +143,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// legacy view change handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
+    #[instrument(skip_all, fields(view = *self.cur_view), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle_view_change_legacy(
         &mut self,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -433,7 +430,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// epochs view change handler
-    #[instrument(skip_all, fields(id = self.id, view_number = *self.cur_view))]
+    #[instrument(skip_all, fields(view_number = *self.cur_view))]
     pub async fn handle_view_change_epochs(
         &mut self,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -449,7 +446,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Transaction task", level = "error", target = "TransactionTaskState")]
+    #[instrument(skip_all, fields(view = *self.cur_view, epoch = *self.cur_epoch), name = "Transaction task", level = "error", target = "TransactionTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -492,7 +489,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
     /// Get VID commitment for the last successful view before `block_view`.
     /// Returns None if we don't have said commitment recorded.
-    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view))]
+    #[instrument(skip_all, target = "TransactionTaskState", fields(cur_view = *self.cur_view, block_view = *block_view))]
     async fn last_vid_commitment_retry(
         &self,
         block_view: TYPES::View,
@@ -513,7 +510,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
 
     /// Get VID commitment for the last successful view before `block_view`.
     /// Returns None if we don't have said commitment recorded.
-    #[instrument(skip_all, target = "TransactionTaskState", fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view))]
+    #[instrument(skip_all, target = "TransactionTaskState", fields(cur_view = *self.cur_view, block_view = *block_view))]
     async fn last_vid_commitment(
         &self,
         block_view: TYPES::View,
@@ -551,7 +548,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         }
     }
 
-    #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, block_view = *block_view), name = "wait_for_block", level = "error")]
+    #[instrument(skip_all, fields(cur_view = *self.cur_view, block_view = *block_view), name = "wait_for_block", level = "error")]
     async fn wait_for_block(&self, block_view: TYPES::View) -> Option<BuilderResponse<TYPES>> {
         let task_start_time = Instant::now();
 
@@ -681,7 +678,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     /// # Errors
     /// If none of the builder reports any available blocks or claiming block fails for all of the
     /// builders.
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "block_from_builder", level = "error")]
+    #[instrument(skip_all, fields(view = *self.cur_view), name = "block_from_builder", level = "error")]
     async fn block_from_builder(
         &self,
         parent_comm: VidCommitment,

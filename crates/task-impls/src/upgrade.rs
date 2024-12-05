@@ -60,9 +60,6 @@ pub struct UpgradeTaskState<TYPES: NodeType, V: Versions> {
     /// This Nodes private key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
-    /// This state's ID
-    pub id: u64,
-
     /// View to start proposing an upgrade
     pub start_proposing_view: u64,
 
@@ -102,7 +99,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
     }
 
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Upgrade Task", level = "error")]
+    #[instrument(skip_all, fields(view = *self.cur_view, epoch = *self.cur_epoch), name = "Upgrade Task", level = "error")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -239,7 +236,6 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                     self.public_key.clone(),
                     &self.quorum_membership,
                     self.cur_epoch,
-                    self.id,
                     &event,
                     &tx,
                     &self.upgrade_lock,

@@ -65,8 +65,6 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub public_key: TYPES::SignatureKey,
     /// This nodes private/signing key, used to sign requests.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// The node's id
-    pub id: u64,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
@@ -87,7 +85,7 @@ type Signature<TYPES> =
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequestState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
-    #[instrument(skip_all, target = "NetworkRequestState", fields(id = self.id))]
+    #[instrument(skip_all, target = "NetworkRequestState")]
     async fn handle_event(
         &mut self,
         event: Arc<Self::Event>,

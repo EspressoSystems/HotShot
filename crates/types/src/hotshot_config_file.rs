@@ -4,10 +4,9 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{num::NonZeroUsize, time::Duration};
+use std::time::Duration;
 
 use url::Url;
-use vec1::Vec1;
 
 use crate::{
     constants::REQUEST_DATA_DELAY, traits::signature_key::SignatureKey,
@@ -15,32 +14,24 @@ use crate::{
 };
 
 /// Default builder URL, used as placeholder
-fn default_builder_urls() -> Vec1<Url> {
-    vec1::vec1![Url::parse("http://0.0.0.0:3311").unwrap()]
+fn default_builder_urls() -> Vec<Url> {
+    vec![Url::parse("http://0.0.0.0:3311").unwrap()]
 }
 
-/// Holds configuration for a `HotShot`
+/// Contains configuration values for `HotShot`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 pub struct HotShotConfigFile<KEY: SignatureKey> {
-    /// The proportion of nodes required before the orchestrator issues the ready signal,
-    /// expressed as (numerator, denominator)
-    pub start_threshold: (u64, u64),
-    /// Total number of staked nodes in the network
-    pub num_nodes_with_stake: NonZeroUsize,
-    #[serde(skip)]
-    /// The known nodes' public key and stake value
-    pub known_nodes_with_stake: Vec<PeerConfig<KEY>>,
-    #[serde(skip)]
+    /// The known nodes' public key and stake values
+    #[serde(rename = "known_nodes", alias = "known_nodes_with_stake")]
+    pub known_nodes: Vec<PeerConfig<KEY>>,
     /// The known DA nodes' public key and stake values
     pub known_da_nodes: Vec<PeerConfig<KEY>>,
-    /// Number of staking DA nodes
-    pub staked_da_nodes: usize,
     /// Number of fixed leaders for GPU VID
     pub fixed_leader_for_gpuvid: usize,
-    /// Base duration for next-view timeout, in milliseconds
+    /// The duration for the timeout before the next view, in milliseconds
     pub next_view_timeout: u64,
-    /// Duration for view sync round timeout
+    /// The duration for view sync round timeout
     pub view_sync_timeout: Duration,
     /// The maximum amount of time a leader can wait to get a block from a builder
     pub builder_timeout: Duration,
@@ -48,7 +39,7 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
     pub data_request_delay: Option<Duration>,
     /// Builder API base URL
     #[serde(default = "default_builder_urls")]
-    pub builder_urls: Vec1<Url>,
+    pub builder_urls: Vec<Url>,
     /// Upgrade config
     pub upgrade: UpgradeConfig,
     /// Number of blocks in an epoch, zero means there are no epochs
@@ -58,11 +49,8 @@ pub struct HotShotConfigFile<KEY: SignatureKey> {
 impl<KEY: SignatureKey> From<HotShotConfigFile<KEY>> for HotShotConfig<KEY> {
     fn from(val: HotShotConfigFile<KEY>) -> Self {
         HotShotConfig {
-            start_threshold: val.start_threshold,
-            num_nodes_with_stake: val.num_nodes_with_stake,
             known_da_nodes: val.known_da_nodes,
-            known_nodes_with_stake: val.known_nodes_with_stake,
-            da_staked_committee_size: val.staked_da_nodes,
+            known_nodes: val.known_nodes,
             fixed_leader_for_gpuvid: val.fixed_leader_for_gpuvid,
             next_view_timeout: val.next_view_timeout,
             view_sync_timeout: val.view_sync_timeout,
@@ -111,10 +99,7 @@ impl<KEY: SignatureKey> HotShotConfigFile<KEY> {
             .collect();
 
         Self {
-            num_nodes_with_stake: NonZeroUsize::new(10).unwrap(),
-            start_threshold: (1, 1),
-            known_nodes_with_stake: gen_known_nodes_with_stake,
-            staked_da_nodes,
+            known_nodes: gen_known_nodes_with_stake,
             known_da_nodes,
             fixed_leader_for_gpuvid: 1,
             next_view_timeout: 10000,

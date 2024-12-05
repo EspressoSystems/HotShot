@@ -2216,10 +2216,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "examples"
-version = "0.5.79"
-
-[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2922,6 +2918,29 @@ dependencies = [
  "tokio",
  "url",
  "vbs",
+]
+
+[[package]]
+name = "hotshot-examples"
+version = "0.5.79"
+dependencies = [
+ "anyhow",
+ "cdn-broker",
+ "cdn-marshal",
+ "clap",
+ "futures",
+ "hotshot",
+ "hotshot-example-types",
+ "hotshot-testing",
+ "hotshot-types",
+ "libp2p",
+ "libp2p-networking",
+ "lru 0.12.5",
+ "portpicker",
+ "rand 0.8.5",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

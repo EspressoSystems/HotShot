@@ -7,7 +7,6 @@
 //! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
-#[cfg(feature = "hotshot-testing")]
 use std::str::FromStr;
 use std::{
     collections::{HashMap, HashSet},
@@ -31,7 +30,6 @@ use hotshot_types::{
     boxed_sync,
     constants::LOOK_AHEAD,
     data::ViewNumber,
-    light_client::StateVerKey,
     traits::{
         election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
@@ -39,8 +37,11 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::{PrivateSignatureKey, SignatureKey},
     },
-    BoxSyncFuture, PeerConfig,
+    BoxSyncFuture,
 };
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::{light_client::StateVerKey, PeerConfig};
+
 use libp2p_identity::{
     ed25519::{self, SecretKey},
     Keypair, PeerId,
@@ -49,14 +50,17 @@ pub use libp2p_networking::network::{GossipConfig, RequestResponseConfig};
 use libp2p_networking::{
     network::{
         behaviours::dht::record::{Namespace, RecordKey, RecordValue},
-        node::config::{KademliaConfig, Libp2pConfig},
+        node::config::Libp2pConfig,
         spawn_network_node,
-        transport::construct_auth_message,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeHandle, NetworkNodeReceiver,
     },
     reexport::Multiaddr,
 };
+
+#[cfg(feature = "hotshot-testing")]
+use libp2p_networking::network::{node::config::KademliaConfig, transport::construct_auth_message};
+#[cfg(feature = "hotshot-testing")]
 use rand::Rng;
 use serde::Serialize;
 use tokio::{
@@ -172,6 +176,7 @@ pub struct Libp2pNetwork<T: NodeType> {
 }
 
 /// Generate a [testing] multiaddr
+#[cfg(feature = "hotshot-testing")]
 fn random_multiaddr() -> Multiaddr {
     Multiaddr::from_str(&format!(
         "/ip4/127.0.0.1/udp/{}/quic-v1",
@@ -181,6 +186,7 @@ fn random_multiaddr() -> Multiaddr {
 }
 
 /// Generate the expected [testing] multiaddr from a node index
+#[cfg(feature = "hotshot-testing")]
 fn multiaddr_from_node_index<T: NodeType>(
     i: usize,
     bind_addresses: &HashMap<usize, Multiaddr>,
@@ -575,8 +581,8 @@ impl<T: NodeType> Libp2pNetwork<T> {
                     sleep(Duration::from_secs(1)).await;
                 }
 
-                // Wait for the network to connect to the required number of peers
-                if let Err(e) = handle.wait_to_connect(4).await {
+                // Wait for the network to connect to at least one peer
+                if let Err(e) = handle.wait_to_connect(1).await {
                     error!("Failed to connect to peers: {:?}", e);
                     return Err::<(), NetworkError>(e);
                 }

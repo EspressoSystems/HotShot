@@ -132,7 +132,7 @@ fn handle_quorum_proposal_validated_drb_calculation_seed<
 }
 
 /// Handles the `QuorumProposalValidated` event.
-#[instrument(skip_all, fields(id = task_state.id, view = *proposal.view_number))]
+#[instrument(skip_all, fields(view = *proposal.view_number))]
 pub(crate) async fn handle_quorum_proposal_validated<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,

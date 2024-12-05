@@ -69,9 +69,6 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
     /// This Nodes private key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
-    /// This state's ID
-    pub id: u64,
-
     /// This node's storage ref
     pub storage: Arc<RwLock<I::Storage>>,
 
@@ -81,7 +78,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYPES, I, V> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "DA Main Task", level = "error", target = "DaTaskState")]
+    #[instrument(skip_all, fields(view = *self.cur_view, epoch = *self.cur_epoch), name = "DA Main Task", level = "error", target = "DaTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -274,7 +271,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     self.public_key.clone(),
                     &self.membership,
                     self.cur_epoch,
-                    self.id,
                     &event,
                     &event_stream,
                     &self.upgrade_lock,

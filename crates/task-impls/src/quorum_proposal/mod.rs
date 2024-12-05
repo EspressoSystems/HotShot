@@ -65,9 +65,6 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Shared consensus task state
     pub consensus: OuterConsensus<TYPES>,
 
-    /// The node's id
-    pub id: u64,
-
     /// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -90,7 +87,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     QuorumProposalTaskState<TYPES, I, V>
 {
     /// Create an event dependency
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create event dependency", level = "info")]
+    #[instrument(skip_all, fields(latest_proposed_view = *self.latest_proposed_view), name = "Create event dependency", level = "info")]
     fn create_event_dependency(
         &self,
         dependency_type: ProposalDependency,
@@ -266,7 +263,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     /// dependency as already completed. This allows for the task to receive a proposable event
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create dependency task", level = "error")]
+    #[instrument(skip_all, fields(latest_proposed_view = *self.latest_proposed_view), name = "Create dependency task", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::View,
@@ -314,7 +311,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 timeout: self.timeout,
                 formed_upgrade_certificate: self.formed_upgrade_certificate.clone(),
                 upgrade_lock: self.upgrade_lock.clone(),
-                id: self.id,
                 view_start_time: Instant::now(),
                 highest_qc: self.highest_qc.clone(),
             },
@@ -326,7 +322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     }
 
     /// Update the latest proposed view number.
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
+    #[instrument(skip_all, fields(latest_proposed_view = *self.latest_proposed_view), name = "Update latest proposed view", level = "error")]
     async fn update_latest_proposed_view(&mut self, new_view: TYPES::View) -> bool {
         if *self.latest_proposed_view < *new_view {
             tracing::debug!(
@@ -351,7 +347,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     }
 
     /// Handles a consensus event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "handle method", level = "error", target = "QuorumProposalTaskState")]
+    #[instrument(skip_all, fields(latest_proposed_view = *self.latest_proposed_view), name = "handle method", level = "error", target = "QuorumProposalTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

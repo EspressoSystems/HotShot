@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
+use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
 
 use anyhow::{ensure, Result};
 use hotshot::{
@@ -185,7 +185,7 @@ pub async fn create_test_handle<
     .unwrap();
 
     // See whether or not we should be DA
-    let is_da = node_id < config.da_staked_committee_size as u64;
+    let is_da = node_id < config.known_da_nodes.len() as u64;
 
     let validator_config: ValidatorConfig<TYPES::SignatureKey> =
         ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
@@ -202,7 +202,6 @@ pub async fn create_test_handle<
                 .spawn_twin_handles(
                     public_key,
                     private_key,
-                    node_id,
                     config,
                     memberships,
                     network,
@@ -221,7 +220,6 @@ pub async fn create_test_handle<
                 .spawn_handle(
                     public_key,
                     private_key,
-                    node_id,
                     config,
                     memberships,
                     network,
@@ -236,7 +234,6 @@ pub async fn create_test_handle<
             let hotshot = SystemContext::<TYPES, I, V>::new(
                 public_key,
                 private_key,
-                node_id,
                 config,
                 memberships,
                 network,
@@ -483,19 +480,16 @@ where
         );
         // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
-            start_threshold: (1, 1),
-            num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
+            known_nodes: known_nodes_with_stake,
             // Currently making this zero for simplicity
             known_da_nodes,
-            known_nodes_with_stake,
-            da_staked_committee_size,
             fixed_leader_for_gpuvid: 1,
             next_view_timeout: 500,
             view_sync_timeout: Duration::from_millis(250),
             builder_timeout: Duration::from_millis(1000),
             data_request_delay: Duration::from_millis(200),
             // Placeholder until we spin up the builder
-            builder_urls: vec1::vec1![Url::parse("http://localhost:9999").expect("Valid URL")],
+            builder_urls: vec![Url::parse("http://localhost:9999").expect("Valid URL")],
             start_proposing_view: u64::MAX,
             stop_proposing_view: 0,
             start_voting_view: u64::MAX,

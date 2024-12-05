@@ -56,7 +56,7 @@ async fn test_network_task() {
     let validator_config = launcher.resource_generator.validator_config.clone();
     let public_key = validator_config.public_key;
 
-    let all_nodes = config.known_nodes_with_stake.clone();
+    let all_nodes = config.known_nodes.clone();
 
     let membership = <TestTypes as NodeType>::Membership::new(all_nodes.clone(), all_nodes);
     let network_state: NetworkEventTaskState<TestTypes, TestVersions, MemoryNetwork<_>, _> =
@@ -224,7 +224,7 @@ async fn test_network_storage_fail() {
     let config = launcher.resource_generator.config.clone();
     let validator_config = launcher.resource_generator.validator_config.clone();
     let public_key = validator_config.public_key;
-    let all_nodes = config.known_nodes_with_stake.clone();
+    let all_nodes = config.known_nodes.clone();
     let upgrade_lock = UpgradeLock::<TestTypes, TestVersions>::new();
 
     let membership = <TestTypes as NodeType>::Membership::new(all_nodes.clone(), all_nodes);

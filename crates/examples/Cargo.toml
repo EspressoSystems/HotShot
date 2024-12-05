@@ -1,5 +1,5 @@
 [package]
-name = "examples"
+name = "hotshot-examples"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -9,6 +9,23 @@ documentation.workspace = true
 repository.workspace = true
 
 [dependencies]
+tokio.workspace = true
+clap.workspace = true
+hotshot = { path = "../hotshot" }
+hotshot-types = { path = "../types" }
+hotshot-example-types.path = "../example-types"
+url.workspace = true
+libp2p.workspace = true
+portpicker.workspace = true
+libp2p-networking.workspace = true
+anyhow.workspace = true
+rand.workspace = true
+futures.workspace = true
+tracing.workspace = true
+hotshot-testing.path = "../testing"
+lru.workspace = true
+cdn-broker.workspace = true
+cdn-marshal.workspace = true
 
 [lints]
 workspace = true

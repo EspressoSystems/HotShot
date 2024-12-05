@@ -5,7 +5,7 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 //! Types and Traits for the `HotShot` consensus module
-use std::{fmt::Debug, future::Future, num::NonZeroUsize, pin::Pin, time::Duration};
+use std::{fmt::Debug, future::Future, pin::Pin, time::Duration};
 
 use bincode::Options;
 use displaydoc::Display;
@@ -13,7 +13,6 @@ use light_client::StateVerKey;
 use tracing::error;
 use traits::signature_key::SignatureKey;
 use url::Url;
-use vec1::Vec1;
 
 use crate::utils::bincode_opts;
 pub mod bundle;
@@ -45,8 +44,6 @@ pub mod builder;
 /// Holds the upgrade configuration specification for HotShot nodes.
 pub mod upgrade_config;
 pub mod utils;
-/// Holds the validator configuration specification for HotShot nodes.
-pub mod validator_config;
 pub mod vid;
 pub mod vote;
 
@@ -167,30 +164,23 @@ impl<KEY: SignatureKey> Default for PeerConfig<KEY> {
 #[derive(Clone, derive_more::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 pub struct HotShotConfig<KEY: SignatureKey> {
-    /// The proportion of nodes required before the orchestrator issues the ready signal,
-    /// expressed as (numerator, denominator)
-    pub start_threshold: (u64, u64),
-    /// Total number of nodes in the network
-    // Earlier it was total_nodes
-    pub num_nodes_with_stake: NonZeroUsize,
     /// List of known node's public keys and stake value for certificate aggregation, serving as public parameter
-    pub known_nodes_with_stake: Vec<PeerConfig<KEY>>,
+    #[serde(rename = "known_nodes", alias = "known_nodes_with_stake")]
+    pub known_nodes: Vec<PeerConfig<KEY>>,
     /// All public keys known to be DA nodes
     pub known_da_nodes: Vec<PeerConfig<KEY>>,
-    /// List of DA committee (staking)nodes for static DA committee
-    pub da_staked_committee_size: usize,
     /// Number of fixed leaders for GPU VID, normally it will be 0, it's only used when running GPU VID
     pub fixed_leader_for_gpuvid: usize,
-    /// Base duration for next-view timeout, in milliseconds
+    /// The duration for the timeout before the next view, in milliseconds
     pub next_view_timeout: u64,
-    /// Duration of view sync round timeouts
+    /// The duration for view sync round timeouts
     pub view_sync_timeout: Duration,
     /// The maximum amount of time a leader can wait to get a block from a builder
     pub builder_timeout: Duration,
-    /// time to wait until we request data associated with a proposal
+    /// Time to wait until we request data associated with a proposal
     pub data_request_delay: Duration,
     /// Builder API base URL
-    pub builder_urls: Vec1<Url>,
+    pub builder_urls: Vec<Url>,
     /// View to start proposing an upgrade
     pub start_proposing_view: u64,
     /// View to stop proposing an upgrade. To prevent proposing an upgrade, set stop_proposing_view <= start_proposing_view.
