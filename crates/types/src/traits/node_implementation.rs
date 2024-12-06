@@ -101,7 +101,6 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     /// Generate the communication channels for testing
     fn gen_networks(
         expected_node_count: usize,
-        num_bootstrap: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
@@ -143,15 +142,12 @@ where
 
     fn gen_networks(
         expected_node_count: usize,
-        num_bootstrap: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
     ) -> AsyncGenerator<Arc<Self::Network>> {
         <I::Network as TestableNetworkingImplementation<TYPES>>::generator(
             expected_node_count,
-            num_bootstrap,
-            0,
             da_committee_size,
             reliability_config.clone(),
             secondary_network_delay,

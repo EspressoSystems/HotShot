@@ -100,7 +100,7 @@ pub async fn build_system_handle_from_launcher<
     .unwrap();
 
     // See whether or not we should be DA
-    let is_da = node_id < config.da_staked_committee_size as u64;
+    let is_da = node_id < config.known_da_nodes.len() as u64;
 
     // We assign node's public key and stake value rather than read from config file since it's a test
     let validator_config: ValidatorConfig<TYPES::SignatureKey> =
@@ -108,15 +108,12 @@ pub async fn build_system_handle_from_launcher<
     let private_key = validator_config.private_key.clone();
     let public_key = validator_config.public_key.clone();
 
-    let memberships = TYPES::Membership::new(
-        config.known_nodes_with_stake.clone(),
-        config.known_da_nodes.clone(),
-    );
+    let memberships =
+        TYPES::Membership::new(config.known_nodes.clone(), config.known_da_nodes.clone());
 
     SystemContext::init(
         public_key,
         private_key,
-        node_id,
         config,
         memberships,
         network,

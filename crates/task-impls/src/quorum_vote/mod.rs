@@ -85,8 +85,6 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// The consensus metrics
     pub consensus_metrics: Arc<ConsensusMetricsValue>,
-    /// The node's id
-    pub id: u64,
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
 }
@@ -97,7 +95,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
     type Output = Vec<Arc<HotShotEvent<TYPES>>>;
 
     #[allow(clippy::too_many_lines)]
-    #[instrument(skip_all, fields(id = self.id, view = *self.view_number))]
+    #[instrument(skip_all, fields(view = *self.view_number))]
     async fn handle_dep_result(self, res: Self::Output) {
         let mut payload_commitment = None;
         let mut leaf = None;
@@ -285,9 +283,6 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     /// Output events to application
     pub output_event_stream: async_broadcast::Sender<Event<TYPES>>,
 
-    /// The node's id
-    pub id: u64,
-
     /// The consensus metrics
     pub consensus_metrics: Arc<ConsensusMetricsValue>,
 
@@ -303,7 +298,7 @@ pub struct QuorumVoteTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskState<TYPES, I, V> {
     /// Create an event dependency.
-    #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote create event dependency", level = "error")]
+    #[instrument(skip_all, fields(latest_voted_view = *self.latest_voted_view), name = "Quorum vote create event dependency", level = "error")]
     fn create_event_dependency(
         &self,
         dependency_type: VoteDependency,
@@ -348,7 +343,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
     /// Create and store an [`AndDependency`] combining [`EventDependency`]s associated with the
     /// given view number if it doesn't exist.
-    #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote crete dependency task if new", level = "error")]
+    #[instrument(skip_all, fields(latest_voted_view = *self.latest_voted_view), name = "Quorum vote crete dependency task if new", level = "error")]
     fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::View,
@@ -393,7 +388,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: self.upgrade_lock.clone(),
-                id: self.id,
                 epoch_height: self.epoch_height,
                 consensus_metrics: Arc::clone(&self.consensus_metrics),
             },
@@ -403,7 +397,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     }
 
     /// Update the latest voted view number.
-    #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
+    #[instrument(skip_all, fields(latest_voted_view = *self.latest_voted_view), name = "Quorum vote update latest voted view", level = "error")]
     async fn update_latest_voted_view(&mut self, new_view: TYPES::View) -> bool {
         if *self.latest_voted_view < *new_view {
             tracing::debug!(
@@ -437,7 +431,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     }
 
     /// Handle a vote dependent event received on the event stream
-    #[instrument(skip_all, fields(id = self.id, latest_voted_view = *self.latest_voted_view), name = "Quorum vote handle", level = "error", target = "QuorumVoteTaskState")]
+    #[instrument(skip_all, fields(latest_voted_view = *self.latest_voted_view), name = "Quorum vote handle", level = "error", target = "QuorumVoteTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

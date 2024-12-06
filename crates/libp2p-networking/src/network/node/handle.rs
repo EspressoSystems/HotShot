@@ -4,50 +4,46 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashSet, fmt::Debug, time::Duration};
+use std::{collections::HashSet, fmt::Debug, marker::PhantomData, time::Duration};
 
-use hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
-use libp2p::{request_response::ResponseChannel, Multiaddr};
+use anyhow::Context;
+use hotshot_types::traits::{
+    network::NetworkError, node_implementation::NodeType, signature_key::SignatureKey,
+};
+use libp2p::request_response::ResponseChannel;
 use libp2p_identity::PeerId;
 use tokio::{
     sync::mpsc::{Receiver, UnboundedReceiver, UnboundedSender},
     time::{sleep, timeout},
 };
-use tracing::{debug, info, instrument};
+use tracing::{info, instrument};
 
 use crate::network::{
     behaviours::dht::record::{Namespace, RecordKey, RecordValue},
-    gen_multiaddr, ClientRequest, NetworkEvent, NetworkNode, NetworkNodeConfig,
+    ClientRequest, NetworkEvent, NetworkNode,
 };
+
+use super::config::Libp2pConfig;
 
 /// A handle containing:
 /// - A reference to the state
 /// - Controls for the swarm
 #[derive(Debug, Clone)]
-pub struct NetworkNodeHandle<T: NodeType> {
-    /// network configuration
-    network_config: NetworkNodeConfig<T>,
+pub struct NetworkNodeHandle<S: SignatureKey> {
+    /// For sending requests to the network behaviour
+    request_sender: UnboundedSender<ClientRequest>,
 
-    /// send an action to the networkbehaviour
-    send_network: UnboundedSender<ClientRequest>,
-
-    /// the local address we're listening on
-    listen_addr: Multiaddr,
-
-    /// the peer id of the networkbehaviour
-    peer_id: PeerId,
-
-    /// human readable id
-    id: usize,
+    /// Phantom data
+    pd: PhantomData<S>,
 }
 
 /// internal network node receiver
 #[derive(Debug)]
 pub struct NetworkNodeReceiver {
-    /// the receiver
-    receiver: UnboundedReceiver<NetworkEvent>,
+    /// The receiver for requests from the application
+    request_receiver: UnboundedReceiver<NetworkEvent>,
 
-    ///kill switch
+    /// The kill switch for the receiver
     recv_kill: Option<Receiver<()>>,
 }
 
@@ -56,7 +52,7 @@ impl NetworkNodeReceiver {
     /// # Errors
     /// Errors if the receiver channel is closed
     pub async fn recv(&mut self) -> Result<NetworkEvent, NetworkError> {
-        self.receiver
+        self.request_receiver
             .recv()
             .await
             .ok_or(NetworkError::ChannelReceiveError(
@@ -78,42 +74,40 @@ impl NetworkNodeReceiver {
 /// # Errors
 /// Errors if spawning the task fails
 pub async fn spawn_network_node<T: NodeType>(
-    config: NetworkNodeConfig<T>,
-    id: usize,
-) -> Result<(NetworkNodeReceiver, NetworkNodeHandle<T>), NetworkError> {
-    let mut network = NetworkNode::new(config.clone())
+    config: Libp2pConfig<T>,
+) -> anyhow::Result<(NetworkNodeReceiver, NetworkNodeHandle<T::SignatureKey>)> {
+    // Create the network node (what we send requests to and from in the application)
+    let mut network = NetworkNode::new(&config)
         .await
-        .map_err(|e| NetworkError::ConfigError(format!("failed to create network node: {e}")))?;
-    // randomly assigned port
-    let listen_addr = config
-        .bind_address
-        .clone()
-        .unwrap_or_else(|| gen_multiaddr(0));
-    let peer_id = network.peer_id();
-    let listen_addr = network.start_listen(listen_addr).await.map_err(|e| {
-        NetworkError::ListenError(format!("failed to start listening on Libp2p: {e}"))
-    })?;
-    // pin here to force the future onto the heap since it can be large
-    // in the case of flume
-    let (send_chan, recv_chan) = Box::pin(network.spawn_listeners()).await.map_err(|err| {
-        NetworkError::ListenError(format!("failed to spawn listeners for Libp2p: {err}"))
-    })?;
+        .with_context(|| "failed to create network node")?;
+
+    // Bind the swarm to the given address
+    network
+        .bind_to(&config.bind_address)
+        .await
+        .with_context(|| format!("failed to bind to {:?}", config.bind_address))?;
+
+    // Spawn the listeners and get the request sender and receiver
+    let (request_sender, request_receiver) = network
+        .spawn_listeners()
+        .with_context(|| "failed to spawn listeners")?;
+
+    // Create the receiver
     let receiver = NetworkNodeReceiver {
-        receiver: recv_chan,
+        request_receiver,
         recv_kill: None,
     };
 
-    let handle = NetworkNodeHandle::<T> {
-        network_config: config,
-        send_network: send_chan,
-        listen_addr,
-        peer_id,
-        id,
+    // Create the handle (what the application uses to interact with the network)
+    let handle = NetworkNodeHandle {
+        request_sender,
+        pd: PhantomData,
     };
+
     Ok((receiver, handle))
 }
 
-impl<T: NodeType> NetworkNodeHandle<T> {
+impl<S: SignatureKey + 'static> NetworkNodeHandle<S> {
     /// Cleanly shuts down a swarm node
     /// This is done by sending a message to
     /// the swarm itself to spin down
@@ -131,12 +125,6 @@ impl<T: NodeType> NetworkNodeHandle<T> {
         self.send_request(req)
     }
 
-    /// Get a reference to the network node handle's listen addr.
-    #[must_use]
-    pub fn listen_addr(&self) -> Multiaddr {
-        self.listen_addr.clone()
-    }
-
     /// Print out the routing table used by kademlia
     /// NOTE: only for debugging purposes currently
     /// # Errors
@@ -152,11 +140,7 @@ impl<T: NodeType> NetworkNodeHandle<T> {
     ///
     /// # Errors
     /// If the channel closes before the result can be sent back
-    pub async fn wait_to_connect(
-        &self,
-        num_required_peers: usize,
-        node_id: usize,
-    ) -> Result<(), NetworkError> {
+    pub async fn wait_to_connect(&self, num_required_peers: usize) -> Result<(), NetworkError> {
         // Wait for the required number of peers to connect
         loop {
             // Get the number of currently connected peers
@@ -167,8 +151,8 @@ impl<T: NodeType> NetworkNodeHandle<T> {
 
             // Log the number of connected peers
             info!(
-                "Node {} connected to {}/{} peers",
-                node_id, num_connected, num_required_peers
+                "Libp2p connected to {}/{} peers",
+                num_connected, num_required_peers
             );
 
             // Sleep for a second before checking again
@@ -215,7 +199,7 @@ impl<T: NodeType> NetworkNodeHandle<T> {
     pub async fn put_record(
         &self,
         key: RecordKey,
-        value: RecordValue<T::SignatureKey>,
+        value: RecordValue<S>,
     ) -> Result<(), NetworkError> {
         // Serialize the key
         let key = key.to_bytes();
@@ -261,7 +245,7 @@ impl<T: NodeType> NetworkNodeHandle<T> {
         let result = r.await.map_err(|_| NetworkError::RequestCancelled)?;
 
         // Deserialize the record's value
-        let record: RecordValue<T::SignatureKey> = bincode::deserialize(&result)
+        let record: RecordValue<S> = bincode::deserialize(&result)
             .map_err(|e| NetworkError::FailedToDeserialize(e.to_string()))?;
 
         Ok(record.value().to_vec())
@@ -290,7 +274,7 @@ impl<T: NodeType> NetworkNodeHandle<T> {
     pub async fn put_record_timeout(
         &self,
         key: RecordKey,
-        value: RecordValue<T::SignatureKey>,
+        value: RecordValue<S>,
         timeout_duration: Duration,
     ) -> Result<(), NetworkError> {
         timeout(timeout_duration, self.put_record(key, value))
@@ -396,24 +380,12 @@ impl<T: NodeType> NetworkNodeHandle<T> {
         self.send_request(req)
     }
 
-    /// Tell libp2p about known network nodes
-    /// # Errors
-    /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
-    pub fn add_known_peers(
-        &self,
-        known_peers: Vec<(PeerId, Multiaddr)>,
-    ) -> Result<(), NetworkError> {
-        debug!("Adding {} known peers", known_peers.len());
-        let req = ClientRequest::AddKnownPeers(known_peers);
-        self.send_request(req)
-    }
-
     /// Send a client request to the network
     ///
     /// # Errors
     /// - Will return [`NetworkError::ChannelSendError`] when underlying `NetworkNode` has been killed
     fn send_request(&self, req: ClientRequest) -> Result<(), NetworkError> {
-        self.send_network
+        self.request_sender
             .send(req)
             .map_err(|err| NetworkError::ChannelSendError(err.to_string()))
     }
@@ -444,23 +416,5 @@ impl<T: NodeType> NetworkNodeHandle<T> {
         let req = ClientRequest::GetConnectedPeers(s);
         self.send_request(req)?;
         Ok(r.await.unwrap())
-    }
-
-    /// Get a reference to the network node handle's id.
-    #[must_use]
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    /// Get a reference to the network node handle's peer id.
-    #[must_use]
-    pub fn peer_id(&self) -> PeerId {
-        self.peer_id
-    }
-
-    /// Return a reference to the network config
-    #[must_use]
-    pub fn config(&self) -> &NetworkNodeConfig<T> {
-        &self.network_config
     }
 }

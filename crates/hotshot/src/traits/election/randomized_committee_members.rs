@@ -21,11 +21,12 @@ use hotshot_types::{
 };
 use primitive_types::U256;
 use rand::{rngs::StdRng, Rng};
+use serde::{Deserialize, Serialize};
 use utils::anytrace::Result;
 
 use crate::traits::election::helpers::QuorumFilterConfig;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 /// The static committee election
 pub struct RandomizedCommitteeMembers<T: NodeType, C: QuorumFilterConfig> {
     /// The nodes eligible for leadership.

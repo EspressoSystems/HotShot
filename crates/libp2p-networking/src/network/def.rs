@@ -15,7 +15,7 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_swarm_derive::NetworkBehaviour;
-use tracing::{debug, error};
+use tracing::error;
 
 use super::{
     behaviours::dht::store::{file_backed::FileBackedStore, validated::ValidatedStore},
@@ -27,32 +27,27 @@ use super::{
 /// - direct messaging
 /// - p2p broadcast
 /// - connection management
-#[derive(NetworkBehaviour, derive_more::Debug)]
+#[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "NetworkEventInternal")]
 pub struct NetworkDef<K: SignatureKey + 'static> {
     /// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messages right now
     /// in the future it may be able to do peer discovery and routing
     /// <https://github.com/libp2p/rust-libp2p/issues/2398>
-    #[debug(skip)]
     gossipsub: GossipBehaviour,
 
     /// The DHT store. We use a `FileBackedStore` to occasionally save the DHT to
     /// a file on disk and a `ValidatedStore` to validate the records stored.
-    #[debug(skip)]
     pub dht: libp2p::kad::Behaviour<FileBackedStore<ValidatedStore<MemoryStore, K>>>,
 
     /// purpose: identifying the addresses from an outside POV
-    #[debug(skip)]
     identify: IdentifyBehaviour,
 
     /// purpose: directly messaging peer
-    #[debug(skip)]
     pub direct_message: cbor::Behaviour<Vec<u8>, Vec<u8>>,
 
     /// Auto NAT behaviour to determine if we are publicly reachable and
     /// by which address
-    #[debug(skip)]
     pub autonat: libp2p::autonat::Behaviour,
 }
 

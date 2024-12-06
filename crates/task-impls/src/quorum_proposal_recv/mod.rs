@@ -73,9 +73,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
     /// they are stale
     pub spawned_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
 
-    /// The node's id
-    pub id: u64,
-
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 
@@ -86,8 +83,6 @@ pub struct QuorumProposalRecvTaskState<TYPES: NodeType, I: NodeImplementation<TY
 /// all the info we need to validate a proposal.  This makes it easy to spawn an effemeral task to
 /// do all the proposal validation without blocking the long running one
 pub(crate) struct ValidationInfo<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
-    /// The node's id
-    pub id: u64,
     /// Our public key
     pub(crate) public_key: TYPES::SignatureKey,
     /// Our Private Key
@@ -123,7 +118,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     }
 
     /// Handles all consensus events relating to propose and vote-enabling events.
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "Consensus replica task", level = "error")]
+    #[instrument(skip_all, fields(view = *self.cur_view, epoch = *self.cur_epoch), name = "Consensus replica task", level = "error")]
     #[allow(unused_variables)]
     pub async fn handle(
         &mut self,
@@ -140,7 +135,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     return;
                 }
                 let validation_info = ValidationInfo::<TYPES, I, V> {
-                    id: self.id,
                     public_key: self.public_key.clone(),
                     private_key: self.private_key.clone(),
                     cur_epoch: self.cur_epoch,

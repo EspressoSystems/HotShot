@@ -20,7 +20,6 @@ members = [
     "crates/hotshot-stake-table",
     "crates/libp2p-networking",
     "crates/macros",
-    "crates/orchestrator",
     "crates/task",
     "crates/task-impls",
     "crates/testing",
@@ -120,7 +119,6 @@ cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
 cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
-
 ### Profiles
 ###
 ### Note: these only apply to example executables or tests built from within this crate. They have

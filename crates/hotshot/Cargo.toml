@@ -23,7 +23,6 @@ anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 async-lock = { workspace = true }
 async-trait = { workspace = true }
-bimap = "0.6"
 bincode = { workspace = true }
 blake3 = { workspace = true }
 cdn-broker = { workspace = true, features = ["global-permits"] }
@@ -47,7 +46,6 @@ portpicker = "0.1"
 primitive-types = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true, features = ["rc"] }
-sha2 = { workspace = true }
 time = { workspace = true }
 
 tokio = { workspace = true }

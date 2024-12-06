@@ -85,7 +85,6 @@ async fn test_timeout_libp2p() {
     let mut metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         num_nodes_with_stake: 10,
         start_nodes: 10,
-        num_bootstrap_nodes: 10,
         ..Default::default()
     };
     let dead_nodes = vec![ChangeNode {
