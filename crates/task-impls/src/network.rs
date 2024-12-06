@@ -115,7 +115,7 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                         }
                         GeneralConsensusMessage::HighQc(qc) => HotShotEvent::HighQcRecv(qc, sender),
                         GeneralConsensusMessage::Proposal2(proposal) => {
-                            HotShotEvent::QuorumProposalRecv(convert_proposal(proposal), sender)
+                            HotShotEvent::QuorumProposalRecv(proposal, sender)
                         }
                         GeneralConsensusMessage::Vote2(vote) => HotShotEvent::QuorumVoteRecv(vote),
                         GeneralConsensusMessage::Proposal2Response(proposal) => {
