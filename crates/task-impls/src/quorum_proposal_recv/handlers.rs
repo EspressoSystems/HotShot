@@ -158,24 +158,15 @@ pub(crate) async fn handle_quorum_proposal_recv<
         proposal_block_number,
         validation_info.epoch_height,
     ));
-    let justify_qc_epoch = if validation_info.epoch_height != 0
-        && proposal_block_number % validation_info.epoch_height == 1
-    {
-        // if the proposal is for the first block in an epoch, the justify QC must be from the previous epoch
-        proposal_epoch - 1
-    } else {
-        // otherwise justify QC is from the same epoch
-        proposal_epoch
-    };
 
     if !justify_qc
         .is_valid_cert(
             validation_info
                 .quorum_membership
-                .stake_table(justify_qc_epoch),
+                .stake_table(justify_qc.data.epoch),
             validation_info
                 .quorum_membership
-                .success_threshold(justify_qc_epoch),
+                .success_threshold(justify_qc.data.epoch),
             &validation_info.upgrade_lock,
         )
         .await
@@ -183,6 +174,20 @@ pub(crate) async fn handle_quorum_proposal_recv<
         let consensus_reader = validation_info.consensus.read().await;
         consensus_reader.metrics.invalid_qc.update(1);
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
+    }
+
+    // Ensure that the proposal has the correct epoch number.
+    if validation_info.epoch_height != 0 {
+        ensure!(
+          justify_qc.data.epoch == proposal_epoch || proposal_epoch % validation_info.epoch_height == 1 && justify_qc.data.epoch == proposal_epoch - 1,
+          warn!(
+            "Mismatch in proposal and justify_qc epoch number. The proposal has epoch {:?}, the justify_qc has epoch {:?}, the proposal's block number is {:?} and the epoch height is {:?}",
+            proposal_epoch,
+            justify_qc.data.epoch,
+            proposal_block_number,
+            validation_info.epoch_height,
+          )
+        )
     }
 
     broadcast_event(

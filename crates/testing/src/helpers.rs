@@ -31,6 +31,8 @@ use hotshot_types::{
     simple_vote::{
         DaData, DaVote, HasEpoch, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData,
     },
+    simple_certificate::DaCertificate2,
+    simple_vote::{DaData2, DaVote2, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -367,18 +369,18 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
-) -> DaCertificate<TYPES> {
+) -> DaCertificate2<TYPES> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let da_payload_commitment =
         vid_commitment(&encoded_transactions, membership.total_nodes(epoch_number));
 
-    let da_data = DaData {
+    let da_data = DaData2 {
         payload_commit: da_payload_commitment,
         epoch: epoch_number,
     };
 
-    build_cert::<TYPES, V, DaData<TYPES>, DaVote<TYPES>, DaCertificate<TYPES>>(
+    build_cert::<TYPES, V, DaData2<TYPES>, DaVote2<TYPES>, DaCertificate2<TYPES>>(
         da_data,
         membership,
         view_number,

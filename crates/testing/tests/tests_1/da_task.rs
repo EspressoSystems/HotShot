@@ -23,7 +23,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, EpochNumber, PackedBundle, ViewNumber},
-    simple_vote::DaData,
+    simple_vote::DaData2,
     traits::{
         block_contents::precompute_vid_commitment,
         election::Membership,
@@ -64,7 +64,7 @@ async fn test_da_task() {
         leaders.push(view.leader_public_key);
         votes.push(
             view.create_da_vote(
-                DaData {
+                DaData2 {
                     payload_commit,
                     epoch: view.da_proposal.data.epoch,
                 },
@@ -83,7 +83,7 @@ async fn test_da_task() {
         leaders.push(view.leader_public_key);
         votes.push(
             view.create_da_vote(
-                DaData {
+                DaData2 {
                     payload_commit,
                     epoch: view.da_proposal.data.epoch,
                 },
@@ -105,6 +105,7 @@ async fn test_da_task() {
                     num_transactions: transactions.len() as u64
                 },
                 ViewNumber::new(2),
+                EpochNumber::new(0),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     membership.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION,
@@ -171,7 +172,7 @@ async fn test_da_task_storage_failure() {
         leaders.push(view.leader_public_key);
         votes.push(
             view.create_da_vote(
-                DaData {
+                DaData2 {
                     payload_commit,
                     epoch: view.da_proposal.data.epoch,
                 },
@@ -190,7 +191,7 @@ async fn test_da_task_storage_failure() {
         leaders.push(view.leader_public_key);
         votes.push(
             view.create_da_vote(
-                DaData {
+                DaData2 {
                     payload_commit,
                     epoch: view.da_proposal.data.epoch,
                 },
@@ -212,6 +213,7 @@ async fn test_da_task_storage_failure() {
                     num_transactions: transactions.len() as u64
                 },
                 ViewNumber::new(2),
+                EpochNumber::new(0),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
                     membership.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION,
