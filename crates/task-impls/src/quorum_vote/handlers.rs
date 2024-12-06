@@ -192,7 +192,7 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
 
 /// Start the DRB computation task for the next epoch.
 ///
-/// Uses the seed previously stored in `store_drb_seed`.
+/// Uses the seed previously stored in `store_drb_seed_and_result`.
 async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
@@ -213,7 +213,7 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
         // If the epoch for the calculation was the same as the provided epoch, return.
         // If a task is currently live and NOT finished, abort it UNLESS the task epoch is the
         // same as cur_epoch, in which case keep letting it run and return.∂
-        // Continue the funciton if a task should be spawned for the given epoch.
+        // Continue the function if a task should be spawned for the given epoch.
         if let Some((task_epoch, join_handle)) = &mut task_state.drb_computation {
             if join_handle.is_finished() {
                 match join_handle.await {
@@ -262,10 +262,10 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     }
 }
 
-/// Store the seed for an upcoming DRB calculation.
+/// Store the DRB seed two epochs in advance and compurated DRB result for next epoch.
 ///
-/// We store the DRB computation seed 2 epochs in advance, if the decided block is the third from
-/// last block in the current epoch and we are in the quorum committee of the next epoch.
+/// We store the DRB seed and result if the decided block is the third from the last block in the
+/// current epoch and for the former, if we are in the quorum committee of the next epoch.
 ///
 /// Special cases:
 /// * Epoch 0: No DRB computation since we'll transition to epoch 1 immediately.
@@ -274,7 +274,7 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
 ///
 /// We don't need to handle the special cases explicitly here, because the first proposal with
 /// which we'll start the DRB computation is for epoch 3.
-async fn store_drb_seed<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
+async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
     leaf_views: &[LeafInfo<TYPES>],
@@ -303,15 +303,15 @@ async fn store_drb_seed<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
             .garbage_collect(current_epoch_number);
         drop(consensus_writer);
 
+        // Store the DRB result for the next epoch, which will be used by the proposal task to
+        // include in the proposal in the last block of this epoch.
+        store_and_get_computed_drb_result(current_epoch_number + 1, task_state).await?;
+
         // Skip if we are not in the committee of the next epoch.
         if task_state
             .membership
             .has_stake(&task_state.public_key, current_epoch_number + 1)
         {
-            // Store the DRB result for the next epoch, which will be used by the proposal task
-            // to include in the proposal in the last block of this epoch.
-            store_and_get_computed_drb_result(current_epoch_number + 1, task_state).await?;
-
             let new_epoch_number = current_epoch_number + 2;
             let Ok(drb_seed_input_vec) = bincode::serialize(&proposal.justify_qc.signatures) else {
                 bail!("Failed to serialize the QC signature.");
@@ -451,7 +451,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         tracing::debug!("Successfully sent decide event");
 
         if version >= V::Epochs::VERSION {
-            store_drb_seed(proposal, task_state, &leaf_views).await?;
+            store_drb_seed_and_result(proposal, task_state, &leaf_views).await?;
         }
     }
 
