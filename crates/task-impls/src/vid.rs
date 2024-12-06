@@ -9,18 +9,18 @@ use std::{marker::PhantomData, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
-use hotshot_types::traits::block_contents::BlockHeader;
-use hotshot_types::utils::epoch_from_block_number;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::Proposal,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
     },
+    utils::epoch_from_block_number,
 };
 use tracing::{debug, error, info, instrument};
 use utils::anytrace::Result;

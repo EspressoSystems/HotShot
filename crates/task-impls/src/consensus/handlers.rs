@@ -6,29 +6,28 @@
 
 use std::{sync::Arc, time::Duration};
 
-use super::ConsensusTaskState;
-use crate::{
-    consensus::Versions, events::HotShotEvent, helpers::broadcast_event,
-    vote_collection::handle_vote,
-};
 use async_broadcast::Sender;
 use chrono::Utc;
-use hotshot_types::simple_vote::HasEpoch;
-use hotshot_types::vote::Vote;
 use hotshot_types::{
     event::{Event, EventType},
-    simple_vote::{QuorumVote2, TimeoutData, TimeoutVote},
+    simple_vote::{HasEpoch, QuorumVote2, TimeoutData, TimeoutVote},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
     utils::EpochTransitionIndicator,
-    vote::HasViewNumber,
+    vote::{HasViewNumber, Vote},
 };
 use tokio::{spawn, time::sleep};
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
+
+use super::ConsensusTaskState;
+use crate::{
+    consensus::Versions, events::HotShotEvent, helpers::broadcast_event,
+    vote_collection::handle_vote,
+};
 
 /// Handle a `QuorumVoteRecv` event.
 pub(crate) async fn handle_quorum_vote_recv<

@@ -10,14 +10,12 @@ use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use either::Either;
 use hotshot_task::task::TaskState;
-use hotshot_types::simple_certificate::NextEpochQuorumCertificate2;
-use hotshot_types::simple_vote::NextEpochQuorumVote2;
 use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate2, TimeoutCertificate},
-    simple_vote::{QuorumVote2, TimeoutVote},
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, TimeoutCertificate},
+    simple_vote::{NextEpochQuorumVote2, QuorumVote2, TimeoutVote},
     traits::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,

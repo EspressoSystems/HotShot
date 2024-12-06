@@ -20,14 +20,13 @@ use primitive_types::U256;
 use serde::{Deserialize, Serialize};
 use utils::anytrace::*;
 
-use crate::simple_vote::NextEpochQuorumData2;
 use crate::{
     data::serialize_signature2,
     message::UpgradeLock,
     simple_vote::{
-        DaData, QuorumData, QuorumData2, QuorumMarker, TimeoutData, UpgradeProposalData,
-        VersionedVoteData, ViewSyncCommitData, ViewSyncFinalizeData, ViewSyncPreCommitData,
-        Voteable,
+        DaData, NextEpochQuorumData2, QuorumData, QuorumData2, QuorumMarker, TimeoutData,
+        UpgradeProposalData, VersionedVoteData, ViewSyncCommitData, ViewSyncFinalizeData,
+        ViewSyncPreCommitData, Voteable,
     },
     traits::{
         election::Membership,

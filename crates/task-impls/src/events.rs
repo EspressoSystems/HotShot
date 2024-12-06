@@ -6,11 +6,9 @@
 
 use std::fmt::Display;
 
-use crate::view_sync::ViewSyncPhase;
 use async_broadcast::Sender;
 use either::Either;
 use hotshot_task::task::TaskEvent;
-use hotshot_types::simple_certificate::NextEpochQuorumCertificate2;
 use hotshot_types::{
     data::{
         DaProposal, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
@@ -19,9 +17,9 @@ use hotshot_types::{
     message::Proposal,
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-        ViewSyncPreCommitCertificate2,
+        DaCertificate, NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2,
+        TimeoutCertificate, UpgradeCertificate, ViewSyncCommitCertificate2,
+        ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
         DaVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
@@ -36,6 +34,8 @@ use hotshot_types::{
     vote::HasViewNumber,
 };
 use vec1::Vec1;
+
+use crate::view_sync::ViewSyncPhase;
 
 impl<TYPES: NodeType> TaskEvent for HotShotEvent<TYPES> {
     fn shutdown_event() -> Self {

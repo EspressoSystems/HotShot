@@ -9,10 +9,6 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    test_runner::Node,
-    test_task::{TestEvent, TestResult, TestTaskState},
-};
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -31,6 +27,11 @@ use hotshot_types::{
 };
 use thiserror::Error;
 use tracing::error;
+
+use crate::{
+    test_runner::Node,
+    test_task::{TestEvent, TestResult, TestTaskState},
+};
 /// convenience type alias for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 

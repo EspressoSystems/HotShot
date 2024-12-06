@@ -692,8 +692,8 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             block_payload: Some(payload),
             epoch: TYPES::Epoch::genesis(),
             view_change_evidence: None,
-            drb_seed: [0; 32],
-            drb_result: [0; 32],
+            next_drb_seed: INITIAL_DRB_SEED_INPUT,
+            current_drb_result: INITIAL_DRB_RESULT,
         }
     }
     /// Time when this leaf was created.
@@ -824,7 +824,9 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
                 .u64_field("epoch number", *self.epoch)
                 .optional("next epoch justify qc", &self.next_epoch_justify_qc)
         };
-        if self.next_drb_seed == INITIAL_DRB_SEED_INPUT && self.current_drb_result == INITIAL_DRB_RESULT {
+        if self.next_drb_seed == INITIAL_DRB_SEED_INPUT
+            && self.current_drb_result == INITIAL_DRB_RESULT
+        {
             part_commit
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
