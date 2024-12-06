@@ -13,7 +13,7 @@ use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf2, QuorumProposal2, VidDisperseShare},
-    drb::compute_drb_result,
+    drb::{compute_drb_result, DrbResult},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
@@ -43,6 +43,93 @@ use crate::{
     quorum_vote::Versions,
 };
 
+/// Store the DRB result from the quorum proposal.
+///
+/// If it already exists, verify the result.
+async fn store_and_verify_received_drb_result<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
+    epoch_number: TYPES::Epoch,
+    drb_result: DrbResult,
+    task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
+) -> Result<()> {
+    if let Some(stored_result) = task_state
+        .consensus
+        .read()
+        .await
+        .drb_seeds_and_results
+        .results
+        .get(&epoch_number)
+    {
+        if drb_result != *stored_result {
+            bail!("Inconsistent result with the storage.");
+        }
+        return Ok(());
+    }
+
+    task_state
+        .consensus
+        .write()
+        .await
+        .drb_seeds_and_results
+        .seeds
+        .insert(epoch_number, drb_result);
+    Ok(())
+}
+
+/// Store the DRB result from the computation task to the shared `results` table.
+///
+/// Returns the result if it exists.
+async fn store_and_get_computed_drb_result<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
+    epoch_number: TYPES::Epoch,
+    task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
+) -> Result<DrbResult> {
+    // Return the result if it's already in the table.
+    if let Some(computed_result) = task_state
+        .consensus
+        .read()
+        .await
+        .drb_seeds_and_results
+        .results
+        .get(&epoch_number)
+    {
+        return Ok(*computed_result);
+    }
+    if let Some((task_epoch, computation)) = &mut task_state.drb_computation {
+        if *task_epoch == epoch_number {
+            // If the computation is finished, remove the task and store the result.
+            if computation.is_finished() {
+                match computation.await {
+                    Ok(computed_result) => {
+                        let mut consensus_writer = task_state.consensus.write().await;
+                        consensus_writer
+                            .drb_seeds_and_results
+                            .results
+                            .insert(epoch_number, computed_result);
+                        task_state.drb_computation = None;
+                        Ok(computed_result)
+                    }
+                    Err(e) => {
+                        bail!("Failed to get the DRB result though the computation is finished: {:?}.", e);
+                    }
+                }
+            } else {
+                bail!("DRB computation isn't finished.");
+            }
+        } else {
+            bail!("DRB computation isn't for the next epoch.");
+        }
+    } else {
+        bail!("DRB computation task doesn't exist.");
+    }
+}
+
 /// Verify the DRB result from the proposal for the next epoch if this is the last block of the
 /// current epoch.
 ///
@@ -64,65 +151,33 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
             task_state.epoch_height,
         ));
 
-        // Verify that we're in the committee for this epoch.
-        if !task_state
-            .membership
-            .has_stake(&task_state.public_key, current_epoch_number)
-        {
-            bail!("Not in the current committee.");
-        }
-
-        if let Some(proposal_result) = proposal.next_drb_result {
-            let new_epoch_number = current_epoch_number + 1;
-
-            // Retrieve the DRB result from the stored results or computation task.
-            if let Some(computed_result) = task_state
-                .consensus
-                .read()
-                .await
-                .drb_seeds_and_results
-                .results
-                .get(&new_epoch_number)
-            {
-                if proposal_result != *computed_result {
-                    bail!("Inconsistent DRB result for the next epoch.");
-                }
-                return Ok(());
-            }
-            if let Some((task_epoch, computation)) = &mut task_state.drb_computation {
-                if *task_epoch == new_epoch_number {
-                    // If the computation is finished, remove the task and store the result.
-                    if computation.is_finished() {
-                        match computation.await {
-                            Ok(computed_result) => {
-                                let mut consensus_writer = task_state.consensus.write().await;
-                                consensus_writer
-                                    .drb_seeds_and_results
-                                    .results
-                                    .insert(new_epoch_number, computed_result);
-                                task_state.drb_computation = None;
-                                if proposal_result != computed_result {
-                                    bail!("Inconsistent DRB result for the next epoch.");
-                                }
-                                return Ok(());
-                            }
-                            Err(e) => {
-                                bail!("Failed to get the DRB result though the computation is finished: {:?}.", e);
-                            }
-                        }
-                    } else {
-                        bail!("DRB computation isn't finished.");
-                    }
-                } else {
-                    bail!("DRB computation isn't for the next epoch.");
-                }
-            } else {
-                bail!("DRB computation task doesn't exist.");
-            }
-        } else {
+        let Some(proposal_result) = proposal.next_drb_result else {
             bail!(
                 "The proposal for the last block of an epoch should contain the DRB result for the next epoch."
             );
+        };
+
+        // Verify and store the result depending on our membership.
+        if task_state
+            .membership
+            .has_stake(&task_state.public_key, current_epoch_number)
+        {
+            let computed_result =
+                store_and_get_computed_drb_result(current_epoch_number + 1, task_state).await?;
+            if proposal_result != computed_result {
+                bail!("Inconsistent DRB result for the next epoch.");
+            }
+            return Ok(());
+        } else if task_state
+            .membership
+            .has_stake(&task_state.public_key, current_epoch_number + 1)
+        {
+            store_and_verify_received_drb_result(
+                current_epoch_number + 1,
+                proposal_result,
+                task_state,
+            )
+            .await?;
         }
     }
     Ok(())
@@ -156,8 +211,10 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
             if join_handle.is_finished() {
                 match join_handle.await {
                     Ok(result) => {
-                        let mut consensus_writer = task_state.consensus.write().await;
-                        consensus_writer
+                        task_state
+                            .consensus
+                            .write()
+                            .await
                             .drb_seeds_and_results
                             .results
                             .insert(*task_epoch, result);
@@ -237,12 +294,17 @@ async fn store_drb_seed<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
         consensus_writer
             .drb_seeds_and_results
             .garbage_collect(current_epoch_number);
+        drop(consensus_writer);
 
         // Skip if we are not in the committee of the next epoch.
         if task_state
             .membership
             .has_stake(&task_state.public_key, current_epoch_number + 1)
         {
+            // Store the DRB result for the next epoch, which will be used by the proposal task
+            // to include in the proposal in the last block of this epoch.
+            store_and_get_computed_drb_result(current_epoch_number + 1, task_state).await?;
+
             let new_epoch_number = current_epoch_number + 2;
             let Ok(drb_seed_input_vec) = bincode::serialize(&proposal.justify_qc.signatures) else {
                 bail!("Failed to serialize the QC signature.");
@@ -251,8 +313,11 @@ async fn store_drb_seed<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
                 bail!("Failed to convert the serialized QC signature into a DRB seed input.");
             };
 
-            // Store the drb seed input for the next calculation
-            consensus_writer
+            // Store the DRB seed input for the epoch after the next one.
+            task_state
+                .consensus
+                .write()
+                .await
                 .drb_seeds_and_results
                 .store_seed(new_epoch_number, drb_seed_input);
         }

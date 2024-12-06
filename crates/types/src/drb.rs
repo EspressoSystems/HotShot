@@ -125,11 +125,6 @@ impl<TYPES: NodeType> DrbSeedsAndResults<TYPES> {
         self.seeds.insert(epoch, drb_seed_input);
     }
 
-    /// Retrieves the seed for a given epoch
-    pub fn get_seed(&self, epoch: TYPES::Epoch) -> Option<DrbSeedInput> {
-        self.seeds.get(&epoch).copied()
-    }
-
     /// Garbage collects internal data structures
     pub fn garbage_collect(&mut self, epoch: TYPES::Epoch) {
         if epoch.u64() < KEEP_PREVIOUS_RESULT_COUNT {
