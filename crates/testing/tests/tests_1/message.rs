@@ -27,6 +27,7 @@ use vbs::{
 fn version_number_at_start_of_serialization() {
     let sender = BLSPubKey::generated_from_seed_indexed([0u8; 32], 0).0;
     let view_number = ConsensusTime::new(17);
+    let epoch = ConsensusTime::new(0);
     // The version we set for the message
     const MAJOR: u16 = 37;
     const MINOR: u16 = 17;
@@ -40,6 +41,7 @@ fn version_number_at_start_of_serialization() {
     let data: ViewSyncCommitData<TestTypes> = ViewSyncCommitData {
         relay: 37,
         round: view_number,
+        epoch,
     };
     let simple_certificate =
         SimpleCertificate::new(data.clone(), data.commit(), view_number, None, PhantomData);

@@ -79,6 +79,7 @@ async fn test_vid_task() {
             num_transactions: encoded_transactions.len() as u64,
         },
         view_number: ViewNumber::new(2),
+        epoch: EpochNumber::new(0),
     };
     let message = Proposal {
         data: proposal.clone(),
@@ -99,9 +100,9 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
     let inputs = vec![
-        serial![ViewChange(ViewNumber::new(1), EpochNumber::new(1))],
+        serial![ViewChange(ViewNumber::new(1), EpochNumber::new(0))],
         serial![
-            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {

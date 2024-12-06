@@ -29,6 +29,7 @@ async fn test_view_sync_task() {
     let vote_data = ViewSyncPreCommitData {
         relay: 0,
         round: <TestTypes as hotshot_types::traits::node_implementation::NodeType>::View::new(4),
+        epoch: EpochNumber::new(0),
     };
     let vote = hotshot_types::simple_vote::ViewSyncPreCommitVote::<TestTypes>::create_signed_vote(
         vote_data,
@@ -45,8 +46,14 @@ async fn test_view_sync_task() {
     let mut input = Vec::new();
     let mut output = Vec::new();
 
-    input.push(HotShotEvent::Timeout(ViewNumber::new(2)));
-    input.push(HotShotEvent::Timeout(ViewNumber::new(3)));
+    input.push(HotShotEvent::Timeout(
+        ViewNumber::new(2),
+        EpochNumber::new(0),
+    ));
+    input.push(HotShotEvent::Timeout(
+        ViewNumber::new(3),
+        EpochNumber::new(0),
+    ));
 
     input.push(HotShotEvent::Shutdown);
 

@@ -63,8 +63,14 @@ async fn test_da_task() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -76,8 +82,14 @@ async fn test_da_task() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -85,8 +97,8 @@ async fn test_da_task() {
 
     let inputs = vec![
         serial![
-            ViewChange(ViewNumber::new(1), EpochNumber::new(1)),
-            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(1), EpochNumber::new(0)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
@@ -158,8 +170,14 @@ async fn test_da_task_storage_failure() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -171,8 +189,14 @@ async fn test_da_task_storage_failure() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -180,8 +204,8 @@ async fn test_da_task_storage_failure() {
 
     let inputs = vec![
         serial![
-            ViewChange(ViewNumber::new(1), EpochNumber::new(1)),
-            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(1), EpochNumber::new(0)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {

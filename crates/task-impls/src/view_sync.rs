@@ -465,7 +465,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     self.last_garbage_collected_view = self.cur_view - 1;
                 }
             }
-            &HotShotEvent::Timeout(view_number) => {
+            &HotShotEvent::Timeout(view_number, ..) => {
                 // This is an old timeout and we can ignore it
                 ensure!(
                     view_number >= self.cur_view,
@@ -559,6 +559,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                     ViewSyncCommitData {
                         relay: certificate.data().relay,
                         round: self.next_view,
+                        epoch: certificate.data().epoch,
                     },
                     self.next_view,
                     &self.public_key,
@@ -645,6 +646,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                     ViewSyncFinalizeData {
                         relay: certificate.data().relay,
                         round: self.next_view,
+                        epoch: certificate.data().epoch,
                     },
                     self.next_view,
                     &self.public_key,
@@ -758,10 +760,12 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                     return None;
                 }
 
+                let epoch = self.cur_epoch;
                 let Ok(vote) = ViewSyncPreCommitVote::<TYPES>::create_signed_vote(
                     ViewSyncPreCommitData {
                         relay: 0,
                         round: view_number,
+                        epoch,
                     },
                     view_number,
                     &self.public_key,
@@ -820,6 +824,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                                 ViewSyncPreCommitData {
                                     relay: self.relay,
                                     round: self.next_view,
+                                    epoch: self.cur_epoch,
                                 },
                                 self.next_view,
                                 &self.public_key,

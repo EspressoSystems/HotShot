@@ -280,6 +280,7 @@ pub(crate) async fn update_shared_state<
     proposed_leaf: &Leaf2<TYPES>,
     vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
     parent_view_number: Option<TYPES::View>,
+    epoch_height: u64,
 ) -> Result<()> {
     let justify_qc = &proposed_leaf.justify_qc();
 
@@ -313,6 +314,7 @@ pub(crate) async fn update_shared_state<
                 public_key.clone(),
                 private_key.clone(),
                 &upgrade_lock,
+                epoch_height,
             )
             .await
             .ok()
@@ -417,6 +419,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     let vote = QuorumVote2::<TYPES>::create_signed_vote(
         QuorumData2 {
             leaf_commit: leaf.commit(),
+            epoch: epoch_number,
         },
         view_number,
         &public_key,
@@ -426,10 +429,6 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     .await
     .wrap()
     .context(error!("Failed to sign vote. This should never happen."))?;
-    tracing::debug!(
-        "sending vote to next quorum leader {:?}",
-        vote.view_number() + 1
-    );
     // Add to the storage.
     storage
         .write()
@@ -440,12 +439,17 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
         .context(error!("Failed to store VID share"))?;
 
     if extended_vote {
+        tracing::debug!("sending extended vote to everybody",);
         broadcast_event(
             Arc::new(HotShotEvent::ExtendedQuorumVoteSend(vote)),
             &sender,
         )
         .await;
     } else {
+        tracing::debug!(
+            "sending vote to next quorum leader {:?}",
+            vote.view_number() + 1
+        );
         broadcast_event(Arc::new(HotShotEvent::QuorumVoteSend(vote)), &sender).await;
     }
 
