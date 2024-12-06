@@ -19,10 +19,10 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
-use crate::utils::is_last_block_in_epoch;
 pub use crate::utils::{View, ViewInner};
 use crate::{
     data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
+    drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
@@ -35,7 +35,8 @@ use crate::{
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
+        epoch_from_block_number, is_last_block_in_epoch, BuilderCommitment, LeafCommitment,
+        StateAndDelta, Terminator,
     },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
@@ -326,6 +327,9 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
+
+    /// Tables for the DRB seeds and results.
+    pub drb_seeds_and_results: DrbSeedsAndResults<TYPES>,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -436,6 +440,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             next_epoch_high_qc,
             metrics,
             epoch_height,
+            drb_seeds_and_results: DrbSeedsAndResults::new(),
         }
     }
 

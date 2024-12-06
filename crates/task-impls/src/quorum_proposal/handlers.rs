@@ -13,11 +13,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -30,6 +25,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence},
+    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -38,12 +34,18 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
-    utils::epoch_from_block_number,
+    utils::{epoch_from_block_number, is_last_block_in_epoch},
     vote::{Certificate, HasViewNumber},
 };
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
+
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
 
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
@@ -390,6 +392,18 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         } else {
             None
         };
+        let next_drb_result =
+            if is_last_block_in_epoch(block_header.block_number(), self.epoch_height) {
+                self.consensus
+                    .read()
+                    .await
+                    .drb_seeds_and_results
+                    .results
+                    .get(&epoch)
+                    .copied()
+            } else {
+                None
+            };
         let proposal = QuorumProposal2 {
             block_header,
             view_number: self.view_number,
@@ -399,8 +413,9 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
             // TODO fix these to use the proper values
-            drb_seed: [0; 32],
-            drb_result: [0; 32],
+            next_drb_seed: INITIAL_DRB_SEED_INPUT,
+            current_drb_result: INITIAL_DRB_RESULT,
+            next_drb_result,
         };
 
         let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);

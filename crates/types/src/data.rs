@@ -425,15 +425,24 @@ pub struct QuorumProposal2<TYPES: NodeType> {
 
     /// The DRB seed for the next epoch.
     ///
-    /// The DRB computation using this seed was started in the previous epoch.
+    /// The seed was stored in the previous epoch and the computation using this seed was started
+    /// in the current epoch.
     #[serde(with = "serde_bytes")]
-    pub drb_seed: DrbSeedInput,
+    pub next_drb_seed: DrbSeedInput,
 
     /// The DRB result for the current epoch.
     ///
-    /// The DRB computation with this result was started two epochs ago.
+    /// The DRB computation with this result was started in the previous epoch with the seed stored
+    /// two epochs ago.
     #[serde(with = "serde_bytes")]
-    pub drb_result: DrbResult,
+    pub current_drb_result: DrbResult,
+
+    /// The DRB result for the next epoch.
+    ///
+    /// This is required only for the last block of the epoch. Nodes will verify that it's
+    /// consistent with the result from their computations.
+    #[serde(with = "serde_bytes")]
+    pub next_drb_result: Option<DrbResult>,
 }
 
 impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
@@ -446,8 +455,9 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
             next_epoch_justify_qc: None,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
-            drb_result: INITIAL_DRB_RESULT,
+            next_drb_seed: INITIAL_DRB_SEED_INPUT,
+            current_drb_result: INITIAL_DRB_RESULT,
+            next_drb_result: None,
         }
     }
 }
@@ -478,8 +488,8 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
             upgrade_certificate: leaf.upgrade_certificate,
             block_payload: leaf.block_payload,
             view_change_evidence: None,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
-            drb_result: INITIAL_DRB_RESULT,
+            next_drb_seed: INITIAL_DRB_SEED_INPUT,
+            current_drb_result: INITIAL_DRB_RESULT,
         }
     }
 }
@@ -618,15 +628,17 @@ pub struct Leaf2<TYPES: NodeType> {
 
     /// The DRB seed for the next epoch.
     ///
-    /// The DRB computation using this seed was started in the previous epoch.
+    /// The seed was stored in the previous epoch and the computation using this seed was started
+    /// in the current epoch.
     #[serde(with = "serde_bytes")]
-    pub drb_seed: DrbSeedInput,
+    pub next_drb_seed: DrbSeedInput,
 
     /// The DRB result for the current epoch.
     ///
-    /// The DRB computation with this result was started two epochs ago.
+    /// The DRB computation with this result was started in the previous epoch with the seed stored
+    /// two epochs ago.
     #[serde(with = "serde_bytes")]
-    pub drb_result: DrbResult,
+    pub current_drb_result: DrbResult,
 }
 
 impl<TYPES: NodeType> Leaf2<TYPES> {
@@ -680,8 +692,8 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             block_payload: Some(payload),
             epoch: TYPES::Epoch::genesis(),
             view_change_evidence: None,
-            drb_seed: [0; 32],
-            drb_result: [0; 32],
+            next_drb_seed: INITIAL_DRB_SEED_INPUT,
+            current_drb_result: INITIAL_DRB_RESULT,
         }
     }
     /// Time when this leaf was created.
@@ -812,7 +824,9 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
                 .u64_field("epoch number", *self.epoch)
                 .optional("next epoch justify qc", &self.next_epoch_justify_qc)
         };
-        if self.drb_seed == [0; 32] && self.drb_result == [0; 32] {
+        if self.next_drb_seed == INITIAL_DRB_SEED_INPUT
+            && self.current_drb_result == INITIAL_DRB_RESULT
+        {
             part_commit
                 .field("parent leaf commitment", self.parent_commitment)
                 .field("block header", self.block_header.commit())
@@ -825,8 +839,8 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
                 .field("block header", self.block_header.commit())
                 .field("justify qc", self.justify_qc.commit())
                 .optional("upgrade certificate", &self.upgrade_certificate)
-                .fixed_size_bytes(&self.drb_seed)
-                .fixed_size_bytes(&self.drb_result)
+                .fixed_size_bytes(&self.next_drb_seed)
+                .fixed_size_bytes(&self.current_drb_result)
                 .finalize()
         }
     }
@@ -865,8 +879,8 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
             upgrade_certificate,
             block_payload: _,
             view_change_evidence,
-            drb_seed,
-            drb_result,
+            next_drb_seed,
+            current_drb_result,
         } = self;
 
         *view_number == other.view_number
@@ -877,8 +891,8 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
             && *block_header == other.block_header
             && *upgrade_certificate == other.upgrade_certificate
             && *view_change_evidence == other.view_change_evidence
-            && *drb_seed == other.drb_seed
-            && *drb_result == other.drb_result
+            && *next_drb_seed == other.next_drb_seed
+            && *current_drb_result == other.current_drb_result
     }
 }
 
@@ -1243,8 +1257,9 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             block_header,
             upgrade_certificate,
             view_change_evidence,
-            drb_seed,
-            drb_result,
+            next_drb_seed,
+            current_drb_result,
+            next_drb_result: _,
         } = quorum_proposal;
 
         Self {
@@ -1257,8 +1272,8 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: None,
             view_change_evidence: view_change_evidence.clone(),
-            drb_seed: *drb_seed,
-            drb_result: *drb_result,
+            next_drb_seed: *next_drb_seed,
+            current_drb_result: *current_drb_result,
         }
     }
 }

@@ -10,7 +10,6 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
-use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{DaProposal, PackedBundle},
@@ -26,6 +25,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::EpochTransitionIndicator,
     vote::HasViewNumber,
 };
 use sha2::{Digest, Sha256};
