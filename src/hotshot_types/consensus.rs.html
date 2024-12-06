@@ -1061,7 +1061,7 @@
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate, QuorumCertificate2},
+    simple_certificate::{DaCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -1317,7 +1317,7 @@
 
     <span class="doccomment">/// All the DA certs we've received for current and future views.
     /// view -&gt; DA cert
-    </span>saved_da_certs: HashMap&lt;TYPES::View, DaCertificate&lt;TYPES&gt;&gt;,
+    </span>saved_da_certs: HashMap&lt;TYPES::View, DaCertificate2&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// View number that is currently on.
     </span>cur_view: TYPES::View,
@@ -1515,7 +1515,7 @@
     }
 
     <span class="doccomment">/// Get the saved DA certs.
-    </span><span class="kw">pub fn </span>saved_da_certs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;TYPES::View, DaCertificate&lt;TYPES&gt;&gt; {
+    </span><span class="kw">pub fn </span>saved_da_certs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HashMap&lt;TYPES::View, DaCertificate2&lt;TYPES&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.saved_da_certs
     }
 
@@ -1783,7 +1783,7 @@
     }
 
     <span class="doccomment">/// Add a new entry to the da_certs map.
-    </span><span class="kw">pub fn </span>update_saved_da_certs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View, cert: DaCertificate&lt;TYPES&gt;) {
+    </span><span class="kw">pub fn </span>update_saved_da_certs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: TYPES::View, cert: DaCertificate2&lt;TYPES&gt;) {
         <span class="self">self</span>.saved_da_certs.insert(view_number, cert);
     }
 

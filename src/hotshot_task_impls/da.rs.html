@@ -361,6 +361,10 @@
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
 <a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -375,11 +379,11 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, OuterConsensus},
-    data::{DaProposal, PackedBundle},
+    data::{DaProposal2, PackedBundle},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
-    simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote},
+    simple_certificate::DaCertificate2,
+    simple_vote::{DaData2, DaVote2},
     traits::{
         block_contents::vid_commitment,
         election::Membership,
@@ -424,7 +428,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// A map of `DaVote` collector tasks.
-    </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, DaVote&lt;TYPES&gt;, DaCertificate&lt;TYPES&gt;, V&gt;,
+    </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, DaVote2&lt;TYPES&gt;, DaCertificate2&lt;TYPES&gt;, V&gt;,
 
     <span class="doccomment">/// This Nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -506,8 +510,11 @@
             }
             HotShotEvent::DaProposalValidated(proposal, sender) =&gt; {
                 <span class="kw">let </span>cur_view = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_view();
+                <span class="kw">let </span>view_number = proposal.data.view_number();
+                <span class="kw">let </span>epoch_number = proposal.data.epoch_number;
+
                 <span class="macro">ensure!</span>(
-                  cur_view &lt;= proposal.data.view_number() + <span class="number">1</span>,
+                  cur_view &lt;= view_number + <span class="number">1</span>,
                   <span class="macro">debug!</span>(
                     <span class="string">"Validated DA proposal for prior view but it's too old now Current view {:?}, DA Proposal view {:?}"</span>, 
                     cur_view,
@@ -518,7 +525,7 @@
                 <span class="comment">// Proposal is fresh and valid, notify the application layer
                 </span>broadcast_event(
                     Event {
-                        view_number: <span class="self">self</span>.cur_view,
+                        view_number,
                         event: EventType::DaProposal {
                             proposal: proposal.clone(),
                             sender: sender.clone(),
@@ -529,31 +536,31 @@
                 .<span class="kw">await</span>;
 
                 <span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership
-                        .has_da_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, <span class="self">self</span>.cur_epoch),
+                    <span class="self">self</span>.membership.has_da_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, epoch_number),
                     <span class="macro">debug!</span>(
-                        <span class="string">"We were not chosen for consensus committee on {:?}"</span>,
-                        <span class="self">self</span>.cur_view
+                        <span class="string">"We were not chosen for consensus committee for view {:?} in epoch {:?}"</span>,
+                        view_number, epoch_number
                     )
                 );
 
                 <span class="kw">let </span>txns = Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
-                <span class="kw">let </span>num_nodes = <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch);
+                <span class="kw">let </span>num_nodes = <span class="self">self</span>.membership.total_nodes(epoch_number);
                 <span class="kw">let </span>payload_commitment =
                     spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = payload_commitment.unwrap();
+
                 <span class="self">self</span>.storage
                     .write()
                     .<span class="kw">await
-                    </span>.append_da(proposal, payload_commitment)
+                    </span>.append_da2(proposal, payload_commitment)
                     .<span class="kw">await
                     </span>.wrap()
                     .context(<span class="macro">error!</span>(<span class="string">"Failed to append DA proposal to storage"</span>))<span class="question-mark">?</span>;
-                <span class="kw">let </span>view_number = proposal.data.view_number();
                 <span class="comment">// Generate and send vote
-                </span><span class="kw">let </span>vote = DaVote::create_signed_vote(
-                    DaData {
+                </span><span class="kw">let </span>vote = DaVote2::create_signed_vote(
+                    DaData2 {
                         payload_commit: payload_commitment,
+                        epoch: epoch_number,
                     },
                     view_number,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.public_key,
@@ -588,14 +595,13 @@
                     <span class="kw">let </span>pk = <span class="self">self</span>.private_key.clone();
                     <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
                     <span class="kw">let </span>chan = event_stream.clone();
-                    <span class="kw">let </span>current_epoch = <span class="self">self</span>.cur_epoch;
                     spawn(<span class="kw">async move </span>{
                         Consensus::calculate_and_update_vid(
                             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
                             view_number,
                             membership,
                             <span class="kw-2">&amp;</span>pk,
-                            current_epoch,
+                            epoch_number,
                         )
                         .<span class="kw">await</span>;
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus
@@ -666,6 +672,7 @@
                     encoded_transactions,
                     metadata,
                     view_number,
+                    epoch_number,
                     ..
                 } = packed_bundle;
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
@@ -678,11 +685,12 @@
                     TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
                         .wrap()<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>data: DaProposal&lt;TYPES&gt; = DaProposal {
+                <span class="kw">let </span>data: DaProposal2&lt;TYPES&gt; = DaProposal2 {
                     encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
                     </span>view_number,
+                    epoch_number: <span class="kw-2">*</span>epoch_number,
                 };
 
                 <span class="kw">let </span>message = Proposal {

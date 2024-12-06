@@ -1256,6 +1256,52 @@
 <a href="#1256" id="1256">1256</a>
 <a href="#1257" id="1257">1257</a>
 <a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1292,7 +1338,7 @@
     message::{Proposal, UpgradeLock},
     simple_certificate::{
         QuorumCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        ViewSyncFinalizeCertificate,
     },
     simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -1405,6 +1451,41 @@
     </span><span class="kw">pub </span>view_number: TYPES::View,
 }
 
+<span class="doccomment">/// A proposal to start providing data availability for a block.
+</span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound = <span class="string">"TYPES: NodeType"</span>)]
+</span><span class="kw">pub struct </span>DaProposal2&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Encoded transactions in the block to be applied.
+    </span><span class="kw">pub </span>encoded_transactions: Arc&lt;[u8]&gt;,
+    <span class="doccomment">/// Metadata of the block to be applied.
+    </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
+    <span class="doccomment">/// View this proposal applies to
+    </span><span class="kw">pub </span>view_number: TYPES::View,
+    <span class="doccomment">/// Epoch this proposal applies to
+    </span><span class="kw">pub </span>epoch_number: TYPES::Epoch,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;DaProposal&lt;TYPES&gt;&gt; <span class="kw">for </span>DaProposal2&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(da_proposal: DaProposal&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            encoded_transactions: da_proposal.encoded_transactions,
+            metadata: da_proposal.metadata,
+            view_number: da_proposal.view_number,
+            epoch_number: TYPES::Epoch::new(<span class="number">0</span>),
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;DaProposal2&lt;TYPES&gt;&gt; <span class="kw">for </span>DaProposal&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(da_proposal2: DaProposal2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            encoded_transactions: da_proposal2.encoded_transactions,
+            metadata: da_proposal2.metadata,
+            view_number: da_proposal2.view_number,
+        }
+    }
+}
+
 <span class="doccomment">/// A proposal to upgrade the network
 </span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound = <span class="string">"TYPES: NodeType"</span>)]
@@ -1497,7 +1578,7 @@
     <span class="doccomment">/// Holds a timeout certificate.
     </span>Timeout(TimeoutCertificate&lt;TYPES&gt;),
     <span class="doccomment">/// Holds a view sync finalized certificate.
-    </span>ViewSync(ViewSyncFinalizeCertificate2&lt;TYPES&gt;),
+    </span>ViewSync(ViewSyncFinalizeCertificate&lt;TYPES&gt;),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; ViewChangeEvidence&lt;TYPES&gt; {
@@ -1678,13 +1759,13 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;QuorumProposal2&lt;TYPES&gt;&gt; <span class="kw">for </span>QuorumProposal&lt;TYPES&gt; {
-    <span class="kw">fn </span>from(quorum_proposal: QuorumProposal2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>from(quorum_proposal2: QuorumProposal2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            block_header: quorum_proposal.block_header,
-            view_number: quorum_proposal.view_number,
-            justify_qc: quorum_proposal.justify_qc.to_qc(),
-            upgrade_certificate: quorum_proposal.upgrade_certificate,
-            proposal_certificate: quorum_proposal.view_change_evidence,
+            block_header: quorum_proposal2.block_header,
+            view_number: quorum_proposal2.view_number,
+            justify_qc: quorum_proposal2.justify_qc.to_qc(),
+            upgrade_certificate: quorum_proposal2.upgrade_certificate,
+            proposal_certificate: quorum_proposal2.view_change_evidence,
         }
     }
 }
@@ -1708,6 +1789,12 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DaProposal&lt;TYPES&gt; {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
+        <span class="self">self</span>.view_number
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>DaProposal2&lt;TYPES&gt; {
     <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
     }
@@ -2484,6 +2571,9 @@
     <span class="doccomment">/// The view number that this block is associated with.
     </span><span class="kw">pub </span>view_number: TYPES::View,
 
+    <span class="doccomment">/// The view number that this block is associated with.
+    </span><span class="kw">pub </span>epoch_number: TYPES::Epoch,
+
     <span class="doccomment">/// The sequencing fee for submitting bundles.
     </span><span class="kw">pub </span>sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
 
@@ -2500,6 +2590,7 @@
         encoded_transactions: Arc&lt;[u8]&gt;,
         metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
         view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
         sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
         vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
         auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
@@ -2508,6 +2599,7 @@
             encoded_transactions,
             metadata,
             view_number,
+            epoch_number,
             sequencing_fees,
             vid_precompute,
             auction_result,

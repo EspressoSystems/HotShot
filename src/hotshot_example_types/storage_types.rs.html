@@ -273,6 +273,25 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -289,7 +308,9 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_types::{
     consensus::CommitmentMap,
-    data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
+    data::{
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
+    },
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
@@ -313,6 +334,7 @@
 </span><span class="kw">pub struct </span>TestStorageState&lt;TYPES: NodeType&gt; {
     vids: VidShares&lt;TYPES&gt;,
     das: HashMap&lt;TYPES::View, Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;&gt;,
+    da2s: HashMap&lt;TYPES::View, Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;&gt;,
     proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
     proposals2: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
     high_qc: <span class="prelude-ty">Option</span>&lt;hotshot_types::simple_certificate::QuorumCertificate&lt;TYPES&gt;&gt;,
@@ -326,6 +348,7 @@
         <span class="self">Self </span>{
             vids: HashMap::new(),
             das: HashMap::new(),
+            da2s: HashMap::new(),
             proposals: BTreeMap::new(),
             proposals2: BTreeMap::new(),
             high_qc: <span class="prelude-val">None</span>,
@@ -414,6 +437,21 @@
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
         inner
             .das
+            .insert(proposal.data.view_number, proposal.clone());
+        <span class="prelude-val">Ok</span>(())
+    }
+    <span class="kw">async fn </span>append_da2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;,
+        _vid_commit: &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span><span class="self">self</span>.should_return_err {
+            <span class="macro">bail!</span>(<span class="string">"Failed to append VID proposal to storage"</span>);
+        }
+        <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span><span class="self">self</span>.delay_config).<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
+        inner
+            .da2s
             .insert(proposal.data.view_number, proposal.clone());
         <span class="prelude-val">Ok</span>(())
     }

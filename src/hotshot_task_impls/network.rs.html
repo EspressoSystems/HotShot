@@ -858,6 +858,74 @@
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
 <a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -896,6 +964,7 @@
 <span class="kw">use </span>tokio::{spawn, task::JoinHandle};
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
     events::{HotShotEvent, HotShotTaskCompleted},
@@ -948,22 +1017,20 @@
                         }
                         GeneralConsensusMessage::ViewSyncPreCommitCertificate(
                             view_sync_message,
-                        ) =&gt; HotShotEvent::ViewSyncPreCommitCertificate2Recv(view_sync_message),
+                        ) =&gt; HotShotEvent::ViewSyncPreCommitCertificateRecv(view_sync_message),
 
                         GeneralConsensusMessage::ViewSyncCommitVote(view_sync_message) =&gt; {
                             HotShotEvent::ViewSyncCommitVoteRecv(view_sync_message)
                         }
                         GeneralConsensusMessage::ViewSyncCommitCertificate(view_sync_message) =&gt; {
-                            HotShotEvent::ViewSyncCommitCertificate2Recv(view_sync_message)
+                            HotShotEvent::ViewSyncCommitCertificateRecv(view_sync_message)
                         }
-
                         GeneralConsensusMessage::ViewSyncFinalizeVote(view_sync_message) =&gt; {
                             HotShotEvent::ViewSyncFinalizeVoteRecv(view_sync_message)
                         }
                         GeneralConsensusMessage::ViewSyncFinalizeCertificate(view_sync_message) =&gt; {
-                            HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_message)
+                            HotShotEvent::ViewSyncFinalizeCertificateRecv(view_sync_message)
                         }
-
                         GeneralConsensusMessage::TimeoutVote(message) =&gt; {
                             HotShotEvent::TimeoutVoteRecv(message)
                         }
@@ -975,17 +1042,33 @@
                             HotShotEvent::UpgradeVoteRecv(message)
                         }
                         GeneralConsensusMessage::HighQc(qc) =&gt; HotShotEvent::HighQcRecv(qc, sender),
+                        GeneralConsensusMessage::Proposal2(proposal) =&gt; {
+                            HotShotEvent::QuorumProposalRecv(proposal, sender)
+                        }
+                        GeneralConsensusMessage::Vote2(vote) =&gt; HotShotEvent::QuorumVoteRecv(vote),
+                        GeneralConsensusMessage::Proposal2Response(proposal) =&gt; {
+                            HotShotEvent::QuorumProposalResponseRecv(proposal)
+                        }
                     },
                     SequencingMessage::Da(da_message) =&gt; <span class="kw">match </span>da_message {
                         DaConsensusMessage::DaProposal(proposal) =&gt; {
-                            HotShotEvent::DaProposalRecv(proposal, sender)
+                            HotShotEvent::DaProposalRecv(convert_proposal(proposal), sender)
                         }
-                        DaConsensusMessage::DaVote(vote) =&gt; HotShotEvent::DaVoteRecv(vote.clone()),
+                        DaConsensusMessage::DaVote(vote) =&gt; {
+                            HotShotEvent::DaVoteRecv(vote.clone().to_vote2())
+                        }
                         DaConsensusMessage::DaCertificate(cert) =&gt; {
-                            HotShotEvent::DaCertificateRecv(cert)
+                            HotShotEvent::DaCertificateRecv(cert.to_dac2())
                         }
                         DaConsensusMessage::VidDisperseMsg(proposal) =&gt; {
                             HotShotEvent::VidShareRecv(sender, proposal)
+                        }
+                        DaConsensusMessage::DaProposal2(proposal) =&gt; {
+                            HotShotEvent::DaProposalRecv(proposal, sender)
+                        }
+                        DaConsensusMessage::DaVote2(vote) =&gt; HotShotEvent::DaVoteRecv(vote.clone()),
+                        DaConsensusMessage::DaCertificate2(cert) =&gt; {
+                            HotShotEvent::DaCertificateRecv(cert)
                         }
                     },
                 };
@@ -1234,13 +1317,23 @@
         <span class="kw">match </span>event.as_ref().clone() {
             HotShotEvent::QuorumProposalSend(proposal, sender) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Propose);
-                <span class="prelude-val">Some</span>((
-                    sender,
+
+                <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
+                    </span>.upgrade_lock
+                    .version_infallible(proposal.data.view_number())
+                    .<span class="kw">await
+                    </span>&gt;= V::Epochs::VERSION
+                {
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Proposal2(proposal),
+                    ))
+                } <span class="kw">else </span>{
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Proposal(convert_proposal(proposal)),
-                    )),
-                    TransmitType::Broadcast,
-                ))
+                    ))
+                };
+
+                <span class="prelude-val">Some</span>((sender, message, TransmitType::Broadcast))
             }
 
             <span class="comment">// ED Each network task is subscribed to all these message types.  Need filters per network task
@@ -1259,23 +1352,41 @@
                     }
                 };
 
-                <span class="prelude-val">Some</span>((
-                    vote.signing_key(),
+                <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
+                    </span>.upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .<span class="kw">await
+                    </span>&gt;= V::Epochs::VERSION
+                {
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote2(vote.clone()),
+                    ))
+                } <span class="kw">else </span>{
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone().to_vote()),
-                    )),
-                    TransmitType::Direct(leader),
-                ))
+                    ))
+                };
+
+                <span class="prelude-val">Some</span>((vote.signing_key(), message, TransmitType::Direct(leader)))
             }
             HotShotEvent::ExtendedQuorumVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
-                <span class="prelude-val">Some</span>((
-                    vote.signing_key(),
+                <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
+                    </span>.upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .<span class="kw">await
+                    </span>&gt;= V::Epochs::VERSION
+                {
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
+                        GeneralConsensusMessage::Vote2(vote.clone()),
+                    ))
+                } <span class="kw">else </span>{
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote(vote.clone().to_vote()),
-                    )),
-                    TransmitType::Broadcast,
-                ))
+                    ))
+                };
+
+                <span class="prelude-val">Some</span>((vote.signing_key(), message, TransmitType::Broadcast))
             }
             HotShotEvent::QuorumProposalRequestSend(req, signature) =&gt; <span class="prelude-val">Some</span>((
                 req.key.clone(),
@@ -1297,13 +1408,23 @@
             </span>}
             HotShotEvent::DaProposalSend(proposal, sender) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaPropose);
-                <span class="prelude-val">Some</span>((
-                    sender,
+
+                <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
+                    </span>.upgrade_lock
+                    .version_infallible(proposal.data.view_number())
+                    .<span class="kw">await
+                    </span>&gt;= V::Epochs::VERSION
+                {
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaProposal(proposal),
-                    )),
-                    TransmitType::DaCommitteeBroadcast,
-                ))
+                        DaConsensusMessage::DaProposal2(proposal),
+                    ))
+                } <span class="kw">else </span>{
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::DaProposal(convert_proposal(proposal)),
+                    ))
+                };
+
+                <span class="prelude-val">Some</span>((sender, message, TransmitType::DaCommitteeBroadcast))
             }
             HotShotEvent::DaVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaVote);
@@ -1320,23 +1441,38 @@
                     }
                 };
 
-                <span class="prelude-val">Some</span>((
-                    vote.signing_key(),
+                <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self</span>.upgrade_lock.version_infallible(view_number).<span class="kw">await
+                    </span>&gt;= V::Epochs::VERSION
+                {
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaVote(vote.clone()),
-                    )),
-                    TransmitType::Direct(leader),
-                ))
+                        DaConsensusMessage::DaVote2(vote.clone()),
+                    ))
+                } <span class="kw">else </span>{
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::DaVote(vote.clone().to_vote()),
+                    ))
+                };
+
+                <span class="prelude-val">Some</span>((vote.signing_key(), message, TransmitType::Direct(leader)))
             }
             HotShotEvent::DacSend(certificate, sender) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::DaCert);
-                <span class="prelude-val">Some</span>((
-                    sender,
+                <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
+                    </span>.upgrade_lock
+                    .version_infallible(certificate.view_number())
+                    .<span class="kw">await
+                    </span>&gt;= V::Epochs::VERSION
+                {
                     MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::DaCertificate(certificate),
-                    )),
-                    TransmitType::Broadcast,
-                ))
+                        DaConsensusMessage::DaCertificate2(certificate),
+                    ))
+                } <span class="kw">else </span>{
+                    MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::DaCertificate(certificate.to_dac()),
+                    ))
+                };
+
+                <span class="prelude-val">Some</span>((sender, message, TransmitType::Broadcast))
             }
             HotShotEvent::ViewSyncPreCommitVoteSend(vote) =&gt; {
                 <span class="kw">let </span>view_number = vote.view_number() + vote.date().relay;
@@ -1406,21 +1542,21 @@
                     TransmitType::Direct(leader),
                 ))
             }
-            HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
+            HotShotEvent::ViewSyncPreCommitCertificateSend(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
                 sender,
                 MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncPreCommitCertificate(certificate),
                 )),
                 TransmitType::Broadcast,
             )),
-            HotShotEvent::ViewSyncCommitCertificate2Send(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
+            HotShotEvent::ViewSyncCommitCertificateSend(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
                 sender,
                 MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncCommitCertificate(certificate),
                 )),
                 TransmitType::Broadcast,
             )),
-            HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
+            HotShotEvent::ViewSyncFinalizeCertificateSend(certificate, sender) =&gt; <span class="prelude-val">Some</span>((
                 sender,
                 MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::General(
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(certificate),

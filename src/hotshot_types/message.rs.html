@@ -530,6 +530,41 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -558,16 +593,17 @@
 
 <span class="kw">use crate</span>::{
     data::{
-        DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal, VidDisperseShare,
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal,
+        VidDisperseShare,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate, QuorumCertificate2, UpgradeCertificate, ViewSyncCommitCertificate2,
-        ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
+        DaCertificate, DaCertificate2, QuorumCertificate2, UpgradeCertificate,
+        ViewSyncCommitCertificate, ViewSyncFinalizeCertificate, ViewSyncPreCommitCertificate,
     },
     simple_vote::{
-        DaVote, QuorumVote, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-        ViewSyncPreCommitVote,
+        DaVote, DaVote2, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
+        ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
     traits::{
         election::Membership,
@@ -715,13 +751,13 @@
     </span>ViewSyncFinalizeVote(ViewSyncFinalizeVote&lt;TYPES&gt;),
 
     <span class="doccomment">/// Message with a view sync pre-commit certificate
-    </span>ViewSyncPreCommitCertificate(ViewSyncPreCommitCertificate2&lt;TYPES&gt;),
+    </span>ViewSyncPreCommitCertificate(ViewSyncPreCommitCertificate&lt;TYPES&gt;),
 
     <span class="doccomment">/// Message with a view sync commit certificate
-    </span>ViewSyncCommitCertificate(ViewSyncCommitCertificate2&lt;TYPES&gt;),
+    </span>ViewSyncCommitCertificate(ViewSyncCommitCertificate&lt;TYPES&gt;),
 
     <span class="doccomment">/// Message with a view sync finalize certificate
-    </span>ViewSyncFinalizeCertificate(ViewSyncFinalizeCertificate2&lt;TYPES&gt;),
+    </span>ViewSyncFinalizeCertificate(ViewSyncFinalizeCertificate&lt;TYPES&gt;),
 
     <span class="doccomment">/// Message with a Timeout vote
     </span>TimeoutVote(TimeoutVote&lt;TYPES&gt;),
@@ -732,6 +768,15 @@
     <span class="doccomment">/// Message with an upgrade vote
     </span>UpgradeVote(UpgradeVote&lt;TYPES&gt;),
 
+    <span class="doccomment">/// Message for the next leader containing our highest QC
+    </span>HighQc(QuorumCertificate2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a quorum proposal.
+    </span>Proposal2(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// Message with a quorum vote.
+    </span>Vote2(QuorumVote2&lt;TYPES&gt;),
+
     <span class="doccomment">/// A peer node needs a proposal from the leader.
     </span>ProposalRequested(
         ProposalRequestPayload&lt;TYPES&gt;,
@@ -741,8 +786,8 @@
     <span class="doccomment">/// A replica has responded with a valid proposal.
     </span>ProposalResponse(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
 
-    <span class="doccomment">/// Message for the next leader containing our highest QC
-    </span>HighQc(QuorumCertificate2&lt;TYPES&gt;),
+    <span class="doccomment">/// A replica has responded with a valid proposal.
+    </span>Proposal2Response(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
 }
 
 <span class="attr">#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -762,6 +807,15 @@
     ///
     /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
     </span>VidDisperseMsg(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// Proposal for data availability committee
+    </span>DaProposal2(Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// vote for data availability committee
+    </span>DaVote2(DaVote2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Certificate data is available
+    </span>DaCertificate2(DaCertificate2&lt;TYPES&gt;),
 }
 
 <span class="doccomment">/// Messages for sequencing consensus.
@@ -790,6 +844,9 @@
                     GeneralConsensusMessage::ProposalResponse(proposal) =&gt; {
                         proposal.data.view_number()
                     }
+                    GeneralConsensusMessage::Proposal2Response(proposal) =&gt; {
+                        proposal.data.view_number()
+                    }
                     GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.view_number(),
                     GeneralConsensusMessage::TimeoutVote(message) =&gt; message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) =&gt; {
@@ -809,6 +866,12 @@
                     GeneralConsensusMessage::UpgradeProposal(message) =&gt; message.data.view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) =&gt; message.view_number(),
                     GeneralConsensusMessage::HighQc(qc) =&gt; qc.view_number(),
+                    GeneralConsensusMessage::Proposal2(p) =&gt; {
+                        <span class="comment">// view of leader in the leaf when proposal
+                        // this should match replica upon receipt
+                        </span>p.data.view_number()
+                    }
+                    GeneralConsensusMessage::Vote2(vote_message) =&gt; vote_message.view_number(),
                 }
             }
             SequencingMessage::Da(da_message) =&gt; {
@@ -821,6 +884,13 @@
                     DaConsensusMessage::DaVote(vote_message) =&gt; vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) =&gt; cert.view_number,
                     DaConsensusMessage::VidDisperseMsg(disperse) =&gt; disperse.data.view_number(),
+                    DaConsensusMessage::DaProposal2(p) =&gt; {
+                        <span class="comment">// view of leader in the leaf when proposal
+                        // this should match replica upon receipt
+                        </span>p.data.view_number()
+                    }
+                    DaConsensusMessage::DaVote2(vote_message) =&gt; vote_message.view_number(),
+                    DaConsensusMessage::DaCertificate2(cert) =&gt; cert.view_number,
                 }
             }
         }

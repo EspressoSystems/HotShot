@@ -146,12 +146,12 @@
             | HotShotEvent::ViewSyncPreCommitVoteSend(<span class="kw">_</span>)
             | HotShotEvent::ViewSyncCommitVoteSend(<span class="kw">_</span>)
             | HotShotEvent::ViewSyncFinalizeVoteSend(<span class="kw">_</span>)
-            | HotShotEvent::ViewSyncPreCommitCertificate2Recv(<span class="kw">_</span>)
-            | HotShotEvent::ViewSyncCommitCertificate2Recv(<span class="kw">_</span>)
-            | HotShotEvent::ViewSyncFinalizeCertificate2Recv(<span class="kw">_</span>)
-            | HotShotEvent::ViewSyncPreCommitCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
-            | HotShotEvent::ViewSyncCommitCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
-            | HotShotEvent::ViewSyncFinalizeCertificate2Send(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::ViewSyncPreCommitCertificateRecv(<span class="kw">_</span>)
+            | HotShotEvent::ViewSyncCommitCertificateRecv(<span class="kw">_</span>)
+            | HotShotEvent::ViewSyncFinalizeCertificateRecv(<span class="kw">_</span>)
+            | HotShotEvent::ViewSyncPreCommitCertificateSend(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::ViewSyncCommitCertificateSend(<span class="kw">_</span>, <span class="kw">_</span>)
+            | HotShotEvent::ViewSyncFinalizeCertificateSend(<span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::ViewSyncTrigger(<span class="kw">_</span>) =&gt; {
                 <span class="self">self</span>.hit_view_sync.insert(id);
             }

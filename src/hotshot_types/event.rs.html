@@ -202,6 +202,7 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -215,12 +216,13 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
-    data::{DaProposal, Leaf2, QuorumProposal2, UpgradeProposal, VidDisperseShare},
+    data::{DaProposal2, Leaf2, QuorumProposal2, UpgradeProposal, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::QuorumCertificate2,
     traits::{node_implementation::NodeType, ValidatedState},
 };
+
 <span class="doccomment">/// A status event emitted by a `HotShot` instance
 ///
 /// This includes some metadata, such as the stage and view number that the event was generated in,
@@ -355,7 +357,7 @@
     /// or submitted to the network by us
     </span>DaProposal {
         <span class="doccomment">/// Contents of the proposal
-        </span>proposal: Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;,
+        </span>proposal: Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;,
         <span class="doccomment">/// Public key of the leader submitting the proposal
         </span>sender: TYPES::SignatureKey,
     },

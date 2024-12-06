@@ -826,6 +826,16 @@
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -955,6 +965,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(v) =&gt; v,
@@ -965,10 +976,10 @@
         };
 
         <span class="kw">if </span>version &lt; V::Marketplace::VERSION {
-            <span class="self">self</span>.handle_view_change_legacy(event_stream, block_view)
+            <span class="self">self</span>.handle_view_change_legacy(event_stream, block_view, block_epoch)
                 .<span class="kw">await
         </span>} <span class="kw">else </span>{
-            <span class="self">self</span>.handle_view_change_marketplace(event_stream, block_view)
+            <span class="self">self</span>.handle_view_change_marketplace(event_stream, block_view, block_epoch)
                 .<span class="kw">await
         </span>}
     }
@@ -979,6 +990,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(v) =&gt; v,
@@ -1016,6 +1028,7 @@
                     block_payload.encode(),
                     metadata,
                     block_view,
+                    block_epoch,
                     <span class="macro">vec1::vec1!</span>[fee],
                     precompute_data,
                     <span class="prelude-val">None</span>,
@@ -1059,6 +1072,7 @@
                     <span class="macro">vec!</span>[].into(),
                     metadata,
                     block_view,
+                    block_epoch,
                     <span class="macro">vec1::vec1!</span>[null_fee],
                     <span class="prelude-val">Some</span>(precompute_data),
                     <span class="prelude-val">None</span>,
@@ -1079,6 +1093,7 @@
     </span><span class="kw">async fn </span>produce_block_marketplace(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
         task_start_time: Instant,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
         <span class="macro">ensure!</span>(
@@ -1171,6 +1186,7 @@
             block_payload.encode(),
             metadata,
             block_view,
+            block_epoch,
             sequencing_fees,
             <span class="prelude-val">None</span>,
             <span class="prelude-val">Some</span>(auction_result),
@@ -1181,6 +1197,7 @@
     </span><span class="kw">pub fn </span>null_block(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
         version: Version,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>membership_total_nodes = <span class="self">self</span>.membership.total_nodes(<span class="self">self</span>.cur_epoch);
@@ -1202,6 +1219,7 @@
             <span class="macro">vec!</span>[].into(),
             metadata,
             block_view,
+            block_epoch,
             <span class="macro">vec1::vec1!</span>[null_fee],
             <span class="prelude-val">Some</span>(precompute_data),
             <span class="prelude-val">Some</span>(TYPES::AuctionResult::default()),
@@ -1214,6 +1232,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 
@@ -1226,7 +1245,7 @@
         };
 
         <span class="kw">let </span>packed_bundle = <span class="kw">match </span><span class="self">self
-            </span>.produce_block_marketplace(block_view, task_start_time)
+            </span>.produce_block_marketplace(block_view, block_epoch, task_start_time)
             .<span class="kw">await
         </span>{
             <span class="prelude-val">Ok</span>(b) =&gt; b,
@@ -1237,7 +1256,7 @@
                     e
                 );
 
-                <span class="kw">let </span>null_block = <span class="self">self</span>.null_block(block_view, version)<span class="question-mark">?</span>;
+                <span class="kw">let </span>null_block = <span class="self">self</span>.null_block(block_view, block_epoch, version)<span class="question-mark">?</span>;
 
                 <span class="comment">// Increment the metric for number of empty blocks proposed
                 </span><span class="self">self</span>.consensus
@@ -1266,12 +1285,13 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">if </span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.is_high_qc_forming_eqc() {
             <span class="macro">tracing::info!</span>(<span class="string">"Reached end of epoch. Not getting a new block until we form an eQC."</span>);
             <span class="prelude-val">None
         </span>} <span class="kw">else </span>{
-            <span class="self">self</span>.handle_view_change_marketplace(event_stream, block_view)
+            <span class="self">self</span>.handle_view_change_marketplace(event_stream, block_view, block_epoch)
                 .<span class="kw">await
         </span>}
     }
@@ -1309,7 +1329,7 @@
                 );
                 <span class="self">self</span>.cur_view = view;
                 <span class="kw">if </span><span class="self">self</span>.membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key {
-                    <span class="self">self</span>.handle_view_change(<span class="kw-2">&amp;</span>event_stream, view).<span class="kw">await</span>;
+                    <span class="self">self</span>.handle_view_change(<span class="kw-2">&amp;</span>event_stream, view, <span class="kw-2">*</span>epoch).<span class="kw">await</span>;
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
             }

@@ -80,6 +80,14 @@
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -100,7 +108,9 @@
 <span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
 <span class="kw">use crate</span>::{
     consensus::{CommitmentMap, View},
-    data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
+    data::{
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
+    },
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
@@ -116,6 +126,12 @@
     </span><span class="kw">async fn </span>append_da(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;,
+        vid_commit: &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Add a proposal to the stored DA proposals.
+    </span><span class="kw">async fn </span>append_da2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;,
         vid_commit: &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Add a proposal we sent to the store

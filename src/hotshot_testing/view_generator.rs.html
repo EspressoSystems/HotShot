@@ -589,6 +589,14 @@
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -613,17 +621,17 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
+        DaProposal2, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence, ViewNumber,
     },
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate2,
+        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncFinalizeCertificate,
     },
     simple_vote::{
-        DaData, DaVote, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
+        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
         UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
     },
     traits::{
@@ -631,6 +639,7 @@
         node_implementation::{ConsensusTime, NodeType},
         BlockPayload,
     },
+    utils::epoch_from_block_number,
 };
 <span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
@@ -641,7 +650,7 @@
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestView {
-    <span class="kw">pub </span>da_proposal: Proposal&lt;TestTypes, DaProposal&lt;TestTypes&gt;&gt;,
+    <span class="kw">pub </span>da_proposal: Proposal&lt;TestTypes, DaProposal2&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>quorum_proposal: Proposal&lt;TestTypes, QuorumProposal2&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>leaf: Leaf2&lt;TestTypes&gt;,
     <span class="kw">pub </span>view_number: ViewNumber,
@@ -653,7 +662,7 @@
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ),
     <span class="kw">pub </span>leader_public_key: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
-    <span class="kw">pub </span>da_certificate: DaCertificate&lt;TestTypes&gt;,
+    <span class="kw">pub </span>da_certificate: DaCertificate2&lt;TestTypes&gt;,
     <span class="kw">pub </span>transactions: Vec&lt;TestTransaction&gt;,
     upgrade_data: <span class="prelude-ty">Option</span>&lt;UpgradeProposalData&lt;TestTypes&gt;&gt;,
     formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TestTypes&gt;&gt;,
@@ -665,7 +674,7 @@
 <span class="kw">impl </span>TestView {
     <span class="kw">pub async fn </span>genesis(membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>genesis_view = ViewNumber::new(<span class="number">1</span>);
-        <span class="kw">let </span>genesis_epoch = EpochNumber::new(<span class="number">1</span>);
+        <span class="kw">let </span>genesis_epoch = EpochNumber::new(<span class="number">0</span>);
         <span class="kw">let </span>upgrade_lock = UpgradeLock::new();
 
         <span class="kw">let </span>transactions = Vec::new();
@@ -743,10 +752,11 @@
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
                 .expect(<span class="string">"Failed to sign block payload"</span>);
 
-        <span class="kw">let </span>da_proposal_inner = DaProposal::&lt;TestTypes&gt; {
+        <span class="kw">let </span>da_proposal_inner = DaProposal2::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
+            epoch_number: genesis_epoch,
         };
 
         <span class="kw">let </span>da_proposal = Proposal {
@@ -808,6 +818,7 @@
 
         <span class="kw">let </span>quorum_data = QuorumData2 {
             leaf_commit: old.leaf.commit(),
+            epoch: EpochNumber::new(<span class="number">0</span>),
         };
 
         <span class="kw">let </span>(old_private_key, old_public_key) = key_pair_for_id::&lt;TestTypes&gt;(<span class="kw-2">*</span>old_view);
@@ -897,7 +908,7 @@
                 TestVersions,
                 ViewSyncFinalizeData&lt;TestTypes&gt;,
                 ViewSyncFinalizeVote&lt;TestTypes&gt;,
-                ViewSyncFinalizeCertificate2&lt;TestTypes&gt;,
+                ViewSyncFinalizeCertificate&lt;TestTypes&gt;,
             &gt;(
                 data.clone(),
                 membership,
@@ -984,10 +995,11 @@
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey::sign(<span class="kw-2">&amp;</span>private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
                 .expect(<span class="string">"Failed to sign block payload"</span>);
 
-        <span class="kw">let </span>da_proposal_inner = DaProposal::&lt;TestTypes&gt; {
+        <span class="kw">let </span>da_proposal_inner = DaProposal2::&lt;TestTypes&gt; {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: next_view,
+            epoch_number: <span class="self">self</span>.epoch_number,
         };
 
         <span class="kw">let </span>da_proposal = Proposal {
@@ -1033,6 +1045,10 @@
         QuorumVote2::&lt;TestTypes&gt;::create_signed_vote(
             QuorumData2 {
                 leaf_commit: <span class="self">self</span>.leaf.commit(),
+                epoch: EpochNumber::new(epoch_from_block_number(
+                    <span class="self">self</span>.leaf.height(),
+                    handle.hotshot.config.epoch_height,
+                )),
             },
             <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span>handle.public_key(),
@@ -1061,10 +1077,10 @@
 
     <span class="kw">pub async fn </span>create_da_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        data: DaData,
+        data: DaData2&lt;TestTypes&gt;,
         handle: <span class="kw-2">&amp;</span>SystemContextHandle&lt;TestTypes, MemoryImpl, TestVersions&gt;,
-    ) -&gt; DaVote&lt;TestTypes&gt; {
-        DaVote::create_signed_vote(
+    ) -&gt; DaVote2&lt;TestTypes&gt; {
+        DaVote2::create_signed_vote(
             data,
             <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span>handle.public_key(),

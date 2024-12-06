@@ -435,6 +435,8 @@
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -457,7 +459,8 @@
 <span class="kw">use </span>hotshot_task::dependency_task::HandleDepOutput;
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf2, QuorumProposal, VidDisperse, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence},
+    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -487,7 +490,7 @@
     <span class="doccomment">/// For the `Qc2Formed` event.
     </span>Qc,
 
-    <span class="doccomment">/// For the `ViewSyncFinalizeCertificate2Recv` event.
+    <span class="doccomment">/// For the `ViewSyncFinalizeCertificateRecv` event.
     </span>ViewSyncCert,
 
     <span class="doccomment">/// For the `Qc2Formed` event timeout branch.
@@ -733,14 +736,15 @@
             .context(<span class="macro">warn!</span>(<span class="string">"Failed to construct marketplace block header"</span>))<span class="question-mark">?
         </span>};
 
-        <span class="kw">let </span>proposal = QuorumProposal {
+        <span class="kw">let </span>proposal = QuorumProposal2 {
             block_header,
             view_number: <span class="self">self</span>.view_number,
-            justify_qc: parent_qc.to_qc(),
+            justify_qc: parent_qc,
             upgrade_certificate,
-            proposal_certificate,
-        }
-        .into();
+            view_change_evidence: proposal_certificate,
+            drb_seed: INITIAL_DRB_SEED_INPUT,
+            drb_result: INITIAL_DRB_RESULT,
+        };
 
         <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
         <span class="macro">ensure!</span>(
@@ -813,7 +817,7 @@
                         parent_qc = <span class="prelude-val">Some</span>(qc.clone());
                     }
                 },
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) =&gt; {
+                HotShotEvent::ViewSyncFinalizeCertificateRecv(cert) =&gt; {
                     view_sync_finalize_cert = <span class="prelude-val">Some</span>(cert.clone());
                 }
                 HotShotEvent::VidDisperseSend(share, <span class="kw">_</span>) =&gt; {
