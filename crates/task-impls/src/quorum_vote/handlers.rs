@@ -45,16 +45,13 @@ use crate::{
 
 /// Store the DRB result from the quorum proposal.
 ///
-/// If it already exists, verify the result.
-async fn store_and_verify_received_drb_result<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    V: Versions,
->(
+/// Returns an error if receiving an inconsistent result.
+async fn store_received_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     epoch_number: TYPES::Epoch,
     drb_result: DrbResult,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    let mut exist = false;
     if let Some(stored_result) = task_state
         .consensus
         .read()
@@ -63,20 +60,34 @@ async fn store_and_verify_received_drb_result<
         .results
         .get(&epoch_number)
     {
-        if drb_result != *stored_result {
-            bail!("Inconsistent result with the storage.");
+        if drb_result == *stored_result {
+            return Ok(());
         }
-        return Ok(());
+        exist = true;
     }
 
-    task_state
-        .consensus
-        .write()
-        .await
-        .drb_seeds_and_results
-        .seeds
-        .insert(epoch_number, drb_result);
-    Ok(())
+    // If there exists an inconsistent result, remove it.
+    if exist {
+        task_state
+            .consensus
+            .write()
+            .await
+            .drb_seeds_and_results
+            .results
+            .remove(&epoch_number);
+        bail!("Inconsistent result with the storage.");
+    }
+    // Otherwise, store the result.
+    else {
+        task_state
+            .consensus
+            .write()
+            .await
+            .drb_seeds_and_results
+            .results
+            .insert(epoch_number, drb_result);
+        Ok(())
+    }
 }
 
 /// Store the DRB result from the computation task to the shared `results` table.
@@ -172,12 +183,8 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
             .membership
             .has_stake(&task_state.public_key, current_epoch_number + 1)
         {
-            store_and_verify_received_drb_result(
-                current_epoch_number + 1,
-                proposal_result,
-                task_state,
-            )
-            .await?;
+            store_received_drb_result(current_epoch_number + 1, proposal_result, task_state)
+                .await?;
         }
     }
     Ok(())
