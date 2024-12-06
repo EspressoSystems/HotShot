@@ -1267,6 +1267,9 @@ pub struct PackedBundle<TYPES: NodeType> {
     /// The view number that this block is associated with.
     pub view_number: TYPES::View,
 
+    /// The view number that this block is associated with.
+    pub epoch_number: TYPES::Epoch,
+
     /// The sequencing fee for submitting bundles.
     pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
 
@@ -1283,6 +1286,7 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
         encoded_transactions: Arc<[u8]>,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
         sequencing_fees: Vec1<BuilderFee<TYPES>>,
         vid_precompute: Option<VidPrecomputeData>,
         auction_result: Option<TYPES::AuctionResult>,
@@ -1291,6 +1295,7 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
             encoded_transactions,
             metadata,
             view_number,
+            epoch_number,
             sequencing_fees,
             vid_precompute,
             auction_result,

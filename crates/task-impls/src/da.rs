@@ -305,6 +305,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     encoded_transactions,
                     metadata,
                     view_number,
+                    epoch_number,
                     ..
                 } = packed_bundle;
                 let view_number = *view_number;
@@ -322,7 +323,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number,
-                    epoch_number: self.cur_epoch,
+                    epoch_number: *epoch_number,
                 };
 
                 let message = Proposal {
