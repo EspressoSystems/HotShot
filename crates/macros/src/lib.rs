@@ -17,7 +17,7 @@ use syn::{
 /// description of a crosstest
 #[derive(derive_builder::Builder, Debug, Clone)]
 struct CrossTestData {
-    /// imlementations
+    /// implementations
     impls: ExprArray,
     /// builder impl
     #[builder(default = "syn::parse_str(\"[SimpleBuilderImplementation]\").unwrap()")]
