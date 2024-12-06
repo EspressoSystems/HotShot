@@ -6,10 +6,20 @@
 
 use std::sync::Arc;
 
+use super::QuorumVoteTaskState;
+use crate::{
+    events::HotShotEvent,
+    helpers::{
+        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
+        LeafChainTraversalOutcome,
+    },
+    quorum_vote::Versions,
+};
 use async_broadcast::{InactiveReceiver, Sender};
 use async_lock::RwLock;
 use chrono::Utc;
 use committable::Committable;
+use hotshot_types::utils::is_last_block_in_epoch;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf2, QuorumProposal2, VidDisperseShare},
@@ -30,16 +40,6 @@ use hotshot_types::{
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use super::QuorumVoteTaskState;
-use crate::{
-    events::HotShotEvent,
-    helpers::{
-        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
-        LeafChainTraversalOutcome,
-    },
-    quorum_vote::Versions,
-};
 
 /// Handles starting the DRB calculation. Uses the seed previously stored in
 /// handle_quorum_proposal_validated_drb_calculation_seed
@@ -406,9 +406,15 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     leaf: Leaf2<TYPES>,
     vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
     extended_vote: bool,
+    epoch_height: u64,
 ) -> Result<()> {
+    let committee_member_in_current_epoch = quorum_membership.has_stake(&public_key, epoch_number);
+    // If the proposed leaf is for the last block in the epoch and the node is part of the quorum committee
+    // in the next epoch, the node should vote to achieve the double quorum.
+    let committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), epoch_height)
+        && quorum_membership.has_stake(&public_key, epoch_number + 1);
     ensure!(
-        quorum_membership.has_stake(&public_key, epoch_number),
+        committee_member_in_current_epoch || committee_member_in_next_epoch,
         info!(
             "We were not chosen for quorum committee on {:?}",
             view_number

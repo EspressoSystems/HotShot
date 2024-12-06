@@ -404,7 +404,7 @@ impl<
             HotShotEvent::QuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self.membership.leader(view_number, self.epoch) {
+                let leader = match self.membership.leader(view_number, vote.epoch()) {
                     Ok(l) => l,
                     Err(e) => {
                         tracing::warn!(

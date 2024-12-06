@@ -6,10 +6,16 @@
 
 use std::{marker::PhantomData, sync::Arc, time::SystemTime};
 
+use crate::{
+    events::HotShotEvent,
+    helpers::broadcast_event,
+    vote_collection::{handle_vote, VoteCollectorsMap},
+};
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::task::TaskState;
+use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     constants::{
         UPGRADE_BEGIN_OFFSET, UPGRADE_DECIDE_BY_OFFSET, UPGRADE_FINISH_OFFSET,
@@ -30,12 +36,6 @@ use hotshot_types::{
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use crate::{
-    events::HotShotEvent,
-    helpers::broadcast_event,
-    vote_collection::{handle_vote, VoteCollectorsMap},
-};
 
 /// Tracks state of an upgrade task
 pub struct UpgradeTaskState<TYPES: NodeType, V: Versions> {
@@ -238,12 +238,11 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                     vote,
                     self.public_key.clone(),
                     &self.quorum_membership,
-                    self.cur_epoch,
                     self.id,
                     &event,
                     &tx,
                     &self.upgrade_lock,
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await?;
             }

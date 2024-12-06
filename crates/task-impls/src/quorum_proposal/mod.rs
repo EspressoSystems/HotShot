@@ -548,6 +548,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 );
                 self.highest_qc = qc.clone();
             }
+            HotShotEvent::NextEpochQc2Formed(Either::Left(next_epoch_qc)) => {
+                // Only update if the qc is from a newer view
+                let current_next_epoch_qc =
+                    self.consensus.read().await.next_epoch_high_qc().cloned();
+                if current_next_epoch_qc.is_some()
+                    && next_epoch_qc.view_number <= current_next_epoch_qc.unwrap().view_number
+                {
+                    tracing::trace!(
+                            "Received a next epoch QC for a view that was not > than our current next epoch high QC"
+                        );
+                }
+                self.consensus
+                    .write()
+                    .await
+                    .update_next_epoch_high_qc(next_epoch_qc.clone())
+                    .wrap()
+                    .context(error!(
+                        "Failed to update next epoch high QC in internal consensus state!"
+                    ))?;
+
+                // Then update the next epoch high QC in storage
+                self.storage
+                    .write()
+                    .await
+                    .update_next_epoch_high_qc2(next_epoch_qc.clone())
+                    .await
+                    .wrap()
+                    .context(error!("Failed to update next epoch high QC in storage!"))?;
+            }
             _ => {}
         }
         Ok(())

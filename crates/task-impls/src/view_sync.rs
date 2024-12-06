@@ -15,6 +15,7 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
+use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     message::{GeneralConsensusMessage, UpgradeLock},
     simple_certificate::{
@@ -318,7 +319,6 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    epoch: self.cur_epoch,
                     id: self.id,
                 };
                 let vote_collector = create_vote_accumulator(
@@ -326,7 +326,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     event,
                     &event_stream,
                     self.upgrade_lock.clone(),
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await?;
 
@@ -363,7 +363,6 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    epoch: self.cur_epoch,
                     id: self.id,
                 };
 
@@ -372,7 +371,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     event,
                     &event_stream,
                     self.upgrade_lock.clone(),
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await?;
                 relay_map.insert(relay, vote_collector);
@@ -408,7 +407,6 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    epoch: self.cur_epoch,
                     id: self.id,
                 };
                 let vote_collector = create_vote_accumulator(
@@ -416,7 +414,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     event,
                     &event_stream,
                     self.upgrade_lock.clone(),
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await;
                 if let Ok(vote_task) = vote_collector {

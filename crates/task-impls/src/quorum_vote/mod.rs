@@ -244,6 +244,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             leaf,
             vid_share,
             false,
+            self.epoch_height,
         )
         .await
         {
@@ -727,6 +728,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             proposed_leaf,
             updated_vid,
             is_vote_leaf_extended,
+            self.epoch_height,
         )
         .await
         {

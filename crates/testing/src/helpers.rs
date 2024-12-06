@@ -334,6 +334,7 @@ pub fn build_vid_proposal<TYPES: NodeType>(
         vid.disperse(&encoded_transactions).unwrap(),
         quorum_membership,
         epoch_number,
+        None,
     );
 
     let signature =

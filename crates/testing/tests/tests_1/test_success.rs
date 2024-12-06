@@ -4,12 +4,13 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use hotshot_example_types::{
     node_types::{
-        EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
-        TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader, TestVersions,
+        CombinedImpl, EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl,
+        TestConsecutiveLeaderTypes, TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader,
+        TestVersions,
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
@@ -17,7 +18,6 @@ use hotshot_macros::cross_tests;
 use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    overall_safety_task::OverallSafetyPropertiesDescription,
     spinning_task::{ChangeNode, NodeAction, SpinningTaskDescription},
     test_builder::TestDescription,
     view_sync_task::ViewSyncTaskDescription,
@@ -156,8 +156,8 @@ cross_tests!(
 
 cross_tests!(
     TestName: test_epoch_end,
-    Impls: [PushCdnImpl],
-    Types: [TestTwoStakeTablesTypes],
+    Impls: [CombinedImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
@@ -172,12 +172,6 @@ cross_tests!(
             start_nodes: 10,
             num_bootstrap_nodes: 10,
             da_staked_committee_size: 10,
-            overall_safety_properties: OverallSafetyPropertiesDescription {
-                // Explicitly show that we use normal threshold, i.e. 2 nodes_len / 3 + 1
-                // but we divide by two because only half of the nodes are active in each epoch
-                threshold_calculator: Arc::new(|_, nodes_len| 2 * nodes_len / 2 / 3 + 1),
-                ..OverallSafetyPropertiesDescription::default()
-            },
 
             ..TestDescription::default()
         }
