@@ -17,7 +17,10 @@ use libp2p_identity::PeerId;
 use libp2p_swarm_derive::NetworkBehaviour;
 use tracing::{debug, error};
 
-use super::{behaviours::dht::store::ValidatedStore, cbor, NetworkEventInternal};
+use super::{
+    behaviours::dht::store::{file_backed::FileBackedStore, validated::ValidatedStore},
+    cbor, NetworkEventInternal,
+};
 
 /// Overarching network behaviour performing:
 /// - network topology discovery
@@ -34,10 +37,10 @@ pub struct NetworkDef<K: SignatureKey + 'static> {
     #[debug(skip)]
     gossipsub: GossipBehaviour,
 
-    /// purpose: peer routing
-    /// purpose: storing pub key <-> peer id bijection
+    /// The DHT store. We use a `FileBackedStore` to occasionally save the DHT to
+    /// a file on disk and a `ValidatedStore` to validate the records stored.
     #[debug(skip)]
-    pub dht: libp2p::kad::Behaviour<ValidatedStore<MemoryStore, K>>,
+    pub dht: libp2p::kad::Behaviour<FileBackedStore<ValidatedStore<MemoryStore, K>>>,
 
     /// purpose: identifying the addresses from an outside POV
     #[debug(skip)]
@@ -47,7 +50,7 @@ pub struct NetworkDef<K: SignatureKey + 'static> {
     #[debug(skip)]
     pub direct_message: cbor::Behaviour<Vec<u8>, Vec<u8>>,
 
-    /// Auto NAT behaviour to determine if we are publically reachable and
+    /// Auto NAT behaviour to determine if we are publicly reachable and
     /// by which address
     #[debug(skip)]
     pub autonat: libp2p::autonat::Behaviour,
@@ -58,7 +61,7 @@ impl<K: SignatureKey + 'static> NetworkDef<K> {
     #[must_use]
     pub fn new(
         gossipsub: GossipBehaviour,
-        dht: libp2p::kad::Behaviour<ValidatedStore<MemoryStore, K>>,
+        dht: libp2p::kad::Behaviour<FileBackedStore<ValidatedStore<MemoryStore, K>>>,
         identify: IdentifyBehaviour,
         direct_message: super::cbor::Behaviour<Vec<u8>, Vec<u8>>,
         autonat: autonat::Behaviour,

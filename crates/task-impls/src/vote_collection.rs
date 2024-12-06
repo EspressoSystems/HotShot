@@ -17,12 +17,12 @@ use either::Either::{self, Left, Right};
 use hotshot_types::{
     message::UpgradeLock,
     simple_certificate::{
-        DaCertificate, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2,
-        ViewSyncPreCommitCertificate2,
+        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncCommitCertificate, ViewSyncFinalizeCertificate,
+        ViewSyncPreCommitCertificate,
     },
     simple_vote::{
-        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
+        DaVote2, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
         ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
     traits::{
@@ -43,7 +43,7 @@ pub type VoteCollectorsMap<TYPES, VOTE, CERT, V> =
 pub struct VoteCollectionTaskState<
     TYPES: NodeType,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment> + Debug,
     V: Versions,
 > {
     /// Public key for this node.
@@ -72,7 +72,7 @@ pub struct VoteCollectionTaskState<
 pub trait AggregatableVote<
     TYPES: NodeType,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
 >
 {
     /// return the leader for this votes
@@ -92,7 +92,7 @@ pub trait AggregatableVote<
 impl<
         TYPES: NodeType,
         VOTE: Vote<TYPES> + AggregatableVote<TYPES, VOTE, CERT>,
-        CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Clone + Debug,
+        CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment> + Clone + Debug,
         V: Versions,
     > VoteCollectionTaskState<TYPES, VOTE, CERT, V>
 {
@@ -153,7 +153,7 @@ pub trait HandleVoteEvent<TYPES, VOTE, CERT>
 where
     TYPES: NodeType,
     VOTE: Vote<TYPES> + AggregatableVote<TYPES, VOTE, CERT>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment> + Debug,
 {
     /// Handle a vote event
     ///
@@ -186,7 +186,7 @@ pub struct AccumulatorInfo<TYPES: NodeType> {
 /// Generic function for spawning a vote task.  Returns the event stream id of the spawned task if created
 ///
 /// # Errors
-/// If we faile to create the accumulator
+/// If we failed to create the accumulator
 ///
 /// # Panics
 /// Calls unwrap but should never panic.
@@ -204,7 +204,7 @@ where
         + std::marker::Send
         + std::marker::Sync
         + 'static,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>
         + Debug
         + std::marker::Send
         + std::marker::Sync
@@ -242,7 +242,11 @@ where
 pub async fn handle_vote<
     TYPES: NodeType,
     VOTE: Vote<TYPES> + AggregatableVote<TYPES, VOTE, CERT> + Send + Sync + 'static,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment> + Debug + Send + Sync + 'static,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>
+        + Debug
+        + Send
+        + Sync
+        + 'static,
     V: Versions,
 >(
     collectors: &mut VoteCollectorsMap<TYPES, VOTE, CERT, V>,
@@ -303,7 +307,8 @@ where
 type QuorumVoteState<TYPES, V> =
     VoteCollectionTaskState<TYPES, QuorumVote2<TYPES>, QuorumCertificate2<TYPES>, V>;
 /// Alias for DA vote accumulator
-type DaVoteState<TYPES, V> = VoteCollectionTaskState<TYPES, DaVote<TYPES>, DaCertificate<TYPES>, V>;
+type DaVoteState<TYPES, V> =
+    VoteCollectionTaskState<TYPES, DaVote2<TYPES>, DaCertificate2<TYPES>, V>;
 /// Alias for Timeout vote accumulator
 type TimeoutVoteState<TYPES, V> =
     VoteCollectionTaskState<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>, V>;
@@ -314,17 +319,17 @@ type UpgradeVoteState<TYPES, V> =
 type ViewSyncPreCommitState<TYPES, V> = VoteCollectionTaskState<
     TYPES,
     ViewSyncPreCommitVote<TYPES>,
-    ViewSyncPreCommitCertificate2<TYPES>,
+    ViewSyncPreCommitCertificate<TYPES>,
     V,
 >;
 /// Alias for View Sync Commit vote accumulator
 type ViewSyncCommitVoteState<TYPES, V> =
-    VoteCollectionTaskState<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>, V>;
+    VoteCollectionTaskState<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate<TYPES>, V>;
 /// Alias for View Sync Finalize vote accumulator
 type ViewSyncFinalizeVoteState<TYPES, V> = VoteCollectionTaskState<
     TYPES,
     ViewSyncFinalizeVote<TYPES>,
-    ViewSyncFinalizeCertificate2<TYPES>,
+    ViewSyncFinalizeCertificate<TYPES>,
     V,
 >;
 
@@ -382,8 +387,8 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
     }
 }
 
-impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>
-    for DaVote<TYPES>
+impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote2<TYPES>, DaCertificate2<TYPES>>
+    for DaVote2<TYPES>
 {
     fn leader(
         &self,
@@ -393,7 +398,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote<TYPES>, DaCertificate<TYPES
         membership.leader(self.view_number(), epoch)
     }
     fn make_cert_event(
-        certificate: DaCertificate<TYPES>,
+        certificate: DaCertificate2<TYPES>,
         key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
         HotShotEvent::DacSend(certificate, key.clone())
@@ -419,7 +424,7 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertifi
 }
 
 impl<TYPES: NodeType>
-    AggregatableVote<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>>
+    AggregatableVote<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate<TYPES>>
     for ViewSyncCommitVote<TYPES>
 {
     fn leader(
@@ -430,15 +435,15 @@ impl<TYPES: NodeType>
         membership.leader(self.date().round + self.date().relay, epoch)
     }
     fn make_cert_event(
-        certificate: ViewSyncCommitCertificate2<TYPES>,
+        certificate: ViewSyncCommitCertificate<TYPES>,
         key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::ViewSyncCommitCertificate2Send(certificate, key.clone())
+        HotShotEvent::ViewSyncCommitCertificateSend(certificate, key.clone())
     }
 }
 
 impl<TYPES: NodeType>
-    AggregatableVote<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>>
+    AggregatableVote<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate<TYPES>>
     for ViewSyncPreCommitVote<TYPES>
 {
     fn leader(
@@ -449,15 +454,15 @@ impl<TYPES: NodeType>
         membership.leader(self.date().round + self.date().relay, epoch)
     }
     fn make_cert_event(
-        certificate: ViewSyncPreCommitCertificate2<TYPES>,
+        certificate: ViewSyncPreCommitCertificate<TYPES>,
         key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::ViewSyncPreCommitCertificate2Send(certificate, key.clone())
+        HotShotEvent::ViewSyncPreCommitCertificateSend(certificate, key.clone())
     }
 }
 
 impl<TYPES: NodeType>
-    AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
+    AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate<TYPES>>
     for ViewSyncFinalizeVote<TYPES>
 {
     fn leader(
@@ -468,10 +473,10 @@ impl<TYPES: NodeType>
         membership.leader(self.date().round + self.date().relay, epoch)
     }
     fn make_cert_event(
-        certificate: ViewSyncFinalizeCertificate2<TYPES>,
+        certificate: ViewSyncFinalizeCertificate<TYPES>,
         key: &TYPES::SignatureKey,
     ) -> HotShotEvent<TYPES> {
-        HotShotEvent::ViewSyncFinalizeCertificate2Send(certificate, key.clone())
+        HotShotEvent::ViewSyncFinalizeCertificateSend(certificate, key.clone())
     }
 }
 
@@ -518,14 +523,14 @@ impl<TYPES: NodeType, V: Versions>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, V: Versions> HandleVoteEvent<TYPES, DaVote<TYPES>, DaCertificate<TYPES>>
+impl<TYPES: NodeType, V: Versions> HandleVoteEvent<TYPES, DaVote2<TYPES>, DaCertificate2<TYPES>>
     for DaVoteState<TYPES, V>
 {
     async fn handle_vote_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<Option<DaCertificate<TYPES>>> {
+    ) -> Result<Option<DaCertificate2<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::DaVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => Ok(None),
@@ -558,14 +563,14 @@ impl<TYPES: NodeType, V: Versions>
 
 #[async_trait]
 impl<TYPES: NodeType, V: Versions>
-    HandleVoteEvent<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate2<TYPES>>
+    HandleVoteEvent<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate<TYPES>>
     for ViewSyncPreCommitState<TYPES, V>
 {
     async fn handle_vote_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<Option<ViewSyncPreCommitCertificate2<TYPES>>> {
+    ) -> Result<Option<ViewSyncPreCommitCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote) => {
                 self.accumulate_vote(vote, sender).await
@@ -580,14 +585,14 @@ impl<TYPES: NodeType, V: Versions>
 
 #[async_trait]
 impl<TYPES: NodeType, V: Versions>
-    HandleVoteEvent<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate2<TYPES>>
+    HandleVoteEvent<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate<TYPES>>
     for ViewSyncCommitVoteState<TYPES, V>
 {
     async fn handle_vote_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<Option<ViewSyncCommitCertificate2<TYPES>>> {
+    ) -> Result<Option<ViewSyncCommitCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncCommitVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => Ok(None),
@@ -600,14 +605,14 @@ impl<TYPES: NodeType, V: Versions>
 
 #[async_trait]
 impl<TYPES: NodeType, V: Versions>
-    HandleVoteEvent<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate2<TYPES>>
+    HandleVoteEvent<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate<TYPES>>
     for ViewSyncFinalizeVoteState<TYPES, V>
 {
     async fn handle_vote_event(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-    ) -> Result<Option<ViewSyncFinalizeCertificate2<TYPES>>> {
+    ) -> Result<Option<ViewSyncFinalizeCertificate<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
                 self.accumulate_vote(vote, sender).await

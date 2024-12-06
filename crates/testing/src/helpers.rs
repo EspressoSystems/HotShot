@@ -13,7 +13,7 @@ use committable::Committable;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{SignatureKey, SystemContextHandle},
-    HotShotInitializer, Memberships, SystemContext,
+    HotShotInitializer, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -27,13 +27,12 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf, Leaf2, QuorumProposal, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
-    simple_certificate::DaCertificate,
-    simple_vote::{DaData, DaVote, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
+    simple_certificate::DaCertificate2,
+    simple_vote::{DaData2, DaVote2, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
         election::Membership,
-        network::Topic,
         node_implementation::{NodeType, Versions},
     },
     utils::{View, ViewInner},
@@ -109,17 +108,10 @@ pub async fn build_system_handle_from_launcher<
     let private_key = validator_config.private_key.clone();
     let public_key = validator_config.public_key.clone();
 
-    let all_nodes = config.known_nodes_with_stake.clone();
-    let da_nodes = config.known_da_nodes.clone();
-
-    let memberships = Memberships {
-        quorum_membership: TYPES::Membership::new(
-            all_nodes.clone(),
-            all_nodes.clone(),
-            Topic::Global,
-        ),
-        da_membership: TYPES::Membership::new(all_nodes, da_nodes, Topic::Da),
-    };
+    let memberships = TYPES::Membership::new(
+        config.known_nodes_with_stake.clone(),
+        config.known_da_nodes.clone(),
+    );
 
     SystemContext::init(
         public_key,
@@ -145,10 +137,10 @@ pub async fn build_cert<
     V: Versions,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
     VOTE: Vote<TYPES, Commitment = DATAType>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
 >(
     data: DATAType,
-    membership: &TYPES::Membership,
+    da_membership: &TYPES::Membership,
     view: TYPES::View,
     epoch: TYPES::Epoch,
     public_key: &TYPES::SignatureKey,
@@ -157,7 +149,7 @@ pub async fn build_cert<
 ) -> CERT {
     let real_qc_sig = build_assembled_sig::<TYPES, V, VOTE, CERT, DATAType>(
         &data,
-        membership,
+        da_membership,
         view,
         epoch,
         upgrade_lock,
@@ -210,7 +202,7 @@ pub async fn build_assembled_sig<
     TYPES: NodeType,
     V: Versions,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
 >(
     data: &DATAType,
@@ -219,11 +211,11 @@ pub async fn build_assembled_sig<
     epoch: TYPES::Epoch,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    let stake_table = membership.stake_table(epoch);
+    let stake_table = CERT::stake_table(membership, epoch);
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
-            U256::from(CERT::threshold(membership)),
+            U256::from(CERT::threshold(membership, epoch)),
         );
     let total_nodes = stake_table.len();
     let signers = bitvec![1; total_nodes];
@@ -365,29 +357,27 @@ pub fn build_vid_proposal<TYPES: NodeType>(
 
 #[allow(clippy::too_many_arguments)]
 pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
-    quorum_membership: &<TYPES as NodeType>::Membership,
-    da_membership: &<TYPES as NodeType>::Membership,
+    membership: &<TYPES as NodeType>::Membership,
     view_number: TYPES::View,
     epoch_number: TYPES::Epoch,
     transactions: Vec<TestTransaction>,
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
-) -> DaCertificate<TYPES> {
+) -> DaCertificate2<TYPES> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
-    let da_payload_commitment = vid_commitment(
-        &encoded_transactions,
-        quorum_membership.total_nodes(epoch_number),
-    );
+    let da_payload_commitment =
+        vid_commitment(&encoded_transactions, membership.total_nodes(epoch_number));
 
-    let da_data = DaData {
+    let da_data = DaData2 {
         payload_commit: da_payload_commitment,
+        epoch: epoch_number,
     };
 
-    build_cert::<TYPES, V, DaData, DaVote<TYPES>, DaCertificate<TYPES>>(
+    build_cert::<TYPES, V, DaData2<TYPES>, DaVote2<TYPES>, DaCertificate2<TYPES>>(
         da_data,
-        da_membership,
+        membership,
         view_number,
         epoch_number,
         public_key,
