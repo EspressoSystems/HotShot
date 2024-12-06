@@ -20,11 +20,13 @@ use committable::Committable;
 use hotshot_task::dependency_task::HandleDepOutput;
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf2, QuorumProposal, VidDisperse, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence},
+    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         block_contents::BlockHeader,
+        election::Membership,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
@@ -49,13 +51,13 @@ pub(crate) enum ProposalDependency {
     /// For the `Qc2Formed` event.
     Qc,
 
-    /// For the `ViewSyncFinalizeCertificate2Recv` event.
+    /// For the `ViewSyncFinalizeCertificateRecv` event.
     ViewSyncCert,
 
     /// For the `Qc2Formed` event timeout branch.
     TimeoutCert,
 
-    /// For the `QuroumProposalRecv` event.
+    /// For the `QuorumProposalRecv` event.
     Proposal,
 
     /// For the `VidShareValidated` event.
@@ -110,7 +112,7 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     /// The time this view started
     pub view_start_time: Instant,
 
-    /// The higest_qc we've seen at the start of this task
+    /// The highest_qc we've seen at the start of this task
     pub highest_qc: QuorumCertificate2<TYPES>,
 }
 
@@ -124,8 +126,11 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             if let HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
                 if qc
                     .is_valid_cert(
-                        self.quorum_membership.as_ref(),
-                        TYPES::Epoch::new(0),
+                        // TODO take epoch from `qc`
+                        // https://github.com/EspressoSystems/HotShot/issues/3917
+                        self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
+                        self.quorum_membership
+                            .success_threshold(TYPES::Epoch::new(0)),
                         &self.upgrade_lock,
                     )
                     .await
@@ -137,7 +142,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         None
     }
     /// Waits for the ocnfigured timeout for nodes to send HighQc messages to us.  We'll
-    /// then propose with the higest QC from among these proposals.
+    /// then propose with the highest QC from among these proposals.
     async fn wait_for_highest_qc(&mut self) {
         tracing::error!("waiting for QC");
         // If we haven't upgraded to Hotstuff 2 just return the high qc right away
@@ -292,14 +297,15 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             .context(warn!("Failed to construct marketplace block header"))?
         };
 
-        let proposal = QuorumProposal {
+        let proposal = QuorumProposal2 {
             block_header,
             view_number: self.view_number,
-            justify_qc: parent_qc.to_qc(),
+            justify_qc: parent_qc,
             upgrade_certificate,
-            proposal_certificate,
-        }
-        .into();
+            view_change_evidence: proposal_certificate,
+            drb_seed: INITIAL_DRB_SEED_INPUT,
+            drb_result: INITIAL_DRB_RESULT,
+        };
 
         let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);
         ensure!(
@@ -372,7 +378,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                         parent_qc = Some(qc.clone());
                     }
                 },
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
+                HotShotEvent::ViewSyncFinalizeCertificateRecv(cert) => {
                     view_sync_finalize_cert = Some(cert.clone());
                 }
                 HotShotEvent::VidDisperseSend(share, _) => {

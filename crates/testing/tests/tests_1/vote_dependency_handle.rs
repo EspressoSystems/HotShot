@@ -30,16 +30,15 @@ async fn test_vote_dependency_handle() {
 
     hotshot::helpers::initialize_logging();
 
-    // We use a node ID of 2 here abitrarily. We just need it to build the system handle.
+    // We use a node ID of 2 here arbitrarily. We just need it to build the system handle.
     let node_id = 2;
     // Construct the system handle for the node ID to build all of the state objects.
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+    let membership = (*handle.hotshot.memberships).clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(membership.clone());
 
     // Generate our state for the test
     let mut proposals = Vec::new();
@@ -89,8 +88,9 @@ async fn test_vote_dependency_handle() {
                 public_key: handle.public_key(),
                 private_key: handle.private_key().clone(),
                 consensus: OuterConsensus::new(consensus.clone()),
+                consensus_metrics: Arc::clone(&consensus.read().await.metrics),
                 instance_state: handle.hotshot.instance_state(),
-                quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+                quorum_membership: (*handle.hotshot.memberships).clone().into(),
                 storage: Arc::clone(&handle.storage()),
                 view_number,
                 sender: event_sender.clone(),

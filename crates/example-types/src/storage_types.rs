@@ -14,7 +14,9 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     consensus::CommitmentMap,
-    data::{DaProposal, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare},
+    data::{
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
+    },
     event::HotShotAction,
     message::Proposal,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
@@ -38,6 +40,7 @@ type VidShares<TYPES> = HashMap<
 pub struct TestStorageState<TYPES: NodeType> {
     vids: VidShares<TYPES>,
     das: HashMap<TYPES::View, Proposal<TYPES, DaProposal<TYPES>>>,
+    da2s: HashMap<TYPES::View, Proposal<TYPES, DaProposal2<TYPES>>>,
     proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
     proposals2: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
     high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
@@ -51,6 +54,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
         Self {
             vids: HashMap::new(),
             das: HashMap::new(),
+            da2s: HashMap::new(),
             proposals: BTreeMap::new(),
             proposals2: BTreeMap::new(),
             high_qc: None,
@@ -142,6 +146,21 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
             .insert(proposal.data.view_number, proposal.clone());
         Ok(())
     }
+    async fn append_da2(
+        &self,
+        proposal: &Proposal<TYPES, DaProposal2<TYPES>>,
+        _vid_commit: <VidSchemeType as VidScheme>::Commit,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to append VID proposal to storage");
+        }
+        Self::run_delay_settings_from_config(&self.delay_config).await;
+        let mut inner = self.inner.write().await;
+        inner
+            .da2s
+            .insert(proposal.data.view_number, proposal.clone());
+        Ok(())
+    }
     async fn append_proposal(
         &self,
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
@@ -226,7 +245,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
     }
     async fn update_undecided_state(
         &self,
-        _leafs: CommitmentMap<Leaf<TYPES>>,
+        _leaves: CommitmentMap<Leaf<TYPES>>,
         _state: BTreeMap<TYPES::View, View<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {
@@ -237,7 +256,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
     }
     async fn update_undecided_state2(
         &self,
-        _leafs: CommitmentMap<Leaf2<TYPES>>,
+        _leaves: CommitmentMap<Leaf2<TYPES>>,
         _state: BTreeMap<TYPES::View, View<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {

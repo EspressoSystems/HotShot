@@ -11,12 +11,13 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::{DaProposal, Leaf2, QuorumProposal2, UpgradeProposal, VidDisperseShare},
+    data::{DaProposal2, Leaf2, QuorumProposal2, UpgradeProposal, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::QuorumCertificate2,
     traits::{node_implementation::NodeType, ValidatedState},
 };
+
 /// A status event emitted by a `HotShot` instance
 ///
 /// This includes some metadata, such as the stage and view number that the event was generated in,
@@ -110,7 +111,7 @@ pub enum EventType<TYPES: NodeType> {
     },
     /// A new decision event was issued
     Decide {
-        /// The chain of Leafs that were committed by this decision
+        /// The chain of Leaves that were committed by this decision
         ///
         /// This list is sorted in reverse view number order, with the newest (highest view number)
         /// block first in the list.
@@ -151,7 +152,7 @@ pub enum EventType<TYPES: NodeType> {
     /// or submitted to the network by us
     DaProposal {
         /// Contents of the proposal
-        proposal: Proposal<TYPES, DaProposal<TYPES>>,
+        proposal: Proposal<TYPES, DaProposal2<TYPES>>,
         /// Public key of the leader submitting the proposal
         sender: TYPES::SignatureKey,
     },
