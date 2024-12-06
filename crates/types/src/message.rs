@@ -35,7 +35,6 @@ use crate::{
         ViewSyncCommitCertificate, ViewSyncFinalizeCertificate, ViewSyncPreCommitCertificate,
     },
     simple_vote::{
-        DaVote, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
         DaVote, DaVote2, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
         ViewSyncFinalizeVote, ViewSyncPreCommitVote,
     },
@@ -307,12 +306,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     GeneralConsensusMessage::UpgradeProposal(message) => message.data.view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) => message.view_number(),
                     GeneralConsensusMessage::HighQc(qc) => qc.view_number(),
-                    GeneralConsensusMessage::Proposal2(p) => {
-                        // view of leader in the leaf when proposal
-                        // this should match replica upon receipt
-                        p.data.view_number()
-                    }
-                    GeneralConsensusMessage::Vote2(vote_message) => vote_message.view_number(),
                 }
             }
             SequencingMessage::Da(da_message) => {

@@ -45,11 +45,9 @@ pub struct QuorumData2<TYPES: NodeType> {
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
-pub struct DaData<TYPES: NodeType> {
+pub struct DaData {
     /// Commitment to a block payload
     pub payload_commit: VidCommitment,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
@@ -64,8 +62,6 @@ pub struct DaData2<TYPES: NodeType> {
 pub struct TimeoutData<TYPES: NodeType> {
     /// View the timeout is for
     pub view: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a timeout vote.
@@ -82,8 +78,6 @@ pub struct ViewSyncPreCommitData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Pre Commit vote.
@@ -102,8 +96,6 @@ pub struct ViewSyncCommitData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Commit vote.
@@ -122,8 +114,6 @@ pub struct ViewSyncFinalizeData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Finalize vote.
@@ -376,7 +366,6 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
-            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -402,7 +391,6 @@ impl Committable for DaData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("DA data")
             .var_size_bytes(self.payload_commit.as_ref())
-            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -467,21 +455,15 @@ impl<TYPES: NodeType> Committable for UpgradeData2<TYPES> {
 fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     view: TYPES::View,
     relay: u64,
-    epoch: TYPES::Epoch,
     tag: &str,
 ) -> Commitment<T> {
     let builder = committable::RawCommitmentBuilder::new(tag);
-    builder.u64(*view).u64(relay).u64(*epoch).finalize()
+    builder.u64(*view).u64(relay).finalize()
 }
 
 impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(
-            self.round,
-            self.relay,
-            self.epoch,
-            "View Sync Precommit",
-        )
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Precommit")
     }
 }
 
@@ -507,12 +489,7 @@ impl<TYPES: NodeType> Committable for ViewSyncPreCommitData2<TYPES> {
 
 impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(
-            self.round,
-            self.relay,
-            self.epoch,
-            "View Sync Finalize",
-        )
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
     }
 }
 
@@ -538,7 +515,27 @@ impl<TYPES: NodeType> Committable for ViewSyncFinalizeData2<TYPES> {
 
 impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, self.epoch, "View Sync Commit")
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
+    }
+}
+
+impl<TYPES: NodeType> Committable for ViewSyncCommitData2<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let ViewSyncCommitData2 {
+            relay,
+            round,
+            epoch,
+        } = self;
+
+        if **epoch == 0 {
+            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Commit")
+        } else {
+            committable::RawCommitmentBuilder::new("View Sync Commit")
+                .u64(*relay)
+                .u64(**round)
+                .u64(**epoch)
+                .finalize()
+        }
     }
 }
 
@@ -564,11 +561,10 @@ macro_rules! impl_has_epoch {
 
 impl_has_epoch!(
     QuorumData2<TYPES>,
-    DaData<TYPES>,
-    TimeoutData<TYPES>,
-    ViewSyncPreCommitData<TYPES>,
-    ViewSyncCommitData<TYPES>,
-    ViewSyncFinalizeData<TYPES>,
+    TimeoutData2<TYPES>,
+    ViewSyncPreCommitData2<TYPES>,
+    ViewSyncCommitData2<TYPES>,
+    ViewSyncFinalizeData2<TYPES>,
     UpgradeProposalData<TYPES>
 );
 
@@ -579,24 +575,6 @@ impl<
         V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq,
     > Voteable<TYPES> for V
 {
-impl<TYPES: NodeType> Committable for ViewSyncCommitData2<TYPES> {
-    fn commit(&self) -> Commitment<Self> {
-        let ViewSyncCommitData2 {
-            relay,
-            round,
-            epoch,
-        } = self;
-
-        if **epoch == 0 {
-            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Commit")
-        } else {
-            committable::RawCommitmentBuilder::new("View Sync Commit")
-                .u64(*relay)
-                .u64(**round)
-                .u64(**epoch)
-                .finalize()
-        }
-    }
 }
 
 // impl votable for all the data types in this file sealed marker should ensure nothing is accidently
@@ -698,6 +676,7 @@ pub type QuorumVote<TYPES> = SimpleVote<TYPES, QuorumData<TYPES>>;
 /// Quorum vote Alias
 pub type QuorumVote2<TYPES> = SimpleVote<TYPES, QuorumData2<TYPES>>;
 
+/// DA vote type alias
 pub type DaVote<TYPES> = SimpleVote<TYPES, DaData>;
 /// DA vote 2 type alias
 pub type DaVote2<TYPES> = SimpleVote<TYPES, DaData2<TYPES>>;

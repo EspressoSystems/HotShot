@@ -142,14 +142,14 @@ impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES> + Committable, THRESHOLD: Thresh
     }
 }
 
-impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData<TYPES>>
-    for SimpleCertificate<TYPES, DaData<TYPES>, THRESHOLD>
+impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
+    for SimpleCertificate<TYPES, DaData, THRESHOLD>
 {
-    type Voteable = DaData<TYPES>;
+    type Voteable = DaData;
     type Threshold = THRESHOLD;
 
     fn create_signed_certificate<V: Versions>(
-        vote_commitment: Commitment<VersionedVoteData<TYPES, DaData<TYPES>, V>>,
+        vote_commitment: Commitment<VersionedVoteData<TYPES, DaData, V>>,
         data: Self::Voteable,
         sig: <TYPES::SignatureKey as SignatureKey>::QcType,
         view: TYPES::View,
@@ -221,7 +221,7 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData<TYP
     async fn data_commitment<V: Versions>(
         &self,
         upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) -> Result<Commitment<VersionedVoteData<TYPES, DaData<TYPES>, V>>> {
+    ) -> Result<Commitment<VersionedVoteData<TYPES, DaData, V>>> {
         Ok(
             VersionedVoteData::new(self.data.clone(), self.view_number, upgrade_lock)
                 .await?
@@ -318,8 +318,11 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData2<TY
     }
 }
 
-impl<TYPES: NodeType, VOTEABLE: Voteable + 'static + QuorumMarker, THRESHOLD: Threshold<TYPES>>
-    Certificate<TYPES, VOTEABLE> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+impl<
+        TYPES: NodeType,
+        VOTEABLE: Voteable<TYPES> + 'static + QuorumMarker,
+        THRESHOLD: Threshold<TYPES>,
+    > Certificate<TYPES, VOTEABLE> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
 {
     type Voteable = VOTEABLE;
     type Threshold = THRESHOLD;

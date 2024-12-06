@@ -463,7 +463,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             }
             HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) => {
                 // MERGE TODO
-                // 
+                //
                 // HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
                 //    let cert_epoch_number = certificate.data.epoch;
                 //

@@ -22,17 +22,14 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
-        DaProposal2, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
-        ViewChangeEvidence, ViewNumber,
+        DaProposal, DaProposal2, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse,
+        VidDisperseShare, ViewChangeEvidence, ViewNumber,
     },
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
-        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate,
+        DaCertificate, DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        UpgradeCertificate, ViewSyncFinalizeCertificate, ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
         DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,

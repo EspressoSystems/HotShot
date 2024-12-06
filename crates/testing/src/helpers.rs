@@ -27,12 +27,11 @@ use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
-    simple_certificate::DaCertificate,
+    simple_certificate::{DaCertificate, DaCertificate2},
     simple_vote::{
-        DaData, DaVote, HasEpoch, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData,
+        DaData, DaData2, DaVote, DaVote2, HasEpoch, QuorumData, QuorumData2, QuorumVote,
+        QuorumVote2, SimpleVote, VersionedVoteData,
     },
-    simple_certificate::DaCertificate2,
-    simple_vote::{DaData2, DaVote2, QuorumData, QuorumVote, SimpleVote, VersionedVoteData},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
