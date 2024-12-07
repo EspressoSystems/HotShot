@@ -52,7 +52,7 @@ derive_more = { version = "1.0" }
 digest = "0.10"
 either = "1.13"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
-primitive-types = { version = "0.13.1", default-features = false, features = [
+primitive-types = { version = "0.12.2", default-features = false, features = [
     "serde",
 ] }
 futures = { version = "0.3", default-features = false }
@@ -74,7 +74,7 @@ rand_chacha = { version = "0.3", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde-inline-default = "0.2"
 serde_bytes = { version = "0.11" }
-serde_json = { version = "1.0" }
+serde_json = { version = "1" }
 sha2 = "0.10"
 thiserror = "2"
 surf-disco = "0.9"

@@ -25,7 +25,7 @@ use crate::{
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate, QuorumCertificate2},
+    simple_certificate::{DaCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -281,7 +281,7 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
-    saved_da_certs: HashMap<TYPES::View, DaCertificate<TYPES>>,
+    saved_da_certs: HashMap<TYPES::View, DaCertificate2<TYPES>>,
 
     /// View number that is currently on.
     cur_view: TYPES::View,
@@ -331,6 +331,8 @@ pub struct ConsensusMetricsValue {
     pub last_synced_block_height: Box<dyn Gauge>,
     /// The number of last decided view
     pub last_decided_view: Box<dyn Gauge>,
+    /// The number of the last voted view
+    pub last_voted_view: Box<dyn Gauge>,
     /// Number of timestamp for the last decided time
     pub last_decided_time: Box<dyn Gauge>,
     /// The current view
@@ -365,6 +367,7 @@ impl ConsensusMetricsValue {
             last_synced_block_height: metrics
                 .create_gauge(String::from("last_synced_block_height"), None),
             last_decided_view: metrics.create_gauge(String::from("last_decided_view"), None),
+            last_voted_view: metrics.create_gauge(String::from("last_voted_view"), None),
             last_decided_time: metrics.create_gauge(String::from("last_decided_time"), None),
             current_view: metrics.create_gauge(String::from("current_view"), None),
             number_of_views_since_last_decide: metrics
@@ -476,7 +479,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the saved DA certs.
-    pub fn saved_da_certs(&self) -> &HashMap<TYPES::View, DaCertificate<TYPES>> {
+    pub fn saved_da_certs(&self) -> &HashMap<TYPES::View, DaCertificate2<TYPES>> {
         &self.saved_da_certs
     }
 
@@ -744,7 +747,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Add a new entry to the da_certs map.
-    pub fn update_saved_da_certs(&mut self, view_number: TYPES::View, cert: DaCertificate<TYPES>) {
+    pub fn update_saved_da_certs(&mut self, view_number: TYPES::View, cert: DaCertificate2<TYPES>) {
         self.saved_da_certs.insert(view_number, cert);
     }
 

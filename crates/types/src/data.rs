@@ -30,10 +30,11 @@ use utils::anytrace::*;
 use vec1::Vec1;
 
 use crate::{
+    drb::{DrbResult, DrbSeedInput, INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
         QuorumCertificate, QuorumCertificate2, TimeoutCertificate, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        ViewSyncFinalizeCertificate,
     },
     simple_vote::{QuorumData, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -146,6 +147,41 @@ pub struct DaProposal<TYPES: NodeType> {
     pub view_number: TYPES::View,
 }
 
+/// A proposal to start providing data availability for a block.
+#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound = "TYPES: NodeType")]
+pub struct DaProposal2<TYPES: NodeType> {
+    /// Encoded transactions in the block to be applied.
+    pub encoded_transactions: Arc<[u8]>,
+    /// Metadata of the block to be applied.
+    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
+    /// View this proposal applies to
+    pub view_number: TYPES::View,
+    /// Epoch this proposal applies to
+    pub epoch_number: TYPES::Epoch,
+}
+
+impl<TYPES: NodeType> From<DaProposal<TYPES>> for DaProposal2<TYPES> {
+    fn from(da_proposal: DaProposal<TYPES>) -> Self {
+        Self {
+            encoded_transactions: da_proposal.encoded_transactions,
+            metadata: da_proposal.metadata,
+            view_number: da_proposal.view_number,
+            epoch_number: TYPES::Epoch::new(0),
+        }
+    }
+}
+
+impl<TYPES: NodeType> From<DaProposal2<TYPES>> for DaProposal<TYPES> {
+    fn from(da_proposal2: DaProposal2<TYPES>) -> Self {
+        Self {
+            encoded_transactions: da_proposal2.encoded_transactions,
+            metadata: da_proposal2.metadata,
+            view_number: da_proposal2.view_number,
+        }
+    }
+}
+
 /// A proposal to upgrade the network
 #[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound = "TYPES: NodeType")]
@@ -238,7 +274,7 @@ pub enum ViewChangeEvidence<TYPES: NodeType> {
     /// Holds a timeout certificate.
     Timeout(TimeoutCertificate<TYPES>),
     /// Holds a view sync finalized certificate.
-    ViewSync(ViewSyncFinalizeCertificate2<TYPES>),
+    ViewSync(ViewSyncFinalizeCertificate<TYPES>),
 }
 
 impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
@@ -391,13 +427,17 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     pub view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
 
-    /// the DRB seed currently being calculated
+    /// The DRB seed for the next epoch.
+    ///
+    /// The DRB computation using this seed was started in the previous epoch.
     #[serde(with = "serde_bytes")]
-    pub drb_seed: [u8; 96],
+    pub drb_seed: DrbSeedInput,
 
-    /// the result of the DRB calculation
+    /// The DRB result for the current epoch.
+    ///
+    /// The DRB computation with this result was started two epochs ago.
     #[serde(with = "serde_bytes")]
-    pub drb_result: [u8; 32],
+    pub drb_result: DrbResult,
 }
 
 impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
@@ -408,20 +448,20 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
-            drb_seed: [0; 96],
-            drb_result: [0; 32],
+            drb_seed: INITIAL_DRB_SEED_INPUT,
+            drb_result: INITIAL_DRB_RESULT,
         }
     }
 }
 
 impl<TYPES: NodeType> From<QuorumProposal2<TYPES>> for QuorumProposal<TYPES> {
-    fn from(quorum_proposal: QuorumProposal2<TYPES>) -> Self {
+    fn from(quorum_proposal2: QuorumProposal2<TYPES>) -> Self {
         Self {
-            block_header: quorum_proposal.block_header,
-            view_number: quorum_proposal.view_number,
-            justify_qc: quorum_proposal.justify_qc.to_qc(),
-            upgrade_certificate: quorum_proposal.upgrade_certificate,
-            proposal_certificate: quorum_proposal.view_change_evidence,
+            block_header: quorum_proposal2.block_header,
+            view_number: quorum_proposal2.view_number,
+            justify_qc: quorum_proposal2.justify_qc.to_qc(),
+            upgrade_certificate: quorum_proposal2.upgrade_certificate,
+            proposal_certificate: quorum_proposal2.view_change_evidence,
         }
     }
 }
@@ -438,13 +478,19 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
             upgrade_certificate: leaf.upgrade_certificate,
             block_payload: leaf.block_payload,
             view_change_evidence: None,
-            drb_seed: [0; 96],
-            drb_result: [0; 32],
+            drb_seed: INITIAL_DRB_SEED_INPUT,
+            drb_result: INITIAL_DRB_RESULT,
         }
     }
 }
 
 impl<TYPES: NodeType> HasViewNumber<TYPES> for DaProposal<TYPES> {
+    fn view_number(&self) -> TYPES::View {
+        self.view_number
+    }
+}
+
+impl<TYPES: NodeType> HasViewNumber<TYPES> for DaProposal2<TYPES> {
     fn view_number(&self) -> TYPES::View {
         self.view_number
     }
@@ -562,13 +608,17 @@ pub struct Leaf2<TYPES: NodeType> {
     /// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     pub view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
 
-    /// the DRB seed currently being calculated
+    /// The DRB seed for the next epoch.
+    ///
+    /// The DRB computation using this seed was started in the previous epoch.
     #[serde(with = "serde_bytes")]
-    pub drb_seed: [u8; 96],
+    pub drb_seed: DrbSeedInput,
 
-    /// the result of the DRB calculation
+    /// The DRB result for the current epoch.
+    ///
+    /// The DRB computation with this result was started two epochs ago.
     #[serde(with = "serde_bytes")]
-    pub drb_result: [u8; 32],
+    pub drb_result: DrbResult,
 }
 
 impl<TYPES: NodeType> Leaf2<TYPES> {
@@ -688,7 +738,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-        if self.drb_seed == [0; 96] && self.drb_result == [0; 32] {
+        if self.drb_seed == [0; 32] && self.drb_result == [0; 32] {
             RawCommitmentBuilder::new("leaf commitment")
                 .u64_field("view number", *self.view_number)
                 .field("parent leaf commitment", self.parent_commitment)
@@ -1217,6 +1267,9 @@ pub struct PackedBundle<TYPES: NodeType> {
     /// The view number that this block is associated with.
     pub view_number: TYPES::View,
 
+    /// The view number that this block is associated with.
+    pub epoch_number: TYPES::Epoch,
+
     /// The sequencing fee for submitting bundles.
     pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
 
@@ -1233,6 +1286,7 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
         encoded_transactions: Arc<[u8]>,
         metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
         view_number: TYPES::View,
+        epoch_number: TYPES::Epoch,
         sequencing_fees: Vec1<BuilderFee<TYPES>>,
         vid_precompute: Option<VidPrecomputeData>,
         auction_result: Option<TYPES::AuctionResult>,
@@ -1241,6 +1295,7 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
             encoded_transactions,
             metadata,
             view_number,
+            epoch_number,
             sequencing_fees,
             vid_precompute,
             auction_result,

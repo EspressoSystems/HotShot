@@ -117,8 +117,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         }
                     }
                     ProposalDependency::ViewSyncCert => {
-                        if let HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
-                            event
+                        if let HotShotEvent::ViewSyncFinalizeCertificateRecv(view_sync_cert) = event
                         {
                             view_sync_cert.view_number()
                         } else {
@@ -225,7 +224,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     qc_dependency.mark_as_completed(event);
                 }
             },
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(_) => {
                 view_sync_dependency.mark_as_completed(event);
             }
             HotShotEvent::VidDisperseSend(_, _) => {
@@ -437,14 +436,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 )?;
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) => {
                 let epoch_number = self.consensus.read().await.cur_epoch();
 
                 ensure!(
                     certificate
                         .is_valid_cert(
                             self.quorum_membership.stake_table(epoch_number),
-                            self.quorum_membership.success_threshold(),
+                            self.quorum_membership.success_threshold(epoch_number),
                             &self.upgrade_lock
                         )
                         .await,
@@ -502,17 +501,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
             HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
                 self.cancel_tasks(*view);
             }
-            HotShotEvent::HighQcSend(qc, _sender) => {
+            HotShotEvent::HighQcSend(qc, ..) => {
                 ensure!(qc.view_number() > self.highest_qc.view_number());
                 let epoch_number = self.consensus.read().await.cur_epoch();
                 ensure!(
                     qc.is_valid_cert(
                         self.quorum_membership.stake_table(epoch_number),
-                        self.quorum_membership.success_threshold(),
+                        self.quorum_membership.success_threshold(epoch_number),
                         &self.upgrade_lock
                     )
                     .await,
-                    warn!("Qurom certificate {:?} was invalid", qc.data())
+                    warn!("Quorum certificate {:?} was invalid", qc.data())
                 );
                 self.highest_qc = qc.clone();
             }
