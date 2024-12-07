@@ -506,6 +506,9 @@ impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     }
 }
 
+
+// impl votable for all the data types in this file sealed marker should ensure nothing is accidentally
+
 impl<TYPES: NodeType> Committable for ViewSyncCommitData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         let ViewSyncCommitData2 {
@@ -527,6 +530,7 @@ impl<TYPES: NodeType> Committable for ViewSyncCommitData2<TYPES> {
 }
 
 // impl votable for all the data types in this file sealed marker should ensure nothing is accidently
+
 // implemented for structs that aren't "voteable"
 impl<V: sealed::Sealed + Committable + Clone + Serialize + Debug + PartialEq + Hash + Eq> Voteable
     for V
