@@ -286,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let view = *view;
                 ensure!(
                     *self.cur_view < *view,
-                    info!("Received a view change to an older view.")
+                    debug!("Received a view change to an older view.")
                 );
 
                 if *view - *self.cur_view > 1 {

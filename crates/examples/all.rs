@@ -1,4 +1,5 @@
-//! This crate contains examples of HotShot usage
+//! This file contains an example of running a full HotShot network, comprised of
+//! a CDN, Libp2p, a builder, and multiple validators.
 use std::{collections::HashMap, num::NonZero, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
@@ -45,7 +46,7 @@ use tokio::{spawn, sync::OnceCell, task::JoinSet};
 use tracing::{error, info};
 use url::Url;
 
-/// The command line arguments for the example
+/// This example runs all necessary HotShot components
 #[derive(Parser)]
 struct Args {
     /// The number of nodes to start
@@ -131,10 +132,13 @@ async fn start_cdn() -> Result<String> {
         portpicker::pick_unused_port().with_context(|| "Failed to find unused port")?;
     let marshal_address = format!("127.0.0.1:{marshal_port}");
 
+    // Generate a random file path for the SQLite database
+    let db_path = format!("/tmp/marshal-{}.db", rand::random::<u32>());
+
     // Configure the marshal
     let marshal_config = MarshalConfig {
         bind_endpoint: marshal_address.clone(),
-        discovery_endpoint: marshal_address.clone(),
+        discovery_endpoint: db_path.clone(),
         ca_cert_path: None,
         ca_key_path: None,
         metrics_bind_endpoint: None,
@@ -169,7 +173,7 @@ async fn start_cdn() -> Result<String> {
                 public_bind_endpoint: public_address,
                 private_advertise_endpoint: private_address.clone(),
                 private_bind_endpoint: private_address,
-                discovery_endpoint: marshal_address.clone(),
+                discovery_endpoint: db_path.clone(),
                 keypair: KeyPair {
                     public_key: WrappedSignatureKey(broker_public_key),
                     private_key: broker_private_key.clone(),
@@ -388,11 +392,11 @@ macro_rules! start_node_with_network {
                 // If we cached the size of the proposed block, log it
                 if let Some(size) = proposed_block_size_cache.get(&*qc.view_number) {
                     info!(
-                        "Decided on view number {}. Block size was {}",
-                        qc.view_number, size
+                        block_size = size,
+                        "Decided on view {}", *qc.view_number
                     );
                 } else {
-                    info!("Decided on view number {}.", qc.view_number);
+                    info!("Decided on view {}", *qc.view_number);
                 }
 
                 // If the view number is divisible by the node's index, submit transactions

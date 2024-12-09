@@ -2925,6 +2925,7 @@ name = "hotshot-examples"
 version = "0.5.79"
 dependencies = [
  "anyhow",
+ "bytes",
  "cdn-broker",
  "cdn-marshal",
  "clap",
@@ -2936,11 +2937,15 @@ dependencies = [
  "libp2p",
  "libp2p-networking",
  "lru 0.12.5",
+ "parking_lot",
  "portpicker",
  "rand 0.8.5",
+ "reqwest",
+ "sha2 0.10.8",
  "tokio",
  "tracing",
  "url",
+ "warp",
 ]
 
 [[package]]
