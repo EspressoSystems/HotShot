@@ -21,7 +21,7 @@ use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
@@ -46,7 +46,7 @@ pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
-    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare2<TYPES>>>,
 >;
 
 /// Type alias for consensus state wrapped in a lock.
@@ -744,7 +744,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_vid_shares(
         &mut self,
         view_number: TYPES::View,
-        disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
+        disperse: Proposal<TYPES, VidDisperseShare2<TYPES>>,
     ) {
         self.vid_shares
             .entry(view_number)
@@ -917,7 +917,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .view_inner
             .epoch()?;
         let vid = VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None).await;
-        let shares = VidDisperseShare::from_vid_disperse(vid);
+        let shares = VidDisperseShare2::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {

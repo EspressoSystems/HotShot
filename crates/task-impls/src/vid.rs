@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{PackedBundle, VidDisperse, VidDisperseShare},
+    data::{PackedBundle, VidDisperse, VidDisperseShare2},
     message::Proposal,
     traits::{
         election::Membership,
@@ -93,7 +93,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;
-                let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
+                let shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
                 let mut consensus_writer = self.consensus.write().await;
                 for share in shares {
                     if let Some(disperse) = share.to_proposal(&self.private_key) {

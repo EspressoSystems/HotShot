@@ -141,8 +141,6 @@ pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
     pub old_version_last_view: TYPES::View,
     /// The first block for which the new version will be in effect.
     pub new_version_first_view: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 
 /// Data used for an upgrade once epochs are implemented
@@ -426,7 +424,6 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
             .u16(self.new_version.major)
             .u16(self.old_version.minor)
             .u16(self.old_version.major)
-            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -564,8 +561,7 @@ impl_has_epoch!(
     TimeoutData2<TYPES>,
     ViewSyncPreCommitData2<TYPES>,
     ViewSyncCommitData2<TYPES>,
-    ViewSyncFinalizeData2<TYPES>,
-    UpgradeProposalData<TYPES>
+    ViewSyncFinalizeData2<TYPES>
 );
 
 // impl votable for all the data types in this file sealed marker should ensure nothing is accidently
@@ -657,6 +653,152 @@ impl<TYPES: NodeType> DaVote2<TYPES> {
         let signature = self.signature;
         let data = DaData {
             payload_commit: self.data.payload_commit,
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> TimeoutVote<TYPES> {
+    /// Convert a `TimeoutVote` to a `TimeoutVote2`
+    pub fn to_vote2(self) -> TimeoutVote2<TYPES> {
+        let signature = self.signature;
+        let data = TimeoutData2 {
+            view: self.data.view,
+            epoch: TYPES::Epoch::new(0),
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> TimeoutVote2<TYPES> {
+    /// Convert a `QuorumVote2` to a `QuorumVote`
+    pub fn to_vote(self) -> TimeoutVote<TYPES> {
+        let signature = self.signature;
+        let data = TimeoutData {
+            view: self.data.view,
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> ViewSyncPreCommitVote<TYPES> {
+    /// Convert a `ViewSyncPreCommitVote` to a `ViewSyncPreCommitVote2`
+    pub fn to_vote2(self) -> ViewSyncPreCommitVote2<TYPES> {
+        let signature = self.signature;
+        let data = ViewSyncPreCommitData2 {
+            relay: self.data.relay,
+            round: self.data.round,
+            epoch: TYPES::Epoch::new(0),
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> ViewSyncPreCommitVote2<TYPES> {
+    /// Convert a `ViewSyncPreCommitVote2` to a `ViewSyncPreCommitVote`
+    pub fn to_vote(self) -> ViewSyncPreCommitVote<TYPES> {
+        let signature = self.signature;
+        let data = ViewSyncPreCommitData {
+            relay: self.data.relay,
+            round: self.data.round,
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> ViewSyncCommitVote<TYPES> {
+    /// Convert a `ViewSyncCommitVote` to a `ViewSyncCommitVote2`
+    pub fn to_vote2(self) -> ViewSyncCommitVote2<TYPES> {
+        let signature = self.signature;
+        let data = ViewSyncCommitData2 {
+            relay: self.data.relay,
+            round: self.data.round,
+            epoch: TYPES::Epoch::new(0),
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> ViewSyncCommitVote2<TYPES> {
+    /// Convert a `ViewSyncCommitVote2` to a `ViewSyncCommitVote`
+    pub fn to_vote(self) -> ViewSyncCommitVote<TYPES> {
+        let signature = self.signature;
+        let data = ViewSyncCommitData {
+            relay: self.data.relay,
+            round: self.data.round,
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> ViewSyncFinalizeVote<TYPES> {
+    /// Convert a `ViewSyncFinalizeVote` to a `ViewSyncFinalizeVote2`
+    pub fn to_vote2(self) -> ViewSyncFinalizeVote2<TYPES> {
+        let signature = self.signature;
+        let data = ViewSyncFinalizeData2 {
+            relay: self.data.relay,
+            round: self.data.round,
+            epoch: TYPES::Epoch::new(0),
+        };
+        let view_number = self.view_number;
+
+        SimpleVote {
+            signature,
+            data,
+            view_number,
+        }
+    }
+}
+
+impl<TYPES: NodeType> ViewSyncFinalizeVote2<TYPES> {
+    /// Convert a `ViewSyncFinalizeVote2` to a `ViewSyncFinalizeVote`
+    pub fn to_vote(self) -> ViewSyncFinalizeVote<TYPES> {
+        let signature = self.signature;
+        let data = ViewSyncFinalizeData {
+            relay: self.data.relay,
+            round: self.data.round,
         };
         let view_number = self.view_number;
 

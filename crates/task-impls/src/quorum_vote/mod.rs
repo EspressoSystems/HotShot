@@ -504,7 +504,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     "Received DAC for an older view."
                 );
 
-                let cert_epoch = cert.data.epoch();
+                let cert_epoch = cert.data.epoch;
                 // Validate the DAC.
                 ensure!(
                     cert.is_valid_cert(
@@ -540,7 +540,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = &disperse.data.payload_commitment;
-                let disperse_epoch = disperse.data.epoch();
+                let disperse_epoch = disperse.data.epoch;
 
                 // Check that the signature is valid
                 ensure!(

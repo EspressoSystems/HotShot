@@ -179,7 +179,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     // Ensure that the proposal has the correct epoch number.
     if validation_info.epoch_height != 0 {
         ensure!(
-          justify_qc.data.epoch == proposal_epoch || proposal_epoch % validation_info.epoch_height == 1 && justify_qc.data.epoch == proposal_epoch - 1,
+          justify_qc.data.epoch == proposal_epoch || *proposal_epoch % TYPES::EPOCH_HEIGHT == 1 && justify_qc.data.epoch == proposal_epoch - 1,
           warn!(
             "Mismatch in proposal and justify_qc epoch number. The proposal has epoch {:?}, the justify_qc has epoch {:?}, the proposal's block number is {:?} and the epoch height is {:?}",
             proposal_epoch,

@@ -10,7 +10,7 @@ use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
     event::{Event, EventType},
-    simple_vote::{QuorumVote2, TimeoutData, TimeoutVote},
+    simple_vote::{QuorumVote2, TimeoutData2, TimeoutVote2},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
@@ -79,7 +79,7 @@ pub(crate) async fn handle_timeout_vote_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    vote: &TimeoutVote<TYPES>,
+    vote: &TimeoutVote2<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
@@ -301,8 +301,8 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         )
     );
 
-    let vote = TimeoutVote::create_signed_vote(
-        TimeoutData::<TYPES> {
+    let vote = TimeoutVote2::create_signed_vote(
+        TimeoutData2::<TYPES> {
             view: view_number,
             epoch,
         },

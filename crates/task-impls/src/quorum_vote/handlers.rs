@@ -12,7 +12,7 @@ use chrono::Utc;
 use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal2, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperseShare2},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
@@ -278,7 +278,7 @@ pub(crate) async fn update_shared_state<
     instance_state: Arc<TYPES::InstanceState>,
     storage: Arc<RwLock<I::Storage>>,
     proposed_leaf: &Leaf2<TYPES>,
-    vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
     parent_view_number: Option<TYPES::View>,
     epoch_height: u64,
 ) -> Result<()> {
@@ -404,7 +404,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     epoch_height: u64,
     storage: Arc<RwLock<I::Storage>>,
     leaf: Leaf2<TYPES>,
-    vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: Proposal<TYPES, VidDisperseShare2<TYPES>>,
     extended_vote: bool,
 ) -> Result<()> {
     let epoch_number = TYPES::Epoch::new(epoch_from_block_number(
@@ -438,7 +438,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     storage
         .write()
         .await
-        .append_vid(&vid_share)
+        .append_vid2(&vid_share)
         .await
         .wrap()
         .context(error!("Failed to store VID share"))?;

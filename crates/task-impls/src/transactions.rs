@@ -492,7 +492,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 self.cur_view = view;
                 self.cur_epoch = *epoch;
 
-                if self.membership.leader(view, epoch)? == self.public_key {
+                if self.membership.leader(view, *epoch)? == self.public_key {
                     self.handle_view_change(&event_stream, view, *epoch).await;
                     return Ok(());
                 }
