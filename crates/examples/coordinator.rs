@@ -22,6 +22,7 @@ use libp2p::{multiaddr::Protocol, Multiaddr};
 use parking_lot::RwLock;
 use warp::Filter;
 
+/// The coordinator service, used to assign unique indices to nodes when running benchmarks
 #[derive(Parser)]
 struct Args {
     /// The address to bind to
@@ -45,11 +46,11 @@ async fn main() -> Result<()> {
 
     // Create a shared counter
     let counter = Arc::new(AtomicU32::new(0));
-    let counter = warp::any().map(move || counter.clone());
+    let counter = warp::any().map(move || Arc::clone(&counter));
 
     // Create a shared set of multiaddrs for Libp2p
     let libp2p_multiaddrs = Arc::new(RwLock::new(HashSet::new()));
-    let libp2p_multiaddrs = warp::any().map(move || libp2p_multiaddrs.clone());
+    let libp2p_multiaddrs = warp::any().map(move || Arc::clone(&libp2p_multiaddrs));
 
     // `/index` returns the node index we are assigned
     let index = warp::path!("index")
@@ -100,7 +101,7 @@ async fn main() -> Result<()> {
             // Convert the multiaddrs to a string, separated by newlines
             multiaddrs
                 .iter()
-                .map(|m| m.to_string())
+                .map(ToString::to_string)
                 .collect::<Vec<_>>()
                 .join("\n")
         });
@@ -118,14 +119,9 @@ async fn main() -> Result<()> {
         );
 
     // Run the server
-    warp::serve(
-        index
-            .or(reset)
-            .or(submit_libp2p_info)
-            .or(get_libp2p_info),
-    )
-    .run(bind_address)
-    .await;
+    warp::serve(index.or(reset).or(submit_libp2p_info).or(get_libp2p_info))
+        .run(bind_address)
+        .await;
 
     Ok(())
 }
