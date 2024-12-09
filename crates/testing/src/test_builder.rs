@@ -4,27 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
-
-use anyhow::{ensure, Result};
-use hotshot::{
-    tasks::EventTransformerState,
-    traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
-    types::SystemContextHandle,
-    HotShotInitializer, MarketplaceConfig, SystemContext, TwinsHandlerState,
-};
-use hotshot_example_types::{
-    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
-    storage_types::TestStorage, testable_delay::DelayConfig,
-};
-use hotshot_types::{
-    consensus::ConsensusMetricsValue,
-    traits::node_implementation::{NodeType, Versions},
-    HotShotConfig, ValidatorConfig,
-};
-use tide_disco::Url;
-use vec1::Vec1;
-
 use super::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
@@ -36,6 +15,27 @@ use crate::{
     test_task::TestTaskStateSeed,
     view_sync_task::ViewSyncTaskDescription,
 };
+use anyhow::{ensure, Result};
+use hotshot::{
+    tasks::EventTransformerState,
+    traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
+    types::SystemContextHandle,
+    HotShotInitializer, MarketplaceConfig, SystemContext, TwinsHandlerState,
+};
+use hotshot_example_types::{
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
+    node_types::EpochsTestVersions,
+    storage_types::TestStorage, testable_delay::DelayConfig,
+};
+use hotshot_types::{
+    consensus::ConsensusMetricsValue,
+    traits::node_implementation::{NodeType, Versions},
+    HotShotConfig, ValidatorConfig,
+};
+use std::any::TypeId;
+use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
+use tide_disco::Url;
+use vec1::Vec1;
 
 pub type TransactionValidator = Arc<dyn Fn(&Vec<(u64, u64)>) -> Result<()> + Send + Sync>;
 
@@ -98,8 +98,6 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     pub start_solver: bool,
     /// boxed closure used to validate the resulting transactions
     pub validate_transactions: TransactionValidator,
-    /// Number of blocks in an epoch, zero means there are no epochs
-    pub epoch_height: u64,
 }
 
 pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
@@ -417,7 +415,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             upgrade_view: None,
             start_solver: true,
             validate_transactions: Arc::new(|_| Ok(())),
-            epoch_height: 0,
         }
     }
 }
@@ -455,7 +452,6 @@ where
             timing_data,
             da_staked_committee_size,
             unreliable_network,
-            epoch_height,
             ..
         } = self.clone();
 
@@ -489,6 +485,11 @@ where
             0 < da_staked_committee_size,
         );
         // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
+        let epoch_height = if TypeId::of::<V>() == TypeId::of::<EpochsTestVersions>() {
+            10
+        } else {
+            0
+        };
         let config = HotShotConfig {
             start_threshold: (1, 1),
             num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),

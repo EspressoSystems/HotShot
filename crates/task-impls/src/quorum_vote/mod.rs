@@ -363,8 +363,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         view_number: TYPES::View,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
         event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
-        event: Option<Arc<HotShotEvent<TYPES>>>,
+        event: Arc<HotShotEvent<TYPES>>,
     ) {
+        tracing::debug!(
+            "Attempting to make dependency task for view {view_number:?} and event {event:?}"
+        );
+
         if self.vote_dependencies.contains_key(&view_number) {
             return;
         }
@@ -379,10 +383,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         let vid_dependency =
             self.create_event_dependency(VoteDependency::Vid, view_number, event_receiver.clone());
         // If we have an event provided to us
-        if let Some(event) = event {
-            if let HotShotEvent::QuorumProposalValidated(..) = event.as_ref() {
-                quorum_proposal_dependency.mark_as_completed(event);
-            }
+        if let HotShotEvent::QuorumProposalValidated(..) = event.as_ref() {
+            quorum_proposal_dependency.mark_as_completed(event);
         }
 
         let deps = vec![quorum_proposal_dependency, dac_dependency, vid_dependency];
@@ -491,7 +493,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                         proposal.data.view_number,
                         event_receiver,
                         &event_sender,
-                        Some(Arc::clone(&event)),
+                        Arc::clone(&event),
                     );
                 }
             }
@@ -528,7 +530,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     &event_sender.clone(),
                 )
                 .await;
-                self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
+                self.create_dependency_task_if_new(view, event_receiver, &event_sender, Arc::clone(&event));
             }
             HotShotEvent::VidShareRecv(sender, disperse) => {
                 let view = disperse.data.view_number();
@@ -586,7 +588,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     &event_sender.clone(),
                 )
                 .await;
-                self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
+                self.create_dependency_task_if_new(view, event_receiver, &event_sender, Arc::clone(&event));
             }
             HotShotEvent::Timeout(view, ..) => {
                 let view = TYPES::View::new(view.saturating_sub(1));
