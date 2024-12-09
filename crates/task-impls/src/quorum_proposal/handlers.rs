@@ -30,6 +30,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
     vote::{Certificate, HasViewNumber},
 };
 use tracing::instrument;
@@ -114,6 +115,9 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
 
     /// The highest_qc we've seen at the start of this task
     pub highest_qc: QuorumCertificate2<TYPES>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
@@ -198,7 +202,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         parent_qc: QuorumCertificate2<TYPES>,
     ) -> Result<()> {
         let (parent_leaf, state) = parent_leaf_and_state(
-            self.view_number,
             &self.sender,
             &self.receiver,
             Arc::clone(&self.quorum_membership),
@@ -207,6 +210,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             &self.upgrade_lock,
             parent_qc.view_number(),
+            self.epoch_height,
         )
         .await?;
 
@@ -297,6 +301,18 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             .context(warn!("Failed to construct marketplace block header"))?
         };
 
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(
+            block_header.block_number(),
+            self.epoch_height,
+        ));
+        // Make sure we are the leader for the view and epoch.
+        // We might have ended up here because we were in the epoch transition.
+        if self.quorum_membership.leader(self.view_number, epoch)? != self.public_key {
+            tracing::debug!(
+                "We are not the leader in the epoch for which we are about to propose. Do not send the quorum proposal."
+            );
+            return Ok(());
+        }
         let proposal = QuorumProposal2 {
             block_header,
             view_number: self.view_number,
