@@ -533,6 +533,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             return Ok(());
         }
 
+        tracing::error!("lrzasik: PushCdnNetwork::direct_message\nrecipient: {:?}\nmessage: {:?}", recipient, message);
         // Send the message
         if let Err(e) = self
             .client
@@ -560,6 +561,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         // If we're paused, receive but don't process messages
         #[cfg(feature = "hotshot-testing")]
         if self.is_paused.load(Ordering::Relaxed) {
+            tracing::error!("lrzasik: PushCdnNetwork::recv_message, network paused");
             sleep(Duration::from_millis(100)).await;
             return Ok(vec![]);
         }
@@ -568,6 +570,7 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         let message = match message {
             Ok(message) => message,
             Err(error) => {
+                tracing::error!("lrzasik: PushCdnNetwork::recv_message, receive message error");
                 return Err(NetworkError::MessageReceiveError(format!(
                     "failed to receive message: {error}"
                 )));
@@ -581,9 +584,11 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             recipient: _,
         })) = message
         else {
+            tracing::error!("lrzasik: PushCdnNetwork::recv_message, not broadcast, not direct");
             return Ok(vec![]);
         };
 
+        tracing::error!("lrzasik: PushCdnNetwork::recv_message\nmessage: {:?}", message);
         Ok(message)
     }
 

@@ -134,6 +134,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     "publishing VID disperse for view {} and epoch {}",
                     *view_number, *epoch
                 );
+                tracing::error!("lrzasik: VidTaskState::handle\nvid_disperse {:?}\nmy key: {:?}", vid_disperse, self.public_key);
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
                         Proposal {
