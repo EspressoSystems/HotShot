@@ -22,7 +22,6 @@ use hotshot_types::{
         convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
         MessageKind, Proposal, SequencingMessage, UpgradeLock,
     },
-    simple_vote::HasEpoch,
     traits::{
         election::Membership,
         network::{

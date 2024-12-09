@@ -22,25 +22,24 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, DaProposal2, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse,
-        VidDisperseShare, ViewChangeEvidence, ViewNumber,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
+        ViewChangeEvidence, ViewNumber,
     },
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate, ViewSyncFinalizeCertificate2,
+        DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
-        UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData2, TimeoutVote2,
+        UpgradeProposalData, UpgradeVote, ViewSyncFinalizeData2, ViewSyncFinalizeVote2,
     },
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
         BlockPayload,
     },
-    utils::epoch_from_block_number,
 };
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
@@ -59,7 +58,7 @@ pub struct TestView {
     pub membership: <TestTypes as NodeType>::Membership,
     pub vid_disperse: Proposal<TestTypes, VidDisperse<TestTypes>>,
     pub vid_proposal: (
-        Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
+        Vec<Proposal<TestTypes, VidDisperseShare2<TestTypes>>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
@@ -67,8 +66,8 @@ pub struct TestView {
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
     formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
-    view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
-    timeout_cert_data: Option<TimeoutData<TestTypes>>,
+    view_sync_finalize_data: Option<ViewSyncFinalizeData2<TestTypes>>,
+    timeout_cert_data: Option<TimeoutData2<TestTypes>>,
     upgrade_lock: UpgradeLock<TestTypes, TestVersions>,
 }
 
@@ -141,7 +140,6 @@ impl TestView {
             .await,
             upgrade_certificate: None,
             view_change_evidence: None,
-            epoch: genesis_epoch,
             drb_result: INITIAL_DRB_RESULT,
             drb_seed: INITIAL_DRB_SEED_INPUT,
         };
@@ -156,7 +154,7 @@ impl TestView {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
-            epoch_number: genesis_epoch,
+            epoch: genesis_epoch,
         };
 
         let da_proposal = Proposal {
@@ -307,9 +305,9 @@ impl TestView {
             let cert = build_cert::<
                 TestTypes,
                 TestVersions,
-                ViewSyncFinalizeData<TestTypes>,
-                ViewSyncFinalizeVote<TestTypes>,
-                ViewSyncFinalizeCertificate<TestTypes>,
+                ViewSyncFinalizeData2<TestTypes>,
+                ViewSyncFinalizeVote2<TestTypes>,
+                ViewSyncFinalizeCertificate2<TestTypes>,
             >(
                 data.clone(),
                 membership,
@@ -330,9 +328,9 @@ impl TestView {
             let cert = build_cert::<
                 TestTypes,
                 TestVersions,
-                TimeoutData<TestTypes>,
-                TimeoutVote<TestTypes>,
-                TimeoutCertificate<TestTypes>,
+                TimeoutData2<TestTypes>,
+                TimeoutVote2<TestTypes>,
+                TimeoutCertificate2<TestTypes>,
             >(
                 data.clone(),
                 membership,
@@ -372,7 +370,6 @@ impl TestView {
             justify_qc: quorum_certificate.clone(),
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
-            epoch: old_epoch,
             drb_result: INITIAL_DRB_RESULT,
             drb_seed: INITIAL_DRB_SEED_INPUT,
         };
@@ -528,7 +525,7 @@ impl TestViewGenerator {
 
     pub fn add_view_sync_finalize(
         &mut self,
-        view_sync_finalize_data: ViewSyncFinalizeData<TestTypes>,
+        view_sync_finalize_data: ViewSyncFinalizeData2<TestTypes>,
     ) {
         if let Some(ref view) = self.current_view {
             self.current_view = Some(TestView {
@@ -540,7 +537,7 @@ impl TestViewGenerator {
         }
     }
 
-    pub fn add_timeout(&mut self, timeout_data: TimeoutData<TestTypes>) {
+    pub fn add_timeout(&mut self, timeout_data: TimeoutData2<TestTypes>) {
         if let Some(ref view) = self.current_view {
             self.current_view = Some(TestView {
                 timeout_cert_data: Some(timeout_data),

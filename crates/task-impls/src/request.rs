@@ -21,7 +21,6 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,

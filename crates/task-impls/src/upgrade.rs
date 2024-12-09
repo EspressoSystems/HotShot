@@ -282,7 +282,6 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                         old_version_last_view: TYPES::View::new(view + UPGRADE_BEGIN_OFFSET),
                         new_version_first_view: TYPES::View::new(view + UPGRADE_FINISH_OFFSET),
                         decide_by: TYPES::View::new(view + UPGRADE_DECIDE_BY_OFFSET),
-                        epoch: self.cur_epoch,
                     };
 
                     let upgrade_proposal = UpgradeProposal {

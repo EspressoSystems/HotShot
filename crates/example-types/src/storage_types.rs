@@ -37,9 +37,15 @@ type VidShares<TYPES> = HashMap<
     <TYPES as NodeType>::View,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
+type VidShares2<TYPES> = HashMap<
+    <TYPES as NodeType>::View,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare2<TYPES>>>,
+>;
+
 #[derive(Clone, Debug)]
 pub struct TestStorageState<TYPES: NodeType> {
     vids: VidShares<TYPES>,
+    vid2: VidShares2<TYPES>,
     das: HashMap<TYPES::View, Proposal<TYPES, DaProposal<TYPES>>>,
     da2s: HashMap<TYPES::View, Proposal<TYPES, DaProposal2<TYPES>>>,
     proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
@@ -54,6 +60,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
     fn default() -> Self {
         Self {
             vids: HashMap::new(),
+            vid2: HashMap::new(),
             das: HashMap::new(),
             da2s: HashMap::new(),
             proposals: BTreeMap::new(),
@@ -142,7 +149,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
         inner
-            .vids
+            .vid2
             .entry(proposal.data.view_number)
             .or_default()
             .insert(proposal.data.recipient_key.clone(), proposal.clone());

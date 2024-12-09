@@ -15,8 +15,8 @@ use hotshot_types::{
     data::{DaProposal2, PackedBundle},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
-    simple_certificate::{DaCertificate, DaCertificate2},
-    simple_vote::{DaData, DaData2, DaVote, DaVote2, HasEpoch},
+    simple_certificate::DaCertificate2,
+    simple_vote::{DaData2, DaVote2},
     traits::{
         block_contents::vid_commitment,
         election::Membership,

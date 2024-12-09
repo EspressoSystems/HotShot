@@ -187,7 +187,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             proposal_block_number,
             validation_info.epoch_height,
           )
-        )
+        );
     }
 
     broadcast_event(

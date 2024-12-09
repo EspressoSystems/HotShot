@@ -12,7 +12,7 @@ use hotshot_task::task::TaskEvent;
 use hotshot_types::{
     data::{
         DaProposal2, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
-        VidDisperseShare, VidDisperseShare2,
+        VidDisperseShare2,
     },
     message::Proposal,
     request_response::ProposalRequestPayload,

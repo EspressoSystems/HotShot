@@ -21,7 +21,6 @@ use hotshot_types::{
     data::{Leaf2, QuorumProposal2},
     event::Event,
     message::{Proposal, UpgradeLock},
-    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
