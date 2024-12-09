@@ -156,8 +156,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
         .is_valid_cert(
             validation_info
                 .quorum_membership
-                .stake_table(validation_info.cur_epoch),
-            validation_info.quorum_membership.success_threshold(),
+                .stake_table(justify_qc.data.epoch),
+            validation_info
+                .quorum_membership
+                .success_threshold(justify_qc.data.epoch),
             &validation_info.upgrade_lock,
         )
         .await
