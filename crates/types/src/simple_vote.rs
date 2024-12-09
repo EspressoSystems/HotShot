@@ -564,7 +564,7 @@ impl_has_epoch!(
     ViewSyncFinalizeData2<TYPES>
 );
 
-// impl votable for all the data types in this file sealed marker should ensure nothing is accidently
+// impl votable for all the data types in this file sealed marker should ensure nothing is accidentally
 // implemented for structs that aren't "voteable"
 impl<
         TYPES: NodeType,
