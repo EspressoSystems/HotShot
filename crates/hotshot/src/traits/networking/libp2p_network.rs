@@ -390,6 +390,7 @@ impl<T: NodeType> Libp2pNetwork<T> {
     #[allow(clippy::too_many_arguments)]
     pub async fn from_config(
         mut config: NetworkConfig<T::SignatureKey>,
+        dht_file_path: Option<String>,
         quorum_membership: T::Membership,
         gossip_config: GossipConfig,
         request_response_config: RequestResponseConfig,
@@ -409,6 +410,9 @@ impl<T: NodeType> Libp2pNetwork<T> {
 
         // Build our libp2p configuration
         let mut config_builder = NetworkNodeConfigBuilder::default();
+
+        // Set the DHT file path
+        config_builder.dht_file_path(dht_file_path);
 
         // Set the gossip configuration
         config_builder.gossip_config(gossip_config.clone());

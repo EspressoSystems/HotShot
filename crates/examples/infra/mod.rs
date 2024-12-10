@@ -748,6 +748,7 @@ where
         // Create the Libp2p network
         let libp2p_network = Libp2pNetwork::from_config(
             config.clone(),
+            None,
             quorum_membership,
             GossipConfig::default(),
             RequestResponseConfig::default(),
