@@ -140,8 +140,6 @@ pub fn add_network_message_task<
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
-    let my_id = handle.hotshot.id;
-    let my_key = handle.public_key().clone();
     let task_handle = spawn(async move {
         futures::pin_mut!(shutdown_signal);
 
@@ -159,7 +157,6 @@ pub fn add_network_message_task<
                     // Make sure the message did not fail
                     let message = match message {
                         Ok(message) => {
-                            tracing::error!("lrzasik: received network message\nmy id: {:?}\nmy key: {:?}\nmessage: {:?}", my_id, my_key, message);
                             message
                         }
                         Err(e) => {

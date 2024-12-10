@@ -133,11 +133,6 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                             HotShotEvent::DaCertificateRecv(cert)
                         }
                         DaConsensusMessage::VidDisperseMsg(proposal) => {
-                            tracing::error!(
-                                "lrzasik: received VidDisperseMsg for view {:?} and epoch {:?}",
-                                proposal.data.view_number,
-                                proposal.data.epoch
-                            );
                             HotShotEvent::VidShareRecv(sender, proposal)
                         }
                     },
@@ -319,12 +314,6 @@ impl<
             {
                 return;
             }
-            tracing::error!(
-                "lrzasik: sending VID messages for view {:?} and epoch {:?}\nmessages {:?}",
-                vid_proposal.data.view_number,
-                vid_proposal.data.epoch,
-                messages
-            );
             match net.vid_broadcast_message(messages).await {
                 Ok(()) => {}
                 Err(e) => tracing::warn!("Failed to send message from network task: {:?}", e),

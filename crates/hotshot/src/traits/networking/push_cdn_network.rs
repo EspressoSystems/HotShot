@@ -542,15 +542,8 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             return Ok(());
         }
 
-        tracing::error!(
-            "lrzasik: PushCdnNetwork::direct_message\nrecipient: {:?}\nmessage: {:?}",
-            recipient,
-            message
-        );
-
         // If the message is to ourselves, just add it to the internal queue
         if recipient == self.public_key {
-            tracing::error!("lrzasik: PushCdnNetwork::direct_message to ourselves, adding message to internal queue. Message: {:?}", message);
             self.internal_queue.lock().push_back(message);
             return Ok(());
         }
@@ -578,10 +571,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
     async fn recv_message(&self) -> Result<Vec<u8>, NetworkError> {
         // If we have a message in the internal queue, return it
         if let Some(message) = self.internal_queue.lock().pop_front() {
-            tracing::error!(
-                "lrzasik: recv_message returning message from internal queue. Message: {:?}",
-                message
-            );
             return Ok(message);
         }
 
@@ -591,7 +580,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         // If we're paused, receive but don't process messages
         #[cfg(feature = "hotshot-testing")]
         if self.is_paused.load(Ordering::Relaxed) {
-            tracing::error!("lrzasik: PushCdnNetwork::recv_message, network paused");
             sleep(Duration::from_millis(100)).await;
             return Ok(vec![]);
         }
@@ -600,7 +588,6 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
         let message = match message {
             Ok(message) => message,
             Err(error) => {
-                tracing::error!("lrzasik: PushCdnNetwork::recv_message, receive message error");
                 return Err(NetworkError::MessageReceiveError(format!(
                     "failed to receive message: {error}"
                 )));
@@ -614,14 +601,9 @@ impl<K: SignatureKey + 'static> ConnectedNetwork<K> for PushCdnNetwork<K> {
             recipient: _,
         })) = message
         else {
-            tracing::error!("lrzasik: PushCdnNetwork::recv_message, not broadcast, not direct");
             return Ok(vec![]);
         };
 
-        tracing::error!(
-            "lrzasik: PushCdnNetwork::recv_message\nmessage: {:?}",
-            message
-        );
         Ok(message)
     }
 
