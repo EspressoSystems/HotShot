@@ -23,9 +23,8 @@ use hotshot::{
     HotShotInitializer, MarketplaceConfig, SystemContext, TwinsHandlerState,
 };
 use hotshot_example_types::{
-    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
-    node_types::EpochsTestVersions,
-    storage_types::TestStorage, testable_delay::DelayConfig,
+    auction_results_provider_types::TestAuctionResultsProvider, node_types::EpochsTestVersions,
+    state_types::TestInstanceState, storage_types::TestStorage, testable_delay::DelayConfig,
 };
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
