@@ -42,6 +42,25 @@ cross_tests!(
     },
 );
 
+cross_tests!(
+    TestName: test_success_with_epochs,
+    Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
+    Types: [TestTypes, TestTypesRandomizedLeader, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            ..TestDescription::default()
+        }
+    },
+);
+
 // cross_tests!(
 //     TestName: test_epoch_success,
 //     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
@@ -66,6 +85,38 @@ cross_tests!(
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestTypes],
     Versions: [TestVersions],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            ..TestDescription::default()
+        };
+
+        metadata.overall_safety_properties.num_failed_views = 0;
+        metadata.overall_safety_properties.num_successful_views = 0;
+        let mut config = DelayConfig::default();
+        let delay_settings = DelaySettings {
+            delay_option: DelayOptions::Random,
+            min_time_in_milliseconds: 10,
+            max_time_in_milliseconds: 100,
+            fixed_time_in_milliseconds: 0,
+        };
+        config.add_settings_for_all_types(delay_settings);
+        metadata.async_delay_config = config;
+        metadata
+    },
+);
+
+cross_tests!(
+    TestName: test_success_with_async_delay_with_epochs,
+    Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription {
@@ -134,10 +185,71 @@ cross_tests!(
 );
 
 cross_tests!(
+    TestName: test_success_with_async_delay_2_with_epochs,
+    Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            ..TestDescription::default()
+        };
+
+        metadata.overall_safety_properties.num_failed_views = 0;
+        metadata.overall_safety_properties.num_successful_views = 30;
+        let mut config = DelayConfig::default();
+        let mut delay_settings = DelaySettings {
+            delay_option: DelayOptions::Random,
+            min_time_in_milliseconds: 10,
+            max_time_in_milliseconds: 100,
+            fixed_time_in_milliseconds: 15,
+        };
+        config.add_setting(SupportedTraitTypesForAsyncDelay::Storage, &delay_settings);
+
+        delay_settings.delay_option = DelayOptions::Fixed;
+        config.add_setting(SupportedTraitTypesForAsyncDelay::BlockHeader, &delay_settings);
+
+        delay_settings.delay_option = DelayOptions::Random;
+        delay_settings.min_time_in_milliseconds = 5;
+        delay_settings.max_time_in_milliseconds = 20;
+        config.add_setting(SupportedTraitTypesForAsyncDelay::ValidatedState, &delay_settings);
+        metadata.async_delay_config = config;
+        metadata
+    },
+);
+
+cross_tests!(
     TestName: test_with_double_leader_no_failures,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestConsecutiveLeaderTypes],
     Versions: [TestVersions],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription::default_more_nodes();
+        metadata.num_bootstrap_nodes = 10;
+        metadata.num_nodes_with_stake = 12;
+        metadata.da_staked_committee_size = 12;
+        metadata.start_nodes = 12;
+
+        metadata.overall_safety_properties.num_failed_views = 0;
+
+        metadata.view_sync_properties = ViewSyncTaskDescription::Threshold(0, 0);
+
+        metadata
+    }
+);
+
+cross_tests!(
+    TestName: test_with_double_leader_no_failures_with_epochs,
+    Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
+    Types: [TestConsecutiveLeaderTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
@@ -167,7 +279,6 @@ cross_tests!(
                     duration: Duration::from_millis(100000),
                 },
             ),
-            epoch_height: 10,
             num_nodes_with_stake: 10,
             start_nodes: 10,
             num_bootstrap_nodes: 10,
@@ -182,8 +293,8 @@ cross_tests!(
 // This test fails with the old decide rule
 cross_tests!(
     TestName: test_shorter_decide,
-    Impls: [MemoryImpl],
-    Types: [TestTypes],
+    Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {

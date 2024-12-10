@@ -277,7 +277,7 @@ impl<
         sender: &<TYPES as NodeType>::SignatureKey,
     ) -> Option<HotShotTaskCompleted> {
         let view = vid_proposal.data.view_number;
-        let vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
+        let vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal.clone());
         let mut messages = HashMap::new();
 
         for proposal in vid_share_proposals {
