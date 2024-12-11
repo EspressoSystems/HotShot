@@ -761,6 +761,7 @@
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -996,7 +997,7 @@
             <span class="kw">let </span>identify = IdentifyBehaviour::new(identify_cfg);
 
             <span class="comment">// - Build DHT needed for peer discovery
-            </span><span class="kw">let </span><span class="kw-2">mut </span>kconfig = Config::default();
+            </span><span class="kw">let </span><span class="kw-2">mut </span>kconfig = Config::new(StreamProtocol::new(<span class="string">"/ipfs/kad/1.0.0"</span>));
             <span class="comment">// 8 hours by default
             </span><span class="kw">let </span>record_republication_interval = config
                 .republication_interval
@@ -1366,6 +1367,7 @@
                                     agent_version: <span class="kw">_</span>,
                                     observed_addr: <span class="kw">_</span>,
                                 },
+                            connection_id: <span class="kw">_</span>,
                         } = <span class="kw-2">*</span>e
                         {
                             <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
