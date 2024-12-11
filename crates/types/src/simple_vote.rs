@@ -345,18 +345,14 @@ impl<TYPES: NodeType> Committable for QuorumData<TYPES> {
 
 impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        let QuorumData2 { leaf_commit, epoch } = self;
+        let QuorumData2 {
+            leaf_commit,
+            epoch: _,
+        } = self;
 
-        if **epoch == 0 {
-            committable::RawCommitmentBuilder::new("Quorum data")
-                .var_size_bytes(leaf_commit.as_ref())
-                .finalize()
-        } else {
-            committable::RawCommitmentBuilder::new("Quorum data")
-                .var_size_bytes(leaf_commit.as_ref())
-                .u64(**epoch)
-                .finalize()
-        }
+        committable::RawCommitmentBuilder::new("Quorum data")
+            .var_size_bytes(leaf_commit.as_ref())
+            .finalize()
     }
 }
 
@@ -370,18 +366,11 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
 
 impl<TYPES: NodeType> Committable for TimeoutData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        let TimeoutData2 { view, epoch } = self;
+        let TimeoutData2 { view, epoch: _ } = self;
 
-        if **epoch == 0 {
-            committable::RawCommitmentBuilder::new("Timeout data")
-                .u64(**view)
-                .finalize()
-        } else {
-            committable::RawCommitmentBuilder::new("Timeout data")
-                .u64(**view)
-                .u64(**epoch)
-                .finalize()
-        }
+        committable::RawCommitmentBuilder::new("Timeout data")
+            .u64(**view)
+            .finalize()
     }
 }
 
@@ -397,18 +386,12 @@ impl<TYPES: NodeType> Committable for DaData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         let DaData2 {
             payload_commit,
-            epoch,
+            epoch: _,
         } = self;
-        if **epoch == 0 {
-            committable::RawCommitmentBuilder::new("DA data")
-                .var_size_bytes(payload_commit.as_ref())
-                .finalize()
-        } else {
-            committable::RawCommitmentBuilder::new("DA data")
-                .var_size_bytes(payload_commit.as_ref())
-                .u64(**epoch)
-                .finalize()
-        }
+
+        committable::RawCommitmentBuilder::new("DA data")
+            .var_size_bytes(payload_commit.as_ref())
+            .finalize()
     }
 }
 
@@ -469,18 +452,10 @@ impl<TYPES: NodeType> Committable for ViewSyncPreCommitData2<TYPES> {
         let ViewSyncPreCommitData2 {
             relay,
             round,
-            epoch,
+            epoch: _,
         } = self;
 
-        if **epoch == 0 {
-            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Precommit")
-        } else {
-            committable::RawCommitmentBuilder::new("View Sync Precommit")
-                .u64(*relay)
-                .u64(**round)
-                .u64(**epoch)
-                .finalize()
-        }
+        view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Precommit")
     }
 }
 
@@ -495,18 +470,10 @@ impl<TYPES: NodeType> Committable for ViewSyncFinalizeData2<TYPES> {
         let ViewSyncFinalizeData2 {
             relay,
             round,
-            epoch,
+            epoch: _,
         } = self;
 
-        if **epoch == 0 {
-            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Finalize")
-        } else {
-            committable::RawCommitmentBuilder::new("View Sync Finalize")
-                .u64(*relay)
-                .u64(**round)
-                .u64(**epoch)
-                .finalize()
-        }
+        view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Finalize")
     }
 }
 
@@ -521,18 +488,10 @@ impl<TYPES: NodeType> Committable for ViewSyncCommitData2<TYPES> {
         let ViewSyncCommitData2 {
             relay,
             round,
-            epoch,
+            epoch: _,
         } = self;
 
-        if **epoch == 0 {
-            view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Commit")
-        } else {
-            committable::RawCommitmentBuilder::new("View Sync Commit")
-                .u64(*relay)
-                .u64(**round)
-                .u64(**epoch)
-                .finalize()
-        }
+        view_and_relay_commit::<TYPES, Self>(*round, *relay, "View Sync Commit")
     }
 }
 
