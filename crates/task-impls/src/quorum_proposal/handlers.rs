@@ -25,7 +25,9 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader, election::Membership, node_implementation::NodeType,
+        block_contents::BlockHeader,
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
     utils::epoch_from_block_number,
