@@ -217,7 +217,7 @@ impl<T: NodeType> NetworkNode<T> {
             let identify = IdentifyBehaviour::new(identify_cfg);
 
             // Configure the Kademlia behaviour
-            let mut kconfig = Config::default();
+            let mut kconfig = Config::new(StreamProtocol::new("/ipfs/kad/1.0.0"));
             kconfig
                 .set_parallelism(NonZeroUsize::new(5).unwrap())
                 .set_provider_publication_interval(config.kademlia_config.publication_interval)
@@ -584,6 +584,7 @@ impl<T: NodeType> NetworkNode<T> {
                                     agent_version: _,
                                     observed_addr: _,
                                 },
+                            connection_id: _,
                         } = *e
                         {
                             let behaviour = self.swarm.behaviour_mut();

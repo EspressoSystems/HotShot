@@ -114,8 +114,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         }
                     }
                     ProposalDependency::ViewSyncCert => {
-                        if let HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
-                            event
+                        if let HotShotEvent::ViewSyncFinalizeCertificateRecv(view_sync_cert) = event
                         {
                             view_sync_cert.view_number()
                         } else {
@@ -222,7 +221,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     qc_dependency.mark_as_completed(event);
                 }
             },
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(_) => {
                 view_sync_dependency.mark_as_completed(event);
             }
             HotShotEvent::VidDisperseSend(_, _) => {
@@ -433,7 +432,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 )?;
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) => {
                 let epoch_number = self.consensus.read().await.cur_epoch();
 
                 ensure!(
