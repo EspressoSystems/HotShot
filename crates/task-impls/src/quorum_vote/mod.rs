@@ -709,25 +709,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             current_block_number,
             self.epoch_height,
         ));
-        tracing::trace!(
-            "Sending ViewChange for view {} and epoch {}",
-            proposal.data.view_number() + 1,
-            *current_epoch
-        );
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(
-                proposal.data.view_number() + 1,
-                current_epoch,
-            )),
-            &event_sender,
-        )
-        .await;
 
         let is_vote_leaf_extended = self
             .consensus
             .read()
             .await
             .is_leaf_extended(proposed_leaf.commit());
+        if !is_vote_leaf_extended {
+            // We're voting for the proposal that will probably form the eQC. We don't want to change
+            // the view here because we will probably change it when we form the eQC.
+            // The main reason is to handle view change event only once in the transaction task.
+            tracing::trace!(
+                "Sending ViewChange for view {} and epoch {}",
+                proposal.data.view_number() + 1,
+                *current_epoch
+            );
+            broadcast_event(
+                Arc::new(HotShotEvent::ViewChange(
+                    proposal.data.view_number() + 1,
+                    current_epoch,
+                )),
+                &event_sender,
+            )
+            .await;
+        }
         if let Err(e) = submit_vote::<TYPES, I, V>(
             event_sender.clone(),
             Arc::clone(&self.membership),
