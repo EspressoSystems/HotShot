@@ -224,6 +224,7 @@ pub struct NetworkEventTaskState<
     pub upgrade_lock: UpgradeLock<TYPES, V>,
     /// map view number to transmit tasks
     pub transmit_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
+    pub id: u64,
 }
 
 #[async_trait]
@@ -302,12 +303,14 @@ impl<
         let net = Arc::clone(&self.network);
         let storage = Arc::clone(&self.storage);
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
+        let my_id = self.id;
         spawn(async move {
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 Some(HotShotAction::VidDisperse),
                 storage,
                 consensus,
                 view,
+                my_id,
             )
             .await
             .is_err()
@@ -329,27 +332,36 @@ impl<
         storage: Arc<RwLock<S>>,
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
+        id: u64,
     ) -> std::result::Result<(), ()> {
-        if let Some(mut action) = maybe_action {
+        tracing::error!("lrzasik: entered maybe_record_action, maybe_action: {:?}, view: {:?},  my id: {}", maybe_action, view, id);
+        let res = if let Some(mut action) = maybe_action {
+            tracing::error!("lrzasik: maybe_record_action, calling update_action, maybe_action: {:?}, view: {:?},  my id: {}", maybe_action, view, id);
             if !consensus.write().await.update_action(action, view) {
                 tracing::warn!("Already actioned {:?} in view {:?}", action, view);
                 return Err(());
             }
+            tracing::error!("lrzasik: maybe_record_action, finished update_action, maybe_action: {:?}, view: {:?},  my id: {}", maybe_action, view, id);
             // If the action was view sync record it as a vote, but we don't
             // want to limit to 1 View sync vote above so change the action here.
             if matches!(action, HotShotAction::ViewSyncVote) {
                 action = HotShotAction::Vote;
             }
-            match storage.write().await.record_action(view, action).await {
+            tracing::error!("lrzasik: maybe_record_action, calling record_action, maybe_action: {:?}, view: {:?},  my id: {}", maybe_action, view, id);
+            let res = match storage.write().await.record_action(view, action).await {
                 Ok(()) => Ok(()),
                 Err(e) => {
                     tracing::warn!("Not Sending {:?} because of storage error: {:?}", action, e);
                     Err(())
                 }
-            }
+            };
+            tracing::error!("lrzasik: maybe_record_action, finished record_action, maybe_action: {:?}, view: {:?},  my id: {}", maybe_action, view, id);
+            res
         } else {
             Ok(())
-        }
+        };
+        tracing::error!("lrzasik: exiting maybe_record_action, maybe_action: {:?}, view: {:?},  my id: {}", maybe_action, view, id);
+        res
     }
 
     /// Cancel all tasks for previous views
@@ -440,6 +452,7 @@ impl<
                     .await
                     >= V::Epochs::VERSION
                 {
+                    tracing::error!("lrzasik: extended quorum vote sent from network, id: {:?}", self.id);
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::Vote2(vote.clone()),
                     ))
@@ -717,6 +730,7 @@ impl<
         transmit: TransmitType<TYPES>,
         sender: TYPES::SignatureKey,
     ) {
+        tracing::error!("lrzasik: entered spawn_transmit_task, message kind: {:?}, transmit type: {:?},  my id: {}", message_kind, transmit, self.id);
         let broadcast_delay = match &message_kind {
             MessageKind::Consensus(
                 SequencingMessage::General(GeneralConsensusMessage::Vote(_))
@@ -737,22 +751,28 @@ impl<
         let storage = Arc::clone(&self.storage);
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let upgrade_lock = self.upgrade_lock.clone();
+        let my_id = self.id;
         let handle = spawn(async move {
+            tracing::error!("lrzasik: entered spawn transmit task, message kind: {:?}, transmit type: {:?},  my id: {}", message.kind, transmit, my_id);
             if NetworkEventTaskState::<TYPES, V, NET, S>::maybe_record_action(
                 maybe_action,
                 Arc::clone(&storage),
                 consensus,
                 view_number,
+                my_id,
             )
             .await
             .is_err()
             {
+                tracing::error!("lrzasik: spawn transmit task, error maybe_record_action, my id: {}", my_id);
                 return;
             }
+            tracing::error!("lrzasik: spawn transmit task, finished maybe_record_action, message kind: {:?}, transmit type: {:?},  my id: {}", message.kind, transmit, my_id);
             if let MessageKind::Consensus(SequencingMessage::General(
                 GeneralConsensusMessage::Proposal(prop),
             )) = &message.kind
             {
+                tracing::error!("lrzasik: spawn transmit task, call append_proposal2, message kind: {:?}, transmit type: {:?},  my id: {}", message.kind, transmit, my_id);
                 if storage
                     .write()
                     .await
@@ -760,17 +780,33 @@ impl<
                     .await
                     .is_err()
                 {
+                    tracing::error!("lrzasik: spawn transmit task, error append_proposal2, my id: {}", my_id);
                     return;
                 }
+                tracing::error!("lrzasik: spawn transmit task, finished append_proposal2, message kind: {:?}, transmit type: {:?},  my id: {}", message.kind, transmit, my_id);
             }
 
+            tracing::error!("lrzasik: spawn transmit task, call serialize, message kind: {:?}, transmit type: {:?},  my id: {}", message.kind, transmit, my_id);
             let serialized_message = match upgrade_lock.serialize(&message).await {
-                Ok(serialized) => serialized,
+                Ok(serialized) => {
+                    if matches!(transmit, TransmitType::Broadcast) {
+                        if let MessageKind::Consensus(SequencingMessage::General(GeneralConsensusMessage::Vote2(ref vote))) = message.kind {
+                            tracing::error!("lrzasik: sending extended vote, my id: {:?}, vote view: {:?}, vote epoch: {:?}\nserialized message: {:?}",
+                                my_id,
+                                vote.view_number(),
+                                vote.epoch(),
+                                serialized,
+                            );
+                        }
+                    }
+                    serialized
+                },
                 Err(e) => {
                     tracing::error!("Failed to serialize message: {}", e);
                     return;
                 }
             };
+            tracing::error!("lrzasik: spawn transmit task, finished serialize, message kind: {:?}, transmit type: {:?},  my id: {}", message.kind, transmit, my_id);
 
             let transmit_result = match transmit {
                 TransmitType::Direct(recipient) => {

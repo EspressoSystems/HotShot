@@ -69,6 +69,7 @@ async fn test_network_task() {
             storage,
             consensus,
             transmit_tasks: BTreeMap::new(),
+            id: 1,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
     let mut task_reg = ConsensusTaskRegistry::new();
@@ -238,6 +239,7 @@ async fn test_network_storage_fail() {
             storage,
             consensus,
             transmit_tasks: BTreeMap::new(),
+            id: 1,
         };
     let (tx, rx) = async_broadcast::broadcast(10);
     let mut task_reg = ConsensusTaskRegistry::new();

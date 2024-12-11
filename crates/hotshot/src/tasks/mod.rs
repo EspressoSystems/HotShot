@@ -140,6 +140,7 @@ pub fn add_network_message_task<
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
     let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+    let my_id = handle.hotshot.id;
     let task_handle = spawn(async move {
         futures::pin_mut!(shutdown_signal);
 
@@ -157,6 +158,7 @@ pub fn add_network_message_task<
                     // Make sure the message did not fail
                     let message = match message {
                         Ok(message) => {
+                            tracing::error!("lrzasik: Received message, my id: {:?}\nmessage: {:?}", my_id, message);
                             message
                         }
                         Err(e) => {
@@ -203,6 +205,7 @@ pub fn add_network_event_task<
         consensus: OuterConsensus::new(handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         transmit_tasks: BTreeMap::new(),
+        id: handle.hotshot.id,
     };
     let task = Task::new(
         network_state,
