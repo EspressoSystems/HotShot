@@ -482,7 +482,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 let view = TYPES::View::new(std::cmp::max(1, **view));
 
                 ensure!(
-                    *view > *self.cur_view && *epoch >= self.cur_epoch,
+                    *view > *self.cur_view || *epoch > self.cur_epoch,
                     debug!(
                       "Received a view change to an older view and epoch: tried to change view to {:?}\
                       and epoch {:?} though we are at view {:?} and epoch {:?}",
