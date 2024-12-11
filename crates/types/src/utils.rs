@@ -7,7 +7,7 @@
 //! Utility functions, type aliases, helper structs and enum definitions.
 
 use std::{
-    hash::{Hash, Hasher},
+    hash::{DefaultHasher, Hash, Hasher},
     ops::Deref,
     sync::Arc,
 };
@@ -230,7 +230,13 @@ pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
 /// A function for generating a cute little user mnemonic from a hash
 #[must_use]
 pub fn mnemonic<H: Hash>(bytes: H) -> String {
-    let mut state = std::collections::hash_map::DefaultHasher::new();
-    bytes.hash(&mut state);
-    mnemonic::to_string(state.finish().to_le_bytes())
+    let hash = non_crypto_hash(bytes);
+    mnemonic::to_string(hash.to_le_bytes())
+}
+
+/// A helper function to generate a non-cryptographic hash
+pub fn non_crypto_hash<H: Hash>(val: H) -> u64 {
+    let mut state = DefaultHasher::new();
+    val.hash(&mut state);
+    state.finish()
 }

@@ -1,3 +1,11 @@
+use std::time::Instant;
+
+use hotshot_types::{
+    data::EpochNumber, traits::node_implementation::ConsensusTime, utils::non_crypto_hash,
+};
+use simple_moving_average::SingleSumSMA;
+use simple_moving_average::SMA;
+
 /// The type of network to use for the example
 #[derive(Debug, PartialEq, Eq)]
 enum NetworkType {
@@ -126,9 +134,12 @@ async fn new_combined_network(
     private_key: &BLSPrivKey,
 ) -> Result<Arc<hotshot::traits::implementations::CombinedNetworks<TestTypes>>> {
     // Create the CDN network and launch the CDN
-    let cdn_network = Arc::into_inner(
-        new_cdn_network(marshal_address, is_da_node, public_key, private_key)?,
-    )
+    let cdn_network = Arc::into_inner(new_cdn_network(
+        marshal_address,
+        is_da_node,
+        public_key,
+        private_key,
+    )?)
     .unwrap();
 
     // Create the Libp2p network
@@ -155,6 +166,10 @@ async fn new_combined_network(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_precision_loss)]
+#[allow(clippy::cast_sign_loss)]
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::cast_possible_truncation)]
 /// A helper function to start consensus with a builder
 async fn start_consensus<
     I: hotshot::traits::NodeImplementation<
@@ -187,7 +202,7 @@ async fn start_consensus<
         public_key,
         private_key,
         config,
-        memberships,
+        memberships.clone(),
         network,
         hotshot_initializer,
         ConsensusMetricsValue::default(),
@@ -214,8 +229,22 @@ async fn start_consensus<
     // Start consensus
     handle.hotshot.start_consensus().await;
 
-    // Create an LRU cache to store the size of the proposed block if we're DA
-    let mut proposed_block_size_cache = LruCache::new(NonZero::new(100).unwrap());
+    // See if we're a DA node or not
+    let is_da_node = memberships.has_da_stake(&public_key, EpochNumber::new(0));
+
+    // Create an LRU cache to store block data if we're DA. We populate this cache when we receive
+    // the DA proposal for a view and print the data when we actually decide on that view
+    let mut view_cache = LruCache::new(NonZero::new(100).unwrap());
+
+    // A cache of outstanding transactions (hashes of). Used to calculate latency. Isn't needed for non-DA nodes
+    let mut outstanding_transactions: LruCache<u64, Instant> =
+        LruCache::new(NonZero::new(10000).unwrap());
+
+    // The simple moving average, used to calculate throughput
+    let mut throughput: SingleSumSMA<f64, f64, 100> = SingleSumSMA::<f64, f64, 100>::new();
+
+    // The last time we decided on a view (for calculating throughput)
+    let mut last_decide_time = Instant::now();
 
     // Spawn the task to wait for events
     let join_handle = tokio::spawn(async move {
@@ -230,17 +259,83 @@ async fn start_consensus<
             // DA proposals contain the full list of transactions. We can use this to cache
             // the size of the proposed block
             if let EventType::DaProposal { proposal, .. } = event.event {
-                // Insert the size of the proposed block into the cache
-                proposed_block_size_cache.put(
+                // Decode the transactions. We use this to log the size of the proposed block
+                // when we decide on a view
+                let transactions =
+                    match TestTransaction::decode(&proposal.data.encoded_transactions) {
+                        Ok(transactions) => transactions,
+                        Err(err) => {
+                            tracing::error!("Failed to decode transactions: {:?}", err);
+                            continue;
+                        }
+                    };
+
+                // Get the number of transactions in the proposed block
+                let num_transactions = transactions.len();
+
+                // Sum the total number of bytes in the proposed block and cache
+                // the hash so we can calculate latency
+                let mut sum = 0;
+                let mut submitted_times = Vec::new();
+                for transaction in transactions {
+                    // Add the size of the transaction to the sum
+                    sum += transaction.bytes().len();
+
+                    // If we can find the transaction in the cache, add the hash of the transaction to the cache
+                    if let Some(&instant) =
+                        outstanding_transactions.get(&non_crypto_hash(transaction.bytes()))
+                    {
+                        submitted_times.push(instant);
+                    }
+                }
+
+                // Insert the size of the proposed block and the number of transactions into the cache.
+                // We use this to log the size of the proposed block when we decide on a view
+                view_cache.put(
                     *proposal.data.view_number,
-                    proposal.data.encoded_transactions.len(),
+                    (sum, num_transactions, submitted_times),
                 );
 
                 // A `Decide` event contains data that HotShot has decided on
             } else if let EventType::Decide { qc, .. } = event.event {
                 // If we cached the size of the proposed block, log it
-                if let Some(size) = proposed_block_size_cache.get(&*qc.view_number) {
-                    info!(block_size = size, "Decided on view {}", *qc.view_number);
+                if let Some((block_size, num_transactions, submitted_times)) =
+                    view_cache.get(&*qc.view_number)
+                {
+                    // Calculate the average latency of the transactions
+                    let mut total_latency = Duration::default();
+                    let mut num_found_transactions = 0;
+                    for submitted_time in submitted_times {
+                        total_latency += submitted_time.elapsed();
+                        num_found_transactions += 1;
+                    }
+                    let average_latency = total_latency.checked_div(num_found_transactions);
+
+                    // Update the throughput SMA
+                    throughput
+                        .add_sample(*block_size as f64 / last_decide_time.elapsed().as_secs_f64());
+
+                    // Update the last decided time
+                    last_decide_time = Instant::now();
+
+                    // If we have a valid average latency, log it
+                    if let Some(average_latency) = average_latency {
+                        info!(
+                        block_size = block_size,
+                        num_txs = num_transactions,
+                        avg_tx_latency =? average_latency,
+                        avg_throughput = format!("{}/s", bytesize::ByteSize::b(throughput.get_average() as u64)),
+                        "Decided on view {}",
+                            *qc.view_number
+                        );
+                    } else {
+                        info!(
+                            block_size = block_size,
+                            num_txs = num_transactions,
+                            "Decided on view {}",
+                            *qc.view_number
+                        );
+                    }
                 } else {
                     info!("Decided on view {}", *qc.view_number);
                 }
@@ -250,6 +345,12 @@ async fn start_consensus<
                     // Generate a random transaction
                     let mut transaction_bytes = vec![0u8; transaction_size];
                     rand::thread_rng().fill(&mut transaction_bytes[..]);
+
+                    // If we're a DA node, cache the transaction so we can calculate latency
+                    if is_da_node {
+                        outstanding_transactions
+                            .put(non_crypto_hash(&transaction_bytes), Instant::now());
+                    }
 
                     // Submit the transaction
                     if let Err(err) = handle
