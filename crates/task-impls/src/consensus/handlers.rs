@@ -81,11 +81,6 @@ pub(crate) async fn handle_quorum_vote_recv<
         .membership
         .has_stake(&vote.signing_key(), vote.epoch() + 1)
     {
-        tracing::error!(
-            "lrzasik: received vote from next epoch node, view: {:?}, epoch: {:?}",
-            vote.view_number,
-            vote.epoch()
-        );
         handle_vote(
             &mut task_state.next_epoch_vote_collectors,
             &vote.clone().into(),
