@@ -361,7 +361,11 @@ impl<
 
     /// Cancel all tasks for previous views
     pub fn cancel_tasks(&mut self, view: TYPES::View) {
-        let keep = self.transmit_tasks.split_off(&view);
+        if *view == 0 {
+            return;
+        }
+        let keep_view = view - 1;
+        let keep = self.transmit_tasks.split_off(&keep_view);
 
         while let Some((_, tasks)) = self.transmit_tasks.pop_first() {
             for task in tasks {
