@@ -176,20 +176,6 @@ pub(crate) async fn handle_quorum_proposal_recv<
         bail!("Invalid justify_qc in proposal for view {}", *view_number);
     }
 
-    // Ensure that the proposal has the correct epoch number.
-    if validation_info.epoch_height != 0 {
-        ensure!(
-          justify_qc.data.epoch == proposal_epoch || *proposal_epoch % TYPES::EPOCH_HEIGHT == 1 && justify_qc.data.epoch == proposal_epoch - 1,
-          warn!(
-            "Mismatch in proposal and justify_qc epoch number. The proposal has epoch {:?}, the justify_qc has epoch {:?}, the proposal's block number is {:?} and the epoch height is {:?}",
-            proposal_epoch,
-            justify_qc.data.epoch,
-            proposal_block_number,
-            validation_info.epoch_height,
-          )
-        );
-    }
-
     broadcast_event(
         Arc::new(HotShotEvent::QuorumProposalPreliminarilyValidated(
             proposal.clone(),
