@@ -31,6 +31,8 @@ warp = { version = "0.3", default-features = false }
 reqwest.workspace = true
 bytes = "1"
 parking_lot.workspace = true
+local-ip-address = "0.6"
+
 [[example]]
 name = "all"
 path = "all.rs"
@@ -47,9 +49,9 @@ path = "cdn/marshal.rs"
 name = "coordinator"
 path = "coordinator.rs"
 
-# [[example]]
-# name = "single-validator"
-# path = "single-validator.rs"
+[[example]]
+name = "single-validator"
+path = "single-validator.rs"
 
 [lints]
 workspace = true

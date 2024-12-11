@@ -2934,6 +2934,7 @@ dependencies = [
  "hotshot-types",
  "libp2p",
  "libp2p-networking",
+ "local-ip-address",
  "lru 0.12.5",
  "parking_lot",
  "portpicker",

@@ -1,0 +1,86 @@
+# This file is used to run all components of the multi-process examples (in combined network mode). 
+# If you want to just run them all in one process, you can use `cargo run --example all`.
+
+# To run this, do `process-compose up`
+
+# NOTE: You will need Docker installed to run this, as we use KeyDB as a database for the CDN for now
+
+version: "3"
+
+processes:
+  # The coordinator is used to assign unique indices to nodes when running benchmarks on multiple machines
+  # (or in this case, multiple processes). It is also used to share Libp2p addresses with other nodes
+  # so they can bootstrap to each other.
+  coordinator:
+    command: RUST_LOG=info cargo run --example coordinator
+    readiness_probe:
+      exec:
+        command: nc -zv localhost 3030
+      period_seconds: 5
+      timeout_seconds: 4
+      failure_threshold: 20
+
+  # We use KeyDB (a Redis variant) to maintain consistency between
+  # different parts of the CDN
+  # Cheating a bit here too, but KeyDB is not available as a Nix package.
+  # Could do local (SQLite) discovery, but removes some of the spirit
+  # from the local demo.
+  keydb:
+    command: docker run --rm -p 0.0.0.0:6379:6379 eqalpha/keydb --requirepass changeme!
+    readiness_probe:
+      exec:
+        command: nc -zv localhost 6379
+      period_seconds: 5
+      timeout_seconds: 4
+      failure_threshold: 20
+
+  # The marshal is the CDN component that is responsible for authenticating users and
+  # pointing them to the correct broker.
+  marshal:
+    command: RUST_LOG=info cargo run --example cdn-marshal -- --discovery-endpoint "redis://:changeme!@localhost:6379"
+    depends_on:
+      keydb:
+        condition: process_healthy
+
+  # The `broker` is the CDN component that is primarily responsible for routing messages
+  # between nodes.
+  broker:
+    command: RUST_LOG=info,libp2p=off cargo run --example cdn-broker -- --discovery-endpoint "redis://:changeme!@localhost:6379"
+    depends_on:
+      keydb:
+        condition: process_healthy
+
+  # `hotshot1` is a single HotShot node
+  hotshot1:
+    command: RUST_LOG=info,libp2p=off cargo run --example single-validator -- --network combined --libp2p-port 3000 --total-num-nodes 5 --num-da-nodes 3 --marshal-address localhost:1737
+    depends_on:
+      coordinator:
+        condition: process_healthy
+
+  # `hotshot2` is a second HotShot node
+  hotshot2:
+    command: RUST_LOG=info,libp2p=off cargo run --example single-validator -- --network combined --libp2p-port 3001 --total-num-nodes 5 --num-da-nodes 3 --marshal-address localhost:1737
+    depends_on:
+      coordinator:
+        condition: process_healthy
+
+  # `hotshot3` is a third HotShot node
+  hotshot3:
+    command: RUST_LOG=info,libp2p=off cargo run --example single-validator -- --network combined --libp2p-port 3002 --total-num-nodes 5 --num-da-nodes 3 --marshal-address localhost:1737
+    depends_on:
+      coordinator:
+        condition: process_healthy
+
+  # `hotshot4` is a fourth HotShot node
+  hotshot4:
+    command: RUST_LOG=info,libp2p=off cargo run --example single-validator -- --network combined --libp2p-port 3003 --total-num-nodes 5 --num-da-nodes 3 --marshal-address localhost:1737
+    depends_on:
+      coordinator:
+        condition: process_healthy
+
+  # `hotshot5` is a fifth HotShot node
+  hotshot5:
+    command: RUST_LOG=info,libp2p=off cargo run --example single-validator -- --network combined --libp2p-port 3004 --total-num-nodes 5 --num-da-nodes 3 --marshal-address localhost:1737
+    depends_on:
+      coordinator:
+        condition: process_healthy

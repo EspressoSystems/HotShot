@@ -70,12 +70,12 @@ async fn main() -> Result<()> {
                 };
 
                 // Attempt to parse the string as a Libp2p Multiaddr
-                let Ok(mut multiaddr) = Multiaddr::from_str(&string) else {
+                let Ok(multiaddr) = Multiaddr::from_str(&string) else {
                     return "Failed to parse body as Multiaddr".to_string();
                 };
 
                 // Pop off the last protocol
-                let Some(last_protocol) = multiaddr.pop() else {
+                let Some(last_protocol) = multiaddr.clone().pop() else {
                     return "Failed to get last protocol of multiaddr".to_string();
                 };
 

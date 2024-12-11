@@ -12,8 +12,8 @@ use hotshot::{
     traits::{
         election::static_committee::StaticCommittee,
         implementations::{
-            derive_libp2p_keypair, CdnMetricsValue, CdnTopic, CombinedNetworks, KeyPair,
-            Libp2pMetricsValue, Libp2pNetwork, PushCdnNetwork, TestingDef, WrappedSignatureKey,
+            derive_libp2p_keypair, CdnMetricsValue, CdnTopic, KeyPair, Libp2pMetricsValue,
+            Libp2pNetwork, PushCdnNetwork, TestingDef, WrappedSignatureKey,
         },
     },
     types::{BLSPrivKey, BLSPubKey, EventType, SignatureKey},
@@ -30,7 +30,6 @@ use hotshot_example_types::{
 use hotshot_testing::block_builder::{SimpleBuilderImplementation, TestBuilderImplementation};
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    light_client::StateKeyPair,
     traits::{election::Membership, node_implementation::NodeType},
     HotShotConfig, PeerConfig,
 };
@@ -42,9 +41,12 @@ use libp2p_networking::network::{
 };
 use lru::LruCache;
 use rand::Rng;
-use tokio::{spawn, sync::OnceCell, task::JoinSet};
-use tracing::{error, info};
+use tokio::{spawn, sync::OnceCell};
+use tracing::info;
 use url::Url;
+
+// Include some common code
+include!("common.rs");
 
 /// This example runs all necessary HotShot components
 #[derive(Parser)]
@@ -61,11 +63,11 @@ struct Args {
     #[arg(long)]
     num_views: Option<usize>,
 
-    /// The number of transactions to submit to the builder per view
-    #[arg(long, default_value_t = 100)]
+    /// The number of transactions to submit to each nodes' builder per view
+    #[arg(long, default_value_t = 1)]
     num_transactions_per_view: usize,
 
-    /// The size of the transactions submitted to the builder per view
+    /// The size of the transactions submitted to each nodes' builder per view
     #[arg(long, default_value_t = 1000)]
     transaction_size: usize,
 
@@ -73,23 +75,6 @@ struct Args {
     /// "combined", "cdn", or "libp2p"
     #[arg(long, default_value = "combined")]
     network: String,
-}
-
-/// This is a testing function which allows us to easily determine if a node should be a DA node
-fn is_da_node(index: usize, num_da_nodes: usize) -> bool {
-    index < num_da_nodes
-}
-
-/// This is a testing function which allows us to easily generate peer configs from indexes
-fn peer_info_from_index(index: usize) -> PeerConfig<BLSPubKey> {
-    // Get the node's public key
-    let (public_key, _) = BLSPubKey::generated_from_seed_indexed([0u8; 32], index as u64);
-
-    // Generate the peer config
-    PeerConfig {
-        stake_table_entry: public_key.stake_table_entry(1),
-        state_ver_key: StateKeyPair::default().0.ver_key(),
-    }
 }
 
 /// Generate a Libp2p multiaddress from a port
@@ -107,19 +92,6 @@ fn libp2p_multiaddress_from_index(index: usize) -> Result<Multiaddr> {
     )
     .parse()
     .with_context(|| "Failed to parse multiaddress")
-}
-
-/// The type of network to use for the example
-#[derive(Debug, PartialEq, Eq)]
-enum NetworkType {
-    /// A combined network, which is a combination of a Libp2p and Push CDN network
-    Combined,
-
-    /// A network solely using the Push CDN
-    Cdn,
-
-    /// A Libp2p network
-    LibP2P,
 }
 
 /// A helper function to start the CDN
@@ -198,236 +170,17 @@ async fn start_cdn() -> Result<String> {
     Ok(marshal_address)
 }
 
-/// A helper function to create a Libp2p network
-async fn create_libp2p_network(
-    node_index: usize,
-    total_num_nodes: usize,
-    public_key: &BLSPubKey,
-    private_key: &BLSPrivKey,
-    known_libp2p_nodes: &[Multiaddr],
-) -> Result<Arc<Libp2pNetwork<TestTypes>>> {
-    // Derive the Libp2p keypair from the private key
-    let libp2p_keypair = derive_libp2p_keypair::<BLSPubKey>(private_key)
-        .with_context(|| "Failed to derive libp2p keypair")?;
-
-    // Sign our Libp2p lookup record value
-    let lookup_record_value = RecordValue::new_signed(
-        &RecordKey::new(Namespace::Lookup, public_key.to_bytes()),
-        libp2p_keypair.public().to_peer_id().to_bytes(),
-        private_key,
-    )
-    .expect("Failed to sign DHT lookup record");
-
-    // Configure Libp2p
-    let libp2p_config = Libp2pConfig {
-        keypair: libp2p_keypair,
-        bind_address: known_libp2p_nodes[node_index].clone(),
-        known_peers: known_libp2p_nodes.to_vec(),
-        quorum_membership: None, // This disables stake-table authentication
-        auth_message: None,      // This disables stake-table authentication
-        gossip_config: GossipConfig::default(),
-        request_response_config: RequestResponseConfig::default(),
-        kademlia_config: KademliaConfig {
-            replication_factor: total_num_nodes * 2 / 3,
-            record_ttl: None,
-            publication_interval: None,
-            file_path: format!("/tmp/kademlia-{}.db", rand::random::<u32>()),
-            lookup_record_value,
-        },
-    };
-
-    // Create the network with the config
-    Ok(Arc::new(
-        Libp2pNetwork::new(
-            libp2p_config,
-            public_key,
-            Libp2pMetricsValue::default(),
-            None,
-        )
-        .await
-        .with_context(|| "Failed to create libp2p network")?,
-    ))
-}
-
-/// Create a Push CDN network, starting the CDN if it's not already running
-async fn create_cdn_network(
-    is_da_node: bool,
-    public_key: &BLSPubKey,
-    private_key: &BLSPrivKey,
-) -> Result<Arc<PushCdnNetwork<BLSPubKey>>> {
+/// Start the CDN if it's not already running
+/// Returns the address of the marshal
+async fn try_start_cdn() -> Result<String> {
     /// Create a static cell to store the marshal's endpoint
-    static MARSHAL_ENDPOINT: OnceCell<String> = OnceCell::const_new();
+    static MARSHAL_ADDRESS: OnceCell<String> = OnceCell::const_new();
 
     // If the marshal endpoint isn't already set, start the CDN and set the endpoint
-    let marshal_endpoint = MARSHAL_ENDPOINT
+    Ok(MARSHAL_ADDRESS
         .get_or_init(|| async { start_cdn().await.expect("Failed to start CDN") })
         .await
-        .clone();
-
-    // Subscribe to topics based on whether we're a DA node or not
-    let mut topics = vec![CdnTopic::Global];
-    if is_da_node {
-        topics.push(CdnTopic::Da);
-    }
-
-    // Create and return the network
-    Ok(Arc::new(
-        PushCdnNetwork::new(
-            marshal_endpoint,
-            topics,
-            KeyPair {
-                public_key: WrappedSignatureKey(*public_key),
-                private_key: private_key.clone(),
-            },
-            CdnMetricsValue::default(),
-        )
-        .with_context(|| "Failed to create Push CDN network")?,
-    ))
-}
-
-/// A helper function to create a Combined network, which is a combination of a Libp2p and Push CDN network
-async fn create_combined_network(
-    node_index: usize,
-    total_num_nodes: usize,
-    known_libp2p_nodes: &[Multiaddr],
-    is_da_node: bool,
-    public_key: &BLSPubKey,
-    private_key: &BLSPrivKey,
-) -> Result<Arc<CombinedNetworks<TestTypes>>> {
-    // Create the CDN network
-    let cdn_network =
-        Arc::into_inner(create_cdn_network(is_da_node, public_key, private_key).await?).unwrap();
-
-    // Create the Libp2p network
-    let libp2p_network = Arc::into_inner(
-        create_libp2p_network(
-            node_index,
-            total_num_nodes,
-            public_key,
-            private_key,
-            known_libp2p_nodes,
-        )
-        .await?,
-    )
-    .unwrap();
-
-    // Create and return the combined network
-    Ok(Arc::new(CombinedNetworks::new(
-        cdn_network,
-        libp2p_network,
-        Some(Duration::from_secs(1)),
-    )))
-}
-
-/// A macro to start a node with a given network. We need this because `NodeImplementation` requires we
-/// define a bunch of traits, which we can't do in a generic context.
-macro_rules! start_node_with_network {
-    ($network_type:ident, $node_index:expr, $total_num_nodes:expr, $public_key:expr, $private_key:expr, $config:expr, $memberships:expr, $hotshot_initializer:expr, $network:expr, $join_set:expr, $num_transactions_per_view:expr, $transaction_size:expr, $num_views:expr, $builder_url:expr) => {
-        // Create the marketplace config
-        let marketplace_config = MarketplaceConfig::<_, $network_type> {
-            auction_results_provider: TestAuctionResultsProvider::<TestTypes>::default().into(),
-            // TODO: we need to pass a valid fallback builder url here somehow
-            fallback_builder_url: Url::parse("http://localhost:8080").unwrap(),
-        };
-
-        // Initialize the system context
-        let handle = SystemContext::<TestTypes, $network_type, TestVersions>::init(
-            $public_key.clone(),
-            $private_key.clone(),
-            $config.clone(),
-            $memberships.clone(),
-            $network,
-            $hotshot_initializer,
-            ConsensusMetricsValue::default(),
-            TestStorage::<TestTypes>::default(),
-            marketplace_config,
-        )
-        .await
-        .with_context(|| "Failed to initialize system context")?
-        .0;
-
-    // If the node index is 0, create and start the builder, which sips off events from HotShot
-    if $node_index == 0 {
-        // Create it
-        let builder_handle =
-            <SimpleBuilderImplementation as TestBuilderImplementation<TestTypes>>::start(
-                $total_num_nodes,
-                $builder_url.clone(),
-                (),
-            HashMap::new(),
-        )
-        .await;
-
-        // Start it
-        builder_handle.start(Box::new(handle.event_stream()));
-    }
-
-    // Start consensus
-    handle.hotshot.start_consensus().await;
-
-    // Create an LRU cache to store the size of the proposed block if we're DA
-    let mut proposed_block_size_cache = LruCache::new(NonZero::new(100).unwrap());
-
-    // Spawn the task into the join set
-    $join_set.spawn(async move {
-        // Get the event stream for this particular node
-        let mut event_stream = handle.event_stream();
-
-        // Wait for a `Decide` event for the view number we requested
-        loop {
-            // Get the next event
-            let event = event_stream.next().await.unwrap();
-
-            // DA proposals contain the full list of transactions. We can use this to cache
-            // the size of the proposed block
-            if let EventType::DaProposal { proposal, .. } = event.event {
-                // Insert the size of the proposed block into the cache
-                proposed_block_size_cache.put(
-                    *proposal.data.view_number,
-                    proposal.data.encoded_transactions.len(),
-                );
-
-                // A `Decide` event contains data that HotShot has decided on
-            } else if let EventType::Decide { qc, .. } = event.event {
-                // If we cached the size of the proposed block, log it
-                if let Some(size) = proposed_block_size_cache.get(&*qc.view_number) {
-                    info!(
-                        block_size = size,
-                        "Decided on view {}", *qc.view_number
-                    );
-                } else {
-                    info!("Decided on view {}", *qc.view_number);
-                }
-
-                // If the view number is divisible by the node's index, submit transactions
-                if $node_index == 0 {
-                    // Generate and submit the requested number of transactions
-                    for _ in 0..$num_transactions_per_view {
-                        // Generate a random transaction
-                        let mut transaction_bytes = vec![0u8; $transaction_size];
-                        rand::thread_rng().fill(&mut transaction_bytes[..]);
-
-                        // Submit the transaction
-                        if let Err(err) = handle
-                            .submit_transaction(TestTransaction::new(transaction_bytes))
-                            .await
-                        {
-                            error!("Failed to submit transaction: {:?}", err);
-                        };
-                    }
-                }
-
-                // If we have a specific view number we want to wait for, check if we've reached it
-                if let Some(num_views) = $num_views {
-                    if *qc.view_number == num_views as u64 {
-                        // Break when we've decided on the view number we requested
-                        break;
-                    }
-                }
-            }
-            }
-        });
-    };
+        .clone())
 }
 
 #[tokio::main]
@@ -483,8 +236,8 @@ async fn main() -> Result<()> {
     // Create the memberships from the known nodes and known da nodes
     let memberships = StaticCommittee::new(known_nodes.clone(), known_da_nodes.clone());
 
-    // Create a `JoinSet` composed of all handles
-    let mut join_set = JoinSet::new();
+    // Create a set composed of all handles
+    let mut join_set = Vec::new();
 
     // Spawn each node
     for index in 0..args.total_num_nodes {
@@ -525,9 +278,13 @@ async fn main() -> Result<()> {
         // Create a network and start HotShot based on the network type
         match network_type {
             NetworkType::Combined => {
+                // Start the CDN if it's not already running
+                let marshal_address = try_start_cdn().await?;
+
                 // Create the combined network
-                let network = create_combined_network(
-                    index,
+                let network = new_combined_network(
+                    Some(marshal_address),
+                    known_libp2p_nodes[index].clone(),
                     args.total_num_nodes,
                     &known_libp2p_nodes,
                     is_da_node(index, args.num_da_nodes),
@@ -538,56 +295,60 @@ async fn main() -> Result<()> {
                 .with_context(|| "Failed to create Combined network")?;
 
                 // Start the node
-                start_node_with_network!(
-                    CombinedImpl,
-                    index,
-                    args.total_num_nodes,
-                    &public_key,
-                    &private_key,
-                    &config,
-                    memberships,
-                    hotshot_initializer,
-                    network,
-                    join_set,
-                    args.num_transactions_per_view,
-                    args.transaction_size,
-                    args.num_views,
-                    builder_url
+                join_set.push(
+                    start_consensus::<CombinedImpl>(
+                        public_key,
+                        private_key,
+                        config,
+                        memberships.clone(),
+                        network,
+                        hotshot_initializer,
+                        args.total_num_nodes,
+                        builder_url.clone(),
+                        args.num_transactions_per_view,
+                        args.transaction_size,
+                        args.num_views,
+                    )
+                    .await?,
                 );
             }
             NetworkType::Cdn => {
+                // Start the CDN if it's not already running
+                let marshal_address = try_start_cdn().await?;
+
                 // Create the CDN network
-                let network = create_cdn_network(
+                let network = new_cdn_network(
+                    Some(marshal_address),
                     is_da_node(index, args.num_da_nodes),
                     &public_key,
                     &private_key,
                 )
-                .await
                 .with_context(|| "Failed to create CDN network")?;
 
                 // Start the node
-                start_node_with_network!(
-                    PushCdnImpl,
-                    index,
-                    args.total_num_nodes,
-                    &public_key,
-                    &private_key,
-                    &config,
-                    memberships,
-                    hotshot_initializer,
-                    network,
-                    join_set,
-                    args.num_transactions_per_view,
-                    args.transaction_size,
-                    args.num_views,
-                    builder_url
+                join_set.push(
+                    start_consensus::<PushCdnImpl>(
+                        public_key,
+                        private_key,
+                        config,
+                        memberships.clone(),
+                        network,
+                        hotshot_initializer,
+                        args.total_num_nodes,
+                        builder_url.clone(),
+                        args.num_transactions_per_view,
+                        args.transaction_size,
+                        args.num_views,
+                    )
+                    .await?,
                 );
             }
 
             NetworkType::LibP2P => {
                 // Create the Libp2p network
-                let network = create_libp2p_network(
-                    index,
+                let network = new_libp2p_network(
+                    // Advertise == bind address here
+                    known_libp2p_nodes[index].clone(),
                     args.total_num_nodes,
                     &public_key,
                     &private_key,
@@ -597,29 +358,29 @@ async fn main() -> Result<()> {
                 .with_context(|| "Failed to create Libp2p network")?;
 
                 // Start the node
-                start_node_with_network!(
-                    Libp2pImpl,
-                    index,
-                    args.total_num_nodes,
-                    &public_key,
-                    &private_key,
-                    &config,
-                    memberships,
-                    hotshot_initializer,
-                    network,
-                    join_set,
-                    args.num_transactions_per_view,
-                    args.transaction_size,
-                    args.num_views,
-                    builder_url
+                join_set.push(
+                    start_consensus::<Libp2pImpl>(
+                        public_key,
+                        private_key,
+                        config,
+                        memberships.clone(),
+                        network,
+                        hotshot_initializer,
+                        args.total_num_nodes,
+                        builder_url.clone(),
+                        args.num_transactions_per_view,
+                        args.transaction_size,
+                        args.num_views,
+                    )
+                    .await?,
                 );
             }
         };
     }
 
     // Wait for all the tasks to finish
-    while let Some(res) = join_set.join_next().await {
-        res.expect("Failed to join task");
+    while let Some(res) = join_set.pop() {
+        res.await.expect("Failed to join task");
     }
 
     Ok(())
