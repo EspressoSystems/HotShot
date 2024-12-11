@@ -191,19 +191,26 @@ impl<TYPES: NodeType> NetworkMessageTaskState<TYPES> {
                 DataMessage::DataResponse(response) => {
                     if let ResponseMessage::Found(message) = response {
                         match message {
-                            SequencingMessage::Da(da_message) => {
-                                if let DaConsensusMessage::VidDisperseMsg(proposal) = da_message {
-                                    broadcast_event(
-                                        Arc::new(HotShotEvent::VidResponseRecv(
-                                            sender,
-                                            convert_proposal(proposal),
-                                        )),
-                                        &self.internal_event_stream,
-                                    )
-                                    .await;
-                                }
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(proposal)) => {
+                                broadcast_event(
+                                    Arc::new(HotShotEvent::VidResponseRecv(
+                                        sender,
+                                        convert_proposal(proposal),
+                                    )),
+                                    &self.internal_event_stream,
+                                )
+                                .await;
                             }
-                            SequencingMessage::General(_) => {}
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg2(
+                                proposal,
+                            )) => {
+                                broadcast_event(
+                                    Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
+                                    &self.internal_event_stream,
+                                )
+                                .await;
+                            }
+                            _ => {}
                         }
                     }
                 }
