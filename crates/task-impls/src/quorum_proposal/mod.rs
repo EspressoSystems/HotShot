@@ -498,8 +498,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     Arc::clone(&event),
                 )?;
             }
-            HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
-                self.cancel_tasks(*view);
+            HotShotEvent::ViewChange(view, epoch) => {
+                if epoch > &self.cur_epoch {
+                    self.cur_epoch = *epoch;
+                }
+                let keep_view = TYPES::View::new(view.saturating_sub(1));
+                self.cancel_tasks(keep_view);
+            }
+            HotShotEvent::Timeout(view, ..) => {
+                let keep_view = TYPES::View::new(view.saturating_sub(1));
+                self.cancel_tasks(keep_view);
             }
             HotShotEvent::HighQcSend(qc, ..) => {
                 ensure!(qc.view_number() > self.highest_qc.view_number());
