@@ -20,6 +20,8 @@
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
 <a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -39,6 +41,8 @@
 
 <span class="doccomment">/// static (round robin leader for 2 consecutive views) committee election
 </span><span class="kw">pub mod </span>static_committee_leader_two_views;
+<span class="doccomment">/// two static (round robin) committees for even and odd epochs
+</span><span class="kw">pub mod </span>two_static_committees;
 
 <span class="doccomment">/// general helpers
 </span><span class="kw">pub mod </span>helpers;

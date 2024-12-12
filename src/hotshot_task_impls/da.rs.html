@@ -365,6 +365,14 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -511,7 +519,7 @@
             HotShotEvent::DaProposalValidated(proposal, sender) =&gt; {
                 <span class="kw">let </span>cur_view = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_view();
                 <span class="kw">let </span>view_number = proposal.data.view_number();
-                <span class="kw">let </span>epoch_number = proposal.data.epoch_number;
+                <span class="kw">let </span>epoch_number = proposal.data.epoch;
 
                 <span class="macro">ensure!</span>(
                   cur_view &lt;= view_number + <span class="number">1</span>,
@@ -576,7 +584,9 @@
 
                 <span class="comment">// Ensure this view is in the view map for garbage collection.
 
-                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_da_view(view_number, payload_commitment) {
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
+                    consensus_writer.update_da_view(view_number, epoch_number, payload_commitment)
+                {
                     <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
                 }
 
@@ -601,7 +611,6 @@
                             view_number,
                             membership,
                             <span class="kw-2">&amp;</span>pk,
-                            epoch_number,
                         )
                         .<span class="kw">await</span>;
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus
@@ -627,13 +636,14 @@
                 <span class="macro">tracing::debug!</span>(<span class="string">"DA vote recv, Main Task {:?}"</span>, vote.view_number());
                 <span class="comment">// Check if we are the leader and the vote is from the sender.
                 </span><span class="kw">let </span>view = vote.view_number();
+                <span class="kw">let </span>epoch = vote.data.epoch;
 
                 <span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                    <span class="self">self</span>.membership.leader(view, epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
                     <span class="macro">debug!</span>(
                       <span class="string">"We are not the DA committee leader for view {} are we leader for next view? {}"</span>,
                       <span class="kw-2">*</span>view,
-                      <span class="self">self</span>.membership.leader(view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key
+                      <span class="self">self</span>.membership.leader(view + <span class="number">1</span>, epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key
                     )
                 );
 
@@ -642,7 +652,7 @@
                     vote,
                     <span class="self">self</span>.public_key.clone(),
                     <span class="kw-2">&amp;</span><span class="self">self</span>.membership,
-                    <span class="self">self</span>.cur_epoch,
+                    epoch,
                     <span class="self">self</span>.id,
                     <span class="kw-2">&amp;</span>event,
                     <span class="kw-2">&amp;</span>event_stream,
@@ -685,12 +695,18 @@
                     TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
                         .wrap()<span class="question-mark">?</span>;
 
+                <span class="kw">if </span><span class="self">self</span>.membership.leader(view_number, <span class="kw-2">*</span>epoch_number)<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
+                    <span class="macro">tracing::debug!</span>(
+                        <span class="string">"We are not the leader in the current epoch. Do not send the DA proposal"
+                    </span>);
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
                 <span class="kw">let </span>data: DaProposal2&lt;TYPES&gt; = DaProposal2 {
                     encoded_transactions: Arc::clone(encoded_transactions),
                     metadata: metadata.clone(),
                     <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
                     </span>view_number,
-                    epoch_number: <span class="kw-2">*</span>epoch_number,
+                    epoch: <span class="kw-2">*</span>epoch_number,
                 };
 
                 <span class="kw">let </span>message = Proposal {

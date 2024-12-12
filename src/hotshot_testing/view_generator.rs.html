@@ -592,11 +592,6 @@
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -621,25 +616,24 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::{
-        DaProposal2, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
         ViewChangeEvidence, ViewNumber,
     },
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate,
+        DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
-        UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData2, TimeoutVote2,
+        UpgradeProposalData, UpgradeVote, ViewSyncFinalizeData2, ViewSyncFinalizeVote2,
     },
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
         BlockPayload,
     },
-    utils::epoch_from_block_number,
 };
 <span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
@@ -658,7 +652,7 @@
     <span class="kw">pub </span>membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
     <span class="kw">pub </span>vid_disperse: Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>vid_proposal: (
-        Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt;,
+        Vec&lt;Proposal&lt;TestTypes, VidDisperseShare2&lt;TestTypes&gt;&gt;&gt;,
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ),
     <span class="kw">pub </span>leader_public_key: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
@@ -666,8 +660,8 @@
     <span class="kw">pub </span>transactions: Vec&lt;TestTransaction&gt;,
     upgrade_data: <span class="prelude-ty">Option</span>&lt;UpgradeProposalData&lt;TestTypes&gt;&gt;,
     formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TestTypes&gt;&gt;,
-    view_sync_finalize_data: <span class="prelude-ty">Option</span>&lt;ViewSyncFinalizeData&lt;TestTypes&gt;&gt;,
-    timeout_cert_data: <span class="prelude-ty">Option</span>&lt;TimeoutData&lt;TestTypes&gt;&gt;,
+    view_sync_finalize_data: <span class="prelude-ty">Option</span>&lt;ViewSyncFinalizeData2&lt;TestTypes&gt;&gt;,
+    timeout_cert_data: <span class="prelude-ty">Option</span>&lt;TimeoutData2&lt;TestTypes&gt;&gt;,
     upgrade_lock: UpgradeLock&lt;TestTypes, TestVersions&gt;,
 }
 
@@ -720,12 +714,11 @@
         .<span class="kw">await</span>;
 
         <span class="kw">let </span>block_header = TestBlockHeader::new(
-            <span class="kw-2">&amp;</span>Leaf::&lt;TestTypes&gt;::genesis(
+            <span class="kw-2">&amp;</span>Leaf2::&lt;TestTypes&gt;::genesis(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
-            .<span class="kw">await
-            </span>.into(),
+            .<span class="kw">await</span>,
             payload_commitment,
             builder_commitment,
             metadata,
@@ -734,12 +727,11 @@
         <span class="kw">let </span>quorum_proposal_inner = QuorumProposal2::&lt;TestTypes&gt; {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis::&lt;TestVersions&gt;(
+            justify_qc: QuorumCertificate2::genesis::&lt;TestVersions&gt;(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
-            .<span class="kw">await
-            </span>.to_qc2(),
+            .<span class="kw">await</span>,
             upgrade_certificate: <span class="prelude-val">None</span>,
             view_change_evidence: <span class="prelude-val">None</span>,
             drb_result: INITIAL_DRB_RESULT,
@@ -756,7 +748,7 @@
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
-            epoch_number: genesis_epoch,
+            epoch: genesis_epoch,
         };
 
         <span class="kw">let </span>da_proposal = Proposal {
@@ -807,6 +799,7 @@
     </span><span class="kw">pub async fn </span>next_view_from_ancestor(<span class="kw-2">&amp;</span><span class="self">self</span>, ancestor: TestView) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>old = ancestor;
         <span class="kw">let </span>old_view = old.view_number;
+        <span class="kw">let </span>old_epoch = old.epoch_number;
 
         <span class="comment">// This ensures that we're always moving forward in time since someone could pass in any
         // test view here.
@@ -818,7 +811,7 @@
 
         <span class="kw">let </span>quorum_data = QuorumData2 {
             leaf_commit: old.leaf.commit(),
-            epoch: EpochNumber::new(<span class="number">0</span>),
+            epoch: old_epoch,
         };
 
         <span class="kw">let </span>(old_private_key, old_public_key) = key_pair_for_id::&lt;TestTypes&gt;(<span class="kw-2">*</span>old_view);
@@ -906,9 +899,9 @@
             <span class="kw">let </span>cert = build_cert::&lt;
                 TestTypes,
                 TestVersions,
-                ViewSyncFinalizeData&lt;TestTypes&gt;,
-                ViewSyncFinalizeVote&lt;TestTypes&gt;,
-                ViewSyncFinalizeCertificate&lt;TestTypes&gt;,
+                ViewSyncFinalizeData2&lt;TestTypes&gt;,
+                ViewSyncFinalizeVote2&lt;TestTypes&gt;,
+                ViewSyncFinalizeCertificate2&lt;TestTypes&gt;,
             &gt;(
                 data.clone(),
                 membership,
@@ -929,9 +922,9 @@
             <span class="kw">let </span>cert = build_cert::&lt;
                 TestTypes,
                 TestVersions,
-                TimeoutData&lt;TestTypes&gt;,
-                TimeoutVote&lt;TestTypes&gt;,
-                TimeoutCertificate&lt;TestTypes&gt;,
+                TimeoutData2&lt;TestTypes&gt;,
+                TimeoutVote2&lt;TestTypes&gt;,
+                TimeoutCertificate2&lt;TestTypes&gt;,
             &gt;(
                 data.clone(),
                 membership,
@@ -999,7 +992,7 @@
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: next_view,
-            epoch_number: <span class="self">self</span>.epoch_number,
+            epoch: old_epoch,
         };
 
         <span class="kw">let </span>da_proposal = Proposal {
@@ -1045,10 +1038,7 @@
         QuorumVote2::&lt;TestTypes&gt;::create_signed_vote(
             QuorumData2 {
                 leaf_commit: <span class="self">self</span>.leaf.commit(),
-                epoch: EpochNumber::new(epoch_from_block_number(
-                    <span class="self">self</span>.leaf.height(),
-                    handle.hotshot.config.epoch_height,
-                )),
+                epoch: <span class="self">self</span>.epoch_number,
             },
             <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span>handle.public_key(),
@@ -1129,7 +1119,7 @@
 
     <span class="kw">pub fn </span>add_view_sync_finalize(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        view_sync_finalize_data: ViewSyncFinalizeData&lt;TestTypes&gt;,
+        view_sync_finalize_data: ViewSyncFinalizeData2&lt;TestTypes&gt;,
     ) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>view) = <span class="self">self</span>.current_view {
             <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(TestView {
@@ -1141,7 +1131,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>add_timeout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, timeout_data: TimeoutData&lt;TestTypes&gt;) {
+    <span class="kw">pub fn </span>add_timeout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, timeout_data: TimeoutData2&lt;TestTypes&gt;) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>view) = <span class="self">self</span>.current_view {
             <span class="self">self</span>.current_view = <span class="prelude-val">Some</span>(TestView {
                 timeout_cert_data: <span class="prelude-val">Some</span>(timeout_data),

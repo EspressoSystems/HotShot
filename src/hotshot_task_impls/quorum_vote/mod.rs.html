@@ -747,6 +747,14 @@
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -956,6 +964,7 @@
             <span class="kw-2">&amp;</span>leaf,
             <span class="kw-2">&amp;</span>vid_share,
             parent_view_number,
+            <span class="self">self</span>.epoch_height,
         )
         .<span class="kw">await
         </span>{
@@ -1059,6 +1068,7 @@
         view_number: TYPES::View,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+        <span class="kw">let </span>id = <span class="self">self</span>.id;
         EventDependency::new(
             event_receiver.clone(),
             Box::new(<span class="kw">move </span>|event| {
@@ -1087,7 +1097,12 @@
                     }
                 };
                 <span class="kw">if </span>event_view == view_number {
-                    <span class="macro">tracing::trace!</span>(<span class="string">"Vote dependency {:?} completed"</span>, dependency_type);
+                    <span class="macro">tracing::trace!</span>(
+                        <span class="string">"Vote dependency {:?} completed for view {:?}, my id is {:?}"</span>,
+                        dependency_type,
+                        view_number,
+                        id,
+                    );
                     <span class="kw">return </span><span class="bool-val">true</span>;
                 }
                 <span class="bool-val">false
@@ -1245,12 +1260,12 @@
                     <span class="string">"Received DAC for an older view."
                 </span>);
 
-                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>cert_epoch = cert.data.epoch;
                 <span class="comment">// Validate the DAC.
                 </span><span class="macro">ensure!</span>(
                     cert.is_valid_cert(
-                        <span class="self">self</span>.membership.da_stake_table(cur_epoch),
-                        <span class="self">self</span>.membership.da_success_threshold(cur_epoch),
+                        <span class="self">self</span>.membership.da_stake_table(cert_epoch),
+                        <span class="self">self</span>.membership.da_success_threshold(cert_epoch),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                     )
                     .<span class="kw">await</span>,
@@ -1281,7 +1296,7 @@
 
                 <span class="comment">// Validate the VID share.
                 </span><span class="kw">let </span>payload_commitment = <span class="kw-2">&amp;</span>disperse.data.payload_commitment;
-                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>disperse_epoch = disperse.data.epoch;
 
                 <span class="comment">// Check that the signature is valid
                 </span><span class="macro">ensure!</span>(
@@ -1292,15 +1307,15 @@
                 <span class="comment">// ensure that the VID share was sent by a DA member OR the view leader
                 </span><span class="macro">ensure!</span>(
                     <span class="self">self</span>.membership
-                        .da_committee_members(view, cur_epoch)
+                        .da_committee_members(view, disperse_epoch)
                         .contains(sender)
-                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.membership.leader(view, cur_epoch)<span class="question-mark">?</span>,
+                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.membership.leader(view, disperse_epoch)<span class="question-mark">?</span>,
                     <span class="string">"VID share was not sent by a DA member or the view leader."
                 </span>);
 
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.membership.total_nodes(cur_epoch)).verify_share(
+                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.membership.total_nodes(disperse_epoch)).verify_share(
                     <span class="kw-2">&amp;</span>disperse.data.share,
                     <span class="kw-2">&amp;</span>disperse.data.common,
                     payload_commitment,
@@ -1328,7 +1343,7 @@
                 .<span class="kw">await</span>;
                 <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
             }
-            HotShotEvent::Timeout(view) =&gt; {
+            HotShotEvent::Timeout(view, ..) =&gt; {
                 <span class="kw">let </span>view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
                 <span class="comment">// cancel old tasks
                 </span><span class="kw">let </span>current_tasks = <span class="self">self</span>.vote_dependencies.split_off(<span class="kw-2">&amp;</span>view);
@@ -1424,6 +1439,7 @@
             <span class="kw-2">&amp;</span>proposed_leaf,
             <span class="kw-2">&amp;</span>updated_vid,
             <span class="prelude-val">Some</span>(parent_leaf.view_number()),
+            <span class="self">self</span>.epoch_height,
         )
         .<span class="kw">await
         </span>{

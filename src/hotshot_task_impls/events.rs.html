@@ -600,6 +600,8 @@
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -614,18 +616,18 @@
 <span class="kw">use </span>hotshot_types::{
     data::{
         DaProposal2, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
-        VidDisperseShare,
+        VidDisperseShare2,
     },
     message::Proposal,
     request_response::ProposalRequestPayload,
     simple_certificate::{
         DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncCommitCertificate, ViewSyncFinalizeCertificate,
-        ViewSyncPreCommitCertificate,
+        TimeoutCertificate2, UpgradeCertificate, ViewSyncCommitCertificate2,
+        ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote2, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote, ViewSyncFinalizeVote,
-        ViewSyncPreCommitVote,
+        DaVote2, QuorumVote2, TimeoutVote2, UpgradeVote, ViewSyncCommitVote2,
+        ViewSyncFinalizeVote2, ViewSyncPreCommitVote2,
     },
     traits::{
         block_contents::BuilderFee, network::DataRequest, node_implementation::NodeType,
@@ -678,9 +680,9 @@
     <span class="doccomment">/// A quorum vote has been received from the network; handled by the consensus task
     </span>QuorumVoteRecv(QuorumVote2&lt;TYPES&gt;),
     <span class="doccomment">/// A timeout vote received from the network; handled by consensus task
-    </span>TimeoutVoteRecv(TimeoutVote&lt;TYPES&gt;),
+    </span>TimeoutVoteRecv(TimeoutVote2&lt;TYPES&gt;),
     <span class="doccomment">/// Send a timeout vote to the network; emitted by consensus task replicas
-    </span>TimeoutVoteSend(TimeoutVote&lt;TYPES&gt;),
+    </span>TimeoutVoteSend(TimeoutVote2&lt;TYPES&gt;),
     <span class="doccomment">/// A DA proposal has been received from the network; handled by the DA task
     </span>DaProposalRecv(Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// A DA proposal has been validated; handled by the DA task and VID task
@@ -725,7 +727,7 @@
     <span class="doccomment">/// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
     </span>QcFormed(Either&lt;QuorumCertificate&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
-    </span>Qc2Formed(Either&lt;QuorumCertificate2&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;),
+    </span>Qc2Formed(Either&lt;QuorumCertificate2&lt;TYPES&gt;, TimeoutCertificate2&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     </span>DacSend(DaCertificate2&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
@@ -734,37 +736,37 @@
     </span>ViewSyncTimeout(TYPES::View, u64, ViewSyncPhase),
 
     <span class="doccomment">/// Receive a `ViewSyncPreCommitVote` from the network; received by a relay in the view sync task
-    </span>ViewSyncPreCommitVoteRecv(ViewSyncPreCommitVote&lt;TYPES&gt;),
+    </span>ViewSyncPreCommitVoteRecv(ViewSyncPreCommitVote2&lt;TYPES&gt;),
     <span class="doccomment">/// Receive a `ViewSyncCommitVote` from the network; received by a relay in the view sync task
-    </span>ViewSyncCommitVoteRecv(ViewSyncCommitVote&lt;TYPES&gt;),
+    </span>ViewSyncCommitVoteRecv(ViewSyncCommitVote2&lt;TYPES&gt;),
     <span class="doccomment">/// Receive a `ViewSyncFinalizeVote` from the network; received by a relay in the view sync task
-    </span>ViewSyncFinalizeVoteRecv(ViewSyncFinalizeVote&lt;TYPES&gt;),
+    </span>ViewSyncFinalizeVoteRecv(ViewSyncFinalizeVote2&lt;TYPES&gt;),
 
     <span class="doccomment">/// Send a `ViewSyncPreCommitVote` from the network; emitted by a replica in the view sync task
-    </span>ViewSyncPreCommitVoteSend(ViewSyncPreCommitVote&lt;TYPES&gt;),
+    </span>ViewSyncPreCommitVoteSend(ViewSyncPreCommitVote2&lt;TYPES&gt;),
     <span class="doccomment">/// Send a `ViewSyncCommitVote` from the network; emitted by a replica in the view sync task
-    </span>ViewSyncCommitVoteSend(ViewSyncCommitVote&lt;TYPES&gt;),
+    </span>ViewSyncCommitVoteSend(ViewSyncCommitVote2&lt;TYPES&gt;),
     <span class="doccomment">/// Send a `ViewSyncFinalizeVote` from the network; emitted by a replica in the view sync task
-    </span>ViewSyncFinalizeVoteSend(ViewSyncFinalizeVote&lt;TYPES&gt;),
+    </span>ViewSyncFinalizeVoteSend(ViewSyncFinalizeVote2&lt;TYPES&gt;),
 
     <span class="doccomment">/// Receive a `ViewSyncPreCommitCertificate` from the network; received by a replica in the view sync task
-    </span>ViewSyncPreCommitCertificateRecv(ViewSyncPreCommitCertificate&lt;TYPES&gt;),
+    </span>ViewSyncPreCommitCertificateRecv(ViewSyncPreCommitCertificate2&lt;TYPES&gt;),
     <span class="doccomment">/// Receive a `ViewSyncCommitCertificate` from the network; received by a replica in the view sync task
-    </span>ViewSyncCommitCertificateRecv(ViewSyncCommitCertificate&lt;TYPES&gt;),
+    </span>ViewSyncCommitCertificateRecv(ViewSyncCommitCertificate2&lt;TYPES&gt;),
     <span class="doccomment">/// Receive a `ViewSyncFinalizeCertificate` from the network; received by a replica in the view sync task
-    </span>ViewSyncFinalizeCertificateRecv(ViewSyncFinalizeCertificate&lt;TYPES&gt;),
+    </span>ViewSyncFinalizeCertificateRecv(ViewSyncFinalizeCertificate2&lt;TYPES&gt;),
 
     <span class="doccomment">/// Send a `ViewSyncPreCommitCertificate` from the network; emitted by a relay in the view sync task
-    </span>ViewSyncPreCommitCertificateSend(ViewSyncPreCommitCertificate&lt;TYPES&gt;, TYPES::SignatureKey),
+    </span>ViewSyncPreCommitCertificateSend(ViewSyncPreCommitCertificate2&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a `ViewSyncCommitCertificate` from the network; emitted by a relay in the view sync task
-    </span>ViewSyncCommitCertificateSend(ViewSyncCommitCertificate&lt;TYPES&gt;, TYPES::SignatureKey),
+    </span>ViewSyncCommitCertificateSend(ViewSyncCommitCertificate2&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Send a `ViewSyncFinalizeCertificate` from the network; emitted by a relay in the view sync task
-    </span>ViewSyncFinalizeCertificateSend(ViewSyncFinalizeCertificate&lt;TYPES&gt;, TYPES::SignatureKey),
+    </span>ViewSyncFinalizeCertificateSend(ViewSyncFinalizeCertificate2&lt;TYPES&gt;, TYPES::SignatureKey),
 
     <span class="doccomment">/// Trigger the start of the view sync protocol; emitted by view sync task; internal trigger only
     </span>ViewSyncTrigger(TYPES::View),
     <span class="doccomment">/// A consensus view has timed out; emitted by a replica in the consensus task; received by the view sync task; internal event only
-    </span>Timeout(TYPES::View),
+    </span>Timeout(TYPES::View, TYPES::Epoch),
     <span class="doccomment">/// Receive transactions from the network
     </span>TransactionsRecv(Vec&lt;TYPES::Transaction&gt;),
     <span class="doccomment">/// Send transactions to the network
@@ -789,10 +791,10 @@
     /// Like [`HotShotEvent::DaProposalRecv`].
     </span>VidShareRecv(
         TYPES::SignatureKey,
-        Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
+        Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
     ),
     <span class="doccomment">/// VID share data is validated.
-    </span>VidShareValidated(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
+    </span>VidShareValidated(Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
     </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network
@@ -831,13 +833,13 @@
         </span>TYPES::SignatureKey,
         <span class="doccomment">/// Recipient key
         </span>TYPES::SignatureKey,
-        Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
+        Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
     ),
 
     <span class="doccomment">/// Receive a VID response from the network; received by the node that triggered the VID request.
     </span>VidResponseRecv(
         TYPES::SignatureKey,
-        Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
+        Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
     ),
 
     <span class="doccomment">/// A replica send us a High QC
@@ -918,7 +920,7 @@
             HotShotEvent::ViewChange(view_number, <span class="kw">_</span>)
             | HotShotEvent::ViewSyncTimeout(view_number, <span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::ViewSyncTrigger(view_number)
-            | HotShotEvent::Timeout(view_number) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>view_number),
+            | HotShotEvent::Timeout(view_number, ..) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>view_number),
             HotShotEvent::DaCertificateRecv(cert) | HotShotEvent::DacSend(cert, <span class="kw">_</span>) =&gt; {
                 <span class="prelude-val">Some</span>(cert.view_number())
             }
@@ -1098,7 +1100,9 @@
             HotShotEvent::ViewSyncTrigger(view_number) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"ViewSyncTrigger(view_number={view_number:?})"</span>)
             }
-            HotShotEvent::Timeout(view_number) =&gt; <span class="macro">write!</span>(f, <span class="string">"Timeout(view_number={view_number:?})"</span>),
+            HotShotEvent::Timeout(view_number, epoch) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"Timeout(view_number={view_number:?}, epoch={epoch:?})"</span>)
+            }
             HotShotEvent::TransactionsRecv(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"TransactionsRecv"</span>),
             HotShotEvent::TransactionSend(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"TransactionSend"</span>),
             HotShotEvent::SendPayloadCommitmentAndMetadata(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, view_number, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {

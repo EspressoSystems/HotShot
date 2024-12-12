@@ -88,6 +88,10 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -110,6 +114,7 @@
     consensus::{CommitmentMap, View},
     data::{
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
+        VidDisperseShare2,
     },
     event::HotShotAction,
     message::Proposal,
@@ -122,6 +127,9 @@
 </span><span class="kw">pub trait </span>Storage&lt;TYPES: NodeType&gt;: Send + Sync + Clone {
     <span class="doccomment">/// Add a proposal to the stored VID proposals.
     </span><span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Add a proposal to the stored VID proposals.
+    </span><span class="kw">async fn </span>append_vid2(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;)
+        -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Add a proposal to the stored DA proposals.
     </span><span class="kw">async fn </span>append_da(
         <span class="kw-2">&amp;</span><span class="self">self</span>,

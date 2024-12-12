@@ -836,6 +836,8 @@
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1317,18 +1319,20 @@
                 .<span class="kw">await</span>;
             }
             HotShotEvent::ViewChange(view, epoch) =&gt; {
-                <span class="kw">if </span><span class="kw-2">*</span>epoch &gt; <span class="self">self</span>.cur_epoch {
-                    <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
-                }
                 <span class="kw">let </span>view = TYPES::View::new(std::cmp::max(<span class="number">1</span>, <span class="kw-2">**</span>view));
+
                 <span class="macro">ensure!</span>(
-                    <span class="kw-2">*</span>view &gt; <span class="kw-2">*</span><span class="self">self</span>.cur_view,
+                    <span class="kw-2">*</span>view &gt; <span class="kw-2">*</span><span class="self">self</span>.cur_view || <span class="kw-2">*</span>epoch &gt; <span class="self">self</span>.cur_epoch,
                     <span class="macro">debug!</span>(
-                      <span class="string">"Received a view change to an older view: tried to change view to {:?} though we are at view {:?}"</span>, view, <span class="self">self</span>.cur_view
+                      <span class="string">"Received a view change to an older view and epoch: tried to change view to {:?}\
+                      and epoch {:?} though we are at view {:?} and epoch {:?}"</span>,
+                        view, epoch, <span class="self">self</span>.cur_view, <span class="self">self</span>.cur_epoch
                     )
                 );
                 <span class="self">self</span>.cur_view = view;
-                <span class="kw">if </span><span class="self">self</span>.membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key {
+                <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
+
+                <span class="kw">if </span><span class="self">self</span>.membership.leader(view, <span class="kw-2">*</span>epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key {
                     <span class="self">self</span>.handle_view_change(<span class="kw-2">&amp;</span>event_stream, view, <span class="kw-2">*</span>epoch).<span class="kw">await</span>;
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
@@ -1378,9 +1382,9 @@
                 </span>))<span class="question-mark">?</span>;
 
             <span class="kw">match </span><span class="kw-2">&amp;</span>view_data.view_inner {
-                ViewInner::Da { payload_commitment } =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, <span class="kw-2">*</span>payload_commitment))
-                }
+                ViewInner::Da {
+                    payload_commitment, ..
+                } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>((target_view, <span class="kw-2">*</span>payload_commitment)),
                 ViewInner::Leaf {
                     leaf: leaf_commitment,
                     ..

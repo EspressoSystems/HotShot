@@ -149,6 +149,42 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -159,26 +195,29 @@
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate2, TimeoutCertificate},
-    simple_vote::{QuorumVote2, TimeoutVote},
+    simple_certificate::{QuorumCertificate2, TimeoutCertificate2},
+    simple_vote::{QuorumVote2, TimeoutVote2},
     traits::{
-        node_implementation::{NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
+    vote::HasViewNumber,
 };
 <span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
-<span class="kw">use </span>utils::anytrace::Result;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="self">self</span>::handlers::{
     handle_quorum_vote_recv, handle_timeout, handle_timeout_vote_recv, handle_view_change,
 };
-<span class="kw">use crate</span>::{events::HotShotEvent, vote_collection::VoteCollectorsMap};
+<span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event, vote_collection::VoteCollectorsMap};
 
 <span class="doccomment">/// Event handlers for use in the `handle` method.
 </span><span class="kw">mod </span>handlers;
@@ -205,7 +244,7 @@
 
     <span class="doccomment">/// A map of `TimeoutVote` collector tasks.
     </span><span class="kw">pub </span>timeout_vote_collectors:
-        VoteCollectorsMap&lt;TYPES, TimeoutVote&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;, V&gt;,
+        VoteCollectorsMap&lt;TYPES, TimeoutVote2&lt;TYPES&gt;, TimeoutCertificate2&lt;TYPES&gt;, V&gt;,
 
     <span class="doccomment">/// The view number that this node is currently executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::View,
@@ -267,10 +306,43 @@
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to handle ViewChange event; error = {e}"</span>);
                 }
             }
-            HotShotEvent::Timeout(view_number) =&gt; {
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_timeout(<span class="kw-2">*</span>view_number, <span class="kw-2">&amp;</span>sender, <span class="self">self</span>).<span class="kw">await </span>{
+            HotShotEvent::Timeout(view_number, epoch) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle_timeout(<span class="kw-2">*</span>view_number, <span class="kw-2">*</span>epoch, <span class="kw-2">&amp;</span>sender, <span class="self">self</span>).<span class="kw">await </span>{
                     <span class="macro">tracing::debug!</span>(<span class="string">"Failed to handle Timeout event; error = {e}"</span>);
                 }
+            }
+            HotShotEvent::Qc2Formed(Either::Left(quorum_cert)) =&gt; {
+                <span class="kw">if </span>!<span class="self">self
+                    </span>.consensus
+                    .read()
+                    .<span class="kw">await
+                    </span>.is_leaf_extended(quorum_cert.data.leaf_commit)
+                {
+                    <span class="macro">tracing::debug!</span>(<span class="string">"We formed QC but not eQC. Do nothing"</span>);
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
+                <span class="kw">let </span>cert_view = quorum_cert.view_number();
+                <span class="kw">let </span>cert_block_number = <span class="self">self
+                    </span>.consensus
+                    .read()
+                    .<span class="kw">await
+                    </span>.saved_leaves()
+                    .get(<span class="kw-2">&amp;</span>quorum_cert.data.leaf_commit)
+                    .context(<span class="macro">error!</span>(
+                        <span class="string">"Could not find the leaf for the eQC. It shouldn't happen."
+                    </span>))<span class="question-mark">?
+                    </span>.height();
+                <span class="kw">let </span>cert_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    cert_block_number,
+                    <span class="self">self</span>.epoch_height,
+                ));
+                <span class="comment">// Transition to the new epoch by sending ViewChange
+                </span><span class="macro">tracing::info!</span>(<span class="string">"Entering new epoch: {:?}"</span>, cert_epoch + <span class="number">1</span>);
+                broadcast_event(
+                    Arc::new(HotShotEvent::ViewChange(cert_view + <span class="number">1</span>, cert_epoch + <span class="number">1</span>)),
+                    <span class="kw-2">&amp;</span>sender,
+                )
+                .<span class="kw">await</span>;
             }
             <span class="kw">_ </span>=&gt; {}
         }

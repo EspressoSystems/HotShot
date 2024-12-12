@@ -434,6 +434,24 @@
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -461,9 +479,12 @@
     message::Proposal,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader, election::Membership, node_implementation::NodeType,
+        block_contents::BlockHeader,
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tracing::instrument;
@@ -548,6 +569,9 @@
 
     <span class="doccomment">/// The highest_qc we've seen at the start of this task
     </span><span class="kw">pub </span>highest_qc: QuorumCertificate2&lt;TYPES&gt;,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; ProposalDependencyHandle&lt;TYPES, V&gt; {
@@ -631,7 +655,6 @@
         parent_qc: QuorumCertificate2&lt;TYPES&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
-            <span class="self">self</span>.view_number,
             <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
             <span class="kw-2">&amp;</span><span class="self">self</span>.receiver,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
@@ -640,6 +663,7 @@
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
             parent_qc.view_number(),
+            <span class="self">self</span>.epoch_height,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -730,6 +754,18 @@
             .context(<span class="macro">warn!</span>(<span class="string">"Failed to construct marketplace block header"</span>))<span class="question-mark">?
         </span>};
 
+        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
+            block_header.block_number(),
+            <span class="self">self</span>.epoch_height,
+        ));
+        <span class="comment">// Make sure we are the leader for the view and epoch.
+        // We might have ended up here because we were in the epoch transition.
+        </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(<span class="self">self</span>.view_number, epoch)<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
+            <span class="macro">tracing::debug!</span>(
+                <span class="string">"We are not the leader in the epoch for which we are about to propose. Do not send the quorum proposal."
+            </span>);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
         <span class="kw">let </span>proposal = QuorumProposal2 {
             block_header,
             view_number: <span class="self">self</span>.view_number,

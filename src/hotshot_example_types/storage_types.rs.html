@@ -292,6 +292,31 @@
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -310,6 +335,7 @@
     consensus::CommitmentMap,
     data::{
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
+        VidDisperseShare2,
     },
     event::HotShotAction,
     message::Proposal,
@@ -330,9 +356,15 @@
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
+<span class="kw">type </span>VidShares2&lt;TYPES&gt; = HashMap&lt;
+    &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
+    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;&gt;,
+&gt;;
+
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>TestStorageState&lt;TYPES: NodeType&gt; {
     vids: VidShares&lt;TYPES&gt;,
+    vid2: VidShares2&lt;TYPES&gt;,
     das: HashMap&lt;TYPES::View, Proposal&lt;TYPES, DaProposal&lt;TYPES&gt;&gt;&gt;,
     da2s: HashMap&lt;TYPES::View, Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;&gt;,
     proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;&gt;,
@@ -347,6 +379,7 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             vids: HashMap::new(),
+            vid2: HashMap::new(),
             das: HashMap::new(),
             da2s: HashMap::new(),
             proposals: BTreeMap::new(),
@@ -419,6 +452,23 @@
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
         inner
             .vids
+            .entry(proposal.data.view_number)
+            .or_default()
+            .insert(proposal.data.recipient_key.clone(), proposal.clone());
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">async fn </span>append_vid2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span><span class="self">self</span>.should_return_err {
+            <span class="macro">bail!</span>(<span class="string">"Failed to append VID proposal to storage"</span>);
+        }
+        <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span><span class="self">self</span>.delay_config).<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
+        inner
+            .vid2
             .entry(proposal.data.view_number)
             .or_default()
             .insert(proposal.data.recipient_key.clone(), proposal.clone());

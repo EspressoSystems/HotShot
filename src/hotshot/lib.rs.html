@@ -1069,6 +1069,11 @@
 <a href="#1069" id="1069">1069</a>
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1120,10 +1125,10 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
-    data::{Leaf, Leaf2, QuorumProposal, QuorumProposal2},
+    data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
     message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -1134,16 +1139,17 @@
         storage::Storage,
         EncodeBytes,
     },
+    utils::epoch_from_block_number,
     HotShotConfig,
 };
-<span class="comment">// -- Rexports
-// External
-</span><span class="doccomment">/// Reexport rand crate
+<span class="doccomment">/// Reexport rand crate
 </span><span class="kw">pub use </span>rand;
 <span class="kw">use </span>tokio::{spawn, time::sleep};
 <span class="kw">use </span>tracing::{debug, instrument, trace};
 
-<span class="kw">use crate</span>::{
+<span class="comment">// -- Rexports
+// External
+</span><span class="kw">use crate</span>::{
     tasks::{add_consensus_tasks, add_network_tasks},
     traits::NodeImplementation,
     types::{Event, SystemContextHandle},
@@ -1362,6 +1368,10 @@
             )),
         };
 
+        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
+            anchored_leaf.height(),
+            config.epoch_height,
+        ));
         <span class="comment">// Insert the validated state to state map.
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -1371,6 +1381,7 @@
                     leaf: anchored_leaf.commit(),
                     state: Arc::clone(<span class="kw-2">&amp;</span>validated_state),
                     delta: initializer.state_delta.clone(),
+                    epoch,
                 },
             },
         );
@@ -1474,6 +1485,7 @@
         </span><span class="kw">let </span>event_stream = <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone();
         <span class="kw">let </span>next_view_timeout = <span class="self">self</span>.config.next_view_timeout;
         <span class="kw">let </span>start_view = <span class="self">self</span>.start_view;
+        <span class="kw">let </span>start_epoch = <span class="self">self</span>.start_epoch;
 
         <span class="comment">// Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
@@ -1481,7 +1493,7 @@
             <span class="kw">async move </span>{
                 sleep(Duration::from_millis(next_view_timeout)).<span class="kw">await</span>;
                 broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(start_view + <span class="number">1</span>)),
+                    Arc::new(HotShotEvent::Timeout(start_view + <span class="number">1</span>, start_epoch + <span class="number">1</span>)),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
@@ -1509,9 +1521,11 @@
                     TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state);
 
                 <span class="kw">let </span>qc = Arc::new(
-                    QuorumCertificate::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="self">self</span>.instance_state.as_ref())
-                        .<span class="kw">await
-                        </span>.to_qc2(),
+                    QuorumCertificate2::genesis::&lt;V&gt;(
+                        <span class="kw-2">&amp;</span>validated_state,
+                        <span class="self">self</span>.instance_state.as_ref(),
+                    )
+                    .<span class="kw">await</span>,
                 );
 
                 broadcast_event(
@@ -2081,14 +2095,10 @@
         instance_state: TYPES::InstanceState,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
-        <span class="kw">let </span>high_qc = QuorumCertificate::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state)
-            .<span class="kw">await
-            </span>.to_qc2();
+        <span class="kw">let </span>high_qc = QuorumCertificate2::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>;
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            inner: Leaf::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state)
-                .<span class="kw">await
-                </span>.into(),
+            inner: Leaf2::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::View::new(<span class="number">0</span>),

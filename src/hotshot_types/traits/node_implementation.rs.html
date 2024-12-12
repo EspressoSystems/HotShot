@@ -271,6 +271,8 @@
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -485,6 +487,8 @@
     </span><span class="kw">type </span>View: ConsensusTime + Display;
     <span class="doccomment">/// Same as above but for epoch.
     </span><span class="kw">type </span>Epoch: ConsensusTime + Display;
+    <span class="doccomment">/// constant for epoch height
+    </span><span class="kw">const </span>EPOCH_HEIGHT: u64;
     <span class="doccomment">/// The AuctionSolverResult is a type that holds the data associated with a particular solver
     /// run, for a particular view.
     </span><span class="kw">type </span>AuctionResult: Debug

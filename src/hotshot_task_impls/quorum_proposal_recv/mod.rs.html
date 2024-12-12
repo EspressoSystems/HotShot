@@ -209,9 +209,6 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -306,8 +303,6 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) public_key: TYPES::SignatureKey,
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    <span class="doccomment">/// Epoch number this node is executing in.
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) consensus: OuterConsensus&lt;TYPES&gt;,
     <span class="doccomment">/// Membership for Quorum Certs/votes
@@ -357,7 +352,6 @@
                     id: <span class="self">self</span>.id,
                     public_key: <span class="self">self</span>.public_key.clone(),
                     private_key: <span class="self">self</span>.private_key.clone(),
-                    cur_epoch: <span class="self">self</span>.cur_epoch,
                     consensus: <span class="self">self</span>.consensus.clone(),
                     quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
                     output_event_stream: <span class="self">self</span>.output_event_stream.clone(),

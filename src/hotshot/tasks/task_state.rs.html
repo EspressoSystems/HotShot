@@ -343,6 +343,7 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -606,6 +607,7 @@
 
         <span class="self">Self </span>{
             latest_proposed_view: handle.cur_view().<span class="kw">await</span>,
+            cur_epoch: handle.cur_epoch().<span class="kw">await</span>,
             proposal_dependencies: BTreeMap::new(),
             consensus: OuterConsensus::new(consensus),
             instance_state: handle.hotshot.instance_state(),

@@ -1034,6 +1034,32 @@
 <a href="#1034" id="1034">1034</a>
 <a href="#1035" id="1035">1035</a>
 <a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1057,7 +1083,7 @@
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
@@ -1082,7 +1108,7 @@
 <span class="doccomment">/// A type alias for `BTreeMap&lt;T::Time, HashMap&lt;T::SignatureKey, Proposal&lt;T, VidDisperseShare&lt;T&gt;&gt;&gt;&gt;`
 </span><span class="kw">pub type </span>VidShares&lt;TYPES&gt; = BTreeMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
-    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
+    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;&gt;,
 &gt;;
 
 <span class="doccomment">/// Type alias for consensus state wrapped in a lock.
@@ -1668,10 +1694,14 @@
     </span><span class="kw">pub fn </span>update_da_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
+        epoch: TYPES::Epoch,
         payload_commitment: VidCommitment,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view = View {
-            view_inner: ViewInner::Da { payload_commitment },
+            view_inner: ViewInner::Da {
+                payload_commitment,
+                epoch,
+            },
         };
         <span class="self">self</span>.update_validated_state_map(view_number, view)
     }
@@ -1688,11 +1718,13 @@
         delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view_number = leaf.view_number();
+        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(leaf.height(), <span class="self">self</span>.epoch_height));
         <span class="kw">let </span>view = View {
             view_inner: ViewInner::Leaf {
                 leaf: leaf.commit(),
                 state,
                 delta,
+                epoch,
             },
         };
         <span class="self">self</span>.update_validated_state_map(view_number, view)<span class="question-mark">?</span>;
@@ -1774,7 +1806,7 @@
     </span><span class="kw">pub fn </span>update_vid_shares(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
-        disperse: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
+        disperse: Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
     ) {
         <span class="self">self</span>.vid_shares
             .entry(view_number)
@@ -1937,11 +1969,17 @@
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
         membership: Arc&lt;TYPES::Membership&gt;,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-        epoch: TYPES::Epoch,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
         <span class="kw">let </span>txns = Arc::clone(consensus.read().<span class="kw">await</span>.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>);
+        <span class="kw">let </span>epoch = consensus
+            .read()
+            .<span class="kw">await
+            </span>.validated_state_map()
+            .get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?
+            </span>.view_inner
+            .epoch()<span class="question-mark">?</span>;
         <span class="kw">let </span>vid = VidDisperse::calculate_vid_disperse(txns, <span class="kw-2">&amp;</span>membership, view, epoch, <span class="prelude-val">None</span>).<span class="kw">await</span>;
-        <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid);
+        <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid);
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
         <span class="kw">for </span>share <span class="kw">in </span>shares {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(prop) = share.to_proposal(private_key) {
@@ -2031,6 +2069,20 @@
     </span><span class="kw">pub fn </span>is_leaf_for_last_block(<span class="kw-2">&amp;</span><span class="self">self</span>, leaf_commit: LeafCommitment&lt;TYPES&gt;) -&gt; bool {
         <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>leaf_commit) <span class="kw">else </span>{
             <span class="macro">tracing::trace!</span>(<span class="string">"We don't have a leaf corresponding to the leaf commit"</span>);
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        };
+        <span class="kw">let </span>block_height = leaf.height();
+        <span class="kw">if </span>block_height == <span class="number">0 </span>|| <span class="self">self</span>.epoch_height == <span class="number">0 </span>{
+            <span class="bool-val">false
+        </span>} <span class="kw">else </span>{
+            block_height % <span class="self">self</span>.epoch_height == <span class="number">0
+        </span>}
+    }
+
+    <span class="doccomment">/// Returns true if our high QC is for the last block in the epoch
+    </span><span class="kw">pub fn </span>is_high_qc_for_last_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span><span class="self">self</span>.high_qc().data.leaf_commit) <span class="kw">else </span>{
+            <span class="macro">tracing::trace!</span>(<span class="string">"We don't have a leaf corresponding to the high QC"</span>);
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
         <span class="kw">let </span>block_height = leaf.height();

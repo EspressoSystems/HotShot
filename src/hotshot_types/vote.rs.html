@@ -286,7 +286,7 @@
 <span class="doccomment">/// A simple vote that has a signer and commitment to the data voted on.
 </span><span class="kw">pub trait </span>Vote&lt;TYPES: NodeType&gt;: HasViewNumber&lt;TYPES&gt; {
     <span class="doccomment">/// Type of data commitment this vote uses.
-    </span><span class="kw">type </span>Commitment: Voteable;
+    </span><span class="kw">type </span>Commitment: Voteable&lt;TYPES&gt;;
 
     <span class="doccomment">/// Get the signature of the vote sender
     </span><span class="kw">fn </span>signature(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PureAssembledSignatureType;
@@ -312,7 +312,7 @@ The votes all must be over the `Commitment` associated type.
 */
 </span><span class="kw">pub trait </span>Certificate&lt;TYPES: NodeType, T&gt;: HasViewNumber&lt;TYPES&gt; {
     <span class="doccomment">/// The data commitment this certificate certifies.
-    </span><span class="kw">type </span>Voteable: Voteable;
+    </span><span class="kw">type </span>Voteable: Voteable&lt;TYPES&gt;;
 
     <span class="doccomment">/// Threshold Functions
     </span><span class="kw">type </span>Threshold: Threshold&lt;TYPES&gt;;

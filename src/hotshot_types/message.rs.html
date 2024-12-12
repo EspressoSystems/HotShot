@@ -565,6 +565,61 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -594,24 +649,27 @@
 <span class="kw">use crate</span>::{
     data::{
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal,
-        VidDisperseShare,
+        VidDisperseShare, VidDisperseShare2,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
         DaCertificate, DaCertificate2, QuorumCertificate2, UpgradeCertificate,
-        ViewSyncCommitCertificate, ViewSyncFinalizeCertificate, ViewSyncPreCommitCertificate,
+        ViewSyncCommitCertificate, ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate,
+        ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
-        DaVote, DaVote2, QuorumVote, QuorumVote2, TimeoutVote, UpgradeVote, ViewSyncCommitVote,
-        ViewSyncFinalizeVote, ViewSyncPreCommitVote,
+        DaVote, DaVote2, QuorumVote, QuorumVote2, TimeoutVote, TimeoutVote2, UpgradeVote,
+        ViewSyncCommitVote, ViewSyncCommitVote2, ViewSyncFinalizeVote, ViewSyncFinalizeVote2,
+        ViewSyncPreCommitVote, ViewSyncPreCommitVote2,
     },
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         network::{DataRequest, ResponseMessage, ViewMessage},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
-    utils::mnemonic,
+    utils::{epoch_from_block_number, mnemonic},
     vote::HasViewNumber,
 };
 
@@ -768,9 +826,6 @@
     <span class="doccomment">/// Message with an upgrade vote
     </span>UpgradeVote(UpgradeVote&lt;TYPES&gt;),
 
-    <span class="doccomment">/// Message for the next leader containing our highest QC
-    </span>HighQc(QuorumCertificate2&lt;TYPES&gt;),
-
     <span class="doccomment">/// Message with a quorum proposal.
     </span>Proposal2(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
 
@@ -787,7 +842,31 @@
     </span>ProposalResponse(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// A replica has responded with a valid proposal.
-    </span>Proposal2Response(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
+    </span>ProposalResponse2(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// Message for the next leader containing our highest QC
+    </span>HighQc(QuorumCertificate2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a view sync pre-commit vote
+    </span>ViewSyncPreCommitVote2(ViewSyncPreCommitVote2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a view sync commit vote
+    </span>ViewSyncCommitVote2(ViewSyncCommitVote2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a view sync finalize vote
+    </span>ViewSyncFinalizeVote2(ViewSyncFinalizeVote2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a view sync pre-commit certificate
+    </span>ViewSyncPreCommitCertificate2(ViewSyncPreCommitCertificate2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a view sync commit certificate
+    </span>ViewSyncCommitCertificate2(ViewSyncCommitCertificate2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a view sync finalize certificate
+    </span>ViewSyncFinalizeCertificate2(ViewSyncFinalizeCertificate2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Message with a Timeout vote
+    </span>TimeoutVote2(TimeoutVote2&lt;TYPES&gt;),
 }
 
 <span class="attr">#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -816,6 +895,11 @@
 
     <span class="doccomment">/// Certificate data is available
     </span>DaCertificate2(DaCertificate2&lt;TYPES&gt;),
+
+    <span class="doccomment">/// Initiate VID dispersal.
+    ///
+    /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
+    </span>VidDisperseMsg2(Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;),
 }
 
 <span class="doccomment">/// Messages for sequencing consensus.
@@ -840,14 +924,20 @@
                         // this should match replica upon receipt
                         </span>p.data.view_number()
                     }
+                    GeneralConsensusMessage::Proposal2(p) =&gt; {
+                        <span class="comment">// view of leader in the leaf when proposal
+                        // this should match replica upon receipt
+                        </span>p.data.view_number()
+                    }
                     GeneralConsensusMessage::ProposalRequested(req, <span class="kw">_</span>) =&gt; req.view_number,
                     GeneralConsensusMessage::ProposalResponse(proposal) =&gt; {
                         proposal.data.view_number()
                     }
-                    GeneralConsensusMessage::Proposal2Response(proposal) =&gt; {
+                    GeneralConsensusMessage::ProposalResponse2(proposal) =&gt; {
                         proposal.data.view_number()
                     }
                     GeneralConsensusMessage::Vote(vote_message) =&gt; vote_message.view_number(),
+                    GeneralConsensusMessage::Vote2(vote_message) =&gt; vote_message.view_number(),
                     GeneralConsensusMessage::TimeoutVote(message) =&gt; message.view_number(),
                     GeneralConsensusMessage::ViewSyncPreCommitVote(message) =&gt; {
                         message.view_number()
@@ -863,15 +953,26 @@
                     GeneralConsensusMessage::ViewSyncFinalizeCertificate(message) =&gt; {
                         message.view_number()
                     }
+                    GeneralConsensusMessage::TimeoutVote2(message) =&gt; message.view_number(),
+                    GeneralConsensusMessage::ViewSyncPreCommitVote2(message) =&gt; {
+                        message.view_number()
+                    }
+                    GeneralConsensusMessage::ViewSyncCommitVote2(message) =&gt; message.view_number(),
+                    GeneralConsensusMessage::ViewSyncFinalizeVote2(message) =&gt; {
+                        message.view_number()
+                    }
+                    GeneralConsensusMessage::ViewSyncPreCommitCertificate2(message) =&gt; {
+                        message.view_number()
+                    }
+                    GeneralConsensusMessage::ViewSyncCommitCertificate2(message) =&gt; {
+                        message.view_number()
+                    }
+                    GeneralConsensusMessage::ViewSyncFinalizeCertificate2(message) =&gt; {
+                        message.view_number()
+                    }
                     GeneralConsensusMessage::UpgradeProposal(message) =&gt; message.data.view_number(),
                     GeneralConsensusMessage::UpgradeVote(message) =&gt; message.view_number(),
                     GeneralConsensusMessage::HighQc(qc) =&gt; qc.view_number(),
-                    GeneralConsensusMessage::Proposal2(p) =&gt; {
-                        <span class="comment">// view of leader in the leaf when proposal
-                        // this should match replica upon receipt
-                        </span>p.data.view_number()
-                    }
-                    GeneralConsensusMessage::Vote2(vote_message) =&gt; vote_message.view_number(),
                 }
             }
             SequencingMessage::Da(da_message) =&gt; {
@@ -884,6 +985,7 @@
                     DaConsensusMessage::DaVote(vote_message) =&gt; vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) =&gt; cert.view_number,
                     DaConsensusMessage::VidDisperseMsg(disperse) =&gt; disperse.data.view_number(),
+                    DaConsensusMessage::VidDisperseMsg2(disperse) =&gt; disperse.data.view_number(),
                     DaConsensusMessage::DaProposal2(p) =&gt; {
                         <span class="comment">// view of leader in the leaf when proposal
                         // this should match replica upon receipt
@@ -953,11 +1055,15 @@
     </span><span class="kw">pub async fn </span>validate_signature&lt;V: Versions&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch_height: u64,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view_number = <span class="self">self</span>.data.view_number();
-        <span class="kw">let </span>view_leader_key = quorum_membership.leader(view_number, epoch)<span class="question-mark">?</span>;
+        <span class="kw">let </span>proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            <span class="self">self</span>.data.block_header.block_number(),
+            epoch_height,
+        ));
+        <span class="kw">let </span>view_leader_key = quorum_membership.leader(view_number, proposal_epoch)<span class="question-mark">?</span>;
         <span class="kw">let </span>proposed_leaf = Leaf::from_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.data);
 
         <span class="macro">ensure!</span>(
@@ -982,10 +1088,14 @@
     </span><span class="kw">pub fn </span>validate_signature(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         quorum_membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch_height: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view_number = <span class="self">self</span>.data.view_number();
-        <span class="kw">let </span>view_leader_key = quorum_membership.leader(view_number, epoch)<span class="question-mark">?</span>;
+        <span class="kw">let </span>proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            <span class="self">self</span>.data.block_header.block_number(),
+            epoch_height,
+        ));
+        <span class="kw">let </span>view_leader_key = quorum_membership.leader(view_number, proposal_epoch)<span class="question-mark">?</span>;
         <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.data);
 
         <span class="macro">ensure!</span>(

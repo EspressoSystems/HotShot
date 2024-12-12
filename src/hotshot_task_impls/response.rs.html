@@ -204,9 +204,6 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -219,7 +216,7 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
-    data::VidDisperseShare,
+    data::VidDisperseShare2,
     message::Proposal,
     traits::{
         election::Membership, network::DataRequest, node_implementation::NodeType,
@@ -347,7 +344,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::View,
         key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(view) = consensus_reader.vid_shares().get(<span class="kw-2">&amp;</span>view) {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(share) = view.get(key) {
@@ -355,7 +352,6 @@
             }
         }
 
-        <span class="kw">let </span>cur_epoch = consensus_reader.cur_epoch();
         drop(consensus_reader);
 
         <span class="kw">if </span>Consensus::calculate_and_update_vid(
@@ -363,7 +359,6 @@
             view,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-            cur_epoch,
         )
         .<span class="kw">await
         </span>.is_none()
@@ -375,7 +370,6 @@
                 view,
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum),
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                cur_epoch,
             )
             .<span class="kw">await</span><span class="question-mark">?</span>;
         }

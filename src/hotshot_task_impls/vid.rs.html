@@ -174,6 +174,15 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -187,9 +196,10 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{PackedBundle, VidDisperse, VidDisperseShare},
+    data::{PackedBundle, VidDisperse, VidDisperseShare2},
     message::Proposal,
     traits::{
+        election::Membership,
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
@@ -252,16 +262,23 @@
                 <span class="kw">let </span>payload =
                     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_bytes(encoded_transactions, metadata);
                 <span class="kw">let </span>builder_commitment = payload.builder_commitment(metadata);
+                <span class="kw">let </span>epoch = <span class="self">self</span>.cur_epoch;
+                <span class="kw">if </span><span class="self">self</span>.membership.leader(<span class="kw-2">*</span>view_number, epoch).ok()<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
+                    <span class="macro">tracing::debug!</span>(
+                        <span class="string">"We are not the leader in the current epoch. Do not send the VID dispersal."
+                    </span>);
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                }
                 <span class="kw">let </span>vid_disperse = VidDisperse::calculate_vid_disperse(
                     Arc::clone(encoded_transactions),
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
-                    <span class="self">self</span>.cur_epoch,
+                    epoch,
                     vid_precompute.clone(),
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment;
-                <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
+                <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
                 <span class="kw">for </span>share <span class="kw">in </span>shares {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(disperse) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) {
@@ -308,6 +325,10 @@
             }
 
             HotShotEvent::ViewChange(view, epoch) =&gt; {
+                <span class="kw">if </span><span class="kw-2">*</span>epoch &gt; <span class="self">self</span>.cur_epoch {
+                    <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
+                }
+
                 <span class="kw">let </span>view = <span class="kw-2">*</span>view;
                 <span class="kw">if </span>(<span class="kw-2">*</span>view != <span class="number">0 </span>|| <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt; <span class="number">0</span>) &amp;&amp; <span class="kw-2">*</span><span class="self">self</span>.cur_view &gt;= <span class="kw-2">*</span>view {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -317,9 +338,6 @@
                     <span class="macro">info!</span>(<span class="string">"View changed by more than 1 going to view {:?}"</span>, view);
                 }
                 <span class="self">self</span>.cur_view = view;
-                <span class="kw">if </span><span class="kw-2">*</span>epoch &gt; <span class="self">self</span>.cur_epoch {
-                    <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
-                }
 
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }

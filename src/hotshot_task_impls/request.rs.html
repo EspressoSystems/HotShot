@@ -378,6 +378,11 @@
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -402,11 +407,13 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
     vote::HasViewNumber,
 };
 <span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
@@ -477,7 +484,10 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>prop_view = proposal.data.view_number();
-                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>prop_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    proposal.data.block_header.block_number(),
+                    TYPES::EPOCH_HEIGHT,
+                ));
 
                 <span class="comment">// If we already have the VID shares for the next view, do nothing.
                 </span><span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view
@@ -488,7 +498,7 @@
                         </span>.vid_shares()
                         .contains_key(<span class="kw-2">&amp;</span>prop_view)
                 {
-                    <span class="self">self</span>.spawn_requests(prop_view, cur_epoch, sender, receiver);
+                    <span class="self">self</span>.spawn_requests(prop_view, prop_epoch, sender, receiver);
                 }
                 <span class="prelude-val">Ok</span>(())
             }

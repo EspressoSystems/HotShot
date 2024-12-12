@@ -551,6 +551,43 @@
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
 <a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -578,6 +615,7 @@
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::EpochTransitionIndicator,
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tokio::task::JoinHandle;
@@ -593,6 +631,9 @@
 </span><span class="kw">pub struct </span>QuorumProposalTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Latest view number that has been proposed for.
     </span><span class="kw">pub </span>latest_proposed_view: TYPES::View,
+
+    <span class="doccomment">/// Current epoch
+    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Table for the in-progress proposal dependency tasks.
     </span><span class="kw">pub </span>proposal_dependencies: BTreeMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
@@ -650,6 +691,7 @@
         view_number: TYPES::View,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; EventDependency&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt; {
+        <span class="kw">let </span>id = <span class="self">self</span>.id;
         EventDependency::new(
             event_receiver,
             Box::new(<span class="kw">move </span>|event| {
@@ -711,7 +753,7 @@
                 <span class="kw">let </span>valid = event_view == view_number;
                 <span class="kw">if </span>valid {
                     <span class="macro">tracing::debug!</span>(
-                        <span class="string">"Dependency {dependency_type:?} is complete for view {event_view:?}!"</span>,
+                        <span class="string">"Dependency {dependency_type:?} is complete for view {event_view:?}, my id is {id:?}!"</span>,
                     );
                 }
                 valid
@@ -826,10 +868,22 @@
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
+        epoch_transition_indicator: EpochTransitionIndicator,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>leader_in_current_epoch =
+            <span class="self">self</span>.quorum_membership.leader(view_number, epoch_number)<span class="question-mark">? </span>== <span class="self">self</span>.public_key;
+        <span class="comment">// If we are in the epoch transition and we are the leader in the next epoch,
+        // we might want to start collecting dependencies for our next epoch proposal.
+        </span><span class="kw">let </span>leader_in_next_epoch = <span class="macro">matches!</span>(
+            epoch_transition_indicator,
+            EpochTransitionIndicator::InTransition
+        ) &amp;&amp; <span class="self">self
+            </span>.quorum_membership
+            .leader(view_number, epoch_number + <span class="number">1</span>)<span class="question-mark">?
+            </span>== <span class="self">self</span>.public_key;
         <span class="comment">// Don't even bother making the task if we are not entitled to propose anyway.
         </span><span class="macro">ensure!</span>(
-            <span class="self">self</span>.quorum_membership.leader(view_number, epoch_number)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+            leader_in_current_epoch || leader_in_next_epoch,
             <span class="macro">debug!</span>(<span class="string">"We are not the leader of the next view"</span>)
         );
 
@@ -869,6 +923,7 @@
                 id: <span class="self">self</span>.id,
                 view_start_time: Instant::now(),
                 highest_qc: <span class="self">self</span>.highest_qc.clone(),
+                epoch_height: <span class="self">self</span>.epoch_height,
             },
         );
         <span class="self">self</span>.proposal_dependencies
@@ -903,13 +958,20 @@
     </span>}
 
     <span class="doccomment">/// Handles a consensus event received on the event stream
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view), name = <span class="string">"handle method"</span>, level = <span class="string">"error"</span>, target = <span class="string">"QuorumProposalTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"handle method"</span>, level = <span class="string">"error"</span>, target = <span class="string">"QuorumProposalTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>epoch_number = <span class="self">self</span>.cur_epoch;
+        <span class="kw">let </span>epoch_transition_indicator = <span class="kw">if </span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.is_high_qc_for_last_block()
+        {
+            EpochTransitionIndicator::InTransition
+        } <span class="kw">else </span>{
+            EpochTransitionIndicator::NotInTransition
+        };
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::UpgradeCertificateFormed(cert) =&gt; {
                 <span class="macro">tracing::debug!</span>(
@@ -926,13 +988,13 @@
             HotShotEvent::Qc2Formed(cert) =&gt; <span class="kw">match </span>cert.clone() {
                 either::Right(timeout_cert) =&gt; {
                     <span class="kw">let </span>view_number = timeout_cert.view_number + <span class="number">1</span>;
-                    <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                     <span class="self">self</span>.create_dependency_task_if_new(
                         view_number,
                         epoch_number,
                         event_receiver,
                         event_sender,
                         Arc::clone(<span class="kw-2">&amp;</span>event),
+                        epoch_transition_indicator,
                     )<span class="question-mark">?</span>;
                 }
                 either::Left(qc) =&gt; {
@@ -960,13 +1022,13 @@
                         </span>.wrap()
                         .context(<span class="macro">error!</span>(<span class="string">"Failed to update high QC in storage!"</span>))<span class="question-mark">?</span>;
                     <span class="kw">let </span>view_number = qc.view_number() + <span class="number">1</span>;
-                    <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                     <span class="self">self</span>.create_dependency_task_if_new(
                         view_number,
                         epoch_number,
                         event_receiver,
                         event_sender,
                         Arc::clone(<span class="kw-2">&amp;</span>event),
+                        epoch_transition_indicator,
                     )<span class="question-mark">?</span>;
                 }
             },
@@ -979,7 +1041,6 @@
                 _auction_result,
             ) =&gt; {
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
-                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
@@ -987,10 +1048,16 @@
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
+                    EpochTransitionIndicator::NotInTransition,
                 )<span class="question-mark">?</span>;
             }
             HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) =&gt; {
-                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="comment">// MERGE TODO
+                //
+                // HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
+                //    let cert_epoch_number = certificate.data.epoch;
+                //
+                </span><span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="macro">ensure!</span>(
                     certificate
@@ -1014,6 +1081,7 @@
                     event_receiver,
                     event_sender,
                     event,
+                    EpochTransitionIndicator::NotInTransition,
                 )<span class="question-mark">?</span>;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) =&gt; {
@@ -1022,7 +1090,6 @@
                 </span><span class="kw">if </span>!<span class="self">self</span>.update_latest_proposed_view(view_number).<span class="kw">await </span>{
                     <span class="macro">tracing::trace!</span>(<span class="string">"Failed to update latest proposed view"</span>);
                 }
-                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
 
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number + <span class="number">1</span>,
@@ -1030,6 +1097,7 @@
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
+                    epoch_transition_indicator,
                 )<span class="question-mark">?</span>;
             }
             HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
@@ -1042,25 +1110,31 @@
             }
             HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>view_number = vid_share.data.view_number();
-                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
                     epoch_number,
                     event_receiver,
                     event_sender,
                     Arc::clone(<span class="kw-2">&amp;</span>event),
+                    EpochTransitionIndicator::NotInTransition,
                 )<span class="question-mark">?</span>;
             }
-            HotShotEvent::ViewChange(view, <span class="kw">_</span>) | HotShotEvent::Timeout(view) =&gt; {
+            HotShotEvent::ViewChange(view, epoch) =&gt; {
+                <span class="kw">if </span>epoch &gt; <span class="kw-2">&amp;</span><span class="self">self</span>.cur_epoch {
+                    <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
+                }
+                <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
+            }
+            HotShotEvent::Timeout(view, ..) =&gt; {
                 <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
             }
             HotShotEvent::HighQcSend(qc, ..) =&gt; {
                 <span class="macro">ensure!</span>(qc.view_number() &gt; <span class="self">self</span>.highest_qc.view_number());
-                <span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>cert_epoch_number = qc.data.epoch;
                 <span class="macro">ensure!</span>(
                     qc.is_valid_cert(
-                        <span class="self">self</span>.quorum_membership.stake_table(epoch_number),
-                        <span class="self">self</span>.quorum_membership.success_threshold(epoch_number),
+                        <span class="self">self</span>.quorum_membership.stake_table(cert_epoch_number),
+                        <span class="self">self</span>.quorum_membership.success_threshold(cert_epoch_number),
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                     )
                     .<span class="kw">await</span>,
