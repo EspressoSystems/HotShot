@@ -48,10 +48,10 @@ pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
-    data::{Leaf, Leaf2, QuorumProposal, QuorumProposal2},
+    data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
     message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
+    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -62,15 +62,16 @@ use hotshot_types::{
         storage::Storage,
         EncodeBytes,
     },
+    utils::epoch_from_block_number,
     HotShotConfig,
 };
-// -- Rexports
-// External
 /// Reexport rand crate
 pub use rand;
 use tokio::{spawn, time::sleep};
 use tracing::{debug, instrument, trace};
 
+// -- Rexports
+// External
 use crate::{
     tasks::{add_consensus_tasks, add_network_tasks},
     traits::NodeImplementation,
@@ -283,6 +284,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             )),
         };
 
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(
+            anchored_leaf.height(),
+            config.epoch_height,
+        ));
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -292,6 +297,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                     leaf: anchored_leaf.commit(),
                     state: Arc::clone(&validated_state),
                     delta: initializer.state_delta.clone(),
+                    epoch,
                 },
             },
         );
@@ -394,6 +400,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         let event_stream = self.internal_event_stream.0.clone();
         let next_view_timeout = self.config.next_view_timeout;
         let start_view = self.start_view;
+        let start_epoch = self.start_epoch;
 
         // Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
@@ -401,7 +408,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             async move {
                 sleep(Duration::from_millis(next_view_timeout)).await;
                 broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(start_view + 1)),
+                    Arc::new(HotShotEvent::Timeout(start_view + 1, start_epoch + 1)),
                     &event_stream,
                 )
                 .await;
@@ -429,9 +436,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                     TYPES::ValidatedState::genesis(&self.instance_state);
 
                 let qc = Arc::new(
-                    QuorumCertificate::genesis::<V>(&validated_state, self.instance_state.as_ref())
-                        .await
-                        .to_qc2(),
+                    QuorumCertificate2::genesis::<V>(
+                        &validated_state,
+                        self.instance_state.as_ref(),
+                    )
+                    .await,
                 );
 
                 broadcast_event(
@@ -996,14 +1005,10 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         instance_state: TYPES::InstanceState,
     ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
-        let high_qc = QuorumCertificate::genesis::<V>(&validated_state, &instance_state)
-            .await
-            .to_qc2();
+        let high_qc = QuorumCertificate2::genesis::<V>(&validated_state, &instance_state).await;
 
         Ok(Self {
-            inner: Leaf::genesis(&validated_state, &instance_state)
-                .await
-                .into(),
+            inner: Leaf2::genesis(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::View::new(0),

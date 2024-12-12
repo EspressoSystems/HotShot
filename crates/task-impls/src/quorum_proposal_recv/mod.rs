@@ -87,8 +87,6 @@ pub(crate) struct ValidationInfo<TYPES: NodeType, I: NodeImplementation<TYPES>, 
     pub(crate) public_key: TYPES::SignatureKey,
     /// Our Private Key
     pub(crate) private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    /// Epoch number this node is executing in.
-    pub cur_epoch: TYPES::Epoch,
     /// Reference to consensus. The replica will require a write lock on this.
     pub(crate) consensus: OuterConsensus<TYPES>,
     /// Membership for Quorum Certs/votes
@@ -137,7 +135,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let validation_info = ValidationInfo::<TYPES, I, V> {
                     public_key: self.public_key.clone(),
                     private_key: self.private_key.clone(),
-                    cur_epoch: self.cur_epoch,
                     consensus: self.consensus.clone(),
                     quorum_membership: Arc::clone(&self.quorum_membership),
                     output_event_stream: self.output_event_stream.clone(),
