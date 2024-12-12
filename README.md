@@ -188,7 +188,7 @@ This will output:
 
 # Debugging
 
-A debugging config file is provided for vscode and vscodium in [`.vscode/launch.json`](https://github.com/EspressoSystems/HotShot/blob/main/.cargo/config). This is intended to be used with [vadimcn/vscode-lldb](https://open-vsx.org/extension/vadimcn/vscode-lldb) but may work with other rust debuggers as well.
+A debugging config file is provided for vscode and vscodium in [`.vscode/launch.json`](https://github.com/EspressoSystems/HotShot/blob/main/.vscode/launch.json). This is intended to be used with [vadimcn/vscode-lldb](https://open-vsx.org/extension/vadimcn/vscode-lldb) but may work with other rust debuggers as well.
 
 To bring `lldb` into scope with nix, run `nix develop .#debugShell`.
 
@@ -222,7 +222,7 @@ Finally, place a breakpoint and run `:DapContinue` to begin debugging.
 
 NOTE: Do NOT configure dap at all with rust-tools. Do it manually.
 
-[Example configuration](https://github.com/DieracDelta/vimconfig/blob/master/modules/lsp.nix#L280).
+[Example configuration](https://github.com/mfussenegger/nvim-dap/wiki/Debug-Adapter-installation#ccrust-via-codelldb#L280).
 
 ## Vscode
 
