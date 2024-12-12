@@ -517,6 +517,7 @@ macro_rules! impl_has_epoch {
 
 impl_has_epoch!(
     QuorumData2<TYPES>,
+    DaData2<TYPES>,
     TimeoutData2<TYPES>,
     ViewSyncPreCommitData2<TYPES>,
     ViewSyncCommitData2<TYPES>,

@@ -686,7 +686,11 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
     }
 }
 
-impl_has_epoch!(DaProposal2<TYPES>);
+impl_has_epoch!(
+    DaProposal2<TYPES>,
+    VidDisperse<TYPES>,
+    VidDisperseShare2<TYPES>
+);
 
 /// The error type for block and its transactions.
 #[derive(Error, Debug, Serialize, Deserialize)]
