@@ -747,7 +747,7 @@
     <span class="kw">let </span>justify_qc = <span class="kw-2">&amp;</span>proposed_leaf.justify_qc();
 
     <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
-    <span class="comment">// Try to find the validated vview within the validasted state map. This will be present
+    <span class="comment">// Try to find the validated view within the validated state map. This will be present
     // if we have the saved leaf, but if not we'll get it when we fetch_proposal.
     </span><span class="kw">let </span><span class="kw-2">mut </span>maybe_validated_view = parent_view_number.and_then(|view_number| {
         consensus_reader

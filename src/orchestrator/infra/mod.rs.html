@@ -1865,7 +1865,7 @@
             .to_string()
         };
 
-        <span class="comment">// Create the qurorum membership from the list of known nodes
+        <span class="comment">// Create the quorum membership from the list of known nodes
         </span><span class="kw">let </span>all_nodes = config.config.known_nodes_with_stake.clone();
         <span class="kw">let </span>da_nodes = config.config.known_da_nodes.clone();
         <span class="kw">let </span>quorum_membership = TYPES::Membership::new(all_nodes, da_nodes);
