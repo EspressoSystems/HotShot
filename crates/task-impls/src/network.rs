@@ -678,8 +678,7 @@ impl<
                 let epoch = self.epoch.u64();
                 let mem = self.membership.clone();
                 spawn(async move {
-                    net.update_view::<TYPES>(keep_view, epoch, &mem)
-                        .await;
+                    net.update_view::<TYPES>(*keep_view, epoch, &mem).await;
                 });
                 None
             }
