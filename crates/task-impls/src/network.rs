@@ -353,11 +353,7 @@ impl<
 
     /// Cancel all tasks for previous views
     pub fn cancel_tasks(&mut self, view: TYPES::View) {
-        if *view == 0 {
-            return;
-        }
-        let keep_view = view - 1;
-        let keep = self.transmit_tasks.split_off(&keep_view);
+        let keep = self.transmit_tasks.split_off(&view);
 
         while let Some((_, tasks)) = self.transmit_tasks.pop_first() {
             for task in tasks {
@@ -676,12 +672,13 @@ impl<
                 if epoch > self.epoch {
                     self.epoch = epoch;
                 }
-                self.cancel_tasks(view);
+                let keep_view = TYPES::View::new(view.saturating_sub(1));
+                self.cancel_tasks(keep_view);
                 let net = Arc::clone(&self.network);
                 let epoch = self.epoch.u64();
                 let mem = self.membership.clone();
                 spawn(async move {
-                    net.update_view::<TYPES>(view.saturating_sub(1), epoch, &mem)
+                    net.update_view::<TYPES>(keep_view, epoch, &mem)
                         .await;
                 });
                 None
