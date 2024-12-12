@@ -59,7 +59,7 @@ pub use self::{
 use super::{
     behaviours::dht::{
         bootstrap::{DHTBootstrapTask, InputEvent},
-        store::ValidatedStore,
+        store::{file_backed::FileBackedStore, validated::ValidatedStore},
     },
     cbor::Cbor,
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
@@ -233,7 +233,7 @@ impl<T: NodeType> NetworkNode<T> {
             let identify = IdentifyBehaviour::new(identify_cfg);
 
             // - Build DHT needed for peer discovery
-            let mut kconfig = Config::default();
+            let mut kconfig = Config::new(StreamProtocol::new("/ipfs/kad/1.0.0"));
             // 8 hours by default
             let record_republication_interval = config
                 .republication_interval
@@ -253,9 +253,20 @@ impl<T: NodeType> NetworkNode<T> {
                 panic!("Replication factor not set");
             }
 
+            // Extract the DHT file path from the config, defaulting to `libp2p_dht.json`
+            let dht_file_path = config
+                .dht_file_path
+                .clone()
+                .unwrap_or_else(|| "libp2p_dht.bin".into());
+
+            // Create the DHT behaviour
             let mut kadem = Behaviour::with_config(
                 peer_id,
-                ValidatedStore::new(MemoryStore::new(peer_id)),
+                FileBackedStore::new(
+                    ValidatedStore::new(MemoryStore::new(peer_id)),
+                    dht_file_path,
+                    10,
+                ),
                 kconfig,
             );
             kadem.set_mode(Some(Mode::Server));
@@ -592,6 +603,7 @@ impl<T: NodeType> NetworkNode<T> {
                                     agent_version: _,
                                     observed_addr: _,
                                 },
+                            connection_id: _,
                         } = *e
                         {
                             let behaviour = self.swarm.behaviour_mut();

@@ -1937,7 +1937,7 @@
         <mxCell id="2Nz8MQJxElo4916phK1H-1" value="Are all events for the same view?&amp;nbsp;" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;" vertex="1" parent="1">
           <mxGeometry x="90" y="740" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="2Nz8MQJxElo4916phK1H-3" value="Events are not for the same veiw" style="whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;arcSize=50;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.flowchart.or;strokeWidth=6;" vertex="1" parent="1">
+        <mxCell id="2Nz8MQJxElo4916phK1H-3" value="Events are not for the same view" style="whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;arcSize=50;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.flowchart.or;strokeWidth=6;" vertex="1" parent="1">
           <mxGeometry x="300" y="740" width="60" height="60" as="geometry" />
         </mxCell>
         <mxCell id="2Nz8MQJxElo4916phK1H-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="2Nz8MQJxElo4916phK1H-1" target="2Nz8MQJxElo4916phK1H-3">
