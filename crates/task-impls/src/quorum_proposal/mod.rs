@@ -98,7 +98,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         view_number: TYPES::View,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
-        let id = self.id;
         EventDependency::new(
             event_receiver,
             Box::new(move |event| {
@@ -160,7 +159,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let valid = event_view == view_number;
                 if valid {
                     tracing::debug!(
-                        "Dependency {dependency_type:?} is complete for view {event_view:?}, my id is {id:?}!",
+                        "Dependency {dependency_type:?} is complete for view {event_view:?}",
                     );
                 }
                 valid

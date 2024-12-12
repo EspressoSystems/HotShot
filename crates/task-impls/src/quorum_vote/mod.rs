@@ -306,7 +306,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         view_number: TYPES::View,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
-        let id = self.id;
         EventDependency::new(
             event_receiver.clone(),
             Box::new(move |event| {
@@ -336,10 +335,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 };
                 if event_view == view_number {
                     tracing::trace!(
-                        "Vote dependency {:?} completed for view {:?}, my id is {:?}",
+                        "Vote dependency {:?} completed for view {:?}",
                         dependency_type,
                         view_number,
-                        id,
                     );
                     return true;
                 }

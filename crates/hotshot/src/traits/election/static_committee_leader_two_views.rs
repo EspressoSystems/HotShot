@@ -15,11 +15,9 @@ use hotshot_types::{
     PeerConfig,
 };
 use primitive_types::U256;
-use serde::{Deserialize, Serialize};
 use utils::anytrace::Result;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 /// The static committee election
 pub struct StaticCommitteeLeaderForTwoViews<T: NodeType> {
     /// The nodes eligible for leadership.
