@@ -16,8 +16,8 @@ use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate2, TimeoutCertificate},
-    simple_vote::{QuorumVote2, TimeoutVote},
+    simple_certificate::{QuorumCertificate2, TimeoutCertificate2},
+    simple_vote::{QuorumVote2, TimeoutVote2},
     traits::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -67,7 +67,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
 
     /// A map of `TimeoutVote` collector tasks.
     pub timeout_vote_collectors:
-        VoteCollectorsMap<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>, V>,
+        VoteCollectorsMap<TYPES, TimeoutVote2<TYPES>, TimeoutCertificate2<TYPES>, V>,
 
     /// The view number that this node is currently executing in.
     pub cur_view: TYPES::View,

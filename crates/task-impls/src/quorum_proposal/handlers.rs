@@ -30,6 +30,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence},
+    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -54,7 +55,7 @@ pub(crate) enum ProposalDependency {
     /// For the `Qc2Formed` event.
     Qc,
 
-    /// For the `ViewSyncFinalizeCertificate2Recv` event.
+    /// For the `ViewSyncFinalizeCertificateRecv` event.
     ViewSyncCert,
 
     /// For the `Qc2Formed` event timeout branch.
@@ -393,14 +394,12 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let proposal = QuorumProposal2 {
             block_header,
             view_number: self.view_number,
-            epoch,
             justify_qc: parent_qc,
             next_epoch_justify_qc: next_epoch_qc,
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
-            // TODO fix these to use the proper values
-            drb_seed: [0; 32],
-            drb_result: [0; 32],
+            drb_seed: INITIAL_DRB_SEED_INPUT,
+            drb_result: INITIAL_DRB_RESULT,
         };
 
         let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);
@@ -475,7 +474,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                         parent_qc = Some(qc.clone());
                     }
                 },
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
+                HotShotEvent::ViewSyncFinalizeCertificateRecv(cert) => {
                     view_sync_finalize_cert = Some(cert.clone());
                 }
                 HotShotEvent::VidDisperseSend(share, _) => {

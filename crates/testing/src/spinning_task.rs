@@ -9,11 +9,6 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    test_launcher::Network,
-    test_runner::{LateNodeContext, LateNodeContextParameters, LateStartNode, Node, TestRunner},
-    test_task::{TestResult, TestTaskState},
-};
 use anyhow::Result;
 use async_broadcast::broadcast;
 use async_lock::RwLock;
@@ -40,6 +35,12 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
     ValidatorConfig,
+};
+
+use crate::{
+    test_launcher::Network,
+    test_runner::{LateNodeContext, LateNodeContextParameters, LateStartNode, Node, TestRunner},
+    test_task::{TestResult, TestTaskState},
 };
 
 /// convenience type for state and block

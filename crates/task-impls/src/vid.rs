@@ -13,11 +13,12 @@ use hotshot_types::traits::block_contents::BlockHeader;
 use hotshot_types::utils::epoch_from_block_number;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{PackedBundle, VidDisperse, VidDisperseShare},
+    data::{PackedBundle, VidDisperse, VidDisperseShare2},
     message::Proposal,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
     },
@@ -99,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;
-                let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
+                let shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
                 let mut consensus_writer = self.consensus.write().await;
                 for share in shares {
                     if let Some(disperse) = share.to_proposal(&self.private_key) {

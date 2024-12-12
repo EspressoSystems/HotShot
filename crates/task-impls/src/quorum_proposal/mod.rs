@@ -122,8 +122,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         }
                     }
                     ProposalDependency::ViewSyncCert => {
-                        if let HotShotEvent::ViewSyncFinalizeCertificate2Recv(view_sync_cert) =
-                            event
+                        if let HotShotEvent::ViewSyncFinalizeCertificateRecv(view_sync_cert) = event
                         {
                             view_sync_cert.view_number()
                         } else {
@@ -230,7 +229,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     qc_dependency.mark_as_completed(event);
                 }
             },
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(_) => {
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(_) => {
                 view_sync_dependency.mark_as_completed(event);
             }
             HotShotEvent::VidDisperseSend(_, _) => {
@@ -462,14 +461,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     EpochTransitionIndicator::NotInTransition,
                 )?;
             }
-            HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
-                let cert_epoch_number = certificate.data.epoch;
+            HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) => {
+                let epoch_number = certificate.data.epoch;
 
                 ensure!(
                     certificate
                         .is_valid_cert(
-                            self.quorum_membership.stake_table(cert_epoch_number),
-                            self.quorum_membership.success_threshold(cert_epoch_number),
+                            self.quorum_membership.stake_table(epoch_number),
+                            self.quorum_membership.success_threshold(epoch_number),
                             &self.upgrade_lock
                         )
                         .await,

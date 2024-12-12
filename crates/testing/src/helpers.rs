@@ -25,11 +25,12 @@ use hotshot_example_types::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare, VidDisperseShare2},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
-    simple_certificate::DaCertificate,
+    simple_certificate::{DaCertificate, DaCertificate2},
     simple_vote::{
-        DaData, DaVote, HasEpoch, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData,
+        DaData, DaData2, DaVote, DaVote2, HasEpoch, QuorumData2, QuorumVote2, SimpleVote,
+        VersionedVoteData,
     },
     traits::{
         block_contents::vid_commitment,
@@ -185,9 +186,9 @@ pub async fn build_cert<
 }
 
 pub fn vid_share<TYPES: NodeType>(
-    shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
+    shares: &[Proposal<TYPES, VidDisperseShare2<TYPES>>],
     pub_key: TYPES::SignatureKey,
-) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
+) -> Proposal<TYPES, VidDisperseShare2<TYPES>> {
     shares
         .iter()
         .filter(|s| s.data.recipient_key == pub_key)
@@ -348,7 +349,7 @@ pub fn build_vid_proposal<TYPES: NodeType>(
 
     (
         vid_disperse_proposal,
-        VidDisperseShare::from_vid_disperse(vid_disperse)
+        VidDisperseShare2::from_vid_disperse(vid_disperse)
             .into_iter()
             .map(|vid_disperse| {
                 vid_disperse
@@ -368,18 +369,18 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
     public_key: &TYPES::SignatureKey,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: &UpgradeLock<TYPES, V>,
-) -> DaCertificate<TYPES> {
+) -> DaCertificate2<TYPES> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let da_payload_commitment =
         vid_commitment(&encoded_transactions, membership.total_nodes(epoch_number));
 
-    let da_data = DaData {
+    let da_data = DaData2 {
         payload_commit: da_payload_commitment,
         epoch: epoch_number,
     };
 
-    build_cert::<TYPES, V, DaData<TYPES>, DaVote<TYPES>, DaCertificate<TYPES>>(
+    build_cert::<TYPES, V, DaData2<TYPES>, DaVote2<TYPES>, DaCertificate2<TYPES>>(
         da_data,
         membership,
         view_number,

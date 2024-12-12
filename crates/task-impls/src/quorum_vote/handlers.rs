@@ -22,7 +22,7 @@ use committable::Committable;
 use hotshot_types::utils::is_last_block_in_epoch;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal2, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperseShare2},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
@@ -278,7 +278,7 @@ pub(crate) async fn update_shared_state<
     instance_state: Arc<TYPES::InstanceState>,
     storage: Arc<RwLock<I::Storage>>,
     proposed_leaf: &Leaf2<TYPES>,
-    vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
     parent_view_number: Option<TYPES::View>,
     epoch_height: u64,
 ) -> Result<()> {
@@ -401,10 +401,10 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: UpgradeLock<TYPES, V>,
     view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
+    epoch_height: u64,
     storage: Arc<RwLock<I::Storage>>,
     leaf: Leaf2<TYPES>,
-    vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: Proposal<TYPES, VidDisperseShare2<TYPES>>,
     extended_vote: bool,
     epoch_height: u64,
 ) -> Result<()> {
@@ -413,6 +413,12 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     // in the next epoch, the node should vote to achieve the double quorum.
     let committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), epoch_height)
         && quorum_membership.has_stake(&public_key, epoch_number + 1);
+
+    let epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        leaf.block_header().block_number(),
+        epoch_height,
+    ));
+
     ensure!(
         committee_member_in_current_epoch || committee_member_in_next_epoch,
         info!(
@@ -439,7 +445,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     storage
         .write()
         .await
-        .append_vid(&vid_share)
+        .append_vid2(&vid_share)
         .await
         .wrap()
         .context(error!("Failed to store VID share"))?;

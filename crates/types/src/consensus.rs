@@ -19,14 +19,15 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vec1::Vec1;
 
-use crate::utils::is_last_block_in_epoch;
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate, NextEpochQuorumCertificate2, QuorumCertificate2},
+    simple_certificate::{
+        DaCertificate, DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2,
+    },
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -35,7 +36,8 @@ use crate::{
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
+        epoch_from_block_number, is_last_block_in_epoch, BuilderCommitment, LeafCommitment,
+        StateAndDelta, Terminator,
     },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
@@ -47,7 +49,7 @@ pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
-    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare2<TYPES>>>,
 >;
 
 /// Type alias for consensus state wrapped in a lock.
@@ -282,7 +284,7 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
-    saved_da_certs: HashMap<TYPES::View, DaCertificate<TYPES>>,
+    saved_da_certs: HashMap<TYPES::View, DaCertificate2<TYPES>>,
 
     /// View number that is currently on.
     cur_view: TYPES::View,
@@ -490,7 +492,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the saved DA certs.
-    pub fn saved_da_certs(&self) -> &HashMap<TYPES::View, DaCertificate<TYPES>> {
+    pub fn saved_da_certs(&self) -> &HashMap<TYPES::View, DaCertificate2<TYPES>> {
         &self.saved_da_certs
     }
 
@@ -776,7 +778,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_vid_shares(
         &mut self,
         view_number: TYPES::View,
-        disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
+        disperse: Proposal<TYPES, VidDisperseShare2<TYPES>>,
     ) {
         self.vid_shares
             .entry(view_number)
@@ -785,7 +787,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Add a new entry to the da_certs map.
-    pub fn update_saved_da_certs(&mut self, view_number: TYPES::View, cert: DaCertificate<TYPES>) {
+    pub fn update_saved_da_certs(&mut self, view_number: TYPES::View, cert: DaCertificate2<TYPES>) {
         self.saved_da_certs.insert(view_number, cert);
     }
 
@@ -950,7 +952,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .epoch()?;
         let vid =
             VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None, None).await;
-        let shares = VidDisperseShare::from_vid_disperse(vid);
+        let shares = VidDisperseShare2::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {
@@ -1054,6 +1056,20 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
         let block_height = leaf.height();
         is_last_block_in_epoch(block_height, self.epoch_height)
+    }
+
+    /// Returns true if our high QC is for the last block in the epoch
+    pub fn is_high_qc_for_last_block(&self) -> bool {
+        let Some(leaf) = self.saved_leaves.get(&self.high_qc().data.leaf_commit) else {
+            tracing::trace!("We don't have a leaf corresponding to the high QC");
+            return false;
+        };
+        let block_height = leaf.height();
+        if block_height == 0 || self.epoch_height == 0 {
+            false
+        } else {
+            block_height % self.epoch_height == 0
+        }
     }
 
     /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`
