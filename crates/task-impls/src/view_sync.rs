@@ -15,7 +15,6 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
-use hotshot_types::utils::EpochTransitionIndicator;
 use hotshot_types::{
     message::UpgradeLock,
     simple_certificate::{
@@ -30,6 +29,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::EpochTransitionIndicator,
     vote::{Certificate, HasViewNumber, Vote},
 };
 use tokio::{spawn, task::JoinHandle, time::sleep};
@@ -320,6 +320,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
                     id: self.id,
+                    epoch: vote.data.epoch,
                 };
                 let vote_collector = create_vote_accumulator(
                     &info,
@@ -364,6 +365,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
                     id: self.id,
+                    epoch: vote.data.epoch,
                 };
 
                 let vote_collector = create_vote_accumulator(
@@ -408,6 +410,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
                     id: self.id,
+                    epoch: vote.data.epoch,
                 };
                 let vote_collector = create_vote_accumulator(
                     &info,

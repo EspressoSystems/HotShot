@@ -21,7 +21,6 @@ use hotshot_types::{
     data::{Leaf2, QuorumProposal2},
     event::Event,
     message::{Proposal, UpgradeLock},
-    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -239,12 +238,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             self.private_key.clone(),
             self.upgrade_lock.clone(),
             self.view_number,
-            self.epoch_height,
             Arc::clone(&self.storage),
             leaf,
             vid_share,
             false,
-            self.epoch_height,
         )
         .await
         {
@@ -724,12 +721,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             self.private_key.clone(),
             self.upgrade_lock.clone(),
             proposal.data.view_number(),
-            self.epoch_height,
             Arc::clone(&self.storage),
             proposed_leaf,
             updated_vid,
             is_vote_leaf_extended,
-            self.epoch_height,
         )
         .await
         {

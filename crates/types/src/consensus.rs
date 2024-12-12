@@ -25,9 +25,7 @@ use crate::{
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{
-        DaCertificate, DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2,
-    },
+    simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -1056,20 +1054,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
         let block_height = leaf.height();
         is_last_block_in_epoch(block_height, self.epoch_height)
-    }
-
-    /// Returns true if our high QC is for the last block in the epoch
-    pub fn is_high_qc_for_last_block(&self) -> bool {
-        let Some(leaf) = self.saved_leaves.get(&self.high_qc().data.leaf_commit) else {
-            tracing::trace!("We don't have a leaf corresponding to the high QC");
-            return false;
-        };
-        let block_height = leaf.height();
-        if block_height == 0 || self.epoch_height == 0 {
-            false
-        } else {
-            block_height % self.epoch_height == 0
-        }
     }
 
     /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`

@@ -11,8 +11,6 @@ use hotshot_example_types::{
         CombinedImpl, EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl,
         TestConsecutiveLeaderTypes, TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader,
         TestVersions,
-        EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestConsecutiveLeaderTypes,
-        TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader, TestVersions,
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };

@@ -62,11 +62,9 @@ pub struct NextEpochQuorumData2<TYPES: NodeType>(QuorumData2<TYPES>);
 // }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
-pub struct DaData<TYPES: NodeType> {
+pub struct DaData {
     /// Commitment to a block payload
     pub payload_commit: VidCommitment,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
@@ -81,8 +79,6 @@ pub struct DaData2<TYPES: NodeType> {
 pub struct TimeoutData<TYPES: NodeType> {
     /// View the timeout is for
     pub view: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a timeout vote.
@@ -99,8 +95,6 @@ pub struct ViewSyncPreCommitData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Pre Commit vote.
@@ -119,8 +113,6 @@ pub struct ViewSyncCommitData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Commit vote.
@@ -139,8 +131,6 @@ pub struct ViewSyncFinalizeData<TYPES: NodeType> {
     pub relay: u64,
     /// The view number we are trying to sync on
     pub round: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a Finalize vote.
@@ -168,8 +158,6 @@ pub struct UpgradeProposalData<TYPES: NodeType + DeserializeOwned> {
     pub old_version_last_view: TYPES::View,
     /// The first block for which the new version will be in effect.
     pub new_version_first_view: TYPES::View,
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    pub epoch: TYPES::Epoch,
 }
 
 /// Data used for an upgrade once epochs are implemented
@@ -388,9 +376,9 @@ impl<TYPES: NodeType> Committable for QuorumData2<TYPES> {
 
 impl<TYPES: NodeType> Committable for NextEpochQuorumData2<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-            committable::RawCommitmentBuilder::new("Quorum data")
-                .var_size_bytes(self.leaf_commit.as_ref())
-                .finalize()
+        committable::RawCommitmentBuilder::new("Quorum data")
+            .var_size_bytes(self.leaf_commit.as_ref())
+            .finalize()
     }
 }
 
@@ -398,7 +386,6 @@ impl<TYPES: NodeType> Committable for TimeoutData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("Timeout data")
             .u64(*self.view)
-            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -417,7 +404,6 @@ impl Committable for DaData {
     fn commit(&self) -> Commitment<Self> {
         committable::RawCommitmentBuilder::new("DA data")
             .var_size_bytes(self.payload_commit.as_ref())
-            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -447,7 +433,6 @@ impl<TYPES: NodeType> Committable for UpgradeProposalData<TYPES> {
             .u16(self.new_version.major)
             .u16(self.old_version.minor)
             .u16(self.old_version.major)
-            .u64(*self.epoch)
             .finalize()
     }
 }
@@ -476,21 +461,15 @@ impl<TYPES: NodeType> Committable for UpgradeData2<TYPES> {
 fn view_and_relay_commit<TYPES: NodeType, T: Committable>(
     view: TYPES::View,
     relay: u64,
-    epoch: TYPES::Epoch,
     tag: &str,
 ) -> Commitment<T> {
     let builder = committable::RawCommitmentBuilder::new(tag);
-    builder.u64(*view).u64(relay).u64(*epoch).finalize()
+    builder.u64(*view).u64(relay).finalize()
 }
 
 impl<TYPES: NodeType> Committable for ViewSyncPreCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(
-            self.round,
-            self.relay,
-            self.epoch,
-            "View Sync Precommit",
-        )
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Precommit")
     }
 }
 
@@ -508,12 +487,7 @@ impl<TYPES: NodeType> Committable for ViewSyncPreCommitData2<TYPES> {
 
 impl<TYPES: NodeType> Committable for ViewSyncFinalizeData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(
-            self.round,
-            self.relay,
-            self.epoch,
-            "View Sync Finalize",
-        )
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Finalize")
     }
 }
 
@@ -531,7 +505,7 @@ impl<TYPES: NodeType> Committable for ViewSyncFinalizeData2<TYPES> {
 
 impl<TYPES: NodeType> Committable for ViewSyncCommitData<TYPES> {
     fn commit(&self) -> Commitment<Self> {
-        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, self.epoch, "View Sync Commit")
+        view_and_relay_commit::<TYPES, Self>(self.round, self.relay, "View Sync Commit")
     }
 }
 
@@ -576,6 +550,14 @@ impl_has_epoch!(
     ViewSyncCommitData2<TYPES>,
     ViewSyncFinalizeData2<TYPES>
 );
+
+impl<TYPES: NodeType, DATA: Voteable<TYPES> + HasEpoch<TYPES>> HasEpoch<TYPES>
+    for SimpleVote<TYPES, DATA>
+{
+    fn epoch(&self) -> TYPES::Epoch {
+        self.data.epoch()
+    }
+}
 
 // impl votable for all the data types in this file sealed marker should ensure nothing is accidentally
 // implemented for structs that aren't "voteable"

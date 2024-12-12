@@ -22,14 +22,14 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse,
-        VidDisperseShare, VidDisperseShare2, ViewChangeEvidence, ViewNumber,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
+        ViewChangeEvidence, ViewNumber,
     },
     drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, DaCertificate2, QuorumCertificate2, TimeoutCertificate, TimeoutCertificate2,
-        UpgradeCertificate, ViewSyncFinalizeCertificate2,
+        DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
         DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData2, TimeoutVote2,
@@ -141,7 +141,6 @@ impl TestView {
             next_epoch_justify_qc: None,
             upgrade_certificate: None,
             view_change_evidence: None,
-            epoch: genesis_epoch,
             drb_result: INITIAL_DRB_RESULT,
             drb_seed: INITIAL_DRB_SEED_INPUT,
         };
@@ -373,7 +372,6 @@ impl TestView {
             next_epoch_justify_qc: None,
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
-            epoch: old_epoch,
             drb_result: INITIAL_DRB_RESULT,
             drb_seed: INITIAL_DRB_SEED_INPUT,
         };

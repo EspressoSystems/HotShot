@@ -25,13 +25,10 @@ use hotshot_example_types::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare, VidDisperseShare2},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
     message::{GeneralConsensusMessage, Proposal, UpgradeLock},
-    simple_certificate::{DaCertificate, DaCertificate2},
-    simple_vote::{
-        DaData, DaData2, DaVote, DaVote2, HasEpoch, QuorumData2, QuorumVote2, SimpleVote,
-        VersionedVoteData,
-    },
+    simple_certificate::DaCertificate2,
+    simple_vote::{DaData2, DaVote2, QuorumData2, QuorumVote2, SimpleVote, VersionedVoteData},
     traits::{
         block_contents::vid_commitment,
         consensus_api::ConsensusApi,
@@ -139,7 +136,7 @@ pub async fn build_system_handle_from_launcher<
 pub async fn build_cert<
     TYPES: NodeType,
     V: Versions,
-    DATAType: Committable + HasEpoch<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
+    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
     VOTE: Vote<TYPES, Commitment = DATAType>,
     CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
 >(
@@ -207,7 +204,7 @@ pub async fn build_assembled_sig<
     V: Versions,
     VOTE: Vote<TYPES>,
     CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
-    DATAType: Committable + HasEpoch<TYPES> + Clone + Eq + Hash + Serialize + Debug + 'static,
+    DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
 >(
     data: &DATAType,
     membership: &TYPES::Membership,

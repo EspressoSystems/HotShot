@@ -34,10 +34,8 @@ use crate::{
     impl_has_epoch,
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
+        NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate2,
         UpgradeCertificate, ViewSyncFinalizeCertificate2,
-        QuorumCertificate, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -183,6 +181,7 @@ impl<TYPES: NodeType> From<DaProposal2<TYPES>> for DaProposal<TYPES> {
             encoded_transactions: da_proposal2.encoded_transactions,
             metadata: da_proposal2.metadata,
             view_number: da_proposal2.view_number,
+            epoch: TYPES::Epoch::new(0),
         }
     }
 }
@@ -240,7 +239,6 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
 
         Self {
             view_number,
-            epoch,
             shares,
             common: vid_disperse.common,
             payload_commitment: vid_disperse.commit,
@@ -312,8 +310,6 @@ impl<TYPES: NodeType> ViewChangeEvidence<TYPES> {
 pub struct VidDisperseShare<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::View,
-    /// Epoch this proposal applies to
-    pub epoch: TYPES::Epoch,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
     /// A storage node's key and its corresponding VID share
@@ -327,7 +323,6 @@ pub struct VidDisperseShare<TYPES: NodeType> {
 impl<TYPES: NodeType> VidDisperseShare<TYPES> {
     /// Create a vector of `VidDisperseShare` from `VidDisperse`
     pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<Self> {
-        let epoch = vid_disperse.epoch;
         vid_disperse
             .shares
             .into_iter()
@@ -337,7 +332,6 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                 view_number: vid_disperse.view_number,
                 common: vid_disperse.common.clone(),
                 payload_commitment: vid_disperse.payload_commitment,
-                epoch,
             })
             .collect()
     }
@@ -366,7 +360,6 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         I: Iterator<Item = &'a Self>,
     {
         let first_vid_disperse_share = it.next()?.clone();
-        let epoch = first_vid_disperse_share.epoch;
         let mut share_map = BTreeMap::new();
         share_map.insert(
             first_vid_disperse_share.recipient_key,
@@ -378,7 +371,6 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
             payload_commitment: first_vid_disperse_share.payload_commitment,
             common: first_vid_disperse_share.common,
             shares: share_map,
-            epoch,
         };
         let _ = it.map(|vid_disperse_share| {
             vid_disperse.shares.insert(
@@ -393,7 +385,6 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
     pub fn to_vid_share_proposals(
         vid_disperse_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
     ) -> Vec<Proposal<TYPES, Self>> {
-        let epoch = vid_disperse_proposal.data.epoch;
         vid_disperse_proposal
             .data
             .shares
@@ -405,7 +396,6 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
                     view_number: vid_disperse_proposal.data.view_number,
                     common: vid_disperse_proposal.data.common.clone(),
                     payload_commitment: vid_disperse_proposal.data.payload_commitment,
-                    epoch,
                 },
                 signature: vid_disperse_proposal.signature.clone(),
                 _pd: vid_disperse_proposal._pd,
@@ -595,9 +585,6 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// view number for the proposal
     pub view_number: TYPES::View,
 
-    /// Epoch this proposal applies to
-    pub epoch: TYPES::Epoch,
-
     /// certificate that the proposal is chaining from
     pub justify_qc: QuorumCertificate2<TYPES>,
 
@@ -628,7 +615,6 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
         Self {
             block_header: quorum_proposal.block_header,
             view_number: quorum_proposal.view_number,
-            epoch: TYPES::Epoch::genesis(),
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
             next_epoch_justify_qc: None,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
@@ -1416,7 +1402,6 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         // The point of this match is that we will get a compile-time error if we add a field without updating this.
         let QuorumProposal2 {
             view_number,
-            epoch,
             justify_qc,
             next_epoch_justify_qc,
             block_header,
