@@ -27,5 +27,5 @@ The HotShot protocol has been internally audited. The report is available [here]
 
 ## Disclaimer
 
-**DISCLAIMER:** This software is provided "as is" and its security has not been **externally** audited. Use at your own risk.
+**DISCLAIMER:** This software is provided "as is" and its security has not been externally audited. Use at your own risk.
 
