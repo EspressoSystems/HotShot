@@ -133,7 +133,7 @@ This second window should now display task usage.
 
 To view distributed logs with just the centralized server and one client, first edit the `centralized_server/orchestrator` file to include have a threshold and num_nodes of 1.
 
-Then open 3 terminals.
+Then open three separate terminals.
 
 ```bash
 # Terminal 1

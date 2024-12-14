@@ -207,6 +207,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             &leaf,
             &vid_share,
             parent_view_number,
+            self.epoch_height,
         )
         .await
         {
@@ -310,6 +311,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         view_number: TYPES::View,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     ) -> EventDependency<Arc<HotShotEvent<TYPES>>> {
+        let id = self.id;
         EventDependency::new(
             event_receiver.clone(),
             Box::new(move |event| {
@@ -338,7 +340,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     }
                 };
                 if event_view == view_number {
-                    tracing::trace!("Vote dependency {:?} completed", dependency_type);
+                    tracing::trace!(
+                        "Vote dependency {:?} completed for view {:?}, my id is {:?}",
+                        dependency_type,
+                        view_number,
+                        id,
+                    );
                     return true;
                 }
                 false
@@ -496,12 +503,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     "Received DAC for an older view."
                 );
 
-                let cur_epoch = self.consensus.read().await.cur_epoch();
+                let cert_epoch = cert.data.epoch;
                 // Validate the DAC.
                 ensure!(
                     cert.is_valid_cert(
-                        self.membership.da_stake_table(cur_epoch).await,
-                        self.membership.da_success_threshold(cur_epoch).await,
+                        self.membership.da_stake_table(cert_epoch).await,
+                        self.membership.da_success_threshold(cert_epoch).await,
                         &self.upgrade_lock
                     )
                     .await,
@@ -532,7 +539,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = &disperse.data.payload_commitment;
-                let cur_epoch = self.consensus.read().await.cur_epoch();
+                let disperse_epoch = disperse.data.epoch;
 
                 // Check that the signature is valid
                 ensure!(
@@ -543,16 +550,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
                     self.membership
-                        .da_committee_members(view, cur_epoch)
+                        .da_committee_members(view, disperse_epoch)
                         .await
                         .contains(sender)
-                        || *sender == self.membership.leader(view, cur_epoch).await?,
+                        || *sender == self.membership.leader(view, disperse_epoch).await?,
                     "VID share was not sent by a DA member or the view leader."
                 );
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                match vid_scheme(self.membership.total_nodes(cur_epoch).await).verify_share(
+                match vid_scheme(self.membership.total_nodes(disperse_epoch).await).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     payload_commitment,
@@ -580,7 +587,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 .await;
                 self.create_dependency_task_if_new(view, event_receiver, &event_sender, None);
             }
-            HotShotEvent::Timeout(view) => {
+            HotShotEvent::Timeout(view, ..) => {
                 let view = TYPES::View::new(view.saturating_sub(1));
                 // cancel old tasks
                 let current_tasks = self.vote_dependencies.split_off(&view);
@@ -676,6 +683,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             &proposed_leaf,
             &updated_vid,
             Some(parent_leaf.view_number()),
+            self.epoch_height,
         )
         .await
         {
