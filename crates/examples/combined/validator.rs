@@ -30,7 +30,7 @@ async fn main() {
 
     let mut args = ValidatorArgs::parse();
 
-    // If we did not set the advertise address, use our local IP and port 8000
+    // If we did not set the advertised address, use our local IP and port 8000
     let local_ip = local_ip().expect("failed to get local IP");
     args.advertise_address = Some(args.advertise_address.unwrap_or(format!("{local_ip}:8000")));
 
