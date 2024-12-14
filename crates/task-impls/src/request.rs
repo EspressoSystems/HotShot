@@ -113,7 +113,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, prop_epoch, sender, receiver).await;
+                    self.spawn_requests(prop_view, prop_epoch, sender, receiver)
+                        .await;
                 }
                 Ok(())
             }
