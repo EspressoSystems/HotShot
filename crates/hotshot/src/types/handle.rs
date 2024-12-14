@@ -131,7 +131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         Ok(())
     }
 
-    /// Request a proposal from the all other nodes.  Will block until some node
+    /// Request a proposal from all the other nodes.  Will block until some node
     /// returns a valid proposal with the requested commitment.  If nobody has the
     /// proposal this will block forever
     ///
@@ -286,7 +286,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.hotshot.consensus()
     }
 
-    /// Shut down the the inner hotshot and wait until all background threads are closed.
+    /// Shut down the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(&mut self) {
         // this is required because `SystemContextHandle` holds an inactive receiver and
         // `broadcast_direct` below can wait indefinitely
