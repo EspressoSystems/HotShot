@@ -79,7 +79,7 @@ pub struct CombinedNetworks<TYPES: NodeType> {
     /// Channels to the delayed tasks
     delayed_tasks_channels: DelayedTasksChannelsMap,
 
-    /// How many times messages were sent on secondary without delay because primary is down
+    /// How many times were messages sent on secondary without delay because the primary is down
     no_delay_counter: Arc<AtomicU64>,
 }
 
