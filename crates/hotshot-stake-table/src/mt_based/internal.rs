@@ -264,7 +264,7 @@ impl<K: Key> PersistentMerkleNode<K> {
         }
     }
 
-    /// Returns the stakes withhelded by a public key, None if the key is not registered.
+    /// Returns the stakes withheld by a public key, None if the key is not registered.
     pub fn simple_lookup(&self, height: usize, path: &[usize]) -> Result<U256, StakeTableError> {
         match self {
             PersistentMerkleNode::Empty => Err(StakeTableError::KeyNotFound),
@@ -320,8 +320,8 @@ impl<K: Key> PersistentMerkleNode<K> {
         }
     }
 
-    /// Imagine that the keys in this subtree is sorted, returns the first key such that
-    /// the prefix sum of withholding stakes is greater or equal the given `stake_number`.
+    /// Imagine that the keys in this subtree are sorted, returns the first key such that
+    /// the prefix sum of withholding stakes is greater or equal to the given `stake_number`.
     /// Useful for key sampling weighted by withholding stakes
     pub fn key_by_stake(&self, mut stake_number: U256) -> Option<(&K, &U256)> {
         if stake_number >= self.total_stakes() {
@@ -571,7 +571,7 @@ impl<K: Key> Iterator for IntoIter<K> {
             return None;
         }
 
-        // This unwrap always succeed because `unvisited` is nonempty
+        // This unwrap always succeeds because `unvisited` is nonempty
         let visiting = (*self.unvisited.pop().unwrap()).clone();
         match visiting {
             PersistentMerkleNode::Empty => None,
@@ -656,7 +656,7 @@ mod tests {
                     .unwrap(),
             );
         }
-        // Check that if the insertion is perform correctly
+        // Check that the insertion is performed correctly
         for i in 0..10 {
             assert!(roots[i].simple_lookup(height, &path[i]).is_err());
             assert_eq!(i, roots[i].num_keys());
