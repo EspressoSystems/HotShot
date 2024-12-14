@@ -72,7 +72,9 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
                     match event.as_ref() {
                         HotShotEvent::VidRequestRecv(request, sender) => {
                             // Verify request is valid
-                            if !self.valid_sender(sender, self.consensus.read().await.cur_epoch())
+                            if !self
+                                .valid_sender(sender, self.consensus.read().await.cur_epoch())
+                                .await
                                 || !valid_signature::<TYPES>(request, sender)
                             {
                                 continue;
@@ -181,8 +183,8 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     }
 
     /// Makes sure the sender is allowed to send a request in the given epoch.
-    fn valid_sender(&self, sender: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool {
-        self.quorum.has_stake(sender, epoch)
+    async fn valid_sender(&self, sender: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool {
+        self.quorum.has_stake(sender, epoch).await
     }
 }
 

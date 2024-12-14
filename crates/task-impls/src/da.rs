@@ -120,7 +120,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 );
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
-                let view_leader_key = self.membership.leader(view, self.cur_epoch)?;
+                let view_leader_key = self.membership.leader(view, self.cur_epoch).await?;
                 ensure!(
                     view_leader_key == sender,
                     warn!(
@@ -169,7 +169,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 .await;
 
                 ensure!(
-                    self.membership.has_da_stake(&self.public_key, epoch_number),
+                    self.membership
+                        .has_da_stake(&self.public_key, epoch_number)
+                        .await,
                     debug!(
                         "We were not chosen for consensus committee for view {:?} in epoch {:?}",
                         view_number, epoch_number
@@ -177,7 +179,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 );
 
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
-                let num_nodes = self.membership.total_nodes(epoch_number);
+                let num_nodes = self.membership.total_nodes(epoch_number).await;
                 let payload_commitment =
                     spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
                 let payload_commitment = payload_commitment.unwrap();
@@ -262,11 +264,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let view = vote.view_number();
 
                 ensure!(
-                    self.membership.leader(view, self.cur_epoch)? == self.public_key,
+                    self.membership.leader(view, self.cur_epoch).await? == self.public_key,
                     debug!(
                       "We are not the DA committee leader for view {} are we leader for next view? {}",
                       *view,
-                      self.membership.leader(view + 1, self.cur_epoch)? == self.public_key
+                      self.membership.leader(view + 1, self.cur_epoch).await? == self.public_key
                     )
                 );
 

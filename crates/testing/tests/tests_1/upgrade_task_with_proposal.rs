@@ -126,7 +126,7 @@ async fn test_upgrade_task_with_proposal() {
     let genesis_cert = proposals[0].data.justify_qc.clone();
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        membership.total_nodes(EpochNumber::new(1)),
+        membership.total_nodes(EpochNumber::new(1)).await,
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -156,7 +156,7 @@ async fn test_upgrade_task_with_proposal() {
                     &membership,
                     ViewNumber::new(1),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 TestMetadata {
                     num_transactions: 0
@@ -175,7 +175,7 @@ async fn test_upgrade_task_with_proposal() {
                     &membership,
                     ViewNumber::new(2),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[0].data.block_header.metadata,
                 ViewNumber::new(2),
@@ -193,7 +193,7 @@ async fn test_upgrade_task_with_proposal() {
                     &membership,
                     ViewNumber::new(3),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[1].data.block_header.metadata,
                 ViewNumber::new(3),

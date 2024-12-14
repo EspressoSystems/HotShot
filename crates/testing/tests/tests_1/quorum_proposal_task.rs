@@ -57,7 +57,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         &membership,
         ViewNumber::new(node_id),
         EpochNumber::new(1),
-    );
+    ).await;
 
     let mut generator = TestViewGenerator::generate(membership.clone());
 
@@ -90,7 +90,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     let genesis_cert = proposals[0].data.justify_qc.clone();
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        membership.total_nodes(EpochNumber::new(1)),
+        membership.total_nodes(EpochNumber::new(1)).await,
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -182,7 +182,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        membership.total_nodes(EpochNumber::new(1)),
+        membership.total_nodes(EpochNumber::new(1)).await,
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -196,7 +196,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                     &membership,
                     ViewNumber::new(1),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 TestMetadata {
                     num_transactions: 0
@@ -215,7 +215,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                     &membership,
                     ViewNumber::new(2),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[0].data.block_header.metadata,
                 ViewNumber::new(2),
@@ -232,7 +232,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                     &membership,
                     ViewNumber::new(3),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[1].data.block_header.metadata,
                 ViewNumber::new(3),
@@ -249,7 +249,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                     &membership,
                     ViewNumber::new(4),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[2].data.block_header.metadata,
                 ViewNumber::new(4),
@@ -266,7 +266,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
                     &membership,
                     ViewNumber::new(5),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment,
                 proposals[3].data.block_header.metadata,
                 ViewNumber::new(5),
@@ -314,7 +314,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
         &membership,
         ViewNumber::new(node_id),
         EpochNumber::new(1),
-    );
+    ).await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let mut generator = TestViewGenerator::generate(membership.clone());
@@ -359,7 +359,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
             },
             ViewNumber::new(3),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                membership.total_nodes(EpochNumber::new(1)),
+                membership.total_nodes(EpochNumber::new(1)).await,
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(3),
             )
@@ -402,7 +402,7 @@ async fn test_quorum_proposal_task_view_sync() {
         &membership,
         ViewNumber::new(node_id),
         EpochNumber::new(1),
-    );
+    ).await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
     let mut generator = TestViewGenerator::generate(membership.clone());
@@ -449,7 +449,7 @@ async fn test_quorum_proposal_task_view_sync() {
             },
             ViewNumber::new(2),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                membership.total_nodes(EpochNumber::new(1)),
+                membership.total_nodes(EpochNumber::new(1)).await,
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(2),
             )
@@ -516,7 +516,7 @@ async fn test_quorum_proposal_task_liveness_check() {
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        membership.total_nodes(EpochNumber::new(1)),
+        membership.total_nodes(EpochNumber::new(1)).await,
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -534,7 +534,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                     &membership,
                     ViewNumber::new(1),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 TestMetadata {
                     num_transactions: 0
@@ -553,7 +553,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                     &membership,
                     ViewNumber::new(2),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[0].data.block_header.metadata,
                 ViewNumber::new(2),
@@ -570,7 +570,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                     &membership,
                     ViewNumber::new(3),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[1].data.block_header.metadata,
                 ViewNumber::new(3),
@@ -587,7 +587,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                     &membership,
                     ViewNumber::new(4),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment.clone(),
                 proposals[2].data.block_header.metadata,
                 ViewNumber::new(4),
@@ -604,7 +604,7 @@ async fn test_quorum_proposal_task_liveness_check() {
                     &membership,
                     ViewNumber::new(5),
                     EpochNumber::new(1)
-                ),
+                ).await,
                 builder_commitment,
                 proposals[3].data.block_header.metadata,
                 ViewNumber::new(5),

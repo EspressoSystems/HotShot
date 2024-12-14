@@ -509,7 +509,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 api
                     .network.da_broadcast_message(
                         serialized_message,
-                        api.memberships.da_committee_members(view_number, TYPES::Epoch::new(1)).iter().cloned().collect(),
+                        api.memberships.da_committee_members(view_number, TYPES::Epoch::new(1)).await.iter().cloned().collect(),
                         BroadcastDelay::None,
                     ),
                 api

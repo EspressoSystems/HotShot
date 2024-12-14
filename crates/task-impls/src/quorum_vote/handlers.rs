@@ -60,6 +60,7 @@ async fn handle_quorum_proposal_validated_drb_calculation_start<
     if task_state
         .membership
         .has_stake(&task_state.public_key, current_epoch_number)
+        .await
     {
         task_state
             .drb_computations
@@ -80,7 +81,7 @@ async fn handle_quorum_proposal_validated_drb_calculation_start<
 ///
 /// We don't need to handle the special cases explicitly here, because the first proposal
 /// with which we'll start the DRB computation is for epoch 3.
-fn handle_quorum_proposal_validated_drb_calculation_seed<
+async fn handle_quorum_proposal_validated_drb_calculation_seed<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     V: Versions,
@@ -113,6 +114,7 @@ fn handle_quorum_proposal_validated_drb_calculation_seed<
         if task_state
             .membership
             .has_stake(&task_state.public_key, current_epoch_number + 1)
+            .await
         {
             let new_epoch_number = current_epoch_number + 2;
             let Ok(drb_seed_input_vec) = bincode::serialize(&proposal.justify_qc.signatures) else {
@@ -252,7 +254,8 @@ pub(crate) async fn handle_quorum_proposal_validated<
                 proposal,
                 task_state,
                 &leaf_views,
-            )?;
+            )
+            .await?;
         }
     }
 
@@ -411,7 +414,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     ));
 
     ensure!(
-        quorum_membership.has_stake(&public_key, epoch_number),
+        quorum_membership.has_stake(&public_key, epoch_number).await,
         info!(
             "We were not chosen for quorum committee on {:?}",
             view_number

@@ -266,7 +266,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
     #[instrument(skip_all, fields(id = self.id, latest_proposed_view = *self.latest_proposed_view), name = "Create dependency task", level = "error")]
-    fn create_dependency_task_if_new(
+    async fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::View,
         epoch_number: TYPES::Epoch,
@@ -276,7 +276,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     ) -> Result<()> {
         // Don't even bother making the task if we are not entitled to propose anyway.
         ensure!(
-            self.quorum_membership.leader(view_number, epoch_number)? == self.public_key,
+            self.quorum_membership
+                .leader(view_number, epoch_number)
+                .await?
+                == self.public_key,
             debug!("We are not the leader of the next view")
         );
 
@@ -380,7 +383,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
-                    )?;
+                    )
+                    .await?;
                 }
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
@@ -414,7 +418,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_receiver,
                         event_sender,
                         Arc::clone(&event),
-                    )?;
+                    )
+                    .await?;
                 }
             },
             HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -434,7 +439,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) => {
                 let epoch_number = self.consensus.read().await.cur_epoch();
@@ -442,8 +448,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 ensure!(
                     certificate
                         .is_valid_cert(
-                            self.quorum_membership.stake_table(epoch_number),
-                            self.quorum_membership.success_threshold(epoch_number),
+                            self.quorum_membership.stake_table(epoch_number).await,
+                            self.quorum_membership.success_threshold(epoch_number).await,
                             &self.upgrade_lock
                         )
                         .await,
@@ -461,7 +467,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     event,
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
@@ -477,7 +484,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::QuorumProposalSend(proposal, _) => {
                 let view = proposal.data.view_number();
@@ -496,7 +504,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_receiver,
                     event_sender,
                     Arc::clone(&event),
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::ViewChange(view, _) | HotShotEvent::Timeout(view) => {
                 self.cancel_tasks(*view);
@@ -506,8 +515,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 let epoch_number = self.consensus.read().await.cur_epoch();
                 ensure!(
                     qc.is_valid_cert(
-                        self.quorum_membership.stake_table(epoch_number),
-                        self.quorum_membership.success_threshold(epoch_number),
+                        self.quorum_membership.stake_table(epoch_number).await,
+                        self.quorum_membership.success_threshold(epoch_number).await,
                         &self.upgrade_lock
                     )
                     .await,

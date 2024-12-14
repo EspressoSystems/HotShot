@@ -187,7 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     // Make sure that the quorum_proposal is valid
-                    if let Err(err) = quorum_proposal.validate_signature(&mem, epoch) {
+                    if let Err(err) = quorum_proposal.validate_signature(&mem, epoch).await {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }
@@ -327,6 +327,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.hotshot
             .memberships
             .leader(view_number, epoch_number)
+            .await
             .context("Failed to lookup leader")
     }
 

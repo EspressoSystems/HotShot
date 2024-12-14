@@ -216,7 +216,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// Create VID dispersal from a specified membership for a given epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
-    pub fn from_membership(
+    pub async fn from_membership(
         view_number: TYPES::View,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
         membership: &TYPES::Membership,
@@ -224,6 +224,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     ) -> Self {
         let shares = membership
             .committee_members(view_number, epoch)
+            .await
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(0)))
             .collect();
@@ -249,7 +250,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         epoch: TYPES::Epoch,
         precompute_data: Option<VidPrecomputeData>,
     ) -> Self {
-        let num_nodes = membership.total_nodes(epoch);
+        let num_nodes = membership.total_nodes(epoch).await;
 
         let vid_disperse = spawn_blocking(move || {
             precompute_data
@@ -262,7 +263,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         let vid_disperse = vid_disperse.unwrap();
 
-        Self::from_membership(view, vid_disperse, membership.as_ref(), epoch)
+        Self::from_membership(view, vid_disperse, membership.as_ref(), epoch).await
     }
 }
 

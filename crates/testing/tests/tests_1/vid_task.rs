@@ -51,7 +51,7 @@ async fn test_vid_task() {
         &membership,
         ViewNumber::new(0),
         EpochNumber::new(0),
-    );
+    ).await;
     let transactions = vec![TestTransaction::new(vec![0])];
 
     let (payload, metadata) = <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
@@ -91,7 +91,7 @@ async fn test_vid_task() {
         vid_disperse,
         &membership,
         EpochNumber::new(0),
-    );
+    ).await;
 
     let vid_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -110,7 +110,7 @@ async fn test_vid_task() {
                 ViewNumber::new(2),
                 EpochNumber::new(0),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    membership.total_nodes(EpochNumber::new(0)),
+                    membership.total_nodes(EpochNumber::new(0)).await,
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )
@@ -132,7 +132,7 @@ async fn test_vid_task() {
                 },
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    membership.total_nodes(EpochNumber::new(0)),
+                    membership.total_nodes(EpochNumber::new(0)).await,
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )

@@ -104,7 +104,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                         hs_event.as_ref()
                     {
                         // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, cur_epoch).is_ok() {
+                        if quorum_proposal.validate_signature(&mem, cur_epoch).await.is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -126,8 +126,8 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
 
     if !justify_qc
         .is_valid_cert(
-            quorum_membership.stake_table(cur_epoch),
-            quorum_membership.success_threshold(cur_epoch),
+            quorum_membership.stake_table(cur_epoch).await,
+            quorum_membership.success_threshold(cur_epoch).await,
             upgrade_lock,
         )
         .await
@@ -438,7 +438,10 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     let consensus_reader = consensus.read().await;
     let cur_epoch = consensus_reader.cur_epoch();
     ensure!(
-        quorum_membership.leader(next_proposal_view_number, cur_epoch)? == public_key,
+        quorum_membership
+            .leader(next_proposal_view_number, cur_epoch)
+            .await?
+            == public_key,
         info!(
             "Somehow we formed a QC but are not the leader for the next view {:?}",
             next_proposal_view_number
@@ -659,10 +662,12 @@ pub(crate) async fn validate_proposal_view_and_certs<
     );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    proposal.validate_signature(
-        &validation_info.quorum_membership,
-        validation_info.cur_epoch,
-    )?;
+    proposal
+        .validate_signature(
+            &validation_info.quorum_membership,
+            validation_info.cur_epoch,
+        )
+        .await?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view_number - 1 {
@@ -685,10 +690,12 @@ pub(crate) async fn validate_proposal_view_and_certs<
                         .is_valid_cert(
                             validation_info
                                 .quorum_membership
-                                .stake_table(validation_info.cur_epoch),
+                                .stake_table(validation_info.cur_epoch)
+                                .await,
                             validation_info
                                 .quorum_membership
-                                .success_threshold(validation_info.cur_epoch),
+                                .success_threshold(validation_info.cur_epoch)
+                                .await,
                             &validation_info.upgrade_lock
                         )
                         .await,
@@ -710,10 +717,12 @@ pub(crate) async fn validate_proposal_view_and_certs<
                         .is_valid_cert(
                             validation_info
                                 .quorum_membership
-                                .stake_table(validation_info.cur_epoch),
+                                .stake_table(validation_info.cur_epoch)
+                                .await,
                             validation_info
                                 .quorum_membership
-                                .success_threshold(validation_info.cur_epoch),
+                                .success_threshold(validation_info.cur_epoch)
+                                .await,
                             &validation_info.upgrade_lock
                         )
                         .await,

@@ -83,7 +83,7 @@ pub trait AggregatableVote<
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
-    ) -> Result<TYPES::SignatureKey>;
+    ) -> impl std::future::Future<Output = Result<TYPES::SignatureKey>> + Send;
 
     /// return the Hotshot event for the completion of this CERT
     fn make_cert_event(certificate: CERT, key: &TYPES::SignatureKey) -> HotShotEvent<TYPES>;
@@ -109,7 +109,7 @@ impl<
     ) -> Result<Option<CERT>> {
         if self.check_if_leader {
             ensure!(
-                vote.leader(&self.membership, self.epoch)? == self.public_key,
+                vote.leader(&self.membership, self.epoch).await? == self.public_key,
                 info!("Received vote for a view in which we were not the leader.")
             );
         }
@@ -336,12 +336,12 @@ type ViewSyncFinalizeVoteState<TYPES, V> = VoteCollectionTaskState<
 impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertificate<TYPES>>
     for QuorumVote<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.view_number() + 1, epoch)
+        membership.leader(self.view_number() + 1, epoch).await
     }
     fn make_cert_event(
         certificate: QuorumCertificate<TYPES>,
@@ -354,12 +354,12 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote<TYPES>, QuorumCertifica
 impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote2<TYPES>, QuorumCertificate2<TYPES>>
     for QuorumVote2<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.view_number() + 1, epoch)
+        membership.leader(self.view_number() + 1, epoch).await
     }
     fn make_cert_event(
         certificate: QuorumCertificate2<TYPES>,
@@ -372,12 +372,12 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, QuorumVote2<TYPES>, QuorumCertific
 impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertificate<TYPES>>
     for UpgradeVote<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.view_number(), epoch)
+        membership.leader(self.view_number(), epoch).await
     }
     fn make_cert_event(
         certificate: UpgradeCertificate<TYPES>,
@@ -390,12 +390,12 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, UpgradeVote<TYPES>, UpgradeCertifi
 impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote2<TYPES>, DaCertificate2<TYPES>>
     for DaVote2<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.view_number(), epoch)
+        membership.leader(self.view_number(), epoch).await
     }
     fn make_cert_event(
         certificate: DaCertificate2<TYPES>,
@@ -408,12 +408,12 @@ impl<TYPES: NodeType> AggregatableVote<TYPES, DaVote2<TYPES>, DaCertificate2<TYP
 impl<TYPES: NodeType> AggregatableVote<TYPES, TimeoutVote<TYPES>, TimeoutCertificate<TYPES>>
     for TimeoutVote<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.view_number() + 1, epoch)
+        membership.leader(self.view_number() + 1, epoch).await
     }
     fn make_cert_event(
         certificate: TimeoutCertificate<TYPES>,
@@ -427,12 +427,14 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncCommitVote<TYPES>, ViewSyncCommitCertificate<TYPES>>
     for ViewSyncCommitVote<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.date().round + self.date().relay, epoch)
+        membership
+            .leader(self.date().round + self.date().relay, epoch)
+            .await
     }
     fn make_cert_event(
         certificate: ViewSyncCommitCertificate<TYPES>,
@@ -446,12 +448,14 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncPreCommitVote<TYPES>, ViewSyncPreCommitCertificate<TYPES>>
     for ViewSyncPreCommitVote<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.date().round + self.date().relay, epoch)
+        membership
+            .leader(self.date().round + self.date().relay, epoch)
+            .await
     }
     fn make_cert_event(
         certificate: ViewSyncPreCommitCertificate<TYPES>,
@@ -465,12 +469,14 @@ impl<TYPES: NodeType>
     AggregatableVote<TYPES, ViewSyncFinalizeVote<TYPES>, ViewSyncFinalizeCertificate<TYPES>>
     for ViewSyncFinalizeVote<TYPES>
 {
-    fn leader(
+    async fn leader(
         &self,
         membership: &TYPES::Membership,
         epoch: TYPES::Epoch,
     ) -> Result<TYPES::SignatureKey> {
-        membership.leader(self.date().round + self.date().relay, epoch)
+        membership
+            .leader(self.date().round + self.date().relay, epoch)
+            .await
     }
     fn make_cert_event(
         certificate: ViewSyncFinalizeCertificate<TYPES>,

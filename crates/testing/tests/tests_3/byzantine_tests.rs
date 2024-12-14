@@ -171,12 +171,12 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let nodes_count: usize = 10;
-        let behaviour = Rc::new(move |node_id| {
+        let behaviour = Rc::new(  move |node_id|   {
             let dishonest_voting = DishonestVoting {
                 view_increment: nodes_count as u64,
-                modifier: Arc::new(move |_pk, message_kind, transmit_type: &mut TransmitType<TestTypes>, membership: &<TestTypes as NodeType>::Membership| {
+                modifier: Arc::new(  move   |_pk, message_kind, transmit_type: &mut TransmitType<TestTypes>, membership: &<TestTypes as NodeType>::Membership|     {
                     if let MessageKind::Consensus(SequencingMessage::General(GeneralConsensusMessage::Vote(vote))) = message_kind {
-                        *transmit_type = TransmitType::Direct(membership.leader(vote.view_number() + 1 - nodes_count as u64, EpochNumber::new(0)).unwrap());
+                        *transmit_type = TransmitType::Direct(tokio::runtime::Runtime::new().unwrap().block_on(membership.leader(vote.view_number() + 1 - nodes_count as u64, EpochNumber::new(0))).unwrap());
                     } else {
                         {}
                     }

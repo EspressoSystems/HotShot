@@ -43,7 +43,7 @@ pub trait Threshold<TYPES: NodeType> {
     fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: <TYPES as NodeType>::Epoch,
-    ) -> u64;
+    ) -> impl futures::Future<Output = u64> + Send;
 }
 
 /// Defines a threshold which is 2f + 1 (Amount needed for Quorum)
@@ -51,11 +51,11 @@ pub trait Threshold<TYPES: NodeType> {
 pub struct SuccessThreshold {}
 
 impl<TYPES: NodeType> Threshold<TYPES> for SuccessThreshold {
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+    async fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: <TYPES as NodeType>::Epoch,
     ) -> u64 {
-        membership.success_threshold(epoch).into()
+        membership.success_threshold(epoch).await.into()
     }
 }
 
@@ -64,11 +64,11 @@ impl<TYPES: NodeType> Threshold<TYPES> for SuccessThreshold {
 pub struct OneHonestThreshold {}
 
 impl<TYPES: NodeType> Threshold<TYPES> for OneHonestThreshold {
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+    async fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: <TYPES as NodeType>::Epoch,
     ) -> u64 {
-        membership.failure_threshold(epoch).into()
+        membership.failure_threshold(epoch).await.into()
     }
 }
 
@@ -77,11 +77,11 @@ impl<TYPES: NodeType> Threshold<TYPES> for OneHonestThreshold {
 pub struct UpgradeThreshold {}
 
 impl<TYPES: NodeType> Threshold<TYPES> for UpgradeThreshold {
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+    async fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: <TYPES as NodeType>::Epoch,
     ) -> u64 {
-        membership.upgrade_threshold(epoch).into()
+        membership.upgrade_threshold(epoch).await.into()
     }
 }
 
@@ -187,7 +187,8 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
         membership: &MEMBERSHIP,
         pub_key: &TYPES::SignatureKey,
         epoch: TYPES::Epoch,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
+    ) -> impl futures::Future<Output = Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>>
+           + Send {
         membership.da_stake(pub_key, epoch)
     }
 
@@ -195,21 +196,22 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
     fn stake_table<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
-    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
+    ) -> impl futures::Future<Output = Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>> + Send
+    {
         membership.da_stake_table(epoch)
     }
     /// Proxy's to `Membership.da_total_nodes`
     fn total_nodes<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
-    ) -> usize {
+    ) -> impl futures::Future<Output = usize> + Send {
         membership.da_total_nodes(epoch)
     }
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+    async fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: <TYPES as NodeType>::Epoch,
     ) -> u64 {
-        membership.da_success_threshold(epoch).into()
+        membership.da_success_threshold(epoch).await.into()
     }
     fn data(&self) -> &Self::Voteable {
         &self.data
@@ -271,33 +273,34 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData2<TY
         )
     }
     /// Proxy's to `Membership.stake`
-    fn stake_table_entry<MEMBERSHIP: Membership<TYPES>>(
+    async fn stake_table_entry<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         pub_key: &TYPES::SignatureKey,
         epoch: TYPES::Epoch,
     ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
-        membership.da_stake(pub_key, epoch)
+        membership.da_stake(pub_key, epoch).await
     }
 
     /// Proxy's to `Membership.da_stake_table`
     fn stake_table<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
-    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
+    ) -> impl futures::Future<Output = Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>> + Send
+    {
         membership.da_stake_table(epoch)
     }
     /// Proxy's to `Membership.da_total_nodes`
-    fn total_nodes<MEMBERSHIP: Membership<TYPES>>(
+    async fn total_nodes<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
     ) -> usize {
-        membership.da_total_nodes(epoch)
+        membership.da_total_nodes(epoch).await
     }
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+    async fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
     ) -> u64 {
-        membership.da_success_threshold(epoch).into()
+        membership.da_success_threshold(epoch).await.into()
     }
     fn data(&self) -> &Self::Voteable {
         &self.data
@@ -358,25 +361,27 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static + QuorumMarker, THRESHOLD: Th
             self.signatures.as_ref().unwrap(),
         )
     }
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+    async fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: <TYPES as NodeType>::Epoch,
     ) -> u64 {
-        THRESHOLD::threshold(membership, epoch)
+        THRESHOLD::threshold(membership, epoch).await
     }
 
     fn stake_table_entry<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         pub_key: &TYPES::SignatureKey,
         epoch: TYPES::Epoch,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
+    ) -> impl futures::Future<Output = Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>>
+           + Send {
         membership.stake(pub_key, epoch)
     }
 
     fn stake_table<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
-    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
+    ) -> impl futures::Future<Output = Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>> + Send
+    {
         membership.stake_table(epoch)
     }
 
@@ -384,7 +389,7 @@ impl<TYPES: NodeType, VOTEABLE: Voteable + 'static + QuorumMarker, THRESHOLD: Th
     fn total_nodes<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
-    ) -> usize {
+    ) -> impl futures::Future<Output = usize> + Send {
         membership.total_nodes(epoch)
     }
 
@@ -451,8 +456,8 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
         if let Some(ref cert) = upgrade_certificate {
             ensure!(
                 cert.is_valid_cert(
-                    quorum_membership.stake_table(epoch),
-                    quorum_membership.upgrade_threshold(epoch),
+                    quorum_membership.stake_table(epoch).await,
+                    quorum_membership.upgrade_threshold(epoch).await,
                     upgrade_lock
                 )
                 .await,

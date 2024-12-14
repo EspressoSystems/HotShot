@@ -128,9 +128,12 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                     .is_valid_cert(
                         // TODO take epoch from `qc`
                         // https://github.com/EspressoSystems/HotShot/issues/3917
-                        self.quorum_membership.stake_table(TYPES::Epoch::new(0)),
                         self.quorum_membership
-                            .success_threshold(TYPES::Epoch::new(0)),
+                            .stake_table(TYPES::Epoch::new(0))
+                            .await,
+                        self.quorum_membership
+                            .success_threshold(TYPES::Epoch::new(0))
+                            .await,
                         &self.upgrade_lock,
                     )
                     .await

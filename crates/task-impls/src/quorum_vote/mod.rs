@@ -500,8 +500,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // Validate the DAC.
                 ensure!(
                     cert.is_valid_cert(
-                        self.membership.da_stake_table(cur_epoch),
-                        self.membership.da_success_threshold(cur_epoch),
+                        self.membership.da_stake_table(cur_epoch).await,
+                        self.membership.da_success_threshold(cur_epoch).await,
                         &self.upgrade_lock
                     )
                     .await,
@@ -544,14 +544,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 ensure!(
                     self.membership
                         .da_committee_members(view, cur_epoch)
+                        .await
                         .contains(sender)
-                        || *sender == self.membership.leader(view, cur_epoch)?,
+                        || *sender == self.membership.leader(view, cur_epoch).await?,
                     "VID share was not sent by a DA member or the view leader."
                 );
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                match vid_scheme(self.membership.total_nodes(cur_epoch)).verify_share(
+                match vid_scheme(self.membership.total_nodes(cur_epoch).await).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     payload_commitment,

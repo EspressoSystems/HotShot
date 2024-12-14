@@ -309,7 +309,10 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay, self.cur_epoch)? == self.public_key,
+                    self.membership
+                        .leader(vote_view + relay, self.cur_epoch)
+                        .await?
+                        == self.public_key,
                     "View sync vote sent to wrong leader"
                 );
 
@@ -354,7 +357,10 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay, self.cur_epoch)? == self.public_key,
+                    self.membership
+                        .leader(vote_view + relay, self.cur_epoch)
+                        .await?
+                        == self.public_key,
                     debug!("View sync vote sent to wrong leader")
                 );
 
@@ -399,7 +405,10 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay, self.cur_epoch)? == self.public_key,
+                    self.membership
+                        .leader(vote_view + relay, self.cur_epoch)
+                        .await?
+                        == self.public_key,
                     debug!("View sync vote sent to wrong leader")
                 );
 
@@ -472,7 +481,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                 );
 
                 self.num_timeouts_tracked += 1;
-                let leader = self.membership.leader(view_number, self.cur_epoch)?;
+                let leader = self.membership.leader(view_number, self.cur_epoch).await?;
                 tracing::warn!(
                     %leader,
                     leader_mnemonic = hotshot_types::utils::mnemonic(&leader),
@@ -533,8 +542,8 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                 // If certificate is not valid, return current state
                 if !certificate
                     .is_valid_cert(
-                        self.membership.stake_table(self.cur_epoch),
-                        self.membership.failure_threshold(self.cur_epoch),
+                        self.membership.stake_table(self.cur_epoch).await,
+                        self.membership.failure_threshold(self.cur_epoch).await,
                         &self.upgrade_lock,
                     )
                     .await
@@ -619,8 +628,8 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                 // If certificate is not valid, return current state
                 if !certificate
                     .is_valid_cert(
-                        self.membership.stake_table(self.cur_epoch),
-                        self.membership.success_threshold(self.cur_epoch),
+                        self.membership.stake_table(self.cur_epoch).await,
+                        self.membership.success_threshold(self.cur_epoch).await,
                         &self.upgrade_lock,
                     )
                     .await
@@ -716,8 +725,8 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                 // If certificate is not valid, return current state
                 if !certificate
                     .is_valid_cert(
-                        self.membership.stake_table(self.cur_epoch),
-                        self.membership.success_threshold(self.cur_epoch),
+                        self.membership.stake_table(self.cur_epoch).await,
+                        self.membership.success_threshold(self.cur_epoch).await,
                         &self.upgrade_lock,
                     )
                     .await

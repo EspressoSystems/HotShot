@@ -84,26 +84,27 @@ pub trait Certificate<TYPES: NodeType, T>: HasViewNumber<TYPES> {
     fn threshold<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: <TYPES as NodeType>::Epoch,
-    ) -> u64;
+    ) -> impl futures::Future<Output = u64> + Send;
 
     /// Get  Stake Table from Membership implementation.
     fn stake_table<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
-    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    ) -> impl futures::Future<Output = Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>> + Send;
 
     /// Get Total Nodes from Membership implementation.
     fn total_nodes<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         epoch: TYPES::Epoch,
-    ) -> usize;
+    ) -> impl futures::Future<Output = usize> + Send;
 
     /// Get  `StakeTableEntry` from Membership implementation.
     fn stake_table_entry<MEMBERSHIP: Membership<TYPES>>(
         membership: &MEMBERSHIP,
         pub_key: &TYPES::SignatureKey,
         epoch: TYPES::Epoch,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    ) -> impl futures::Future<Output = Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>>
+           + Send;
 
     /// Get the commitment which was voted on
     fn data(&self) -> &Self::Voteable;
@@ -186,10 +187,10 @@ impl<
             return Either::Left(());
         }
 
-        let Some(stake_table_entry) = CERT::stake_table_entry(membership, &key, epoch) else {
+        let Some(stake_table_entry) = CERT::stake_table_entry(membership, &key, epoch).await else {
             return Either::Left(());
         };
-        let stake_table = CERT::stake_table(membership, epoch);
+        let stake_table = CERT::stake_table(membership, epoch).await;
         let Some(vote_node_id) = stake_table
             .iter()
             .position(|x| *x == stake_table_entry.clone())
@@ -209,10 +210,10 @@ impl<
         if total_vote_map.contains_key(&key) {
             return Either::Left(());
         }
-        let (signers, sig_list) = self
-            .signers
-            .entry(vote_commitment)
-            .or_insert((bitvec![0; CERT::total_nodes(membership, epoch)], Vec::new()));
+        let (signers, sig_list) = self.signers.entry(vote_commitment).or_insert((
+            bitvec![0; CERT::total_nodes(membership, epoch).await],
+            Vec::new(),
+        ));
         if signers.get(vote_node_id).as_deref() == Some(&true) {
             error!("Node id is already in signers list");
             return Either::Left(());
@@ -223,12 +224,12 @@ impl<
         *total_stake_casted += stake_table_entry.stake();
         total_vote_map.insert(key, (vote.signature(), vote_commitment));
 
-        if *total_stake_casted >= CERT::threshold(membership, epoch).into() {
+        if *total_stake_casted >= CERT::threshold(membership, epoch).await.into() {
             // Assemble QC
             let real_qc_pp: <<TYPES as NodeType>::SignatureKey as SignatureKey>::QcParams =
                 <TYPES::SignatureKey as SignatureKey>::public_parameter(
                     stake_table,
-                    U256::from(CERT::threshold(membership, epoch)),
+                    U256::from(CERT::threshold(membership, epoch).await),
                 );
 
             let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(

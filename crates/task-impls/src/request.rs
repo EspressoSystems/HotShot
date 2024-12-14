@@ -108,7 +108,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, cur_epoch, sender, receiver);
+                    self.spawn_requests(prop_view, cur_epoch, sender, receiver).await;
                 }
                 Ok(())
             }
@@ -140,7 +140,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
     /// Creates and signs the payload, then will create a request task
-    fn spawn_requests(
+   async fn spawn_requests(
         &mut self,
         view: TYPES::View,
         epoch: TYPES::Epoch,
@@ -158,13 +158,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 receiver.clone(),
                 view,
                 epoch,
-            );
+            ).await;
         }
     }
 
     /// Creates a task that will request a VID share from a DA member and wait for the `HotShotEvent::VidResponseRecv`event
     /// If we get the VID disperse share, broadcast `HotShotEvent::VidShareRecv` and terminate task
-    fn create_vid_request_task(
+    async fn create_vid_request_task(
         &mut self,
         request: RequestKind<TYPES>,
         signature: Signature<TYPES>,
@@ -180,8 +180,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let public_key = self.public_key.clone();
 
         // Get the committee members for the view and the leader, if applicable
-        let mut da_committee_for_view = self.membership.da_committee_members(view, epoch);
-        if let Ok(leader) = self.membership.leader(view, epoch) {
+        let mut da_committee_for_view = self.membership.da_committee_members(view, epoch).await;
+        if let Ok(leader) = self.membership.leader(view, epoch).await {
             da_committee_for_view.insert(leader);
         }
 
@@ -189,6 +189,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let mut recipients: Vec<TYPES::SignatureKey> = self
             .membership
             .da_committee_members(view, epoch)
+            .await
             .into_iter()
             .collect();
         // Randomize the recipients so all replicas don't overload the same 1 recipients

@@ -179,7 +179,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                 );
 
                 // We then validate that the proposal was issued by the leader for the view.
-                let view_leader_key = self.quorum_membership.leader(view, self.cur_epoch)?;
+                let view_leader_key = self.quorum_membership.leader(view, self.cur_epoch).await?;
                 ensure!(
                     view_leader_key == *sender,
                     info!(
@@ -223,11 +223,14 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                 {
                     let view = vote.view_number();
                     ensure!(
-                        self.quorum_membership.leader(view, self.cur_epoch)? == self.public_key,
+                        self.quorum_membership.leader(view, self.cur_epoch).await?
+                            == self.public_key,
                         debug!(
                             "We are not the leader for view {} are we leader for next view? {}",
                             *view,
-                            self.quorum_membership.leader(view + 1, self.cur_epoch)?
+                            self.quorum_membership
+                                .leader(view + 1, self.cur_epoch)
+                                .await?
                                 == self.public_key
                         )
                     );
@@ -270,10 +273,14 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                     && time >= self.start_proposing_time
                     && time < self.stop_proposing_time
                     && !self.upgraded().await
-                    && self.quorum_membership.leader(
-                        TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
-                        self.cur_epoch,
-                    )? == self.public_key
+                    && self
+                        .quorum_membership
+                        .leader(
+                            TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
+                            self.cur_epoch,
+                        )
+                        .await?
+                        == self.public_key
                 {
                     let upgrade_proposal_data = UpgradeProposalData {
                         old_version: V::Base::VERSION,
