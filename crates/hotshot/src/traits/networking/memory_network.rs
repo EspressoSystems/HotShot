@@ -76,7 +76,7 @@ struct MemoryNetworkInner<K: SignatureKey> {
     /// The master map
     master_map: Arc<MasterMap<K>>,
 
-    /// Count of messages that are in-flight (send but not processed yet)
+    /// Count of in-flight messages (sent but not processed yet)
     in_flight_message_count: AtomicUsize,
 
     /// config to introduce unreliability to the network
