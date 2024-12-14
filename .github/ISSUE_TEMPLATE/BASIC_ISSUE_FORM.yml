@@ -11,7 +11,7 @@ body:
   - type: textarea
     id: task_reason
     attributes:
-      label: What is this task and why do we need to work on it? 
+      label: What is this task and why must we work on it? 
       placeholder: |
         For MACRO tasks: The description should be written for someone unfamiliar with HotShot. 
         For regular tasks: The description should be written for someone familiar with HotShot but not with this particular issue.
@@ -23,10 +23,10 @@ body:
       label: What work will need to be done to complete this task? 
       description: 
       placeholder: | 
-        If this is unknown, describe what information is needed to determine this. 
+        If this is unknown, describe what information is required to determine this. 
         
         If this is a MACRO task link the sub-issues here.
-        If this is a regular task use check boxes to list the sub-tasks here.
+        If this is a regular task use checkboxes to list the sub-tasks here.
 
         E.g. 
         - [ ] Task 1
