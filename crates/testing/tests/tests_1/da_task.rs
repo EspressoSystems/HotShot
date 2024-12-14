@@ -48,7 +48,11 @@ async fn test_da_task() {
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
-        handle.hotshot.memberships.total_nodes(EpochNumber::new(0)).await,
+        handle
+            .hotshot
+            .memberships
+            .total_nodes(EpochNumber::new(0))
+            .await,
     );
 
     let mut generator = TestViewGenerator::generate(membership.clone());
@@ -156,7 +160,11 @@ async fn test_da_task_storage_failure() {
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let (payload_commit, precompute) = precompute_vid_commitment(
         &encoded_transactions,
-        handle.hotshot.memberships.total_nodes(EpochNumber::new(0)).await,
+        handle
+            .hotshot
+            .memberships
+            .total_nodes(EpochNumber::new(0))
+            .await,
     );
 
     let mut generator = TestViewGenerator::generate(membership.clone());

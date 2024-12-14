@@ -156,7 +156,8 @@ async fn test_upgrade_task_with_proposal() {
                     &membership,
                     ViewNumber::new(1),
                     EpochNumber::new(1)
-                ).await,
+                )
+                .await,
                 builder_commitment.clone(),
                 TestMetadata {
                     num_transactions: 0
@@ -175,7 +176,8 @@ async fn test_upgrade_task_with_proposal() {
                     &membership,
                     ViewNumber::new(2),
                     EpochNumber::new(1)
-                ).await,
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[0].data.block_header.metadata,
                 ViewNumber::new(2),
@@ -193,7 +195,8 @@ async fn test_upgrade_task_with_proposal() {
                     &membership,
                     ViewNumber::new(3),
                     EpochNumber::new(1)
-                ).await,
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[1].data.block_header.metadata,
                 ViewNumber::new(3),
