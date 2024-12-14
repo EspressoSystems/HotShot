@@ -43,7 +43,7 @@ impl<K1, K2> Default for StakeTableSnapshot<K1, K2> {
 }
 
 /// Locally maintained stake table, generic over public key type `K`.
-/// Whose commitment is a rescue hash of all key-value pairs over field `F`.
+/// Whose commitment is a rescue hash of all key-value pairs over the field `F`.
 /// NOTE: the commitment is only available for the finalized versions, and is
 /// computed only once when it's finalized.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,9 +57,9 @@ where
     capacity: usize,
     /// The most up-to-date stake table, where the incoming transactions shall be performed on.
     head: StakeTableSnapshot<K1, K2>,
-    /// The snapshot of stake table at the beginning of the current epoch
+    /// The snapshot of the stake table at the beginning of the current epoch
     epoch_start: StakeTableSnapshot<K1, K2>,
-    /// The stake table used for leader election.
+    /// The stake table is used for leader election.
     last_epoch_start: StakeTableSnapshot<K1, K2>,
 
     /// Total stakes in the most update-to-date stake table
@@ -295,7 +295,7 @@ where
     }
 
     /// Set the stake withheld by `key` to be `value`.
-    /// Return the previous stake if succeed.
+    /// Return the previous stake if succeeds.
     /// # Errors
     /// Errors if key is not in the stake table
     pub fn set_value(&mut self, key: &K1, value: U256) -> Result<U256, StakeTableError> {
@@ -313,7 +313,7 @@ where
 
     /// Helper function to recompute the stake table commitment for head version
     /// Commitment of a stake table is a triple `(bls_keys_comm, schnorr_keys_comm, stake_amount_comm)`
-    /// TODO(Chengyu): The BLS verification keys doesn't implement Default. Thus we directly pad with `F::default()`.
+    /// TODO(Chengyu): The BLS verification keys don't implement Default. Thus we directly pad with `F::default()`.
     fn compute_head_comm(&mut self) -> (F, F, F) {
         let padding_len = self.capacity - self.head.bls_keys.len();
         // Compute rescue hash for bls keys
@@ -351,7 +351,7 @@ where
     }
 
     /// Return the index of a given key.
-    /// Err if the key doesn't exists
+    /// Err if the key doesn't exist
     fn lookup_pos(&self, key: &K1) -> Result<usize, StakeTableError> {
         match self.bls_mapping.get(key) {
             Some(pos) => Ok(*pos),
