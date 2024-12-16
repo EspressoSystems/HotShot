@@ -2,7 +2,7 @@
     proposal: &amp;QuorumProposal2&lt;TYPES&gt;,
     task_state: &amp;mut <a class="struct" href="../struct.QuorumVoteTaskState.html" title="struct hotshot_task_impls::quorum_vote::QuorumVoteTaskState">QuorumVoteTaskState</a>&lt;TYPES, I, V&gt;,
     leaf_views: &amp;[LeafInfo&lt;TYPES&gt;],
-) -&gt; Result&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.unit.html">()</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Handles storing the seed for an upcoming DRB calculation.</p>
+) -&gt; <a class="type" href="../../../utils/anytrace/type.Result.html" title="type utils::anytrace::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.82.0/std/primitive.unit.html">()</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Handles storing the seed for an upcoming DRB calculation.</p>
 <p>We store the DRB computation seed 2 epochs in advance, if the decided block is the last but
 third block in the current epoch and we are in the quorum committee of the next epoch.</p>
 <p>Special cases:</p>
