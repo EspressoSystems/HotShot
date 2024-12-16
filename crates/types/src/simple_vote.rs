@@ -52,14 +52,6 @@ pub struct QuorumData2<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 #[serde(bound(deserialize = ""))]
 pub struct NextEpochQuorumData2<TYPES: NodeType>(QuorumData2<TYPES>);
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
-// #[serde(bound(deserialize = ""))]
-// pub struct NextEpochQuorumData2<TYPES: NodeType> {
-//     /// Commitment to the leaf
-//     pub leaf_commit: Commitment<Leaf2<TYPES>>,
-//     /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-//     pub epoch: TYPES::Epoch,
-// }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 /// Data used for a DA vote.
 pub struct DaData {

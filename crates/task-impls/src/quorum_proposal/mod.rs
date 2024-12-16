@@ -551,13 +551,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 // Only update if the qc is from a newer view
                 let current_next_epoch_qc =
                     self.consensus.read().await.next_epoch_high_qc().cloned();
-                if current_next_epoch_qc.is_some()
-                    && next_epoch_qc.view_number <= current_next_epoch_qc.unwrap().view_number
-                {
-                    tracing::trace!(
-                            "Received a next epoch QC for a view that was not > than our current next epoch high QC"
-                        );
-                }
+                ensure!(current_next_epoch_qc.is_none() ||
+                    next_epoch_qc.view_number > current_next_epoch_qc.unwrap().view_number,
+                    debug!("Received a next epoch QC for a view that was not > than our current next epoch high QC")
+                );
                 self.consensus
                     .write()
                     .await

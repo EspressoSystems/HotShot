@@ -115,7 +115,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 }
 
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
-                let view_leader_key = self.membership.leader(view, self.cur_epoch)?;
+                let view_leader_key = self.membership.leader(view, proposal.data.epoch)?;
                 ensure!(
                     view_leader_key == sender,
                     warn!(
@@ -302,7 +302,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     encoded_transactions,
                     metadata,
                     view_number,
-                    epoch_number,
                     ..
                 } = packed_bundle;
                 let view_number = *view_number;
@@ -315,7 +314,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     TYPES::SignatureKey::sign(&self.private_key, &encoded_transactions_hash)
                         .wrap()?;
 
-                if self.membership.leader(view_number, *epoch_number)? != self.public_key {
+                let epoch = self.cur_epoch;
+                if self.membership.leader(view_number, epoch)? != self.public_key {
                     tracing::debug!(
                         "We are not the leader in the current epoch. Do not send the DA proposal"
                     );
@@ -326,7 +326,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     metadata: metadata.clone(),
                     // Upon entering a new view we want to send a DA Proposal for the next view -> Is it always the case that this is cur_view + 1?
                     view_number,
-                    epoch: *epoch_number,
+                    epoch,
                 };
 
                 let message = Proposal {

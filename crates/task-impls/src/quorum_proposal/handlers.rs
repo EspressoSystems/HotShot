@@ -420,9 +420,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             _pd: PhantomData,
         };
         tracing::debug!(
-            "Sending proposal for view {:?}, proposal: {:?}",
+            "Sending proposal for view {:?}",
             proposed_leaf.view_number(),
-            message,
         );
 
         broadcast_event(

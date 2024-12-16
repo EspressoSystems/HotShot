@@ -86,7 +86,7 @@ pub(crate) async fn handle_quorum_vote_recv<
             &vote.clone().into(),
             task_state.public_key.clone(),
             &task_state.membership,
-            vote.epoch() + 1,
+            vote.data.epoch,
             task_state.id,
             &event,
             sender,

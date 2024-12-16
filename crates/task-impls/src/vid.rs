@@ -175,7 +175,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 // We just sent a proposal for the last block in the epoch. We need to calculate
                 // and send VID for the nodes in the next epoch so that they can vote.
                 let proposal_view_number = proposal.data.view_number;
-                let sender_epoch = proposal.data.justify_qc.data.epoch;
+                let sender_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    proposed_block_number,
+                    self.epoch_height,
+                ));
                 let target_epoch = TYPES::Epoch::new(
                     epoch_from_block_number(proposed_block_number, self.epoch_height) + 1,
                 );
