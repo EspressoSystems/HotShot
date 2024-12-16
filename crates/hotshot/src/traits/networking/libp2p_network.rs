@@ -984,7 +984,7 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
     {
         let future_view = <TYPES as NodeType>::View::new(view) + LOOK_AHEAD;
         let epoch = <TYPES as NodeType>::Epoch::new(epoch);
-        let future_leader = match membership.leader(future_view, epoch) {
+        let future_leader = match membership.leader(future_view, epoch).await {
             Ok(l) => l,
             Err(e) => {
                 return tracing::info!(

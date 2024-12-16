@@ -105,7 +105,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                         hs_event.as_ref()
                     {
                         // Make sure that the quorum_proposal is valid
-                        if quorum_proposal.validate_signature(&mem, epoch_height).is_ok() {
+                        if quorum_proposal.validate_signature(&mem, epoch_height).await.is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -128,8 +128,8 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     let justify_qc_epoch = justify_qc.data.epoch();
     if !justify_qc
         .is_valid_cert(
-            quorum_membership.stake_table(justify_qc_epoch),
-            quorum_membership.success_threshold(justify_qc_epoch),
+            quorum_membership.stake_table(justify_qc_epoch).await,
+            quorum_membership.success_threshold(justify_qc_epoch).await,
             upgrade_lock,
         )
         .await
@@ -654,10 +654,12 @@ pub(crate) async fn validate_proposal_view_and_certs<
     );
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
-    proposal.validate_signature(
-        &validation_info.quorum_membership,
-        validation_info.epoch_height,
-    )?;
+    proposal
+        .validate_signature(
+            &validation_info.quorum_membership,
+            validation_info.epoch_height,
+        )
+        .await?;
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
     if proposal.data.justify_qc.view_number() != view_number - 1 {
@@ -680,10 +682,12 @@ pub(crate) async fn validate_proposal_view_and_certs<
                         .is_valid_cert(
                             validation_info
                                 .quorum_membership
-                                .stake_table(timeout_cert_epoch),
+                                .stake_table(timeout_cert_epoch)
+                                .await,
                             validation_info
                                 .quorum_membership
-                                .success_threshold(timeout_cert_epoch),
+                                .success_threshold(timeout_cert_epoch)
+                                .await,
                             &validation_info.upgrade_lock
                         )
                         .await,
@@ -706,10 +710,12 @@ pub(crate) async fn validate_proposal_view_and_certs<
                         .is_valid_cert(
                             validation_info
                                 .quorum_membership
-                                .stake_table(view_sync_cert_epoch),
+                                .stake_table(view_sync_cert_epoch)
+                                .await,
                             validation_info
                                 .quorum_membership
-                                .success_threshold(view_sync_cert_epoch),
+                                .success_threshold(view_sync_cert_epoch)
+                                .await,
                             &validation_info.upgrade_lock
                         )
                         .await,

@@ -136,7 +136,10 @@ impl<T: Transport, Types: NodeType, C: StreamMuxer + Unpin> StakeTableAuthentica
             }
 
             // Check if the public key is in the stake table
-            if !stake_table.has_stake(&public_key, Types::Epoch::new(0)) {
+            if !stake_table
+                .has_stake(&public_key, Types::Epoch::new(0))
+                .await
+            {
                 return Err(anyhow::anyhow!("Peer not in stake table"));
             }
         }

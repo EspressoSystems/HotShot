@@ -78,7 +78,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
                 let epoch = self.cur_epoch;
-                if self.membership.leader(*view_number, epoch).ok()? != self.public_key {
+                if self.membership.leader(*view_number, epoch).await.ok()? != self.public_key {
                     tracing::debug!(
                         "We are not the leader in the current epoch. Do not send the VID dispersal."
                     );

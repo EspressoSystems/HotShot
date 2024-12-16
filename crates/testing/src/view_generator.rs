@@ -98,7 +98,8 @@ impl TestView {
         let leader_public_key = public_key;
 
         let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), genesis_epoch);
+            da_payload_commitment::<TestTypes>(membership, transactions.clone(), genesis_epoch)
+                .await;
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             membership,
@@ -106,7 +107,8 @@ impl TestView {
             genesis_epoch,
             transactions.clone(),
             &private_key,
-        );
+        )
+        .await;
 
         let da_certificate = build_da_certificate(
             membership,
@@ -240,7 +242,8 @@ impl TestView {
         );
 
         let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), self.epoch_number);
+            da_payload_commitment::<TestTypes>(membership, transactions.clone(), self.epoch_number)
+                .await;
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             membership,
@@ -248,7 +251,8 @@ impl TestView {
             self.epoch_number,
             transactions.clone(),
             &private_key,
-        );
+        )
+        .await;
 
         let da_certificate = build_da_certificate::<TestTypes, TestVersions>(
             membership,

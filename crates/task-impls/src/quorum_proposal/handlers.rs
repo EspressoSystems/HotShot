@@ -132,8 +132,10 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                     .is_valid_cert(
                         // TODO take epoch from `qc`
                         // https://github.com/EspressoSystems/HotShot/issues/3917
-                        self.quorum_membership.stake_table(qc.data.epoch),
-                        self.quorum_membership.success_threshold(qc.data.epoch),
+                        self.quorum_membership.stake_table(qc.data.epoch).await,
+                        self.quorum_membership
+                            .success_threshold(qc.data.epoch)
+                            .await,
                         &self.upgrade_lock,
                     )
                     .await
@@ -306,7 +308,12 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         ));
         // Make sure we are the leader for the view and epoch.
         // We might have ended up here because we were in the epoch transition.
-        if self.quorum_membership.leader(self.view_number, epoch)? != self.public_key {
+        if self
+            .quorum_membership
+            .leader(self.view_number, epoch)
+            .await?
+            != self.public_key
+        {
             tracing::debug!(
                 "We are not the leader in the epoch for which we are about to propose. Do not send the quorum proposal."
             );

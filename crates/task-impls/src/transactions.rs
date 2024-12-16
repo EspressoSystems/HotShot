@@ -213,9 +213,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .number_of_empty_blocks_proposed
                 .add(1);
 
-            let membership_total_nodes = self.membership.total_nodes(self.cur_epoch);
+            let membership_total_nodes = self.membership.total_nodes(self.cur_epoch).await;
             let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
-                self.membership.total_nodes(self.cur_epoch),
+                self.membership.total_nodes(self.cur_epoch).await,
                 version,
                 *block_view,
             ) else {
@@ -356,15 +356,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// Produce a null block
-    pub fn null_block(
+    pub async fn null_block(
         &self,
         block_view: TYPES::View,
         block_epoch: TYPES::Epoch,
         version: Version,
     ) -> Option<PackedBundle<TYPES>> {
-        let membership_total_nodes = self.membership.total_nodes(self.cur_epoch);
+        let membership_total_nodes = self.membership.total_nodes(self.cur_epoch).await;
         let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
-            self.membership.total_nodes(self.cur_epoch),
+            self.membership.total_nodes(self.cur_epoch).await,
             version,
             *block_view,
         ) else {
@@ -418,7 +418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     e
                 );
 
-                let null_block = self.null_block(block_view, block_epoch, version)?;
+                let null_block = self.null_block(block_view, block_epoch, version).await?;
 
                 // Increment the metric for number of empty blocks proposed
                 self.consensus
@@ -492,7 +492,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 self.cur_view = view;
                 self.cur_epoch = *epoch;
 
-                if self.membership.leader(view, *epoch)? == self.public_key {
+                if self.membership.leader(view, *epoch).await? == self.public_key {
                     self.handle_view_change(&event_stream, view, *epoch).await;
                     return Ok(());
                 }
@@ -757,7 +757,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 // builder for VID computation.
                 let (block, header_input) = if version >= V::Epochs::VERSION {
                     futures::join! {
-                        client.claim_block_with_num_nodes(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature, self.membership.total_nodes(self.cur_epoch)) ,
+                        client.claim_block_with_num_nodes(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature, self.membership.total_nodes(self.cur_epoch).await),
                         client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
                     }
                 } else {

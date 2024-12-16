@@ -532,6 +532,7 @@ pub trait RunDa<
             .hotshot
             .memberships
             .committee_leaders(TYPES::View::genesis(), TYPES::Epoch::genesis())
+            .await
             .len();
         let total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         // `failed_num_views` could include uncommitted views

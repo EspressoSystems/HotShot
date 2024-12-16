@@ -29,34 +29,34 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
     fn stake_table(
         &self,
         epoch: TYPES::Epoch,
-    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    ) -> impl futures::Future<Output = Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>> + Send;
 
     /// Get all participants in the committee (including their stake) for a specific epoch
     fn da_stake_table(
         &self,
         epoch: TYPES::Epoch,
-    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    ) -> impl futures::Future<Output = Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>> + Send;
 
     /// Get all participants in the committee for a specific view for a specific epoch
     fn committee_members(
         &self,
         view_number: TYPES::View,
         epoch: TYPES::Epoch,
-    ) -> BTreeSet<TYPES::SignatureKey>;
+    ) -> impl futures::Future<Output = BTreeSet<TYPES::SignatureKey>> + Send;
 
     /// Get all participants in the committee for a specific view for a specific epoch
     fn da_committee_members(
         &self,
         view_number: TYPES::View,
         epoch: TYPES::Epoch,
-    ) -> BTreeSet<TYPES::SignatureKey>;
+    ) -> impl futures::Future<Output = BTreeSet<TYPES::SignatureKey>> + Send;
 
     /// Get all leaders in the committee for a specific view for a specific epoch
     fn committee_leaders(
         &self,
         view_number: TYPES::View,
         epoch: TYPES::Epoch,
-    ) -> BTreeSet<TYPES::SignatureKey>;
+    ) -> impl futures::Future<Output = BTreeSet<TYPES::SignatureKey>> + Send;
 
     /// Get the stake table entry for a public key, returns `None` if the
     /// key is not in the table for a specific epoch
@@ -64,7 +64,8 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         &self,
         pub_key: &TYPES::SignatureKey,
         epoch: TYPES::Epoch,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    ) -> impl futures::Future<Output = Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>>
+           + Send;
 
     /// Get the DA stake table entry for a public key, returns `None` if the
     /// key is not in the table for a specific epoch
@@ -72,13 +73,22 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         &self,
         pub_key: &TYPES::SignatureKey,
         epoch: TYPES::Epoch,
-    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+    ) -> impl futures::Future<Output = Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>>
+           + Send;
 
     /// See if a node has stake in the committee in a specific epoch
-    fn has_stake(&self, pub_key: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool;
+    fn has_stake(
+        &self,
+        pub_key: &TYPES::SignatureKey,
+        epoch: TYPES::Epoch,
+    ) -> impl futures::Future<Output = bool> + Send;
 
     /// See if a node has stake in the committee in a specific epoch
-    fn has_da_stake(&self, pub_key: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool;
+    fn has_da_stake(
+        &self,
+        pub_key: &TYPES::SignatureKey,
+        epoch: TYPES::Epoch,
+    ) -> impl futures::Future<Output = bool> + Send;
 
     /// The leader of the committee for view `view_number` in `epoch`.
     ///
@@ -87,12 +97,18 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
     ///
     /// # Errors
     /// Returns an error if the leader cannot be calculated.
-    fn leader(&self, view: TYPES::View, epoch: TYPES::Epoch) -> Result<TYPES::SignatureKey> {
+    fn leader(
+        &self,
+        view: TYPES::View,
+        epoch: TYPES::Epoch,
+    ) -> impl futures::Future<Output = Result<TYPES::SignatureKey>> + Send {
         use utils::anytrace::*;
 
-        self.lookup_leader(view, epoch).wrap().context(info!(
-            "Failed to get leader for view {view} in epoch {epoch}"
-        ))
+        async move {
+            self.lookup_leader(view, epoch).await.wrap().context(info!(
+                "Failed to get leader for view {view} in epoch {epoch}"
+            ))
+        }
     }
 
     /// The leader of the committee for view `view_number` in `epoch`.
@@ -106,23 +122,35 @@ pub trait Membership<TYPES: NodeType>: Clone + Debug + Send + Sync {
         &self,
         view: TYPES::View,
         epoch: TYPES::Epoch,
-    ) -> std::result::Result<TYPES::SignatureKey, Self::Error>;
+    ) -> impl futures::Future<Output = std::result::Result<TYPES::SignatureKey, Self::Error>> + Send;
 
     /// Returns the number of total nodes in the committee in an epoch `epoch`
-    fn total_nodes(&self, epoch: TYPES::Epoch) -> usize;
+    fn total_nodes(&self, epoch: TYPES::Epoch) -> impl futures::Future<Output = usize> + Send;
 
     /// Returns the number of total DA nodes in the committee in an epoch `epoch`
-    fn da_total_nodes(&self, epoch: TYPES::Epoch) -> usize;
+    fn da_total_nodes(&self, epoch: TYPES::Epoch) -> impl futures::Future<Output = usize> + Send;
 
     /// Returns the threshold for a specific `Membership` implementation
-    fn success_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;
+    fn success_threshold(
+        &self,
+        epoch: TYPES::Epoch,
+    ) -> impl futures::Future<Output = NonZeroU64> + Send;
 
     /// Returns the DA threshold for a specific `Membership` implementation
-    fn da_success_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;
+    fn da_success_threshold(
+        &self,
+        epoch: TYPES::Epoch,
+    ) -> impl futures::Future<Output = NonZeroU64> + Send;
 
     /// Returns the threshold for a specific `Membership` implementation
-    fn failure_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;
+    fn failure_threshold(
+        &self,
+        epoch: TYPES::Epoch,
+    ) -> impl futures::Future<Output = NonZeroU64> + Send;
 
     /// Returns the threshold required to upgrade the network protocol
-    fn upgrade_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;
+    fn upgrade_threshold(
+        &self,
+        epoch: TYPES::Epoch,
+    ) -> impl futures::Future<Output = NonZeroU64> + Send;
 }

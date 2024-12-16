@@ -99,7 +99,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get the stake table for the current view
-    fn stake_table(
+    async fn stake_table(
         &self,
         _epoch: <TYPES as NodeType>::Epoch,
     ) -> Vec<<<TYPES as NodeType>::SignatureKey as SignatureKey>::StakeTableEntry> {
@@ -107,7 +107,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get the stake table for the current view
-    fn da_stake_table(
+    async fn da_stake_table(
         &self,
         _epoch: <TYPES as NodeType>::Epoch,
     ) -> Vec<<<TYPES as NodeType>::SignatureKey as SignatureKey>::StakeTableEntry> {
@@ -115,7 +115,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get all members of the committee for the current view
-    fn committee_members(
+    async fn committee_members(
         &self,
         _view_number: <TYPES as NodeType>::View,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -127,7 +127,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get all members of the committee for the current view
-    fn da_committee_members(
+    async fn da_committee_members(
         &self,
         _view_number: <TYPES as NodeType>::View,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -139,7 +139,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get all eligible leaders of the committee for the current view
-    fn committee_leaders(
+    async fn committee_leaders(
         &self,
         _view_number: <TYPES as NodeType>::View,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -151,7 +151,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get the stake table entry for a public key
-    fn stake(
+    async fn stake(
         &self,
         pub_key: &<TYPES as NodeType>::SignatureKey,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -161,7 +161,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get the DA stake table entry for a public key
-    fn da_stake(
+    async fn da_stake(
         &self,
         pub_key: &<TYPES as NodeType>::SignatureKey,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -171,7 +171,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Check if a node has stake in the committee
-    fn has_stake(
+    async fn has_stake(
         &self,
         pub_key: &<TYPES as NodeType>::SignatureKey,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -182,7 +182,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Check if a node has stake in the committee
-    fn has_da_stake(
+    async fn has_da_stake(
         &self,
         pub_key: &<TYPES as NodeType>::SignatureKey,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -193,7 +193,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Index the vector of public keys with the current view number
-    fn lookup_leader(
+    async fn lookup_leader(
         &self,
         view_number: TYPES::View,
         _epoch: <TYPES as NodeType>::Epoch,
@@ -205,32 +205,32 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     }
 
     /// Get the total number of nodes in the committee
-    fn total_nodes(&self, _epoch: <TYPES as NodeType>::Epoch) -> usize {
+    async fn total_nodes(&self, _epoch: <TYPES as NodeType>::Epoch) -> usize {
         self.stake_table.len()
     }
 
     /// Get the total number of DA nodes in the committee
-    fn da_total_nodes(&self, _epoch: <TYPES as NodeType>::Epoch) -> usize {
+    async fn da_total_nodes(&self, _epoch: <TYPES as NodeType>::Epoch) -> usize {
         self.da_stake_table.len()
     }
 
     /// Get the voting success threshold for the committee
-    fn success_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
+    async fn success_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
         NonZeroU64::new(((self.stake_table.len() as u64 * 2) / 3) + 1).unwrap()
     }
 
     /// Get the voting success threshold for the committee
-    fn da_success_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
+    async fn da_success_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
         NonZeroU64::new(((self.da_stake_table.len() as u64 * 2) / 3) + 1).unwrap()
     }
 
     /// Get the voting failure threshold for the committee
-    fn failure_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
+    async fn failure_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
         NonZeroU64::new(((self.stake_table.len() as u64) / 3) + 1).unwrap()
     }
 
     /// Get the voting upgrade threshold for the committee
-    fn upgrade_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
+    async fn upgrade_threshold(&self, _epoch: <TYPES as NodeType>::Epoch) -> NonZeroU64 {
         let len = self.stake_table.len();
         NonZeroU64::new(max((len as u64 * 9) / 10, ((len as u64 * 2) / 3) + 1)).unwrap()
     }

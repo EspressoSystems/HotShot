@@ -46,7 +46,8 @@ pub(crate) async fn handle_quorum_vote_recv<
         .is_high_qc_for_last_block();
     let we_are_leader = task_state
         .membership
-        .leader(vote.view_number() + 1, task_state.cur_epoch)?
+        .leader(vote.view_number() + 1, task_state.cur_epoch)
+        .await?
         == task_state.public_key;
     ensure!(
         in_transition || we_are_leader,
@@ -88,7 +89,8 @@ pub(crate) async fn handle_timeout_vote_recv<
     ensure!(
         task_state
             .membership
-            .leader(vote.view_number() + 1, task_state.cur_epoch)?
+            .leader(vote.view_number() + 1, task_state.cur_epoch)
+            .await?
             == task_state.public_key,
         info!(
             "We are not the leader for view {:?}",
@@ -132,7 +134,8 @@ pub async fn send_high_qc<TYPES: NodeType, V: Versions, I: NodeImplementation<TY
     let high_qc = task_state.consensus.read().await.high_qc().clone();
     let leader = task_state
         .membership
-        .leader(new_view_number, TYPES::Epoch::new(0))?;
+        .leader(new_view_number, TYPES::Epoch::new(0))
+        .await?;
     broadcast_event(
         Arc::new(HotShotEvent::HighQcSend(
             high_qc,
@@ -240,7 +243,8 @@ pub(crate) async fn handle_view_change<
     let cur_view_time = Utc::now().timestamp();
     if task_state
         .membership
-        .leader(old_view_number, task_state.cur_epoch)?
+        .leader(old_view_number, task_state.cur_epoch)
+        .await?
         == task_state.public_key
     {
         #[allow(clippy::cast_precision_loss)]
@@ -294,7 +298,8 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     ensure!(
         task_state
             .membership
-            .has_stake(&task_state.public_key, epoch),
+            .has_stake(&task_state.public_key, epoch)
+            .await,
         debug!(
             "We were not chosen for the consensus committee for view {:?}",
             view_number
@@ -348,7 +353,8 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
         .add(1);
     if task_state
         .membership
-        .leader(view_number, task_state.cur_epoch)?
+        .leader(view_number, task_state.cur_epoch)
+        .await?
         == task_state.public_key
     {
         task_state
