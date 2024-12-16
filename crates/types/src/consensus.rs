@@ -322,6 +322,9 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
+
+    /// Vote tracker to prevent double voting
+    vote_tracker: VoteTracker<TYPES>,
 }
 
 /// Contains several `ConsensusMetrics` that we're interested in from the consensus interfaces
@@ -430,6 +433,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             high_qc,
             metrics,
             epoch_height,
+            vote_tracker: VoteTracker::new(),
         }
     }
 
@@ -549,27 +553,39 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ///
     /// Returns true if the action is for a newer view than the last action of that type
     pub fn update_action(&mut self, action: HotShotAction, view: TYPES::View) -> bool {
-        let old_view = match action {
-            HotShotAction::Vote => &mut self.last_actions.voted,
-            HotShotAction::Propose => &mut self.last_actions.proposed,
-            HotShotAction::DaPropose => &mut self.last_actions.da_proposed,
+        match action {
             HotShotAction::DaVote => {
+                // Use vote tracker to prevent double voting
+                let voter_key = Arc::new(self.public_key().clone());
+                
+                if !self.vote_tracker.record_vote(view, voter_key) {
+                    tracing::warn!("Prevented double voting attempt for view {}", view);
+                    return false;
+                }
+
                 if view > self.last_actions.da_vote {
                     self.last_actions.da_vote = view;
                 }
-                // TODO Add logic to prevent double voting.  For now the simple check if
-                // the last voted view is less than the view we are trying to vote doesn't work
-                // because the leader of view n + 1 may propose to the DA (and we would vote)
-                // before the leader of view n.
-                return true;
+                
+                // Clean up old vote records periodically
+                self.vote_tracker.cleanup_old_views(view);
+                
+                true
             }
+            HotShotAction::Vote => &mut self.last_actions.voted,
+            HotShotAction::Propose => &mut self.last_actions.proposed,
+            HotShotAction::DaPropose => &mut self.last_actions.da_proposed,
             _ => return true,
-        };
-        if view > *old_view {
-            *old_view = view;
-            return true;
         }
-        false
+        .map(|old_view| {
+            if view > *old_view {
+                *old_view = view;
+                true
+            } else {
+                false
+            }
+        })
+        .unwrap_or(true)
     }
 
     /// reset last actions to genesis so we can resend events in tests
@@ -1041,22 +1057,4 @@ impl<TYPES: NodeType> Consensus<TYPES> {
 
         new_epoch - 1 == old_epoch && self.is_leaf_extended(parent_leaf.commit())
     }
-}
-
-/// Alias for the block payload commitment and the associated metadata. The primary data
-/// needed in order to submit a proposal.
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub struct CommitmentAndMetadata<TYPES: NodeType> {
-    /// Vid Commitment
-    pub commitment: VidCommitment,
-    /// Builder Commitment
-    pub builder_commitment: BuilderCommitment,
-    /// Metadata for the block payload
-    pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
-    /// Builder fee data
-    pub fees: Vec1<BuilderFee<TYPES>>,
-    /// View number this block is for
-    pub block_view: TYPES::View,
-    /// auction result that the block was produced from, if any
-    pub auction_result: Option<TYPES::AuctionResult>,
 }
