@@ -6,10 +6,12 @@
 
 use std::{
     fmt::{Debug, Display},
+    io::{Cursor, Read},
     mem::size_of,
     sync::Arc,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use committable::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
@@ -105,6 +107,36 @@ impl TestTransaction {
         }
 
         encoded
+    }
+
+    /// Decode a list of individual transactions from the encoded payload
+    pub fn decode(encoded_transactions: &[u8]) -> anyhow::Result<Vec<Self>> {
+        // Create a cursor to read the encoded transactions
+        let mut cursor = Cursor::new(encoded_transactions);
+
+        // A collection of the transactions to return
+        let mut transactions = Vec::new();
+
+        // Process each transaction
+        let mut transaction_size_bytes = [0; size_of::<u32>()];
+        while cursor.position() < encoded_transactions.len() as u64 {
+            // Read the transaction size
+            cursor
+                .read_exact(&mut transaction_size_bytes)
+                .context("Failed to read transaction size")?;
+            let transaction_size = u32::from_le_bytes(transaction_size_bytes);
+
+            // Read the transaction
+            let mut transaction_bytes = vec![0; transaction_size as usize];
+            cursor
+                .read_exact(&mut transaction_bytes)
+                .context("Failed to read transaction")?;
+
+            // Add the transaction to the collection
+            transactions.push(Self(transaction_bytes));
+        }
+
+        Ok(transactions)
     }
 }
 

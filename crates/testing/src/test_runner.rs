@@ -332,7 +332,7 @@ where
             let builder_url =
                 Url::parse(&format!("http://localhost:{builder_port}")).expect("Invalid URL");
             let builder_task = B::start(
-                config.num_nodes_with_stake.into(),
+                config.known_nodes.len(),
                 builder_url.clone(),
                 B::Config::default(),
                 metadata.changes.clone(),
@@ -347,7 +347,7 @@ where
             Url::parse(&format!("http://localhost:{fallback_builder_port}")).expect("Invalid URL");
 
         let fallback_builder_task = B::start(
-            config.num_nodes_with_stake.into(),
+            config.known_nodes.len(),
             fallback_builder_url.clone(),
             B::Config::default(),
             self.launcher.metadata.fallback_builder.changes.clone(),
@@ -418,14 +418,10 @@ where
             tracing::debug!("launch node {}", i);
 
             let memberships = <TYPES as NodeType>::Membership::new(
-                config.known_nodes_with_stake.clone(),
+                config.known_nodes.clone(),
                 config.known_da_nodes.clone(),
             );
-            config.builder_urls = builder_urls
-                .clone()
-                .try_into()
-                .expect("Non-empty by construction");
-
+            config.builder_urls = builder_urls.clone();
             let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
             let storage = (self.launcher.resource_generator.storage)(node_id);
             let mut marketplace_config =
@@ -472,14 +468,13 @@ where
                     .unwrap();
 
                     // See whether or not we should be DA
-                    let is_da = node_id < config.da_staked_committee_size as u64;
+                    let is_da = node_id < config.known_da_nodes.len() as u64;
 
                     // We assign node's public key and stake value rather than read from config file since it's a test
                     let validator_config =
                         ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
 
                     let hotshot = Self::add_node_with_config(
-                        node_id,
                         network.clone(),
                         memberships,
                         initializer,
@@ -543,7 +538,7 @@ where
             )
             .await;
 
-            match node_id.cmp(&(config.da_staked_committee_size as u64 - 1)) {
+            match node_id.cmp(&(config.known_da_nodes.len() as u64 - 1)) {
                 std::cmp::Ordering::Less => {
                     if let Some(task) = builder_tasks.pop() {
                         task.start(Box::new(handle.event_stream()))
@@ -573,7 +568,6 @@ where
     /// if unable to initialize the node's `SystemContext` based on the config
     #[allow(clippy::too_many_arguments)]
     pub async fn add_node_with_config(
-        node_id: u64,
         network: Network<TYPES, I>,
         memberships: TYPES::Membership,
         initializer: HotShotInitializer<TYPES>,
@@ -589,7 +583,6 @@ where
         SystemContext::new(
             public_key,
             private_key,
-            node_id,
             config,
             memberships,
             network,
@@ -606,7 +599,6 @@ where
     /// if unable to initialize the node's `SystemContext` based on the config
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
     pub async fn add_node_with_config_and_channels(
-        node_id: u64,
         network: Network<TYPES, I>,
         memberships: TYPES::Membership,
         initializer: HotShotInitializer<TYPES>,
@@ -627,7 +619,6 @@ where
         SystemContext::new_from_channels(
             public_key,
             private_key,
-            node_id,
             config,
             memberships,
             network,

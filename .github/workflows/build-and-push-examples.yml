@@ -1,0 +1,43 @@
+name: Build and Push Examples
+
+on:
+  push:
+    branches:
+      - "main"
+
+
+jobs:
+  build-and-push-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+
+      - name: Install Rust
+        uses: mkroening/rust-toolchain-toml@main
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+        with:
+          shared-key: "build-release"
+          cache-on-failure: "true"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build examples
+        run: cargo build --examples --release
+
+      - name: Build dockerfiles
+        run: |
+          docker build . -f crates/examples/Dockerfiles/cdn-marshal.Dockerfile -t ghcr.io/espressosystems/hotshot/cdn-marshal:main
+          docker build . -f crates/examples/Dockerfiles/cdn-broker.Dockerfile -t ghcr.io/espressosystems/hotshot/cdn-broker:main
+          docker build . -f crates/examples/Dockerfiles/coordinator.Dockerfile -t ghcr.io/espressosystems/hotshot/coordinator:main
+          docker build . -f crates/examples/Dockerfiles/single-validator.Dockerfile -t ghcr.io/espressosystems/hotshot/single-validator:main
+
+      - name: Push dockerfiles
+        run: |
+          docker push ghcr.io/espressosystems/hotshot/cdn-marshal:main
+          docker push ghcr.io/espressosystems/hotshot/cdn-broker:main
+          docker push ghcr.io/espressosystems/hotshot/coordinator:main
+          docker push ghcr.io/espressosystems/hotshot/single-validator:main
+
+

@@ -61,9 +61,6 @@ pub struct VoteCollectionTaskState<
     /// The epoch which we are collecting votes for
     pub epoch: TYPES::Epoch,
 
-    /// Node id
-    pub id: u64,
-
     /// Whether we should check if we are the leader when handling a vote
     pub check_if_leader: bool,
 }
@@ -179,8 +176,6 @@ pub struct AccumulatorInfo<TYPES: NodeType> {
     pub view: TYPES::View,
     /// Epoch of the votes we are collecting
     pub epoch: TYPES::Epoch,
-    /// This nodes id
-    pub id: u64,
 }
 
 /// Generic function for spawning a vote task.  Returns the event stream id of the spawned task if created
@@ -225,7 +220,6 @@ where
         accumulator: Some(new_accumulator),
         view: info.view,
         epoch: info.epoch,
-        id: info.id,
         check_if_leader,
     };
 
@@ -254,7 +248,6 @@ pub async fn handle_vote<
     public_key: TYPES::SignatureKey,
     membership: &Arc<TYPES::Membership>,
     epoch: TYPES::Epoch,
-    id: u64,
     event: &Arc<HotShotEvent<TYPES>>,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
@@ -271,7 +264,6 @@ where
                 membership: Arc::clone(membership),
                 view: vote.view_number(),
                 epoch,
-                id,
             };
             let collector = create_vote_accumulator(
                 &info,

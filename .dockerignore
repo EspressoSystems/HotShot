@@ -1,12 +1,6 @@
 .git
-/target/tmp
-/target/release*
-/target/debug
-/target/x86_64-unknown-linux-musl/release*/build
-/target/x86_64-unknown-linux-musl/release*/deps
-/target/x86_64-unknown-linux-musl/release*/incremental
-!/target/x86_64-unknown-linux-musl/release*/examples/
-!/target/release*/examples/
-!/target/release-lto/examples/
-!/target/release*/benchmark_client
-Dockerfile*
+target/*
+!target/release/examples/cdn-broker
+!target/release/examples/cdn-marshal
+!target/release/examples/coordinator
+!target/release/examples/single-validator

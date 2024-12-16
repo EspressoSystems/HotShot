@@ -141,7 +141,6 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
-        metadata.num_bootstrap_nodes = 10;
         metadata.num_nodes_with_stake = 12;
         metadata.da_staked_committee_size = 12;
         metadata.start_nodes = 12;
@@ -170,7 +169,6 @@ cross_tests!(
             epoch_height: 10,
             num_nodes_with_stake: 10,
             start_nodes: 10,
-            num_bootstrap_nodes: 10,
             da_staked_committee_size: 10,
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 // Explicitly show that we use normal threshold, i.e. 2 nodes_len / 3 + 1

@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
+use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
 
 use anyhow::{ensure, Result};
 use hotshot::{
@@ -64,8 +64,6 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     /// Whether to skip initializing nodes that will start late, which will catch up later with
     /// `HotShotInitializer::from_reload` in the spinning task.
     pub skip_late: bool,
-    /// number of bootstrap nodes (libp2p usage only)
-    pub num_bootstrap_nodes: usize,
     /// Size of the staked DA committee for the test
     pub da_staked_committee_size: usize,
     /// overall safety property description
@@ -187,7 +185,7 @@ pub async fn create_test_handle<
     .unwrap();
 
     // See whether or not we should be DA
-    let is_da = node_id < config.da_staked_committee_size as u64;
+    let is_da = node_id < config.known_da_nodes.len() as u64;
 
     let validator_config: ValidatorConfig<TYPES::SignatureKey> =
         ValidatorConfig::generated_from_seed_indexed([0u8; 32], node_id, 1, is_da);
@@ -204,7 +202,6 @@ pub async fn create_test_handle<
                 .spawn_twin_handles(
                     public_key,
                     private_key,
-                    node_id,
                     config,
                     memberships,
                     network,
@@ -223,7 +220,6 @@ pub async fn create_test_handle<
                 .spawn_handle(
                     public_key,
                     private_key,
-                    node_id,
                     config,
                     memberships,
                     network,
@@ -238,7 +234,6 @@ pub async fn create_test_handle<
             let hotshot = SystemContext::<TYPES, I, V>::new(
                 public_key,
                 private_key,
-                node_id,
                 config,
                 memberships,
                 network,
@@ -299,7 +294,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
         let num_nodes_with_stake = 100;
 
         Self {
-            num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::<TYPES> {
@@ -326,7 +320,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
     pub fn default_multiple_rounds() -> Self {
         let num_nodes_with_stake = 10;
         TestDescription::<TYPES, I, V> {
-            num_bootstrap_nodes: num_nodes_with_stake,
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::<TYPES> {
@@ -354,7 +347,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
         Self {
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,
-            num_bootstrap_nodes: num_nodes_with_stake,
             // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
@@ -390,7 +382,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,
             skip_late: false,
-            num_bootstrap_nodes: num_nodes_with_stake,
             da_staked_committee_size: num_nodes_with_stake,
             spinning_properties: SpinningTaskDescription {
                 node_changes: vec![],
@@ -451,7 +442,6 @@ where
     ) -> TestLauncher<TYPES, I, V> {
         let TestDescription {
             num_nodes_with_stake,
-            num_bootstrap_nodes,
             timing_data,
             da_staked_committee_size,
             unreliable_network,
@@ -490,20 +480,16 @@ where
         );
         // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
-            start_threshold: (1, 1),
-            num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
+            known_nodes: known_nodes_with_stake,
             // Currently making this zero for simplicity
             known_da_nodes,
-            num_bootstrap: num_bootstrap_nodes,
-            known_nodes_with_stake,
-            da_staked_committee_size,
             fixed_leader_for_gpuvid: 1,
             next_view_timeout: 500,
             view_sync_timeout: Duration::from_millis(250),
             builder_timeout: Duration::from_millis(1000),
             data_request_delay: Duration::from_millis(200),
             // Placeholder until we spin up the builder
-            builder_urls: vec1::vec1![Url::parse("http://localhost:9999").expect("Valid URL")],
+            builder_urls: vec![Url::parse("http://localhost:9999").expect("Valid URL")],
             start_proposing_view: u64::MAX,
             stop_proposing_view: 0,
             start_voting_view: u64::MAX,
@@ -535,7 +521,6 @@ where
             resource_generator: ResourceGenerators {
                 channel_generator: <I as TestableNodeImplementation<TYPES>>::gen_networks(
                     num_nodes_with_stake,
-                    num_bootstrap_nodes,
                     da_staked_committee_size,
                     unreliable_network,
                     secondary_network_delay,

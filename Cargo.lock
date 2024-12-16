@@ -1006,12 +1006,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "bimap"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "230c5f1ca6a325a32553f8640d31ac9b49f2411e901e427570154868b46da4f7"
-
-[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1190,6 +1184,12 @@ checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "bytesize"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3e368af43e418a04d52505cf3dbc23dda4e3407ae2fa99fd0e4f308ce546acc"
 
 [[package]]
 name = "capnp"
@@ -1739,27 +1739,6 @@ checksum = "4857fd85a0c34b3c3297875b747c1e02e06b6a0ea32dd892d8192b9ce0813ea6"
 dependencies = [
  "generic-array",
  "subtle",
-]
-
-[[package]]
-name = "csv"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acdc4883a9c96732e4733212c01447ebd805833b7275a73ca3ee080fd77afdaf"
-dependencies = [
- "csv-core",
- "itoa",
- "ryu",
- "serde",
-]
-
-[[package]]
-name = "csv-core"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -2871,7 +2850,6 @@ dependencies = [
  "async-broadcast",
  "async-lock 3.4.0",
  "async-trait",
- "bimap",
  "bincode",
  "blake3",
  "cdn-broker",
@@ -2895,7 +2873,6 @@ dependencies = [
  "primitive-types",
  "rand 0.8.5",
  "serde",
- "sha2 0.10.8",
  "time 0.3.37",
  "tokio",
  "tracing",
@@ -2952,30 +2929,30 @@ name = "hotshot-examples"
 version = "0.5.79"
 dependencies = [
  "anyhow",
- "async-trait",
+ "bytes",
+ "bytesize",
  "cdn-broker",
  "cdn-marshal",
- "chrono",
  "clap",
  "futures",
  "hotshot",
  "hotshot-example-types",
- "hotshot-orchestrator",
  "hotshot-testing",
  "hotshot-types",
+ "libp2p",
  "libp2p-networking",
  "local-ip-address",
+ "lru 0.12.5",
+ "parking_lot",
  "portpicker",
  "rand 0.8.5",
- "serde",
+ "reqwest",
  "sha2 0.10.8",
- "surf-disco",
- "time 0.3.37",
+ "simple_moving_average",
  "tokio",
- "toml",
  "tracing",
- "tracing-subscriber 0.3.19",
  "url",
+ "warp",
 ]
 
 [[package]]
@@ -3003,28 +2980,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
-]
-
-[[package]]
-name = "hotshot-orchestrator"
-version = "0.5.79"
-dependencies = [
- "anyhow",
- "async-lock 3.4.0",
- "blake3",
- "clap",
- "csv",
- "futures",
- "hotshot-types",
- "libp2p-identity",
- "multiaddr",
- "serde",
- "surf-disco",
- "tide-disco",
- "tokio",
- "toml",
- "tracing",
- "vbs",
 ]
 
 [[package]]
@@ -3149,7 +3104,6 @@ dependencies = [
  "bincode",
  "bitvec",
  "blake3",
- "clap",
  "committable",
  "derive_more 1.0.0",
  "digest 0.10.7",
@@ -3162,17 +3116,13 @@ dependencies = [
  "jf-utils",
  "jf-vid",
  "lazy_static",
- "libp2p-identity",
  "memoize",
  "mnemonic",
- "multiaddr",
  "primitive-types",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
- "serde-inline-default",
  "serde_bytes",
- "serde_json",
  "sha2 0.10.8",
  "tagged-base64",
  "thiserror 2.0.6",
@@ -4390,8 +4340,6 @@ dependencies = [
  "blake3",
  "cbor4ii",
  "delegate",
- "derive_builder",
- "derive_more 1.0.0",
  "futures",
  "hotshot-example-types",
  "hotshot-types",
@@ -6430,17 +6378,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-inline-default"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59fb1bedd774187d304179493b0d3c41fbe97b04b14305363f68d2bdf5e47cb9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
-]
-
-[[package]]
 name = "serde_bytes"
 version = "0.11.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6686,6 +6623,15 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "simple_moving_average"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a4b144ad185430cd033299e2c93e465d5a7e65fbb858593dc57181fa13cd310"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "slab"

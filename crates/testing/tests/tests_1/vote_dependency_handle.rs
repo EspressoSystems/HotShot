@@ -96,7 +96,6 @@ async fn test_vote_dependency_handle() {
                 sender: event_sender.clone(),
                 receiver: event_receiver.clone().deactivate(),
                 upgrade_lock: handle.hotshot.upgrade_lock.clone(),
-                id: handle.hotshot.id,
                 epoch_height: handle.hotshot.config.epoch_height,
             };
 

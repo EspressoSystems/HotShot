@@ -1,27 +1,26 @@
-// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
-// This file is part of the HotShot repository.
+//! The broker is the message-routing component of the CDN
+//!
+//! This is meant to be run externally, e.g. when running benchmarks on the protocol.
+//! If you just want to run everything required, you can use the `all` example
 
-// You should have received a copy of the MIT License
-// along with the HotShot repository. If not, see <https://mit-license.org/>.
-
-//! The following is the main `Broker` binary, which just instantiates and runs
-//! a `Broker` object.
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cdn_broker::{reexports::def::hook::NoMessageHook, Broker, Config};
 use clap::Parser;
-use hotshot::traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey};
+use hotshot::{
+    helpers::initialize_logging,
+    traits::implementations::{KeyPair, ProductionDef, WrappedSignatureKey},
+};
 use hotshot_example_types::node_types::TestTypes;
-use hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
+use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::signature_key::BuilderSignatureKey;
 use sha2::Digest;
-use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 /// The main component of the push CDN.
 struct Args {
     /// The discovery client endpoint (including scheme) to connect to.
-    /// With the local discovery feature, this is a file path.
-    /// With the remote (redis) discovery feature, this is a redis URL (e.g. `redis://127.0.0.1:6789`).
+    /// This is a URL pointing to a `KeyDB` database (e.g. `redis://127.0.0.1:6789`).
     #[arg(short, long)]
     discovery_endpoint: String,
 
@@ -60,31 +59,15 @@ struct Args {
     /// The seed for broker key generation
     #[arg(short, long, default_value_t = 0)]
     key_seed: u64,
-
-    /// The size of the global memory pool (in bytes). This is the maximum number of bytes that
-    /// can be allocated at once for all connections. A connection will block if it
-    /// tries to allocate more than this amount until some memory is freed.
-    /// Default is 1GB.
-    #[arg(long, default_value_t = 1_073_741_824)]
-    global_memory_pool_size: usize,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Parse command line arguments
-    let args = Args::parse();
+    // Initialize logging
+    initialize_logging();
 
-    // Initialize tracing
-    if std::env::var("RUST_LOG_FORMAT") == Ok("json".to_string()) {
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env())
-            .json()
-            .init();
-    } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env())
-            .init();
-    }
+    // Parse the command line arguments
+    let args = Args::parse();
 
     // Generate the broker key from the supplied seed
     let key_hash = sha2::Sha256::digest(args.key_seed.to_le_bytes());
@@ -110,15 +93,13 @@ async fn main() -> Result<()> {
         public_advertise_endpoint: args.public_advertise_endpoint,
         private_bind_endpoint: args.private_bind_endpoint,
         private_advertise_endpoint: args.private_advertise_endpoint,
-        global_memory_pool_size: Some(args.global_memory_pool_size),
+        // Use a 1GB memory pool size
+        global_memory_pool_size: Some(1_073_741_824),
     };
 
-    // Create new `Broker`
-    // Uses TCP from broker connections and TCP+TLS for user connections.
+    // Create the new `Broker`
     let broker = Broker::new(broker_config).await?;
 
-    // Start the main loop, consuming it
-    broker.start().await?;
-
-    Ok(())
+    // Run the broker until it is terminated
+    broker.start().await.with_context(|| "Broker exited")
 }
