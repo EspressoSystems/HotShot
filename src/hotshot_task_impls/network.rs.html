@@ -1860,13 +1860,13 @@
                 <span class="kw">if </span>epoch &gt; <span class="self">self</span>.epoch {
                     <span class="self">self</span>.epoch = epoch;
                 }
-                <span class="self">self</span>.cancel_tasks(view);
+                <span class="kw">let </span>keep_view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
+                <span class="self">self</span>.cancel_tasks(keep_view);
                 <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);
                 <span class="kw">let </span>epoch = <span class="self">self</span>.epoch.u64();
                 <span class="kw">let </span>mem = <span class="self">self</span>.membership.clone();
                 spawn(<span class="kw">async move </span>{
-                    net.update_view::&lt;TYPES&gt;(view.saturating_sub(<span class="number">1</span>), epoch, <span class="kw-2">&amp;</span>mem)
-                        .<span class="kw">await</span>;
+                    net.update_view::&lt;TYPES&gt;(<span class="kw-2">*</span>keep_view, epoch, <span class="kw-2">&amp;</span>mem).<span class="kw">await</span>;
                 });
                 <span class="prelude-val">None
             </span>}

@@ -588,6 +588,8 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1123,10 +1125,12 @@
                 <span class="kw">if </span>epoch &gt; <span class="kw-2">&amp;</span><span class="self">self</span>.cur_epoch {
                     <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
                 }
-                <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
+                <span class="kw">let </span>keep_view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
+                <span class="self">self</span>.cancel_tasks(keep_view);
             }
             HotShotEvent::Timeout(view, ..) =&gt; {
-                <span class="self">self</span>.cancel_tasks(<span class="kw-2">*</span>view);
+                <span class="kw">let </span>keep_view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
+                <span class="self">self</span>.cancel_tasks(keep_view);
             }
             HotShotEvent::HighQcSend(qc, ..) =&gt; {
                 <span class="macro">ensure!</span>(qc.view_number() &gt; <span class="self">self</span>.highest_qc.view_number());
