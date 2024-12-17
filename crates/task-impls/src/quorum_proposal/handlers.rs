@@ -197,12 +197,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
     ) -> Option<NextEpochQuorumCertificate2<TYPES>> {
         tracing::debug!("getting the next epoch QC");
         // If we haven't upgraded to Epochs just return None right away
-        if self
-            .upgrade_lock
-            .version(self.view_number)
-            .await
-            .is_ok_and(|version| version < V::Epochs::VERSION)
-        {
+        if self.upgrade_lock.version_infallible(self.view_number).await < V::Epochs::VERSION {
             return None;
         }
         if let Some(next_epoch_qc) = self.consensus.read().await.next_epoch_high_qc() {
@@ -245,7 +240,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             // Check again, there is a chance we missed it
             if let Some(next_epoch_qc) = self.consensus.read().await.next_epoch_high_qc() {
                 if next_epoch_qc.data.leaf_commit == high_qc.data.leaf_commit {
-                    // We have it already, no reason to wait
                     return Some(next_epoch_qc.clone());
                 }
             };

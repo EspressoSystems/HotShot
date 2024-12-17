@@ -1002,7 +1002,7 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     high_qc: QuorumCertificate2<TYPES>,
-    /// Next epoch highest QC that was seen
+    /// Next epoch highest QC that was seen. This is needed to propose during epoch transition after restart.
     next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
     /// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,

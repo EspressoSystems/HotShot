@@ -760,12 +760,13 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         &mut self,
         high_qc: NextEpochQuorumCertificate2<TYPES>,
     ) -> Result<()> {
-        ensure!(
-            self.next_epoch_high_qc().is_none()
-                || high_qc.view_number > self.next_epoch_high_qc.as_ref().unwrap().view_number
-                || high_qc == *self.next_epoch_high_qc.as_ref().unwrap(),
-            debug!("Next epoch high QC with an equal or higher view exists.")
-        );
+        if let Some(next_epoch_high_qc) = self.next_epoch_high_qc() {
+            ensure!(
+                high_qc.view_number > next_epoch_high_qc.view_number
+                    || high_qc == *next_epoch_high_qc,
+                debug!("Next epoch high QC with an equal or higher view exists.")
+            );
+        }
         tracing::debug!("Updating next epoch high QC");
         self.next_epoch_high_qc = Some(high_qc);
 
