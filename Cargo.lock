@@ -2917,7 +2917,7 @@ dependencies = [
  "hotshot-types",
  "serde",
  "tagged-base64",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "tide-disco",
  "toml",
  "vbs",
@@ -2940,7 +2940,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "time 0.3.37",
  "tokio",
  "url",
@@ -3083,7 +3083,7 @@ dependencies = [
  "sha2 0.10.8",
  "surf-disco",
  "tagged-base64",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "time 0.3.37",
  "tokio",
  "tracing",
@@ -3124,7 +3124,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "tagged-base64",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "tide-disco",
  "tokio",
  "tracing",
@@ -3175,7 +3175,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.8",
  "tagged-base64",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "time 0.3.37",
  "tokio",
  "toml",
@@ -5328,7 +5328,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b7cafe60d6cf8e62e1b9b2ea516a089c008945bb5a275416789e7db0bc199dc"
 dependencies = [
  "memchr",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "ucd-trie",
 ]
 
@@ -5721,7 +5721,7 @@ dependencies = [
  "rustc-hash",
  "rustls 0.23.19",
  "socket2 0.5.8",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "tokio",
  "tracing",
 ]
@@ -5740,7 +5740,7 @@ dependencies = [
  "rustls 0.23.19",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.6",
+ "thiserror 2.0.7",
  "tinyvec",
  "tracing",
  "web-time",
@@ -7333,11 +7333,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.6"
+version = "2.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fec2a1820ebd077e2b90c4df007bebf344cd394098a13c563957d0afc83ea47"
+checksum = "93605438cbd668185516ab499d589afb7ee1859ea3d5fc8f6b0755e1c7443767"
 dependencies = [
- "thiserror-impl 2.0.6",
+ "thiserror-impl 2.0.7",
 ]
 
 [[package]]
@@ -7353,9 +7353,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.6"
+version = "2.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d65750cab40f4ff1929fb1ba509e9914eb756131cef4210da8d5d700d26f6312"
+checksum = "e1d8749b4531af2117677a5fcd12b1348a3fe2b81e36e61ffeac5c4aa3273e36"
 dependencies = [
  "proc-macro2",
  "quote",
