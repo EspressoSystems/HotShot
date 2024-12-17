@@ -13,11 +13,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    events::HotShotEvent,
-    helpers::{broadcast_event, parent_leaf_and_state},
-    quorum_proposal::{UpgradeLock, Versions},
-};
 use anyhow::{ensure, Context, Result};
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
@@ -30,6 +25,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence},
+    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -45,6 +41,12 @@ use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
 
+use crate::{
+    events::HotShotEvent,
+    helpers::{broadcast_event, parent_leaf_and_state},
+    quorum_proposal::{UpgradeLock, Versions},
+};
+
 /// Proposal dependency types. These types represent events that precipitate a proposal.
 #[derive(PartialEq, Debug)]
 pub(crate) enum ProposalDependency {
@@ -54,7 +56,7 @@ pub(crate) enum ProposalDependency {
     /// For the `Qc2Formed` event.
     Qc,
 
-    /// For the `ViewSyncFinalizeCertificate2Recv` event.
+    /// For the `ViewSyncFinalizeCertificateRecv` event.
     ViewSyncCert,
 
     /// For the `Qc2Formed` event timeout branch.
@@ -195,12 +197,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
     ) -> Option<NextEpochQuorumCertificate2<TYPES>> {
         tracing::debug!("getting the next epoch QC");
         // If we haven't upgraded to Epochs just return None right away
-        if self
-            .upgrade_lock
-            .version(self.view_number)
-            .await
-            .is_ok_and(|version| version < V::Epochs::VERSION)
-        {
+        if self.upgrade_lock.version_infallible(self.view_number).await < V::Epochs::VERSION {
             return None;
         }
         if let Some(next_epoch_qc) = self.consensus.read().await.next_epoch_high_qc() {
@@ -243,7 +240,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             // Check again, there is a chance we missed it
             if let Some(next_epoch_qc) = self.consensus.read().await.next_epoch_high_qc() {
                 if next_epoch_qc.data.leaf_commit == high_qc.data.leaf_commit {
-                    // We have it already, no reason to wait
                     return Some(next_epoch_qc.clone());
                 }
             };
@@ -393,14 +389,12 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
         let proposal = QuorumProposal2 {
             block_header,
             view_number: self.view_number,
-            epoch,
             justify_qc: parent_qc,
             next_epoch_justify_qc: next_epoch_qc,
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
-            // TODO fix these to use the proper values
-            drb_seed: [0; 32],
-            drb_result: [0; 32],
+            drb_seed: INITIAL_DRB_SEED_INPUT,
+            drb_result: INITIAL_DRB_RESULT,
         };
 
         let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);
@@ -420,9 +414,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             _pd: PhantomData,
         };
         tracing::debug!(
-            "Sending proposal for view {:?}, proposal: {:?}",
+            "Sending proposal for view {:?}",
             proposed_leaf.view_number(),
-            message,
         );
 
         broadcast_event(
@@ -475,7 +468,7 @@ impl<TYPES: NodeType, V: Versions> HandleDepOutput for ProposalDependencyHandle<
                         parent_qc = Some(qc.clone());
                     }
                 },
-                HotShotEvent::ViewSyncFinalizeCertificate2Recv(cert) => {
+                HotShotEvent::ViewSyncFinalizeCertificateRecv(cert) => {
                     view_sync_finalize_cert = Some(cert.clone());
                 }
                 HotShotEvent::VidDisperseSend(share, _) => {

@@ -24,7 +24,7 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType, Versions},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -513,6 +513,8 @@ pub async fn validate_proposal_safety_and_liveness<
         proposed_leaf.parent_commitment() == parent_leaf.commit(),
         "Proposed leaf does not extend the parent leaf."
     );
+    let proposal_epoch =
+        epoch_from_block_number(proposed_leaf.height(), validation_info.epoch_height);
 
     let state = Arc::new(
         <TYPES::ValidatedState as ValidatedState<TYPES>>::from_header(&proposal.data.block_header),
@@ -531,16 +533,13 @@ pub async fn validate_proposal_safety_and_liveness<
         };
     }
 
-    if let Some(ref upgrade_certificate) = proposal.data.upgrade_certificate {
-        let upgrade_certificate_epoch = upgrade_certificate.data.epoch();
-        UpgradeCertificate::validate(
-            &proposal.data.upgrade_certificate,
-            &validation_info.quorum_membership,
-            upgrade_certificate_epoch,
-            &validation_info.upgrade_lock,
-        )
-        .await?;
-    }
+    UpgradeCertificate::validate(
+        &proposal.data.upgrade_certificate,
+        &validation_info.quorum_membership,
+        TYPES::Epoch::new(proposal_epoch),
+        &validation_info.upgrade_lock,
+    )
+    .await?;
 
     // Validate that the upgrade certificate is re-attached, if we saw one on the parent
     proposed_leaf
@@ -560,8 +559,6 @@ pub async fn validate_proposal_safety_and_liveness<
         // The proposal is safe if
         // 1. the proposed block and the justify QC block belong to the same epoch or
         // 2. the justify QC is the eQC for the previous block
-        let proposal_epoch =
-            epoch_from_block_number(proposed_leaf.height(), validation_info.epoch_height);
         let justify_qc_epoch =
             epoch_from_block_number(parent_leaf.height(), validation_info.epoch_height);
         ensure!(
@@ -730,12 +727,15 @@ pub(crate) async fn validate_proposal_view_and_certs<
 
     // Validate the upgrade certificate -- this is just a signature validation.
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
-    if let Some(ref upgrade_certificate) = proposal.data.upgrade_certificate {
-        let upgrade_certificate_epoch = upgrade_certificate.data.epoch();
+    {
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(
+            proposal.data.block_header.block_number(),
+            TYPES::EPOCH_HEIGHT,
+        ));
         UpgradeCertificate::validate(
             &proposal.data.upgrade_certificate,
             &validation_info.quorum_membership,
-            upgrade_certificate_epoch,
+            epoch,
             &validation_info.upgrade_lock,
         )
         .await?;

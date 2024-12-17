@@ -21,7 +21,6 @@ use hotshot_types::{
     data::{Leaf2, QuorumProposal2},
     event::Event,
     message::{Proposal, UpgradeLock},
-    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -239,12 +238,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             self.private_key.clone(),
             self.upgrade_lock.clone(),
             self.view_number,
-            current_epoch,
             Arc::clone(&self.storage),
             leaf,
             vid_share,
             false,
-            self.epoch_height,
         )
         .await
         {
@@ -507,7 +504,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     "Received DAC for an older view."
                 );
 
-                let cert_epoch = cert.data.epoch();
+                let cert_epoch = cert.data.epoch;
+
                 // Validate the DAC.
                 ensure!(
                     cert.is_valid_cert(
@@ -548,7 +546,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = &disperse.data.payload_commitment;
-                let disperse_epoch = disperse.data.epoch();
+                let disperse_epoch = disperse.data.epoch;
 
                 // Check that the signature is valid
                 ensure!(
@@ -740,12 +738,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             self.private_key.clone(),
             self.upgrade_lock.clone(),
             proposal.data.view_number(),
-            current_epoch,
             Arc::clone(&self.storage),
             proposed_leaf,
             updated_vid,
             is_vote_leaf_extended,
-            self.epoch_height,
         )
         .await
         {

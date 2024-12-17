@@ -6,23 +6,13 @@
 
 use std::sync::Arc;
 
-use super::QuorumVoteTaskState;
-use crate::{
-    events::HotShotEvent,
-    helpers::{
-        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
-        LeafChainTraversalOutcome,
-    },
-    quorum_vote::Versions,
-};
 use async_broadcast::{InactiveReceiver, Sender};
 use async_lock::RwLock;
 use chrono::Utc;
 use committable::Committable;
-use hotshot_types::utils::is_last_block_in_epoch;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal2, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperseShare2},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
@@ -34,12 +24,22 @@ use hotshot_types::{
         storage::Storage,
         ValidatedState,
     },
-    utils::epoch_from_block_number,
+    utils::{epoch_from_block_number, is_last_block_in_epoch},
     vote::HasViewNumber,
 };
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
+
+use super::QuorumVoteTaskState;
+use crate::{
+    events::HotShotEvent,
+    helpers::{
+        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
+        LeafChainTraversalOutcome,
+    },
+    quorum_vote::Versions,
+};
 
 /// Handles starting the DRB calculation. Uses the seed previously stored in
 /// handle_quorum_proposal_validated_drb_calculation_seed
@@ -53,7 +53,7 @@ async fn handle_quorum_proposal_validated_drb_calculation_start<
 ) {
     let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
         proposal.block_header.block_number(),
-        task_state.epoch_height,
+        TYPES::EPOCH_HEIGHT,
     ));
 
     // Start the new task if we're in the committee for this epoch
@@ -278,14 +278,14 @@ pub(crate) async fn update_shared_state<
     instance_state: Arc<TYPES::InstanceState>,
     storage: Arc<RwLock<I::Storage>>,
     proposed_leaf: &Leaf2<TYPES>,
-    vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
     parent_view_number: Option<TYPES::View>,
     epoch_height: u64,
 ) -> Result<()> {
     let justify_qc = &proposed_leaf.justify_qc();
 
     let consensus_reader = consensus.read().await;
-    // Try to find the validated vview within the validasted state map. This will be present
+    // Try to find the validated view within the validated state map. This will be present
     // if we have the saved leaf, but if not we'll get it when we fetch_proposal.
     let mut maybe_validated_view = parent_view_number.and_then(|view_number| {
         consensus_reader
@@ -401,18 +401,22 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: UpgradeLock<TYPES, V>,
     view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
     storage: Arc<RwLock<I::Storage>>,
     leaf: Leaf2<TYPES>,
-    vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: Proposal<TYPES, VidDisperseShare2<TYPES>>,
     extended_vote: bool,
-    epoch_height: u64,
 ) -> Result<()> {
+    let epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        leaf.block_header().block_number(),
+        TYPES::EPOCH_HEIGHT,
+    ));
+
     let committee_member_in_current_epoch = quorum_membership.has_stake(&public_key, epoch_number);
     // If the proposed leaf is for the last block in the epoch and the node is part of the quorum committee
     // in the next epoch, the node should vote to achieve the double quorum.
-    let committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), epoch_height)
+    let committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), TYPES::EPOCH_HEIGHT)
         && quorum_membership.has_stake(&public_key, epoch_number + 1);
+
     ensure!(
         committee_member_in_current_epoch || committee_member_in_next_epoch,
         info!(
@@ -439,7 +443,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     storage
         .write()
         .await
-        .append_vid(&vid_share)
+        .append_vid2(&vid_share)
         .await
         .wrap()
         .context(error!("Failed to store VID share"))?;

@@ -9,18 +9,18 @@ use std::{marker::PhantomData, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
-use hotshot_types::traits::block_contents::BlockHeader;
-use hotshot_types::utils::epoch_from_block_number;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{PackedBundle, VidDisperse, VidDisperseShare},
+    data::{PackedBundle, VidDisperse, VidDisperseShare2},
     message::Proposal,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
     },
+    utils::epoch_from_block_number,
 };
 use tracing::{debug, error, info, instrument};
 use utils::anytrace::Result;
@@ -99,7 +99,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 )
                 .await;
                 let payload_commitment = vid_disperse.payload_commitment;
-                let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
+                let shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
                 let mut consensus_writer = self.consensus.write().await;
                 for share in shares {
                     if let Some(disperse) = share.to_proposal(&self.private_key) {
@@ -175,7 +175,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 // We just sent a proposal for the last block in the epoch. We need to calculate
                 // and send VID for the nodes in the next epoch so that they can vote.
                 let proposal_view_number = proposal.data.view_number;
-                let sender_epoch = proposal.data.epoch;
+                let sender_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    proposed_block_number,
+                    self.epoch_height,
+                ));
                 let target_epoch = TYPES::Epoch::new(
                     epoch_from_block_number(proposed_block_number, self.epoch_height) + 1,
                 );
