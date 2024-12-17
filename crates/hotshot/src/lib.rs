@@ -494,6 +494,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
 
         let api = self.clone();
         let view_number = api.consensus.read().await.cur_view();
+        let epoch = api.consensus.read().await.cur_epoch();
 
         // Wrap up a message
         let message_kind: DataMessage<TYPES> =
@@ -519,7 +520,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 api
                     .network.da_broadcast_message(
                         serialized_message,
-                        api.memberships.da_committee_members(view_number, TYPES::Epoch::new(1)).iter().cloned().collect(),
+                        api.memberships.da_committee_members(view_number, epoch).iter().cloned().collect(),
                         BroadcastDelay::None,
                     ),
                 api
