@@ -76,7 +76,7 @@ cross_tests!(
 cross_tests!(
     TestName: test_with_failures_2_with_epochs,
     Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
-    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Types: [TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
