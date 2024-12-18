@@ -283,6 +283,56 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -437,7 +487,10 @@
         </span>.context(<span class="macro">warn!</span>(<span class="string">"Failed to validate proposal view or attached certs"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>view_number = proposal.data.view_number();
+
     <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
+    <span class="kw">let </span>maybe_next_epoch_justify_qc = proposal.data.next_epoch_justify_qc.clone();
+
     <span class="kw">let </span>proposal_block_number = proposal.data.block_header.block_number();
     <span class="kw">let </span>proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
         proposal_block_number,
@@ -459,6 +512,34 @@
         <span class="kw">let </span>consensus_reader = validation_info.consensus.read().<span class="kw">await</span>;
         consensus_reader.metrics.invalid_qc.update(<span class="number">1</span>);
         <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
+    }
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>next_epoch_justify_qc) = maybe_next_epoch_justify_qc {
+        <span class="comment">// If the next epoch justify qc exists, make sure it's equal to the justify qc
+        </span><span class="kw">if </span>justify_qc.view_number() != next_epoch_justify_qc.view_number()
+            || justify_qc.data.epoch != next_epoch_justify_qc.data.epoch
+            || justify_qc.data.leaf_commit != next_epoch_justify_qc.data.leaf_commit
+        {
+            <span class="macro">bail!</span>(<span class="string">"Next epoch justify qc exists but it's not equal with justify qc."</span>);
+        }
+        <span class="comment">// Validate the next epoch justify qc as well
+        </span><span class="kw">if </span>!next_epoch_justify_qc
+            .is_valid_cert(
+                validation_info
+                    .quorum_membership
+                    .stake_table(justify_qc.data.epoch + <span class="number">1</span>),
+                validation_info
+                    .quorum_membership
+                    .success_threshold(justify_qc.data.epoch + <span class="number">1</span>),
+                <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
+            )
+            .<span class="kw">await
+        </span>{
+            <span class="macro">bail!</span>(
+                <span class="string">"Invalid next_epoch_justify_qc in proposal for view {}"</span>,
+                <span class="kw-2">*</span>view_number
+            );
+        }
     }
 
     broadcast_event(
@@ -517,12 +598,31 @@
         </span>{
             <span class="macro">bail!</span>(<span class="string">"Failed to store High QC, not voting; error = {:?}"</span>, e);
         }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>next_epoch_justify_qc) = maybe_next_epoch_justify_qc {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = validation_info
+                .storage
+                .write()
+                .<span class="kw">await
+                </span>.update_next_epoch_high_qc2(next_epoch_justify_qc.clone())
+                .<span class="kw">await
+            </span>{
+                <span class="macro">bail!</span>(
+                    <span class="string">"Failed to store next epoch High QC, not voting; error = {:?}"</span>,
+                    e
+                );
+            }
+        }
     }
     drop(consensus_reader);
 
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = validation_info.consensus.write().<span class="kw">await</span>;
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_high_qc(justify_qc.clone()) {
         <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>next_epoch_justify_qc) = maybe_next_epoch_justify_qc {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_next_epoch_high_qc(next_epoch_justify_qc.clone()) {
+            <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+        }
     }
     drop(consensus_writer);
 

@@ -592,6 +592,8 @@
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -732,6 +734,7 @@
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
             .<span class="kw">await</span>,
+            next_epoch_justify_qc: <span class="prelude-val">None</span>,
             upgrade_certificate: <span class="prelude-val">None</span>,
             view_change_evidence: <span class="prelude-val">None</span>,
             drb_result: INITIAL_DRB_RESULT,
@@ -962,6 +965,7 @@
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
+            next_epoch_justify_qc: <span class="prelude-val">None</span>,
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
             drb_result: INITIAL_DRB_RESULT,

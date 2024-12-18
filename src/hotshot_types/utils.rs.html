@@ -268,6 +268,17 @@
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -532,10 +543,21 @@
 
 <span class="doccomment">/// A helper enum to indicate whether a node is in the epoch transition
 /// A node is in epoch transition when its high QC is for the last block in an epoch
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>EpochTransitionIndicator {
     <span class="doccomment">/// A node is currently in the epoch transition
     </span>InTransition,
     <span class="doccomment">/// A node is not in the epoch transition
     </span>NotInTransition,
+}
+
+<span class="doccomment">/// Returns true if the given block number is the last in the epoch based on the given epoch height.
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>is_last_block_in_epoch(block_number: u64, epoch_height: u64) -&gt; bool {
+    <span class="kw">if </span>block_number == <span class="number">0 </span>|| epoch_height == <span class="number">0 </span>{
+        <span class="bool-val">false
+    </span>} <span class="kw">else </span>{
+        block_number % epoch_height == <span class="number">0
+    </span>}
 }
 </code></pre></div></section></main></body></html>

@@ -1557,6 +1557,33 @@
 <a href="#1557" id="1557">1557</a>
 <a href="#1558" id="1558">1558</a>
 <a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1593,8 +1620,8 @@
     impl_has_epoch,
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        QuorumCertificate, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate2,
+        UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
     simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -1705,6 +1732,8 @@
     </span><span class="kw">pub </span>metadata: &lt;TYPES::BlockPayload <span class="kw">as </span>BlockPayload&lt;TYPES&gt;&gt;::Metadata,
     <span class="doccomment">/// View this proposal applies to
     </span><span class="kw">pub </span>view_number: TYPES::View,
+    <span class="doccomment">/// Epoch this proposal applies to
+    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
 }
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
@@ -1738,6 +1767,7 @@
             encoded_transactions: da_proposal2.encoded_transactions,
             metadata: da_proposal2.metadata,
             view_number: da_proposal2.view_number,
+            epoch: TYPES::Epoch::new(<span class="number">0</span>),
         }
     }
 }
@@ -1753,6 +1783,8 @@
     </span><span class="kw">pub </span>upgrade_proposal: UpgradeProposalData&lt;TYPES&gt;,
     <span class="doccomment">/// View this proposal applies to
     </span><span class="kw">pub </span>view_number: TYPES::View,
+    <span class="doccomment">/// Epoch this proposal applies to
+    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
 }
 
 <span class="doccomment">/// VID dispersal data
@@ -1764,7 +1796,7 @@
 </span><span class="kw">pub struct </span>VidDisperse&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number for which this VID data is intended
     </span><span class="kw">pub </span>view_number: TYPES::View,
-    <span class="doccomment">/// The epoch number for which this VID data is intended
+    <span class="doccomment">/// Epoch this proposal applies to
     </span><span class="kw">pub </span>epoch: TYPES::Epoch,
     <span class="doccomment">/// Block payload commitment
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
@@ -1775,32 +1807,34 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperse&lt;TYPES&gt; {
-    <span class="doccomment">/// Create VID dispersal from a specified membership for a given epoch.
+    <span class="doccomment">/// Create VID dispersal from a specified membership for the target epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
     </span><span class="kw">pub fn </span>from_membership(
         view_number: TYPES::View,
         <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        target_epoch: TYPES::Epoch,
+        sender_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
-            .committee_members(view_number, epoch)
+            .committee_members(view_number, target_epoch)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(<span class="number">0</span>)))
             .collect();
 
         <span class="self">Self </span>{
             view_number,
-            epoch,
             shares,
             common: vid_disperse.common,
             payload_commitment: vid_disperse.commit,
+            epoch: sender_epoch.unwrap_or(target_epoch),
         }
     }
 
     <span class="doccomment">/// Calculate the vid disperse information from the payload given a view, epoch and membership,
-    /// optionally using precompute data from builder
+    /// optionally using precompute data from builder.
+    /// If the sender epoch is missing, it means it's the same as the target epoch.
     ///
     /// # Panics
     /// Panics if the VID calculation fails, this should not happen.
@@ -1809,10 +1843,11 @@
         txns: Arc&lt;[u8]&gt;,
         membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
+        target_epoch: TYPES::Epoch,
+        sender_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         precompute_data: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>num_nodes = membership.total_nodes(epoch);
+        <span class="kw">let </span>num_nodes = membership.total_nodes(target_epoch);
 
         <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
             precompute_data
@@ -1825,7 +1860,13 @@
         <span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
 
-        <span class="self">Self</span>::from_membership(view, vid_disperse, membership.as_ref(), epoch)
+        <span class="self">Self</span>::from_membership(
+            view,
+            vid_disperse,
+            membership.as_ref(),
+            target_epoch,
+            sender_epoch,
+        )
     }
 }
 
@@ -2133,6 +2174,9 @@
     <span class="doccomment">/// certificate that the proposal is chaining from
     </span><span class="kw">pub </span>justify_qc: QuorumCertificate2&lt;TYPES&gt;,
 
+    <span class="doccomment">/// certificate that the proposal is chaining from formed by the next epoch nodes
+    </span><span class="kw">pub </span>next_epoch_justify_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// Possible upgrade certificate, which the leader may optionally attach.
     </span><span class="kw">pub </span>upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
@@ -2158,6 +2202,7 @@
             block_header: quorum_proposal.block_header,
             view_number: quorum_proposal.view_number,
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
+            next_epoch_justify_qc: <span class="prelude-val">None</span>,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
             drb_seed: INITIAL_DRB_SEED_INPUT,
@@ -2186,6 +2231,7 @@
             view_number: leaf.view_number,
             epoch: TYPES::Epoch::genesis(),
             justify_qc: leaf.justify_qc.to_qc2(),
+            next_epoch_justify_qc: <span class="prelude-val">None</span>,
             parent_commitment: Commitment::from_raw(bytes),
             block_header: leaf.block_header,
             upgrade_certificate: leaf.upgrade_certificate,
@@ -2318,6 +2364,9 @@
     <span class="doccomment">/// Per spec, justification
     </span>justify_qc: QuorumCertificate2&lt;TYPES&gt;,
 
+    <span class="doccomment">/// certificate that the proposal is chaining from formed by the next epoch nodes
+    </span>next_epoch_justify_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// The hash of the parent `Leaf`
     /// So we can ask if it extends
     </span>parent_commitment: Commitment&lt;<span class="self">Self</span>&gt;,
@@ -2393,6 +2442,7 @@
         <span class="self">Self </span>{
             view_number: TYPES::View::genesis(),
             justify_qc,
+            next_epoch_justify_qc: <span class="prelude-val">None</span>,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: <span class="prelude-val">None</span>,
             block_header: block_header.clone(),
@@ -2560,6 +2610,7 @@
             view_number,
             epoch,
             justify_qc,
+            next_epoch_justify_qc,
             parent_commitment,
             block_header,
             upgrade_certificate,
@@ -2572,6 +2623,7 @@
         <span class="kw-2">*</span>view_number == other.view_number
             &amp;&amp; <span class="kw-2">*</span>epoch == other.epoch
             &amp;&amp; <span class="kw-2">*</span>justify_qc == other.justify_qc
+            &amp;&amp; <span class="kw-2">*</span>next_epoch_justify_qc == other.next_epoch_justify_qc
             &amp;&amp; <span class="kw-2">*</span>parent_commitment == other.parent_commitment
             &amp;&amp; <span class="kw-2">*</span>block_header == other.block_header
             &amp;&amp; <span class="kw-2">*</span>upgrade_certificate == other.upgrade_certificate
@@ -2937,6 +2989,7 @@
         </span><span class="kw">let </span>QuorumProposal2 {
             view_number,
             justify_qc,
+            next_epoch_justify_qc,
             block_header,
             upgrade_certificate,
             view_change_evidence,
@@ -2951,6 +3004,7 @@
                 TYPES::EPOCH_HEIGHT,
             )),
             justify_qc: justify_qc.clone(),
+            next_epoch_justify_qc: next_epoch_justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),

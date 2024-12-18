@@ -373,6 +373,10 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -400,6 +404,7 @@
         signature_key::SignatureKey,
         storage::Storage,
     },
+    utils::EpochTransitionIndicator,
     vote::HasViewNumber,
 };
 <span class="kw">use </span>sha2::{Digest, Sha256};
@@ -481,21 +486,15 @@
                     <span class="string">"Throwing away DA proposal that is more than one view older"
                 </span>);
 
-                <span class="macro">ensure!</span>(
-                    !<span class="self">self
-                      </span>.consensus
-                      .read()
-                      .<span class="kw">await
-                      </span>.saved_payloads()
-                      .contains_key(<span class="kw-2">&amp;</span>view),
-                    <span class="macro">info!</span>(
-                      <span class="string">"Received DA proposal for view {:?} but we already have a payload for that view.  Throwing it away"</span>,
-                      view
-                    )
-                );
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.saved_payloads().get(<span class="kw-2">&amp;</span>view) {
+                    <span class="macro">ensure!</span>(<span class="kw-2">*</span>payload == proposal.data.encoded_transactions, <span class="macro">error!</span>(
+                      <span class="string">"Received DA proposal for view {:?} but we already have a payload for that view and they are not identical.  Throwing it away"</span>,
+                      view)
+                    );
+                }
 
                 <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
-                <span class="kw">let </span>view_leader_key = <span class="self">self</span>.membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">?</span>;
+                <span class="kw">let </span>view_leader_key = <span class="self">self</span>.membership.leader(view, proposal.data.epoch)<span class="question-mark">?</span>;
                 <span class="macro">ensure!</span>(
                     view_leader_key == sender,
                     <span class="macro">warn!</span>(
@@ -657,7 +656,7 @@
                     <span class="kw-2">&amp;</span>event,
                     <span class="kw-2">&amp;</span>event_stream,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
-                    <span class="bool-val">true</span>,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
             }
@@ -682,7 +681,6 @@
                     encoded_transactions,
                     metadata,
                     view_number,
-                    epoch_number,
                     ..
                 } = packed_bundle;
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
@@ -695,7 +693,8 @@
                     TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, <span class="kw-2">&amp;</span>encoded_transactions_hash)
                         .wrap()<span class="question-mark">?</span>;
 
-                <span class="kw">if </span><span class="self">self</span>.membership.leader(view_number, <span class="kw-2">*</span>epoch_number)<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
+                <span class="kw">let </span>epoch = <span class="self">self</span>.cur_epoch;
+                <span class="kw">if </span><span class="self">self</span>.membership.leader(view_number, epoch)<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
                     <span class="macro">tracing::debug!</span>(
                         <span class="string">"We are not the leader in the current epoch. Do not send the DA proposal"
                     </span>);
@@ -706,7 +705,7 @@
                     metadata: metadata.clone(),
                     <span class="comment">// Upon entering a new view we want to send a DA Proposal for the next view -&gt; Is it always the case that this is cur_view + 1?
                     </span>view_number,
-                    epoch: <span class="kw-2">*</span>epoch_number,
+                    epoch,
                 };
 
                 <span class="kw">let </span>message = Proposal {
@@ -723,6 +722,15 @@
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
+                <span class="comment">// Save the payload early because we might need it to calculate VID for the next epoch nodes.
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                    </span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.update_saved_payloads(view_number, Arc::clone(encoded_transactions))
+                {
+                    <span class="macro">tracing::trace!</span>(<span class="string">"{e:?}"</span>);
+                }
             }
             <span class="kw">_ </span>=&gt; {}
         }

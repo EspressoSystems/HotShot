@@ -410,6 +410,10 @@
 <a href="#410" id="410">410</a>
 <a href="#411" id="411">411</a>
 <a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -440,7 +444,7 @@
     constants::EVENT_CHANNEL_SIZE,
     data::Leaf2,
     event::Event,
-    simple_certificate::QuorumCertificate2,
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -477,6 +481,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) last_decided_leaf: Leaf2&lt;TYPES&gt;,
     <span class="doccomment">/// Highest qc seen in the test for restarting nodes
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) high_qc: QuorumCertificate2&lt;TYPES&gt;,
+    <span class="doccomment">/// Next epoch highest qc seen in the test for restarting nodes
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Add specified delay to async calls
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) async_delay_config: DelayConfig,
     <span class="doccomment">/// Context stored for nodes to be restarted with
@@ -572,6 +578,7 @@
                                             TYPES::View::genesis(),
                                             BTreeMap::new(),
                                             <span class="self">self</span>.high_qc.clone(),
+                                            <span class="self">self</span>.next_epoch_high_qc.clone(),
                                             <span class="prelude-val">None</span>,
                                             Vec::new(),
                                             BTreeMap::new(),
@@ -661,6 +668,7 @@
                                         )
                                         .<span class="kw">await</span>,
                                     ),
+                                    read_storage.next_epoch_high_qc_cloned().<span class="kw">await</span>,
                                     read_storage.decided_upgrade_certificate().<span class="kw">await</span>,
                                     Vec::new(),
                                     BTreeMap::new(),

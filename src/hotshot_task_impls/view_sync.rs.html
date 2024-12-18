@@ -872,6 +872,7 @@
 <a href="#872" id="872">872</a>
 <a href="#873" id="873">873</a>
 <a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -903,6 +904,7 @@
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::EpochTransitionIndicator,
     vote::{Certificate, HasViewNumber, Vote},
 };
 <span class="kw">use </span>tokio::{spawn, task::JoinHandle, time::sleep};
@@ -1192,15 +1194,15 @@
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     view: vote_view,
-                    epoch: <span class="self">self</span>.cur_epoch,
                     id: <span class="self">self</span>.id,
+                    epoch: vote.data.epoch,
                 };
                 <span class="kw">let </span>vote_collector = create_vote_accumulator(
                     <span class="kw-2">&amp;</span>info,
                     event,
                     <span class="kw-2">&amp;</span>event_stream,
                     <span class="self">self</span>.upgrade_lock.clone(),
-                    <span class="bool-val">true</span>,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1237,8 +1239,8 @@
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     view: vote_view,
-                    epoch: <span class="self">self</span>.cur_epoch,
                     id: <span class="self">self</span>.id,
+                    epoch: vote.data.epoch,
                 };
 
                 <span class="kw">let </span>vote_collector = create_vote_accumulator(
@@ -1246,7 +1248,7 @@
                     event,
                     <span class="kw-2">&amp;</span>event_stream,
                     <span class="self">self</span>.upgrade_lock.clone(),
-                    <span class="bool-val">true</span>,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
                 relay_map.insert(relay, vote_collector);
@@ -1282,15 +1284,15 @@
                     public_key: <span class="self">self</span>.public_key.clone(),
                     membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     view: vote_view,
-                    epoch: <span class="self">self</span>.cur_epoch,
                     id: <span class="self">self</span>.id,
+                    epoch: vote.data.epoch,
                 };
                 <span class="kw">let </span>vote_collector = create_vote_accumulator(
                     <span class="kw-2">&amp;</span>info,
                     event,
                     <span class="kw-2">&amp;</span>event_stream,
                     <span class="self">self</span>.upgrade_lock.clone(),
-                    <span class="bool-val">true</span>,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(vote_task) = vote_collector {

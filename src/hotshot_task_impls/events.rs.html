@@ -602,6 +602,20 @@
 <a href="#602" id="602">602</a>
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -621,8 +635,8 @@
     message::Proposal,
     request_response::ProposalRequestPayload,
     simple_certificate::{
-        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        TimeoutCertificate2, UpgradeCertificate, ViewSyncCommitCertificate2,
+        DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2,
+        TimeoutCertificate, TimeoutCertificate2, UpgradeCertificate, ViewSyncCommitCertificate2,
         ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
     },
     simple_vote::{
@@ -728,6 +742,8 @@
     </span>QcFormed(Either&lt;QuorumCertificate&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// The next leader has collected enough votes to form a QC; emitted by the next leader in the consensus task; an internal event only
     </span>Qc2Formed(Either&lt;QuorumCertificate2&lt;TYPES&gt;, TimeoutCertificate2&lt;TYPES&gt;&gt;),
+    <span class="doccomment">/// The next leader has collected enough votes from the next epoch nodes to form a QC; emitted by the next leader in the consensus task; an internal event only
+    </span>NextEpochQc2Formed(Either&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;, TimeoutCertificate&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// The DA leader has collected enough votes to form a DAC; emitted by the DA leader in the DA task; sent to the entire network via the networking task
     </span>DacSend(DaCertificate2&lt;TYPES&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// The current view has changed; emitted by the replica in the consensus task or replica in the view sync task; received by almost all other tasks
@@ -887,6 +903,10 @@
                 either::Left(qc) =&gt; <span class="prelude-val">Some</span>(qc.view_number()),
                 either::Right(tc) =&gt; <span class="prelude-val">Some</span>(tc.view_number()),
             },
+            HotShotEvent::NextEpochQc2Formed(cert) =&gt; <span class="kw">match </span>cert {
+                either::Left(qc) =&gt; <span class="prelude-val">Some</span>(qc.view_number()),
+                either::Right(tc) =&gt; <span class="prelude-val">Some</span>(tc.view_number()),
+            },
             HotShotEvent::ViewSyncCommitVoteSend(vote)
             | HotShotEvent::ViewSyncCommitVoteRecv(vote) =&gt; <span class="prelude-val">Some</span>(vote.view_number()),
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote)
@@ -1010,8 +1030,16 @@
                 either::Right(tc) =&gt; <span class="macro">write!</span>(f, <span class="string">"QcFormed(view_number={:?})"</span>, tc.view_number()),
             },
             HotShotEvent::Qc2Formed(cert) =&gt; <span class="kw">match </span>cert {
-                either::Left(qc) =&gt; <span class="macro">write!</span>(f, <span class="string">"QcFormed(view_number={:?})"</span>, qc.view_number()),
-                either::Right(tc) =&gt; <span class="macro">write!</span>(f, <span class="string">"QcFormed(view_number={:?})"</span>, tc.view_number()),
+                either::Left(qc) =&gt; <span class="macro">write!</span>(f, <span class="string">"QcFormed2(view_number={:?})"</span>, qc.view_number()),
+                either::Right(tc) =&gt; <span class="macro">write!</span>(f, <span class="string">"QcFormed2(view_number={:?})"</span>, tc.view_number()),
+            },
+            HotShotEvent::NextEpochQc2Formed(cert) =&gt; <span class="kw">match </span>cert {
+                either::Left(qc) =&gt; {
+                    <span class="macro">write!</span>(f, <span class="string">"NextEpochQc2Formed(view_number={:?})"</span>, qc.view_number())
+                }
+                either::Right(tc) =&gt; {
+                    <span class="macro">write!</span>(f, <span class="string">"NextEpochQc2Formed(view_number={:?})"</span>, tc.view_number())
+                }
             },
             HotShotEvent::DacSend(cert, <span class="kw">_</span>) =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"DacSend(view_number={:?})"</span>, cert.view_number())

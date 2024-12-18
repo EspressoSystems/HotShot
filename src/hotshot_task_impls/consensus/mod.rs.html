@@ -185,6 +185,14 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -201,8 +209,8 @@
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate2, TimeoutCertificate2},
-    simple_vote::{QuorumVote2, TimeoutVote2},
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, TimeoutCertificate2},
+    simple_vote::{NextEpochQuorumVote2, QuorumVote2, TimeoutVote2},
     traits::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -241,6 +249,14 @@
 
     <span class="doccomment">/// A map of `QuorumVote` collector tasks.
     </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, QuorumVote2&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;, V&gt;,
+
+    <span class="doccomment">/// A map of `QuorumVote` collector tasks. They collect votes from the nodes in the next epoch.
+    </span><span class="kw">pub </span>next_epoch_vote_collectors: VoteCollectorsMap&lt;
+        TYPES,
+        NextEpochQuorumVote2&lt;TYPES&gt;,
+        NextEpochQuorumCertificate2&lt;TYPES&gt;,
+        V,
+    &gt;,
 
     <span class="doccomment">/// A map of `TimeoutVote` collector tasks.
     </span><span class="kw">pub </span>timeout_vote_collectors:

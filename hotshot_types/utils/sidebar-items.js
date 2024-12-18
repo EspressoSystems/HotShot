@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["EpochTransitionIndicator","Terminator","ViewInner"],"fn":["bincode_opts","epoch_from_block_number","mnemonic"],"struct":["BuilderCommitment","RoundFinishedEvent","View"],"type":["LeafCommitment","Sha256Digest","StateAndDelta"]};
+window.SIDEBAR_ITEMS = {"enum":["EpochTransitionIndicator","Terminator","ViewInner"],"fn":["bincode_opts","epoch_from_block_number","is_last_block_in_epoch","mnemonic"],"struct":["BuilderCommitment","RoundFinishedEvent","View"],"type":["LeafCommitment","Sha256Digest","StateAndDelta"]};

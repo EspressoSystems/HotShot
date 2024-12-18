@@ -1060,6 +1060,32 @@
 <a href="#1060" id="1060">1060</a>
 <a href="#1061" id="1061">1061</a>
 <a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1087,7 +1113,7 @@
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate2, QuorumCertificate2},
+    simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -1096,7 +1122,8 @@
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
+        epoch_from_block_number, is_last_block_in_epoch, BuilderCommitment, LeafCommitment,
+        StateAndDelta, Terminator,
     },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
@@ -1379,6 +1406,9 @@
     <span class="doccomment">/// the highqc per spec
     </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
 
+    <span class="doccomment">/// The high QC for the next epoch
+    </span>next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// A reference to the metrics trait
     </span><span class="kw">pub </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
 
@@ -1474,6 +1504,7 @@
         saved_leaves: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
         saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
         high_qc: QuorumCertificate2&lt;TYPES&gt;,
+        next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
         metrics: Arc&lt;ConsensusMetricsValue&gt;,
         epoch_height: u64,
     ) -&gt; <span class="self">Self </span>{
@@ -1490,6 +1521,7 @@
             saved_leaves,
             saved_payloads,
             high_qc,
+            next_epoch_high_qc,
             metrics,
             epoch_height,
         }
@@ -1518,6 +1550,11 @@
     <span class="doccomment">/// Get the high QC.
     </span><span class="kw">pub fn </span>high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>QuorumCertificate2&lt;TYPES&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.high_qc
+    }
+
+    <span class="doccomment">/// Get the next epoch high QC.
+    </span><span class="kw">pub fn </span>next_epoch_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>NextEpochQuorumCertificate2&lt;TYPES&gt;&gt; {
+        <span class="self">self</span>.next_epoch_high_qc.as_ref()
     }
 
     <span class="doccomment">/// Get the validated state map.
@@ -1802,6 +1839,28 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="doccomment">/// Update the next epoch high QC if given a newer one.
+    /// # Errors
+    /// Can return an error when the provided high_qc is not newer than the existing entry.
+    /// # Panics
+    /// It can't actually panic. If the option is None, we will not call unwrap on it.
+    </span><span class="kw">pub fn </span>update_next_epoch_high_qc(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        high_qc: NextEpochQuorumCertificate2&lt;TYPES&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(next_epoch_high_qc) = <span class="self">self</span>.next_epoch_high_qc() {
+            <span class="macro">ensure!</span>(
+                high_qc.view_number &gt; next_epoch_high_qc.view_number
+                    || high_qc == <span class="kw-2">*</span>next_epoch_high_qc,
+                <span class="macro">debug!</span>(<span class="string">"Next epoch high QC with an equal or higher view exists."</span>)
+            );
+        }
+        <span class="macro">tracing::debug!</span>(<span class="string">"Updating next epoch high QC"</span>);
+        <span class="self">self</span>.next_epoch_high_qc = <span class="prelude-val">Some</span>(high_qc);
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="doccomment">/// Add a new entry to the vid_shares map.
     </span><span class="kw">pub fn </span>update_vid_shares(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1978,7 +2037,8 @@
             .get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?
             </span>.view_inner
             .epoch()<span class="question-mark">?</span>;
-        <span class="kw">let </span>vid = VidDisperse::calculate_vid_disperse(txns, <span class="kw-2">&amp;</span>membership, view, epoch, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+        <span class="kw">let </span>vid =
+            VidDisperse::calculate_vid_disperse(txns, <span class="kw-2">&amp;</span>membership, view, epoch, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="kw">await</span>;
         <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid);
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
         <span class="kw">for </span>share <span class="kw">in </span>shares {
@@ -2072,11 +2132,7 @@
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
         <span class="kw">let </span>block_height = leaf.height();
-        <span class="kw">if </span>block_height == <span class="number">0 </span>|| <span class="self">self</span>.epoch_height == <span class="number">0 </span>{
-            <span class="bool-val">false
-        </span>} <span class="kw">else </span>{
-            block_height % <span class="self">self</span>.epoch_height == <span class="number">0
-        </span>}
+        is_last_block_in_epoch(block_height, <span class="self">self</span>.epoch_height)
     }
 
     <span class="doccomment">/// Returns true if our high QC is for the last block in the epoch
@@ -2086,11 +2142,7 @@
             <span class="kw">return </span><span class="bool-val">false</span>;
         };
         <span class="kw">let </span>block_height = leaf.height();
-        <span class="kw">if </span>block_height == <span class="number">0 </span>|| <span class="self">self</span>.epoch_height == <span class="number">0 </span>{
-            <span class="bool-val">false
-        </span>} <span class="kw">else </span>{
-            block_height % <span class="self">self</span>.epoch_height == <span class="number">0
-        </span>}
+        is_last_block_in_epoch(block_height, <span class="self">self</span>.epoch_height)
     }
 
     <span class="doccomment">/// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`

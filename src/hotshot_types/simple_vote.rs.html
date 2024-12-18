@@ -805,6 +805,63 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -813,7 +870,12 @@
 
 </span><span class="doccomment">//! Implementations of the simple vote types.
 
-</span><span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData};
+</span><span class="kw">use </span>std::{
+    fmt::Debug,
+    hash::Hash,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -847,9 +909,13 @@
 </span><span class="kw">pub struct </span>QuorumData2&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Commitment to the leaf
     </span><span class="kw">pub </span>leaf_commit: Commitment&lt;Leaf2&lt;TYPES&gt;&gt;,
-    <span class="doccomment">/// Epoch number
+    <span class="doccomment">/// An epoch to which the data belongs to. Relevant for validating against the correct stake table
     </span><span class="kw">pub </span>epoch: TYPES::Epoch,
 }
+<span class="doccomment">/// Data used for a yes vote. Used to distinguish votes sent by the next epoch nodes.
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
+#[serde(bound(deserialize = <span class="string">""</span>))]
+</span><span class="kw">pub struct </span>NextEpochQuorumData2&lt;TYPES: NodeType&gt;(QuorumData2&lt;TYPES&gt;);
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a DA vote.
 </span><span class="kw">pub struct </span>DaData {
@@ -993,6 +1059,7 @@
 
 <span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>QuorumData&lt;T&gt; {}
 <span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>QuorumData2&lt;T&gt; {}
+<span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>NextEpochQuorumData2&lt;T&gt; {}
 <span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>TimeoutData&lt;T&gt; {}
 <span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>TimeoutData2&lt;T&gt; {}
 <span class="kw">impl</span>&lt;T: NodeType&gt; QuorumMarker <span class="kw">for </span>ViewSyncPreCommitData&lt;T&gt; {}
@@ -1163,6 +1230,14 @@
     }
 }
 
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>NextEpochQuorumData2&lt;TYPES&gt; {
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        committable::RawCommitmentBuilder::new(<span class="string">"Quorum data"</span>)
+            .var_size_bytes(<span class="self">self</span>.leaf_commit.as_ref())
+            .finalize()
+    }
+}
+
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>TimeoutData&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
         committable::RawCommitmentBuilder::new(<span class="string">"Timeout data"</span>)
@@ -1324,12 +1399,21 @@
 
 <span class="macro">impl_has_epoch!</span>(
     QuorumData2&lt;TYPES&gt;,
+    NextEpochQuorumData2&lt;TYPES&gt;,
     DaData2&lt;TYPES&gt;,
     TimeoutData2&lt;TYPES&gt;,
     ViewSyncPreCommitData2&lt;TYPES&gt;,
     ViewSyncCommitData2&lt;TYPES&gt;,
     ViewSyncFinalizeData2&lt;TYPES&gt;
 );
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable&lt;TYPES&gt; + HasEpoch&lt;TYPES&gt;&gt; HasEpoch&lt;TYPES&gt;
+    <span class="kw">for </span>SimpleVote&lt;TYPES, DATA&gt;
+{
+    <span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch {
+        <span class="self">self</span>.data.epoch()
+    }
+}
 
 <span class="comment">// impl votable for all the data types in this file sealed marker should ensure nothing is accidentally
 // implemented for structs that aren't "voteable"
@@ -1382,7 +1466,7 @@
     </span><span class="kw">pub fn </span>to_vote(<span class="self">self</span>) -&gt; QuorumVote&lt;TYPES&gt; {
         <span class="kw">let </span>bytes: [u8; <span class="number">32</span>] = <span class="self">self</span>.data.leaf_commit.into();
 
-        <span class="kw">let </span>signature = <span class="self">self</span>.signature;
+        <span class="kw">let </span>signature = <span class="self">self</span>.signature.clone();
         <span class="kw">let </span>data = QuorumData {
             leaf_commit: Commitment::from_raw(bytes),
         };
@@ -1584,7 +1668,8 @@
 <span class="comment">// Type aliases for simple use of all the main votes.  We should never see `SimpleVote` outside this file
 </span><span class="doccomment">/// Quorum vote Alias
 </span><span class="kw">pub type </span>QuorumVote2&lt;TYPES&gt; = SimpleVote&lt;TYPES, QuorumData2&lt;TYPES&gt;&gt;;
-
+<span class="doccomment">/// Quorum vote Alias. This type is useful to distinguish the next epoch nodes' votes.
+</span><span class="kw">pub type </span>NextEpochQuorumVote2&lt;TYPES&gt; = SimpleVote&lt;TYPES, NextEpochQuorumData2&lt;TYPES&gt;&gt;;
 <span class="doccomment">/// DA vote type alias
 </span><span class="kw">pub type </span>DaVote&lt;TYPES&gt; = SimpleVote&lt;TYPES, DaData&gt;;
 <span class="doccomment">/// DA vote 2 type alias
@@ -1607,9 +1692,38 @@
 </span><span class="kw">pub type </span>ViewSyncCommitVote&lt;TYPES&gt; = SimpleVote&lt;TYPES, ViewSyncCommitData&lt;TYPES&gt;&gt;;
 <span class="doccomment">/// View Sync Commit Vote 2 type alias
 </span><span class="kw">pub type </span>ViewSyncCommitVote2&lt;TYPES&gt; = SimpleVote&lt;TYPES, ViewSyncCommitData2&lt;TYPES&gt;&gt;;
-
 <span class="doccomment">/// Upgrade proposal vote
 </span><span class="kw">pub type </span>UpgradeVote&lt;TYPES&gt; = SimpleVote&lt;TYPES, UpgradeProposalData&lt;TYPES&gt;&gt;;
 <span class="doccomment">/// Upgrade proposal 2 vote
 </span><span class="kw">pub type </span>UpgradeVote2&lt;TYPES&gt; = SimpleVote&lt;TYPES, UpgradeData2&lt;TYPES&gt;&gt;;
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; Deref <span class="kw">for </span>NextEpochQuorumData2&lt;TYPES&gt; {
+    <span class="kw">type </span>Target = QuorumData2&lt;TYPES&gt;;
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+    </span>}
+}
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; DerefMut <span class="kw">for </span>NextEpochQuorumData2&lt;TYPES&gt; {
+    <span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0
+    </span>}
+}
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;QuorumData2&lt;TYPES&gt;&gt; <span class="kw">for </span>NextEpochQuorumData2&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(data: QuorumData2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(QuorumData2 {
+            epoch: data.epoch,
+            leaf_commit: data.leaf_commit,
+        })
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;QuorumVote2&lt;TYPES&gt;&gt; <span class="kw">for </span>NextEpochQuorumVote2&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(qvote: QuorumVote2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            data: qvote.data.into(),
+            view_number: qvote.view_number,
+            signature: qvote.signature.clone(),
+        }
+    }
+}
 </code></pre></div></section></main></body></html>

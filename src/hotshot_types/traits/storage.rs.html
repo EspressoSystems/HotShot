@@ -92,6 +92,13 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -118,7 +125,9 @@
     },
     event::HotShotAction,
     message::Proposal,
-    simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
+    simple_certificate::{
+        NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, UpgradeCertificate,
+    },
     vid::VidSchemeType,
 };
 
@@ -158,6 +167,11 @@
     </span><span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the current high QC in storage.
     </span><span class="kw">async fn </span>update_high_qc2(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate2&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="doccomment">/// Update the current high QC in storage.
+    </span><span class="kw">async fn </span>update_next_epoch_high_qc2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        next_epoch_high_qc: NextEpochQuorumCertificate2&lt;TYPES&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
     /// and the undecided state.
     </span><span class="kw">async fn </span>update_undecided_state(

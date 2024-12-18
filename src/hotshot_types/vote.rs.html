@@ -336,7 +336,7 @@ The votes all must be over the `Commitment` associated type.
     </span><span class="comment">// TODO: Make this a static ratio of the total stake of `Membership`
     </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
-        epoch: &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch,
+        epoch: TYPES::Epoch,
     ) -&gt; u64;
 
     <span class="doccomment">/// Get  Stake Table from Membership implementation.

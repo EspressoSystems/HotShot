@@ -1054,6 +1054,26 @@
 <a href="#1054" id="1054">1054</a>
 <a href="#1055" id="1055">1055</a>
 <a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1066,18 +1086,24 @@
     sync::Arc,
 };
 
+<span class="kw">use crate</span>::{
+    events::{HotShotEvent, HotShotTaskCompleted},
+    helpers::broadcast_event,
+};
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
+<span class="kw">use </span>hotshot_types::data::{VidDisperseShare, VidDisperseShare2};
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{VidDisperse, VidDisperseShare},
+    data::VidDisperse,
     event::{Event, EventType, HotShotAction},
     message::{
         convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
         MessageKind, Proposal, SequencingMessage, UpgradeLock,
     },
+    simple_vote::HasEpoch,
     traits::{
         election::Membership,
         network::{
@@ -1093,11 +1119,6 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
-
-<span class="kw">use crate</span>::{
-    events::{HotShotEvent, HotShotTaskCompleted},
-    helpers::broadcast_event,
-};
 
 <span class="doccomment">/// the network message task state
 </span><span class="attr">#[derive(Clone)]
@@ -1377,16 +1398,35 @@
         sender: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>view = vid_proposal.data.view_number;
-        <span class="kw">let </span>vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
+        <span class="kw">let </span>vid_share_proposals = VidDisperseShare2::to_vid_share_proposals(vid_proposal);
         <span class="kw">let </span><span class="kw-2">mut </span>messages = HashMap::new();
 
         <span class="kw">for </span>proposal <span class="kw">in </span>vid_share_proposals {
             <span class="kw">let </span>recipient = proposal.data.recipient_key.clone();
-            <span class="kw">let </span>message = Message {
-                sender: sender.clone(),
-                kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
-                    DaConsensusMessage::VidDisperseMsg(proposal),
-                )),
+            <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
+                </span>.upgrade_lock
+                .version_infallible(proposal.data.view_number())
+                .<span class="kw">await
+                </span>&gt;= V::Epochs::VERSION
+            {
+                Message {
+                    sender: sender.clone(),
+                    kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::VidDisperseMsg2(proposal),
+                    )),
+                }
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>vid_share_proposal = Proposal {
+                    data: VidDisperseShare::from(proposal.data),
+                    signature: proposal.signature,
+                    _pd: proposal._pd,
+                };
+                Message {
+                    sender: sender.clone(),
+                    kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::VidDisperseMsg(vid_share_proposal),
+                    )),
+                }
             };
             <span class="kw">let </span>serialized_message = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.serialize(<span class="kw-2">&amp;</span>message).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(serialized) =&gt; serialized,
@@ -1505,7 +1545,7 @@
             </span>HotShotEvent::QuorumVoteSend(vote) =&gt; {
                 <span class="kw-2">*</span>maybe_action = <span class="prelude-val">Some</span>(HotShotAction::Vote);
                 <span class="kw">let </span>view_number = vote.view_number() + <span class="number">1</span>;
-                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.epoch) {
+                <span class="kw">let </span>leader = <span class="kw">match </span><span class="self">self</span>.membership.leader(view_number, vote.epoch()) {
                     <span class="prelude-val">Ok</span>(l) =&gt; l,
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(

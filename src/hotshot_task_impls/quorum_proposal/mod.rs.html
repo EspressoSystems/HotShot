@@ -590,6 +590,27 @@
 <a href="#590" id="590">590</a>
 <a href="#591" id="591">591</a>
 <a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1054,12 +1075,7 @@
                 )<span class="question-mark">?</span>;
             }
             HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) =&gt; {
-                <span class="comment">// MERGE TODO
-                //
-                // HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) =&gt; {
-                //    let cert_epoch_number = certificate.data.epoch;
-                //
-                </span><span class="kw">let </span>epoch_number = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                <span class="kw">let </span>epoch_number = certificate.data.epoch;
 
                 <span class="macro">ensure!</span>(
                     certificate
@@ -1145,6 +1161,32 @@
                     <span class="macro">warn!</span>(<span class="string">"Quorum certificate {:?} was invalid"</span>, qc.data())
                 );
                 <span class="self">self</span>.highest_qc = qc.clone();
+            }
+            HotShotEvent::NextEpochQc2Formed(Either::Left(next_epoch_qc)) =&gt; {
+                <span class="comment">// Only update if the qc is from a newer view
+                </span><span class="kw">let </span>current_next_epoch_qc =
+                    <span class="self">self</span>.consensus.read().<span class="kw">await</span>.next_epoch_high_qc().cloned();
+                <span class="macro">ensure!</span>(current_next_epoch_qc.is_none() ||
+                    next_epoch_qc.view_number &gt; current_next_epoch_qc.unwrap().view_number,
+                    <span class="macro">debug!</span>(<span class="string">"Received a next epoch QC for a view that was not &gt; than our current next epoch high QC"</span>)
+                );
+                <span class="self">self</span>.consensus
+                    .write()
+                    .<span class="kw">await
+                    </span>.update_next_epoch_high_qc(next_epoch_qc.clone())
+                    .wrap()
+                    .context(<span class="macro">error!</span>(
+                        <span class="string">"Failed to update next epoch high QC in internal consensus state!"
+                    </span>))<span class="question-mark">?</span>;
+
+                <span class="comment">// Then update the next epoch high QC in storage
+                </span><span class="self">self</span>.storage
+                    .write()
+                    .<span class="kw">await
+                    </span>.update_next_epoch_high_qc2(next_epoch_qc.clone())
+                    .<span class="kw">await
+                    </span>.wrap()
+                    .context(<span class="macro">error!</span>(<span class="string">"Failed to update next epoch high QC in storage!"</span>))<span class="question-mark">?</span>;
             }
             <span class="kw">_ </span>=&gt; {}
         }

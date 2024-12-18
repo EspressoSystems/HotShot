@@ -183,6 +183,77 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -199,11 +270,13 @@
     data::{PackedBundle, VidDisperse, VidDisperseShare2},
     message::Proposal,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
         BlockPayload,
     },
+    utils::epoch_from_block_number,
 };
 <span class="kw">use </span>tracing::{debug, error, info, instrument};
 <span class="kw">use </span>utils::anytrace::Result;
@@ -238,6 +311,9 @@
 
     <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; VidTaskState&lt;TYPES, I&gt; {
@@ -274,6 +350,7 @@
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
                     epoch,
+                    <span class="prelude-val">None</span>,
                     vid_precompute.clone(),
                 )
                 .<span class="kw">await</span>;
@@ -309,7 +386,10 @@
                     <span class="macro">error!</span>(<span class="string">"VID: failed to sign dispersal payload"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
-                <span class="macro">debug!</span>(<span class="string">"publishing VID disperse for view {}"</span>, <span class="kw-2">*</span>view_number);
+                <span class="macro">debug!</span>(
+                    <span class="string">"publishing VID disperse for view {} and epoch {}"</span>,
+                    <span class="kw-2">*</span>view_number, <span class="kw-2">*</span>epoch
+                );
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
                         Proposal {
@@ -342,6 +422,68 @@
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
 
+            HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>proposed_block_number = proposal.data.block_header.block_number();
+                <span class="kw">if </span><span class="self">self</span>.epoch_height == <span class="number">0 </span>|| proposed_block_number % <span class="self">self</span>.epoch_height != <span class="number">0 </span>{
+                    <span class="comment">// This is not the last block in the epoch, do nothing.
+                    </span><span class="kw">return </span><span class="prelude-val">None</span>;
+                }
+                <span class="comment">// We just sent a proposal for the last block in the epoch. We need to calculate
+                // and send VID for the nodes in the next epoch so that they can vote.
+                </span><span class="kw">let </span>proposal_view_number = proposal.data.view_number;
+                <span class="kw">let </span>sender_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    proposed_block_number,
+                    <span class="self">self</span>.epoch_height,
+                ));
+                <span class="kw">let </span>target_epoch = TYPES::Epoch::new(
+                    epoch_from_block_number(proposed_block_number, <span class="self">self</span>.epoch_height) + <span class="number">1</span>,
+                );
+
+                <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
+                <span class="kw">let </span><span class="prelude-val">Some</span>(txns) = consensus_reader.saved_payloads().get(<span class="kw-2">&amp;</span>proposal_view_number)
+                <span class="kw">else </span>{
+                    <span class="macro">tracing::warn!</span>(
+                        <span class="string">"We need to calculate VID for the nodes in the next epoch \
+                         but we don't have the transactions"
+                    </span>);
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                };
+                <span class="kw">let </span>txns = Arc::clone(txns);
+                drop(consensus_reader);
+
+                <span class="kw">let </span>next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse(
+                    txns,
+                    <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
+                    proposal_view_number,
+                    target_epoch,
+                    <span class="prelude-val">Some</span>(sender_epoch),
+                    <span class="prelude-val">None</span>,
+                )
+                .<span class="kw">await</span>;
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(next_epoch_signature) = TYPES::SignatureKey::sign(
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                    next_epoch_vid_disperse.payload_commitment.as_ref(),
+                ) <span class="kw">else </span>{
+                    <span class="macro">error!</span>(<span class="string">"VID: failed to sign dispersal payload for the next epoch"</span>);
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                };
+                <span class="macro">debug!</span>(
+                    <span class="string">"publishing VID disperse for view {} and epoch {}"</span>,
+                    <span class="kw-2">*</span>proposal_view_number, <span class="kw-2">*</span>target_epoch
+                );
+                broadcast_event(
+                    Arc::new(HotShotEvent::VidDisperseSend(
+                        Proposal {
+                            signature: next_epoch_signature,
+                            data: next_epoch_vid_disperse.clone(),
+                            _pd: PhantomData,
+                        },
+                        <span class="self">self</span>.public_key.clone(),
+                    )),
+                    <span class="kw-2">&amp;</span>event_stream,
+                )
+                .<span class="kw">await</span>;
+            }
             HotShotEvent::Shutdown =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Some</span>(HotShotTaskCompleted);
             }

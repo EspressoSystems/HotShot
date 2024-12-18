@@ -1074,6 +1074,16 @@
 <a href="#1074" id="1074">1074</a>
 <a href="#1075" id="1075">1075</a>
 <a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1128,7 +1138,7 @@
     data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
     message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -1420,6 +1430,7 @@
             saved_leaves,
             saved_payloads,
             initializer.high_qc,
+            initializer.next_epoch_high_qc,
             Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
             config.epoch_height,
         );
@@ -1568,7 +1579,11 @@
         <span class="macro">trace!</span>(<span class="string">"Adding transaction to our own queue"</span>);
 
         <span class="kw">let </span>api = <span class="self">self</span>.clone();
-        <span class="kw">let </span>view_number = api.consensus.read().<span class="kw">await</span>.cur_view();
+
+        <span class="kw">let </span>consensus_reader = api.consensus.read().<span class="kw">await</span>;
+        <span class="kw">let </span>view_number = consensus_reader.cur_view();
+        <span class="kw">let </span>epoch = consensus_reader.cur_epoch();
+        drop(consensus_reader);
 
         <span class="comment">// Wrap up a message
         </span><span class="kw">let </span>message_kind: DataMessage&lt;TYPES&gt; =
@@ -1594,7 +1609,7 @@
                 </span>api
                     .network.da_broadcast_message(
                         serialized_message,
-                        api.memberships.da_committee_members(view_number, TYPES::Epoch::new(<span class="number">1</span>)).iter().cloned().collect(),
+                        api.memberships.da_committee_members(view_number, epoch).iter().cloned().collect(),
                         BroadcastDelay::None,
                     ),
                 api
@@ -2076,6 +2091,8 @@
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
+    <span class="doccomment">/// Next epoch highest QC that was seen. This is needed to propose during epoch transition after restart.
+    </span>next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Undecided leaves that were seen, but not yet decided on.  These allow a restarting node
@@ -2106,6 +2123,7 @@
             actioned_view: TYPES::View::new(<span class="number">0</span>),
             saved_proposals: BTreeMap::new(),
             high_qc,
+            next_epoch_high_qc: <span class="prelude-val">None</span>,
             decided_upgrade_certificate: <span class="prelude-val">None</span>,
             undecided_leaves: Vec::new(),
             undecided_state: BTreeMap::new(),
@@ -2130,6 +2148,7 @@
         actioned_view: TYPES::View,
         saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
         high_qc: QuorumCertificate2&lt;TYPES&gt;,
+        next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
         decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         undecided_leaves: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
         undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
@@ -2144,6 +2163,7 @@
             actioned_view,
             saved_proposals,
             high_qc,
+            next_epoch_high_qc,
             decided_upgrade_certificate,
             undecided_leaves,
             undecided_state,
