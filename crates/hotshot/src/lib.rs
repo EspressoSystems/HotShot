@@ -493,8 +493,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         trace!("Adding transaction to our own queue");
 
         let api = self.clone();
-        let view_number = api.consensus.read().await.cur_view();
-        let epoch = api.consensus.read().await.cur_epoch();
+
+        let consensus_reader = api.consensus.read().await;
+        let view_number = consensus_reader.cur_view();
+        let epoch = consensus_reader.cur_epoch();
+        drop(consensus_reader);
 
         // Wrap up a message
         let message_kind: DataMessage<TYPES> =
