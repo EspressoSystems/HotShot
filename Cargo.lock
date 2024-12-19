@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -2925,7 +2925,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-example-types"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
@@ -2949,7 +2949,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-examples"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
@@ -2981,7 +2981,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-fakeapi"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
@@ -2998,7 +2998,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-macros"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "derive_builder",
  "proc-macro2",
@@ -3008,7 +3008,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-orchestrator"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
@@ -3030,7 +3030,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-stake-table"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "ark-bn254",
  "ark-ed-on-bn254",
@@ -3051,7 +3051,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "async-broadcast",
  "async-trait",
@@ -3063,7 +3063,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-task-impls"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -3096,7 +3096,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot-testing"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-broadcast",
@@ -4383,7 +4383,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-networking"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "anyhow",
  "async-lock 3.4.0",
@@ -8058,7 +8058,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utils"
-version = "0.5.79"
+version = "0.5.83"
 dependencies = [
  "tracing",
 ]
