@@ -280,16 +280,10 @@ cross_tests!(
                     duration: Duration::from_millis(100000),
                 },
             ),
-            num_nodes_with_stake: 10,
-            start_nodes: 10,
-            num_bootstrap_nodes: 10,
-            da_staked_committee_size: 10,
-            overall_safety_properties: OverallSafetyPropertiesDescription {
-                // Explicitly show that we use normal threshold, i.e. 2 nodes_len / 3 + 1
-                // but we divide by two because only half of the nodes are active in each epoch
-                threshold_calculator: Arc::new(|_, nodes_len| 2 * nodes_len / 2 / 3 + 1),
-                ..OverallSafetyPropertiesDescription::default()
-            },
+            num_nodes_with_stake: 11,
+            start_nodes: 11,
+            num_bootstrap_nodes: 11,
+            da_staked_committee_size: 11,
 
             ..TestDescription::default()
         }
