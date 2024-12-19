@@ -546,7 +546,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = &disperse.data.payload_commitment;
-                let disperse_epoch = disperse.data.epoch;
+                let vid_epoch = disperse.data.epoch;
+                let target_epoch = disperse.data.target_node_epoch;
 
                 // Check that the signature is valid
                 ensure!(
@@ -557,15 +558,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
                     self.membership
-                        .da_committee_members(view, disperse_epoch)
+                        .da_committee_members(view, vid_epoch)
                         .contains(sender)
-                        || *sender == self.membership.leader(view, disperse_epoch)?,
+                        || *sender == self.membership.leader(view, vid_epoch)?,
                     "VID share was not sent by a DA member or the view leader."
                 );
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                match vid_scheme(self.membership.total_nodes(disperse_epoch)).verify_share(
+                match vid_scheme(self.membership.total_nodes(target_epoch)).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     payload_commitment,

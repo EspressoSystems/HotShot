@@ -94,7 +94,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     &Arc::clone(&self.membership),
                     *view_number,
                     epoch,
-                    None,
+                    epoch,
                     vid_precompute.clone(),
                 )
                 .await;
@@ -200,7 +200,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     &Arc::clone(&self.membership),
                     proposal_view_number,
                     target_epoch,
-                    Some(sender_epoch),
+                    sender_epoch,
                     None,
                 )
                 .await;
