@@ -837,6 +837,13 @@
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -959,6 +966,9 @@
 
     <span class="doccomment">/// fallback builder url
     </span><span class="kw">pub </span>fallback_builder_url: Url,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TransactionTaskState&lt;TYPES, I, V&gt; {
@@ -1316,9 +1326,13 @@
             }
             HotShotEvent::ViewChange(view, epoch) =&gt; {
                 <span class="kw">let </span>view = TYPES::View::new(std::cmp::max(<span class="number">1</span>, <span class="kw-2">**</span>view));
-
+                <span class="kw">let </span>epoch = <span class="kw">if </span><span class="self">self</span>.epoch_height != <span class="number">0 </span>{
+                    TYPES::Epoch::new(std::cmp::max(<span class="number">1</span>, <span class="kw-2">**</span>epoch))
+                } <span class="kw">else </span>{
+                    <span class="kw-2">*</span>epoch
+                };
                 <span class="macro">ensure!</span>(
-                    <span class="kw-2">*</span>view &gt; <span class="kw-2">*</span><span class="self">self</span>.cur_view || <span class="kw-2">*</span>epoch &gt; <span class="self">self</span>.cur_epoch,
+                    <span class="kw-2">*</span>view &gt; <span class="kw-2">*</span><span class="self">self</span>.cur_view &amp;&amp; <span class="kw-2">*</span>epoch &gt;= <span class="kw-2">*</span><span class="self">self</span>.cur_epoch,
                     <span class="macro">debug!</span>(
                       <span class="string">"Received a view change to an older view and epoch: tried to change view to {:?}\
                       and epoch {:?} though we are at view {:?} and epoch {:?}"</span>,
@@ -1326,11 +1340,11 @@
                     )
                 );
                 <span class="self">self</span>.cur_view = view;
-                <span class="self">self</span>.cur_epoch = <span class="kw-2">*</span>epoch;
+                <span class="self">self</span>.cur_epoch = epoch;
 
-                <span class="kw">let </span>leader = <span class="self">self</span>.membership.read().<span class="kw">await</span>.leader(view, <span class="kw-2">*</span>epoch)<span class="question-mark">?</span>;
+                <span class="kw">let </span>leader = <span class="self">self</span>.membership.read().<span class="kw">await</span>.leader(view, epoch)<span class="question-mark">?</span>;
                 <span class="kw">if </span>leader == <span class="self">self</span>.public_key {
-                    <span class="self">self</span>.handle_view_change(<span class="kw-2">&amp;</span>event_stream, view, <span class="kw-2">*</span>epoch).<span class="kw">await</span>;
+                    <span class="self">self</span>.handle_view_change(<span class="kw-2">&amp;</span>event_stream, view, epoch).<span class="kw">await</span>;
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
             }

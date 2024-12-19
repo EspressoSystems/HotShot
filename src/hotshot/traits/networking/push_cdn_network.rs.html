@@ -605,6 +605,26 @@
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -613,7 +633,7 @@
 
 </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
-<span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
+<span class="kw">use </span>std::{collections::VecDeque, marker::PhantomData, sync::Arc};
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>std::{path::Path, time::Duration};
 
@@ -653,6 +673,7 @@
     BoxSyncFuture,
 };
 <span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
+<span class="kw">use </span>parking_lot::Mutex;
 <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
 </span><span class="kw">use </span>rand::{rngs::StdRng, RngCore, SeedableRng};
 <span class="kw">use </span>tokio::{spawn, sync::mpsc::error::TrySendError, time::sleep};
@@ -798,6 +819,10 @@
     </span>client: Client&lt;ClientDef&lt;K&gt;&gt;,
     <span class="doccomment">/// The CDN-specific metrics
     </span>metrics: Arc&lt;CdnMetricsValue&gt;,
+    <span class="doccomment">/// The internal queue for messages to ourselves
+    </span>internal_queue: Arc&lt;Mutex&lt;VecDeque&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// The public key of this node
+    </span>public_key: K,
     <span class="doccomment">/// Whether or not the underlying network is supposed to be paused
     </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
     </span>is_paused: Arc&lt;AtomicBool&gt;,
@@ -836,7 +861,7 @@
         </span><span class="kw">let </span>config = ClientConfig {
             endpoint: marshal_endpoint,
             subscribed_topics: topics.into_iter().map(|t| t <span class="kw">as </span>u8).collect(),
-            keypair,
+            keypair: keypair.clone(),
             use_local_authority: <span class="bool-val">true</span>,
         };
 
@@ -846,6 +871,8 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             client,
             metrics: Arc::from(metrics),
+            internal_queue: Arc::new(Mutex::new(VecDeque::new())),
+            public_key: keypair.public_key.<span class="number">0</span>,
             <span class="comment">// Start unpaused
             </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
             </span>is_paused: Arc::from(AtomicBool::new(<span class="bool-val">false</span>)),
@@ -1029,7 +1056,7 @@
                     </span><span class="kw">let </span>client_config: ClientConfig&lt;ClientDef&lt;TYPES::SignatureKey&gt;&gt; =
                         ClientConfig {
                             keypair: KeyPair {
-                                public_key: WrappedSignatureKey(public_key),
+                                public_key: WrappedSignatureKey(public_key.clone()),
                                 private_key,
                             },
                             subscribed_topics: topics,
@@ -1041,6 +1068,8 @@
                     </span>Arc::new(PushCdnNetwork {
                         client: Client::new(client_config),
                         metrics: Arc::new(CdnMetricsValue::default()),
+                        internal_queue: Arc::new(Mutex::new(VecDeque::new())),
+                        public_key,
                         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
                         </span>is_paused: Arc::from(AtomicBool::new(<span class="bool-val">false</span>)),
                     })
@@ -1140,6 +1169,12 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
+        <span class="comment">// If the message is to ourselves, just add it to the internal queue
+        </span><span class="kw">if </span>recipient == <span class="self">self</span>.public_key {
+            <span class="self">self</span>.internal_queue.lock().push_back(message);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
+
         <span class="comment">// Send the message
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
             </span>.client
@@ -1161,7 +1196,12 @@
     /// # Errors
     /// - If we fail to receive messages. Will trigger a retry automatically.
     </span><span class="kw">async fn </span>recv_message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, NetworkError&gt; {
-        <span class="comment">// Receive a message
+        <span class="comment">// If we have a message in the internal queue, return it
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(message) = <span class="self">self</span>.internal_queue.lock().pop_front() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(message);
+        }
+
+        <span class="comment">// Receive a message from the network
         </span><span class="kw">let </span>message = <span class="self">self</span>.client.receive_message().<span class="kw">await</span>;
 
         <span class="comment">// If we're paused, receive but don't process messages

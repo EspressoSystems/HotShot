@@ -397,6 +397,8 @@
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -619,6 +621,7 @@
             view,
             signature,
         };
+        <span class="kw">let </span>my_id = <span class="self">self</span>.id;
         <span class="kw">let </span>handle: JoinHandle&lt;()&gt; = spawn(<span class="kw">async move </span>{
             <span class="comment">// Do the delay only if primary is up and then start sending
             </span><span class="kw">if </span>!network.is_primary_down() {
@@ -660,8 +663,9 @@
                 } <span class="kw">else </span>{
                     <span class="comment">// This shouldnt be possible `recipients_it.next()` should clone original and start over if `None`
                     </span><span class="macro">tracing::warn!</span>(
-                        <span class="string">"Sent VID request to all available DA members and got no response for view: {:?}"</span>,
-                        view
+                        <span class="string">"Sent VID request to all available DA members and got no response for view: {:?}, my id: {:?}"</span>,
+                        view,
+                        my_id,
                     );
                     <span class="kw">return</span>;
                 }

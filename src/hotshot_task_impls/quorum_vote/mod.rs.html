@@ -776,6 +776,29 @@
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
 <a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -951,7 +974,13 @@
                     }
                 }
                 HotShotEvent::VidShareValidated(share) =&gt; {
-                    <span class="kw">let </span>vid_payload_commitment = <span class="kw-2">&amp;</span>share.data.payload_commitment;
+                    <span class="kw">let </span>vid_payload_commitment = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>data_epoch_payload_commitment) =
+                        share.data.data_epoch_payload_commitment
+                    {
+                        data_epoch_payload_commitment
+                    } <span class="kw">else </span>{
+                        <span class="kw-2">&amp;</span>share.data.payload_commitment
+                    };
                     vid_share = <span class="prelude-val">Some</span>(share.clone());
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>comm) = payload_commitment {
                         <span class="kw">if </span>vid_payload_commitment != comm {
@@ -1150,8 +1179,12 @@
         view_number: TYPES::View,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-        event: <span class="prelude-ty">Option</span>&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+        event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     ) {
+        <span class="macro">tracing::debug!</span>(
+            <span class="string">"Attempting to make dependency task for view {view_number:?} and event {event:?}"
+        </span>);
+
         <span class="kw">if </span><span class="self">self</span>.vote_dependencies.contains_key(<span class="kw-2">&amp;</span>view_number) {
             <span class="kw">return</span>;
         }
@@ -1166,10 +1199,8 @@
         <span class="kw">let </span>vid_dependency =
             <span class="self">self</span>.create_event_dependency(VoteDependency::Vid, view_number, event_receiver.clone());
         <span class="comment">// If we have an event provided to us
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(event) = event {
-            <span class="kw">if let </span>HotShotEvent::QuorumProposalValidated(..) = event.as_ref() {
-                quorum_proposal_dependency.mark_as_completed(event);
-            }
+        </span><span class="kw">if let </span>HotShotEvent::QuorumProposalValidated(..) = event.as_ref() {
+            quorum_proposal_dependency.mark_as_completed(event);
         }
 
         <span class="kw">let </span>deps = <span class="macro">vec!</span>[quorum_proposal_dependency, dac_dependency, vid_dependency];
@@ -1278,7 +1309,7 @@
                         proposal.data.view_number,
                         event_receiver,
                         <span class="kw-2">&amp;</span>event_sender,
-                        <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>event)),
+                        Arc::clone(<span class="kw-2">&amp;</span>event),
                     );
                 }
             }
@@ -1322,7 +1353,12 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    view,
+                    event_receiver,
+                    <span class="kw-2">&amp;</span>event_sender,
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
+                );
             }
             HotShotEvent::VidShareRecv(sender, disperse) =&gt; {
                 <span class="kw">let </span>view = disperse.data.view_number();
@@ -1335,25 +1371,25 @@
 
                 <span class="comment">// Validate the VID share.
                 </span><span class="kw">let </span>payload_commitment = <span class="kw-2">&amp;</span>disperse.data.payload_commitment;
-                <span class="kw">let </span>disperse_epoch = disperse.data.epoch;
-
                 <span class="comment">// Check that the signature is valid
                 </span><span class="macro">ensure!</span>(
                     sender.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()),
                     <span class="string">"VID share signature is invalid"
                 </span>);
 
+                <span class="kw">let </span>vid_epoch = disperse.data.epoch;
+                <span class="kw">let </span>target_epoch = disperse.data.target_epoch;
                 <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
                 <span class="comment">// ensure that the VID share was sent by a DA member OR the view leader
                 </span><span class="macro">ensure!</span>(
                     membership_reader
-                        .da_committee_members(view, disperse_epoch)
+                        .da_committee_members(view, vid_epoch)
                         .contains(sender)
-                        || <span class="kw-2">*</span>sender == membership_reader.leader(view, disperse_epoch)<span class="question-mark">?</span>,
+                        || <span class="kw-2">*</span>sender == membership_reader.leader(view, vid_epoch)<span class="question-mark">?</span>,
                     <span class="string">"VID share was not sent by a DA member or the view leader."
                 </span>);
 
-                <span class="kw">let </span>membership_total_nodes = membership_reader.total_nodes(disperse_epoch);
+                <span class="kw">let </span>membership_total_nodes = membership_reader.total_nodes(target_epoch);
                 drop(membership_reader);
 
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
@@ -1384,7 +1420,12 @@
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
-                <span class="self">self</span>.create_dependency_task_if_new(view, event_receiver, <span class="kw-2">&amp;</span>event_sender, <span class="prelude-val">None</span>);
+                <span class="self">self</span>.create_dependency_task_if_new(
+                    view,
+                    event_receiver,
+                    <span class="kw-2">&amp;</span>event_sender,
+                    Arc::clone(<span class="kw-2">&amp;</span>event),
+                );
             }
             HotShotEvent::Timeout(view, ..) =&gt; {
                 <span class="kw">let </span>view = TYPES::View::new(view.saturating_sub(<span class="number">1</span>));
@@ -1495,25 +1536,30 @@
             current_block_number,
             <span class="self">self</span>.epoch_height,
         ));
-        <span class="macro">tracing::trace!</span>(
-            <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
-            proposal.data.view_number() + <span class="number">1</span>,
-            <span class="kw-2">*</span>current_epoch
-        );
-        broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(
-                proposal.data.view_number() + <span class="number">1</span>,
-                current_epoch,
-            )),
-            <span class="kw-2">&amp;</span>event_sender,
-        )
-        .<span class="kw">await</span>;
 
         <span class="kw">let </span>is_vote_leaf_extended = <span class="self">self
             </span>.consensus
             .read()
             .<span class="kw">await
             </span>.is_leaf_extended(proposed_leaf.commit());
+        <span class="kw">if </span>!is_vote_leaf_extended {
+            <span class="comment">// We're voting for the proposal that will probably form the eQC. We don't want to change
+            // the view here because we will probably change it when we form the eQC.
+            // The main reason is to handle view change event only once in the transaction task.
+            </span><span class="macro">tracing::trace!</span>(
+                <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
+                proposal.data.view_number() + <span class="number">1</span>,
+                <span class="kw-2">*</span>current_epoch
+            );
+            broadcast_event(
+                Arc::new(HotShotEvent::ViewChange(
+                    proposal.data.view_number() + <span class="number">1</span>,
+                    current_epoch,
+                )),
+                <span class="kw-2">&amp;</span>event_sender,
+            )
+            .<span class="kw">await</span>;
+        }
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = submit_vote::&lt;TYPES, I, V&gt;(
             event_sender.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),

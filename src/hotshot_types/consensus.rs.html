@@ -2038,7 +2038,7 @@
             </span>.view_inner
             .epoch()<span class="question-mark">?</span>;
         <span class="kw">let </span>vid =
-            VidDisperse::calculate_vid_disperse(txns, <span class="kw-2">&amp;</span>membership, view, epoch, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+            VidDisperse::calculate_vid_disperse(txns, <span class="kw-2">&amp;</span>membership, view, epoch, epoch, <span class="prelude-val">None</span>).<span class="kw">await</span>;
         <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid);
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
         <span class="kw">for </span>share <span class="kw">in </span>shares {

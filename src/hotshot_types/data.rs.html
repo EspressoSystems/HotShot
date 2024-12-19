@@ -1580,6 +1580,48 @@
 <a href="#1580" id="1580">1580</a>
 <a href="#1581" id="1581">1581</a>
 <a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
+<a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
+<a href="#1611" id="1611">1611</a>
+<a href="#1612" id="1612">1612</a>
+<a href="#1613" id="1613">1613</a>
+<a href="#1614" id="1614">1614</a>
+<a href="#1615" id="1615">1615</a>
+<a href="#1616" id="1616">1616</a>
+<a href="#1617" id="1617">1617</a>
+<a href="#1618" id="1618">1618</a>
+<a href="#1619" id="1619">1619</a>
+<a href="#1620" id="1620">1620</a>
+<a href="#1621" id="1621">1621</a>
+<a href="#1622" id="1622">1622</a>
+<a href="#1623" id="1623">1623</a>
+<a href="#1624" id="1624">1624</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1792,10 +1834,14 @@
 </span><span class="kw">pub struct </span>VidDisperse&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number for which this VID data is intended
     </span><span class="kw">pub </span>view_number: TYPES::View,
-    <span class="doccomment">/// Epoch this proposal applies to
+    <span class="doccomment">/// Epoch the data of this proposal belongs to
     </span><span class="kw">pub </span>epoch: TYPES::Epoch,
-    <span class="doccomment">/// Block payload commitment
+    <span class="doccomment">/// Epoch to which the recipients of this VID belong to
+    </span><span class="kw">pub </span>target_epoch: TYPES::Epoch,
+    <span class="doccomment">/// VidCommitment calculated based on the number of nodes in `target_epoch`.
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
+    <span class="doccomment">/// VidCommitment calculated based on the number of nodes in `epoch`. Needed during epoch transition.
+    </span><span class="kw">pub </span>data_epoch_payload_commitment: <span class="prelude-ty">Option</span>&lt;VidCommitment&gt;,
     <span class="doccomment">/// A storage node's key and its corresponding VID share
     </span><span class="kw">pub </span>shares: BTreeMap&lt;TYPES::SignatureKey, VidShare&gt;,
     <span class="doccomment">/// VID common data sent to all storage nodes
@@ -1811,7 +1857,8 @@
         <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
         membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         target_epoch: TYPES::Epoch,
-        sender_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+        data_epoch: TYPES::Epoch,
+        data_epoch_payload_commitment: <span class="prelude-ty">Option</span>&lt;VidCommitment&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
             .read()
@@ -1826,7 +1873,9 @@
             shares,
             common: vid_disperse.common,
             payload_commitment: vid_disperse.commit,
-            epoch: sender_epoch.unwrap_or(target_epoch),
+            data_epoch_payload_commitment,
+            epoch: data_epoch,
+            target_epoch,
         }
     }
 
@@ -1842,23 +1891,43 @@
         membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         view: TYPES::View,
         target_epoch: TYPES::Epoch,
-        sender_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+        data_epoch: TYPES::Epoch,
         precompute_data: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes = membership.read().<span class="kw">await</span>.total_nodes(target_epoch);
 
+        <span class="kw">let </span>txns_clone = Arc::clone(<span class="kw-2">&amp;</span>txns);
         <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
             precompute_data
                 .map_or_else(
-                    || vid_scheme(num_nodes).disperse(Arc::clone(<span class="kw-2">&amp;</span>txns)),
-                    |data| vid_scheme(num_nodes).disperse_precompute(Arc::clone(<span class="kw-2">&amp;</span>txns), <span class="kw-2">&amp;</span>data)
+                    || vid_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns_clone),
+                    |data| vid_scheme(num_nodes).disperse_precompute(<span class="kw-2">&amp;</span>txns_clone, <span class="kw-2">&amp;</span>data)
                 )
-                .unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()))
+                .unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns_clone.len()))
         }).<span class="kw">await</span>;
+        <span class="kw">let </span>data_epoch_payload_commitment = <span class="kw">if </span>target_epoch == data_epoch {
+            <span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
+            <span class="kw">let </span>data_epoch_num_nodes = membership.read().<span class="kw">await</span>.total_nodes(data_epoch);
+            <span class="prelude-val">Some</span>(spawn_blocking(<span class="kw">move </span>|| {
+                vid_scheme(data_epoch_num_nodes).commit_only(<span class="kw-2">&amp;</span>txns)
+                    .unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID commit_only failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()))
+            }).<span class="kw">await</span>)
+        };
         <span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
+        <span class="kw">let </span>data_epoch_payload_commitment =
+            data_epoch_payload_commitment.map(|result| result.unwrap());
 
-        <span class="self">Self</span>::from_membership(view, vid_disperse, membership, target_epoch, sender_epoch).<span class="kw">await
+        <span class="self">Self</span>::from_membership(
+            view,
+            vid_disperse,
+            membership,
+            target_epoch,
+            data_epoch,
+            data_epoch_payload_commitment,
+        )
+        .<span class="kw">await
     </span>}
 }
 
@@ -1946,7 +2015,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>vid_disperse = VidDisperse {
             view_number: first_vid_disperse_share.view_number,
             epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            target_epoch: TYPES::Epoch::new(<span class="number">0</span>),
             payload_commitment: first_vid_disperse_share.payload_commitment,
+            data_epoch_payload_commitment: <span class="prelude-val">None</span>,
             common: first_vid_disperse_share.common,
             shares: share_map,
         };
@@ -1987,10 +2058,14 @@
 </span><span class="kw">pub struct </span>VidDisperseShare2&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The view number for which this VID data is intended
     </span><span class="kw">pub </span>view_number: TYPES::View,
-    <span class="doccomment">/// The epoch number for which this VID data is intended
+    <span class="doccomment">/// The epoch number for which this VID data belongs to
     </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    <span class="doccomment">/// The epoch number to which the recipient of this VID belongs to
+    </span><span class="kw">pub </span>target_epoch: TYPES::Epoch,
     <span class="doccomment">/// Block payload commitment
     </span><span class="kw">pub </span>payload_commitment: VidCommitment,
+    <span class="doccomment">/// VidCommitment calculated based on the number of nodes in `epoch`. Needed during epoch transition.
+    </span><span class="kw">pub </span>data_epoch_payload_commitment: <span class="prelude-ty">Option</span>&lt;VidCommitment&gt;,
     <span class="doccomment">/// A storage node's key and its corresponding VID share
     </span><span class="kw">pub </span>share: VidShare,
     <span class="doccomment">/// VID common data sent to all storage nodes
@@ -2004,7 +2079,9 @@
         <span class="kw">let </span>VidDisperseShare2 {
             view_number,
             epoch: <span class="kw">_</span>,
+            target_epoch: <span class="kw">_</span>,
             payload_commitment,
+            data_epoch_payload_commitment: <span class="kw">_</span>,
             share,
             common,
             recipient_key,
@@ -2033,7 +2110,9 @@
         <span class="self">Self </span>{
             view_number,
             epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            target_epoch: TYPES::Epoch::new(<span class="number">0</span>),
             payload_commitment,
+            data_epoch_payload_commitment: <span class="prelude-val">None</span>,
             share,
             common,
             recipient_key,
@@ -2044,7 +2123,6 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperseShare2&lt;TYPES&gt; {
     <span class="doccomment">/// Create a vector of `VidDisperseShare` from `VidDisperse`
     </span><span class="kw">pub fn </span>from_vid_disperse(vid_disperse: VidDisperse&lt;TYPES&gt;) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>epoch = vid_disperse.epoch;
         vid_disperse
             .shares
             .into_iter()
@@ -2054,7 +2132,9 @@
                 view_number: vid_disperse.view_number,
                 common: vid_disperse.common.clone(),
                 payload_commitment: vid_disperse.payload_commitment,
-                epoch,
+                data_epoch_payload_commitment: vid_disperse.data_epoch_payload_commitment,
+                epoch: vid_disperse.epoch,
+                target_epoch: vid_disperse.target_epoch,
             })
             .collect()
     }
@@ -2083,7 +2163,6 @@
         </span>I: Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>&gt;,
     {
         <span class="kw">let </span>first_vid_disperse_share = it.next()<span class="question-mark">?</span>.clone();
-        <span class="kw">let </span>epoch = first_vid_disperse_share.epoch;
         <span class="kw">let </span><span class="kw-2">mut </span>share_map = BTreeMap::new();
         share_map.insert(
             first_vid_disperse_share.recipient_key,
@@ -2091,8 +2170,10 @@
         );
         <span class="kw">let </span><span class="kw-2">mut </span>vid_disperse = VidDisperse {
             view_number: first_vid_disperse_share.view_number,
-            epoch,
+            epoch: first_vid_disperse_share.epoch,
+            target_epoch: first_vid_disperse_share.target_epoch,
             payload_commitment: first_vid_disperse_share.payload_commitment,
+            data_epoch_payload_commitment: first_vid_disperse_share.data_epoch_payload_commitment,
             common: first_vid_disperse_share.common,
             shares: share_map,
         };
@@ -2109,7 +2190,6 @@
     </span><span class="kw">pub fn </span>to_vid_share_proposals(
         vid_disperse_proposal: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
     ) -&gt; Vec&lt;Proposal&lt;TYPES, <span class="self">Self</span>&gt;&gt; {
-        <span class="kw">let </span>epoch = vid_disperse_proposal.data.epoch;
         vid_disperse_proposal
             .data
             .shares
@@ -2121,7 +2201,11 @@
                     view_number: vid_disperse_proposal.data.view_number,
                     common: vid_disperse_proposal.data.common.clone(),
                     payload_commitment: vid_disperse_proposal.data.payload_commitment,
-                    epoch,
+                    data_epoch_payload_commitment: vid_disperse_proposal
+                        .data
+                        .data_epoch_payload_commitment,
+                    epoch: vid_disperse_proposal.data.epoch,
+                    target_epoch: vid_disperse_proposal.data.target_epoch,
                 },
                 signature: vid_disperse_proposal.signature.clone(),
                 _pd: vid_disperse_proposal._pd,

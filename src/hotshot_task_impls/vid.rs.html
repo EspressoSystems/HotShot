@@ -366,7 +366,7 @@
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
                     epoch,
-                    <span class="prelude-val">None</span>,
+                    epoch,
                     vid_precompute.clone(),
                 )
                 .<span class="kw">await</span>;
@@ -472,7 +472,7 @@
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     proposal_view_number,
                     target_epoch,
-                    <span class="prelude-val">Some</span>(sender_epoch),
+                    sender_epoch,
                     <span class="prelude-val">None</span>,
                 )
                 .<span class="kw">await</span>;
