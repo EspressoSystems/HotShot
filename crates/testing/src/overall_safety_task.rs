@@ -225,7 +225,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                     self.ctx.successful_views.insert(view_number);
                     // if a view succeeds remove it from the failed views
                     self.ctx.failed_views.remove(&view_number);
-                    tracing::error!("lrzasik: successful view: {:?}", view_number);
                     if self.ctx.successful_views.len() >= num_successful_views {
                         let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
                     }
