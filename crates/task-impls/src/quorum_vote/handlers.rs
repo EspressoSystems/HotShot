@@ -135,6 +135,52 @@ async fn handle_quorum_proposal_validated_drb_calculation_seed<
     Ok(())
 }
 
+/// Handles calling add_epoch_root and sync_l1 on Membership if necessary.
+async fn handle_quorum_proposal_validated_add_epoch_root<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    V: Versions,
+>(
+    proposal: &QuorumProposal2<TYPES>,
+    task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
+    leaf_views: &[LeafInfo<TYPES>],
+) {
+    let decided_block_number = leaf_views
+        .last()
+        .unwrap()
+        .leaf
+        .block_header()
+        .block_number();
+
+    // Skip if this is not the expected block.
+    if task_state.epoch_height != 0 && (decided_block_number + 3) % task_state.epoch_height == 0 {
+        let next_epoch_number = TYPES::Epoch::new(
+            epoch_from_block_number(decided_block_number, task_state.epoch_height) + 1,
+        );
+
+        let membership_reader = task_state.membership.read().await;
+        let write_callback =
+            membership_reader.add_epoch_root(next_epoch_number, proposal.block_header.clone());
+        drop(membership_reader);
+
+        if let Some(write_callback) = write_callback {
+            let mut membership_writer = task_state.membership.write().await;
+            write_callback(&mut *membership_writer);
+        }
+
+        if TYPES::Membership::uses_sync_l1() {
+            let membership_reader = task_state.membership.read().await;
+            let write_callback = membership_reader.sync_l1();
+            drop(membership_reader);
+
+            if let Some(write_callback) = write_callback {
+                let mut membership_writer = task_state.membership.write().await;
+                write_callback(&mut *membership_writer);
+            }
+        }
+    }
+}
+
 /// Handles the `QuorumProposalValidated` event.
 #[instrument(skip_all, fields(id = task_state.id, view = *proposal.view_number))]
 pub(crate) async fn handle_quorum_proposal_validated<
@@ -234,6 +280,13 @@ pub(crate) async fn handle_quorum_proposal_validated<
 
         // We don't need to hold this while we broadcast
         drop(consensus_writer);
+
+        // Notify the membership of the new change
+
+        if version >= V::Epochs::VERSION {
+            handle_quorum_proposal_validated_add_epoch_root(proposal, task_state, &leaf_views)
+                .await;
+        }
 
         // Send an update to everyone saying that we've reached a decide
         broadcast_event(

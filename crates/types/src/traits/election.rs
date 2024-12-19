@@ -125,4 +125,32 @@ pub trait Membership<TYPES: NodeType>: Debug + Send + Sync {
 
     /// Returns the threshold required to upgrade the network protocol
     fn upgrade_threshold(&self, epoch: TYPES::Epoch) -> NonZeroU64;
+
+    #[allow(clippy::type_complexity)]
+    /// Handles notifications that a new epoch root has been created
+    /// Is called under a read lock to the Membership. Return a callback
+    /// with Some to have that callback invoked under a write lock.
+    fn add_epoch_root(
+        &self,
+        _epoch: TYPES::Epoch,
+        _block_header: TYPES::BlockHeader,
+    ) -> Option<Box<dyn FnOnce(&mut Self) + Send>> {
+        None
+    }
+
+    #[must_use]
+    /// Used to determine if sync_l1 should be called after add_epoch_root.
+    /// Returning false avoids a redundant read lock for cases where sync_l1
+    /// is a no-op.
+    fn uses_sync_l1() -> bool {
+        false
+    }
+
+    #[allow(clippy::type_complexity)]
+    /// Called after add_epoch_root runs and any callback has been invoked.
+    /// Causes a read lock to be reacquired for this functionality. If it is
+    /// not needed, then have uses_sync_l1 return false.
+    fn sync_l1(&self) -> Option<Box<dyn FnOnce(&mut Self) + Send>> {
+        None
+    }
 }
