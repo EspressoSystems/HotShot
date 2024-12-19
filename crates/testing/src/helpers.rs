@@ -333,6 +333,7 @@ pub fn build_vid_proposal<TYPES: NodeType>(
         quorum_membership,
         epoch_number,
         epoch_number,
+        None,
     );
 
     let signature =

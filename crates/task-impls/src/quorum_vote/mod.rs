@@ -161,7 +161,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     }
                 }
                 HotShotEvent::VidShareValidated(share) => {
-                    let vid_payload_commitment = &share.data.payload_commitment;
+                    let vid_payload_commitment = if let Some(ref data_epoch_payload_commitment) =
+                        share.data.data_epoch_payload_commitment
+                    {
+                        data_epoch_payload_commitment
+                    } else {
+                        &share.data.payload_commitment
+                    };
                     vid_share = Some(share.clone());
                     if let Some(ref comm) = payload_commitment {
                         if vid_payload_commitment != comm {
@@ -546,15 +552,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // Validate the VID share.
                 let payload_commitment = &disperse.data.payload_commitment;
-                let vid_epoch = disperse.data.epoch;
-                let target_epoch = disperse.data.target_node_epoch;
-
                 // Check that the signature is valid
                 ensure!(
                     sender.validate(&disperse.signature, payload_commitment.as_ref()),
                     "VID share signature is invalid"
                 );
 
+                let vid_epoch = disperse.data.epoch;
+                let target_epoch = disperse.data.target_epoch;
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
                     self.membership
