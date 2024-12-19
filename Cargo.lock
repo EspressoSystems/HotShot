@@ -2952,6 +2952,7 @@ name = "hotshot-examples"
 version = "0.5.79"
 dependencies = [
  "anyhow",
+ "async-lock 3.4.0",
  "async-trait",
  "cdn-broker",
  "cdn-marshal",
@@ -4385,6 +4386,7 @@ name = "libp2p-networking"
 version = "0.5.79"
 dependencies = [
  "anyhow",
+ "async-lock 3.4.0",
  "async-trait",
  "bincode",
  "blake3",
