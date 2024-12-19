@@ -92,6 +92,7 @@ async fn test_vid_task() {
         vid_disperse,
         &membership,
         EpochNumber::new(0),
+        EpochNumber::new(0),
         None,
     );
 
