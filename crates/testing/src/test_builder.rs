@@ -4,18 +4,12 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use super::{
-    completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
-    overall_safety_task::OverallSafetyPropertiesDescription,
-    txn_task::TxnTaskDescription,
+use std::{
+    any::TypeId, collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration,
 };
-use crate::{
-    spinning_task::SpinningTaskDescription,
-    test_launcher::{Network, ResourceGenerators, TestLauncher},
-    test_task::TestTaskStateSeed,
-    view_sync_task::ViewSyncTaskDescription,
-};
+
 use anyhow::{ensure, Result};
+use async_lock::RwLock;
 use hotshot::{
     tasks::EventTransformerState,
     traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
@@ -31,10 +25,20 @@ use hotshot_types::{
     traits::node_implementation::{NodeType, Versions},
     HotShotConfig, ValidatorConfig,
 };
-use std::any::TypeId;
-use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 use tide_disco::Url;
 use vec1::Vec1;
+
+use super::{
+    completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
+    overall_safety_task::OverallSafetyPropertiesDescription,
+    txn_task::TxnTaskDescription,
+};
+use crate::{
+    spinning_task::SpinningTaskDescription,
+    test_launcher::{Network, ResourceGenerators, TestLauncher},
+    test_task::TestTaskStateSeed,
+    view_sync_task::ViewSyncTaskDescription,
+};
 
 pub type TransactionValidator = Arc<dyn Fn(&Vec<(u64, u64)>) -> Result<()> + Send + Sync>;
 
@@ -172,7 +176,7 @@ pub async fn create_test_handle<
     metadata: TestDescription<TYPES, I, V>,
     node_id: u64,
     network: Network<TYPES, I>,
-    memberships: TYPES::Membership,
+    memberships: Arc<RwLock<TYPES::Membership>>,
     config: HotShotConfig<TYPES::SignatureKey>,
     storage: I::Storage,
     marketplace_config: MarketplaceConfig<TYPES, I>,

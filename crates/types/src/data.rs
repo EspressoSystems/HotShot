@@ -228,15 +228,17 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// Create VID dispersal from a specified membership for the target epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
-    pub fn from_membership(
+    pub async fn from_membership(
         view_number: TYPES::View,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
-        membership: &TYPES::Membership,
+        membership: &Arc<RwLock<TYPES::Membership>>,
         target_epoch: TYPES::Epoch,
         data_epoch: TYPES::Epoch,
         data_epoch_payload_commitment: Option<VidCommitment>,
     ) -> Self {
         let shares = membership
+            .read()
+            .await
             .committee_members(view_number, target_epoch)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(0)))
@@ -262,13 +264,13 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     #[allow(clippy::panic)]
     pub async fn calculate_vid_disperse(
         txns: Arc<[u8]>,
-        membership: &Arc<TYPES::Membership>,
+        membership: &Arc<RwLock<TYPES::Membership>>,
         view: TYPES::View,
         target_epoch: TYPES::Epoch,
         data_epoch: TYPES::Epoch,
         precompute_data: Option<VidPrecomputeData>,
     ) -> Self {
-        let num_nodes = membership.total_nodes(target_epoch);
+        let num_nodes = membership.read().await.total_nodes(target_epoch);
 
         let txns_clone = Arc::clone(&txns);
         let vid_disperse = spawn_blocking(move || {
@@ -282,7 +284,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         let data_epoch_payload_commitment = if target_epoch == data_epoch {
             None
         } else {
-            let data_epoch_num_nodes = membership.total_nodes(data_epoch);
+            let data_epoch_num_nodes = membership.read().await.total_nodes(data_epoch);
             Some(spawn_blocking(move || {
                 vid_scheme(data_epoch_num_nodes).commit_only(&txns)
                     .unwrap_or_else(|err| panic!("VID commit_only failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
@@ -296,11 +298,12 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         Self::from_membership(
             view,
             vid_disperse,
-            membership.as_ref(),
+            membership,
             target_epoch,
             data_epoch,
             data_epoch_payload_commitment,
         )
+        .await
     }
 }
 
