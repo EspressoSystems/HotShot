@@ -135,7 +135,7 @@ pub enum NetworkEventInternal {
     GossipEvent(Box<GossipEvent>),
     /// a direct message event
     DMEvent(libp2p::request_response::Event<Vec<u8>, Vec<u8>>),
-    /// a autonat event
+    /// an autonat event
     AutonatEvent(libp2p::autonat::Event),
 }
 
