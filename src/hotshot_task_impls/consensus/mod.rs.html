@@ -193,6 +193,8 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -202,6 +204,7 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_task::task::TaskState;
@@ -245,7 +248,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Membership for Quorum Certs/votes
-    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// A map of `QuorumVote` collector tasks.
     </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, QuorumVote2&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;, V&gt;,
@@ -292,6 +295,7 @@
     <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
     </span><span class="kw">pub </span>epoch_height: u64,
 }
+
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; ConsensusTaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// Handles a consensus event received on the event stream
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, cur_epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"ConsensusTaskState"</span>)]

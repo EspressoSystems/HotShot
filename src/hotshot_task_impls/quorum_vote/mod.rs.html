@@ -754,6 +754,28 @@
 <a href="#754" id="754">754</a>
 <a href="#755" id="755">755</a>
 <a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -821,28 +843,40 @@
 </span><span class="kw">pub struct </span>VoteDependencyHandle&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// Public key.
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
+
     <span class="doccomment">/// Private Key.
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
+
     <span class="doccomment">/// Immutable instance state
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
+
     <span class="doccomment">/// Membership for Quorum certs/votes.
-    </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
+
     <span class="doccomment">/// Reference to the storage.
     </span><span class="kw">pub </span>storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
+
     <span class="doccomment">/// View number to vote on.
     </span><span class="kw">pub </span>view_number: TYPES::View,
+
     <span class="doccomment">/// Event sender.
     </span><span class="kw">pub </span>sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+
     <span class="doccomment">/// Event receiver.
     </span><span class="kw">pub </span>receiver: InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
+
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+
     <span class="doccomment">/// The consensus metrics
     </span><span class="kw">pub </span>consensus_metrics: Arc&lt;ConsensusMetricsValue&gt;,
+
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+
     <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
     </span><span class="kw">pub </span>epoch_height: u64,
 }
@@ -953,7 +987,7 @@
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             <span class="self">self</span>.sender.clone(),
             <span class="self">self</span>.receiver.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
             <span class="self">self</span>.upgrade_lock.clone(),
@@ -989,7 +1023,7 @@
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = submit_vote::&lt;TYPES, I, V&gt;(
             <span class="self">self</span>.sender.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
             <span class="self">self</span>.upgrade_lock.clone(),
@@ -1032,7 +1066,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Membership for Quorum certs/votes and DA committee certs/votes.
-    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// Table for the in-progress DRB computation tasks.
     </span><span class="comment">//pub drb_computations: BTreeMap&lt;TYPES::Epoch, JoinHandle&lt;DrbResult&gt;&gt;,
@@ -1149,7 +1183,7 @@
                 private_key: <span class="self">self</span>.private_key.clone(),
                 consensus: OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
                 instance_state: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.instance_state),
-                quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
+                membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                 storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
                 view_number,
                 sender: event_sender.clone(),
@@ -1260,11 +1294,17 @@
 
                 <span class="kw">let </span>cert_epoch = cert.data.epoch;
 
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
+                <span class="kw">let </span>membership_da_stake_table = membership_reader.da_stake_table(cert_epoch);
+                <span class="kw">let </span>membership_da_success_threshold =
+                    membership_reader.da_success_threshold(cert_epoch);
+                drop(membership_reader);
+
                 <span class="comment">// Validate the DAC.
                 </span><span class="macro">ensure!</span>(
                     cert.is_valid_cert(
-                        <span class="self">self</span>.membership.da_stake_table(cert_epoch),
-                        <span class="self">self</span>.membership.da_success_threshold(cert_epoch),
+                        membership_da_stake_table,
+                        membership_da_success_threshold,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
                     )
                     .<span class="kw">await</span>,
@@ -1303,18 +1343,22 @@
                     <span class="string">"VID share signature is invalid"
                 </span>);
 
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
                 <span class="comment">// ensure that the VID share was sent by a DA member OR the view leader
                 </span><span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership
+                    membership_reader
                         .da_committee_members(view, disperse_epoch)
                         .contains(sender)
-                        || <span class="kw-2">*</span>sender == <span class="self">self</span>.membership.leader(view, disperse_epoch)<span class="question-mark">?</span>,
+                        || <span class="kw-2">*</span>sender == membership_reader.leader(view, disperse_epoch)<span class="question-mark">?</span>,
                     <span class="string">"VID share was not sent by a DA member or the view leader."
                 </span>);
 
+                <span class="kw">let </span>membership_total_nodes = membership_reader.total_nodes(disperse_epoch);
+                drop(membership_reader);
+
                 <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                </span><span class="kw">match </span>vid_scheme(<span class="self">self</span>.membership.total_nodes(disperse_epoch)).verify_share(
+                </span><span class="kw">match </span>vid_scheme(membership_total_nodes).verify_share(
                     <span class="kw-2">&amp;</span>disperse.data.share,
                     <span class="kw-2">&amp;</span>disperse.data.common,
                     payload_commitment,

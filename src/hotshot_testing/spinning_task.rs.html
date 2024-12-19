@@ -648,7 +648,7 @@
                                 };
 
                                 <span class="kw">let </span>storage = node.handle.storage().clone();
-                                <span class="kw">let </span>memberships = node.handle.memberships.clone();
+                                <span class="kw">let </span>memberships = Arc::clone(<span class="kw-2">&amp;</span>node.handle.memberships);
                                 <span class="kw">let </span>config = node.handle.hotshot.config.clone();
                                 <span class="kw">let </span>marketplace_config =
                                     node.handle.hotshot.marketplace_config.clone();
@@ -686,7 +686,7 @@
                                     TestRunner::&lt;TYPES, I, V, N&gt;::add_node_with_config_and_channels(
                                         node_id,
                                         generated_network.clone(),
-                                        (<span class="kw-2">*</span>memberships).clone(),
+                                        memberships,
                                         initializer,
                                         config,
                                         validator_config,

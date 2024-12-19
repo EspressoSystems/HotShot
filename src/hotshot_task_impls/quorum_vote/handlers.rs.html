@@ -465,6 +465,13 @@
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -526,7 +533,9 @@
     <span class="comment">// Start the new task if we're in the committee for this epoch
     </span><span class="kw">if </span>task_state
         .membership
-        .has_stake(<span class="kw-2">&amp;</span>task_state.public_key, current_epoch_number)
+        .read()
+        .<span class="kw">await
+        </span>.has_stake(<span class="kw-2">&amp;</span>task_state.public_key, current_epoch_number)
     {
         task_state
             .drb_computations
@@ -547,7 +556,7 @@
 ///
 /// We don't need to handle the special cases explicitly here, because the first proposal
 /// with which we'll start the DRB computation is for epoch 3.
-</span><span class="kw">fn </span>handle_quorum_proposal_validated_drb_calculation_seed&lt;
+</span><span class="kw">async fn </span>handle_quorum_proposal_validated_drb_calculation_seed&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
@@ -579,7 +588,9 @@
         <span class="comment">// Skip if we are not in the committee of the next epoch.
         </span><span class="kw">if </span>task_state
             .membership
-            .has_stake(<span class="kw-2">&amp;</span>task_state.public_key, current_epoch_number + <span class="number">1</span>)
+            .read()
+            .<span class="kw">await
+            </span>.has_stake(<span class="kw-2">&amp;</span>task_state.public_key, current_epoch_number + <span class="number">1</span>)
         {
             <span class="kw">let </span>new_epoch_number = current_epoch_number + <span class="number">2</span>;
             <span class="kw">let </span><span class="prelude-val">Ok</span>(drb_seed_input_vec) = bincode::serialize(<span class="kw-2">&amp;</span>proposal.justify_qc.signatures) <span class="kw">else </span>{
@@ -719,7 +730,8 @@
                 proposal,
                 task_state,
                 <span class="kw-2">&amp;</span>leaf_views,
-            )<span class="question-mark">?</span>;
+            )
+            .<span class="kw">await</span><span class="question-mark">?</span>;
         }
     }
 
@@ -737,7 +749,7 @@
     consensus: OuterConsensus&lt;TYPES&gt;,
     sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     receiver: InactiveReceiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     public_key: TYPES::SignatureKey,
     private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
@@ -776,7 +788,7 @@
                 justify_qc.view_number(),
                 sender.clone(),
                 receiver.activate_cloned(),
-                Arc::clone(<span class="kw-2">&amp;</span>quorum_membership),
+                Arc::clone(<span class="kw-2">&amp;</span>membership),
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
                 public_key.clone(),
                 private_key.clone(),
@@ -863,7 +875,7 @@
 #[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>submit_vote&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     public_key: TYPES::SignatureKey,
     private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
@@ -878,11 +890,13 @@
         TYPES::EPOCH_HEIGHT,
     ));
 
-    <span class="kw">let </span>committee_member_in_current_epoch = quorum_membership.has_stake(<span class="kw-2">&amp;</span>public_key, epoch_number);
+    <span class="kw">let </span>membership_reader = membership.read().<span class="kw">await</span>;
+    <span class="kw">let </span>committee_member_in_current_epoch = membership_reader.has_stake(<span class="kw-2">&amp;</span>public_key, epoch_number);
     <span class="comment">// If the proposed leaf is for the last block in the epoch and the node is part of the quorum committee
     // in the next epoch, the node should vote to achieve the double quorum.
     </span><span class="kw">let </span>committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), TYPES::EPOCH_HEIGHT)
-        &amp;&amp; quorum_membership.has_stake(<span class="kw-2">&amp;</span>public_key, epoch_number + <span class="number">1</span>);
+        &amp;&amp; membership_reader.has_stake(<span class="kw-2">&amp;</span>public_key, epoch_number + <span class="number">1</span>);
+    drop(membership_reader);
 
     <span class="macro">ensure!</span>(
         committee_member_in_current_epoch || committee_member_in_next_epoch,

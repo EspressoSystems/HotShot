@@ -339,6 +339,9 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -348,6 +351,7 @@
 </span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::SystemTime};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::task::TaskState;
@@ -391,7 +395,7 @@
     </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Membership for Quorum Certs/votes
-    </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// A map of `UpgradeVote` collector tasks
     </span><span class="kw">pub </span>vote_collectors: VoteCollectorsMap&lt;TYPES, UpgradeVote&lt;TYPES&gt;, UpgradeCertificate&lt;TYPES&gt;, V&gt;,
@@ -521,7 +525,7 @@
                 );
 
                 <span class="comment">// We then validate that the proposal was issued by the leader for the view.
-                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.quorum_membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>view_leader_key = <span class="self">self</span>.membership.read().<span class="kw">await</span>.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">?</span>;
                 <span class="macro">ensure!</span>(
                     view_leader_key == <span class="kw-2">*</span>sender,
                     <span class="macro">info!</span>(
@@ -564,13 +568,13 @@
                 <span class="comment">// Check if we are the leader.
                 </span>{
                     <span class="kw">let </span>view = vote.view_number();
+                    <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
                     <span class="macro">ensure!</span>(
-                        <span class="self">self</span>.quorum_membership.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                        membership_reader.leader(view, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
                         <span class="macro">debug!</span>(
                             <span class="string">"We are not the leader for view {} are we leader for next view? {}"</span>,
                             <span class="kw-2">*</span>view,
-                            <span class="self">self</span>.quorum_membership.leader(view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch)<span class="question-mark">?
-                                </span>== <span class="self">self</span>.public_key
+                            membership_reader.leader(view + <span class="number">1</span>, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key
                         )
                     );
                 }
@@ -579,7 +583,7 @@
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.vote_collectors,
                     vote,
                     <span class="self">self</span>.public_key.clone(),
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.membership,
                     <span class="self">self</span>.cur_epoch,
                     <span class="self">self</span>.id,
                     <span class="kw-2">&amp;</span>event,
@@ -606,16 +610,18 @@
                     </span>))<span class="question-mark">?
                     </span>.as_secs();
 
+                <span class="kw">let </span>leader = <span class="self">self</span>.membership.read().<span class="kw">await</span>.leader(
+                    TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
+                    <span class="self">self</span>.cur_epoch,
+                )<span class="question-mark">?</span>;
+
                 <span class="comment">// We try to form a certificate 5 views before we're leader.
                 </span><span class="kw">if </span>view &gt;= <span class="self">self</span>.start_proposing_view
                     &amp;&amp; view &lt; <span class="self">self</span>.stop_proposing_view
                     &amp;&amp; time &gt;= <span class="self">self</span>.start_proposing_time
                     &amp;&amp; time &lt; <span class="self">self</span>.stop_proposing_time
                     &amp;&amp; !<span class="self">self</span>.upgraded().<span class="kw">await
-                    </span>&amp;&amp; <span class="self">self</span>.quorum_membership.leader(
-                        TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
-                        <span class="self">self</span>.cur_epoch,
-                    )<span class="question-mark">? </span>== <span class="self">self</span>.public_key
+                    </span>&amp;&amp; leader == <span class="self">self</span>.public_key
                 {
                     <span class="kw">let </span>upgrade_proposal_data = UpgradeProposalData {
                         old_version: V::Base::VERSION,

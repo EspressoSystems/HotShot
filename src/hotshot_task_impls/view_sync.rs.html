@@ -873,6 +873,40 @@
 <a href="#873" id="873">873</a>
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -949,7 +983,7 @@
     </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Membership for the quorum
-    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// This Nodes Public Key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -1036,7 +1070,7 @@
     </span><span class="kw">pub </span>id: u64,
 
     <span class="doccomment">/// Membership for the quorum
-    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// This Nodes Public Key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -1186,7 +1220,11 @@
 
                 <span class="comment">// We do not have a relay task already running, so start one
                 </span><span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership.leader(vote_view + relay, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                    <span class="self">self</span>.membership
+                        .read()
+                        .<span class="kw">await
+                        </span>.leader(vote_view + relay, <span class="self">self</span>.cur_epoch)<span class="question-mark">?
+                        </span>== <span class="self">self</span>.public_key,
                     <span class="string">"View sync vote sent to wrong leader"
                 </span>);
 
@@ -1231,7 +1269,11 @@
 
                 <span class="comment">// We do not have a relay task already running, so start one
                 </span><span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership.leader(vote_view + relay, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                    <span class="self">self</span>.membership
+                        .read()
+                        .<span class="kw">await
+                        </span>.leader(vote_view + relay, <span class="self">self</span>.cur_epoch)<span class="question-mark">?
+                        </span>== <span class="self">self</span>.public_key,
                     <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>)
                 );
 
@@ -1276,7 +1318,11 @@
 
                 <span class="comment">// We do not have a relay task already running, so start one
                 </span><span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership.leader(vote_view + relay, <span class="self">self</span>.cur_epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                    <span class="self">self</span>.membership
+                        .read()
+                        .<span class="kw">await
+                        </span>.leader(vote_view + relay, <span class="self">self</span>.cur_epoch)<span class="question-mark">?
+                        </span>== <span class="self">self</span>.public_key,
                     <span class="macro">debug!</span>(<span class="string">"View sync vote sent to wrong leader"</span>)
                 );
 
@@ -1349,7 +1395,11 @@
                 );
 
                 <span class="self">self</span>.num_timeouts_tracked += <span class="number">1</span>;
-                <span class="kw">let </span>leader = <span class="self">self</span>.membership.leader(view_number, <span class="self">self</span>.cur_epoch)<span class="question-mark">?</span>;
+                <span class="kw">let </span>leader = <span class="self">self
+                    </span>.membership
+                    .read()
+                    .<span class="kw">await
+                    </span>.leader(view_number, <span class="self">self</span>.cur_epoch)<span class="question-mark">?</span>;
                 <span class="macro">tracing::warn!</span>(
                     %leader,
                     leader_mnemonic = hotshot_types::utils::mnemonic(<span class="kw-2">&amp;</span>leader),
@@ -1407,11 +1457,17 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
+                <span class="kw">let </span>membership_stake_table = membership_reader.stake_table(<span class="self">self</span>.cur_epoch);
+                <span class="kw">let </span>membership_failure_threshold =
+                    membership_reader.failure_threshold(<span class="self">self</span>.cur_epoch);
+                drop(membership_reader);
+
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate
                     .is_valid_cert(
-                        <span class="self">self</span>.membership.stake_table(<span class="self">self</span>.cur_epoch),
-                        <span class="self">self</span>.membership.failure_threshold(<span class="self">self</span>.cur_epoch),
+                        membership_stake_table,
+                        membership_failure_threshold,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await
@@ -1491,11 +1547,17 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
+                <span class="kw">let </span>membership_stake_table = membership_reader.stake_table(<span class="self">self</span>.cur_epoch);
+                <span class="kw">let </span>membership_success_threshold =
+                    membership_reader.success_threshold(<span class="self">self</span>.cur_epoch);
+                drop(membership_reader);
+
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate
                     .is_valid_cert(
-                        <span class="self">self</span>.membership.stake_table(<span class="self">self</span>.cur_epoch),
-                        <span class="self">self</span>.membership.success_threshold(<span class="self">self</span>.cur_epoch),
+                        membership_stake_table,
+                        membership_success_threshold,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await
@@ -1586,11 +1648,17 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
 
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
+                <span class="kw">let </span>membership_stake_table = membership_reader.stake_table(<span class="self">self</span>.cur_epoch);
+                <span class="kw">let </span>membership_success_threshold =
+                    membership_reader.success_threshold(<span class="self">self</span>.cur_epoch);
+                drop(membership_reader);
+
                 <span class="comment">// If certificate is not valid, return current state
                 </span><span class="kw">if </span>!certificate
                     .is_valid_cert(
-                        <span class="self">self</span>.membership.stake_table(<span class="self">self</span>.cur_epoch),
-                        <span class="self">self</span>.membership.success_threshold(<span class="self">self</span>.cur_epoch),
+                        membership_stake_table,
+                        membership_success_threshold,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await

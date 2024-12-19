@@ -719,6 +719,16 @@
 <a href="#719" id="719">719</a>
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind},
@@ -728,6 +738,7 @@
 };
 
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result </span><span class="kw">as </span>AnyhowResult};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>futures::{future::poll_fn, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 <span class="kw">use </span>hotshot_types::traits::{
     election::Membership,
@@ -767,7 +778,7 @@
     </span><span class="kw">pub </span>inner: T,
 
     <span class="doccomment">/// The stake table we check against to authenticate connections
-    </span><span class="kw">pub </span>stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Types::Membership&gt;&gt;,
+    </span><span class="kw">pub </span>stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// A pre-signed message that we send to the remote peer for authentication
     </span><span class="kw">pub </span>auth_message: Arc&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;,
@@ -785,7 +796,7 @@
     /// and authenticates connections against the stake table.
     </span><span class="kw">pub fn </span>new(
         inner: T,
-        stake_table: <span class="prelude-ty">Option</span>&lt;Types::Membership&gt;,
+        stake_table: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;,
         auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -830,7 +841,7 @@
     /// - The signature is invalid
     </span><span class="kw">pub async fn </span>verify_peer_authentication&lt;R: AsyncReadExt + Unpin&gt;(
         stream: <span class="kw-2">&amp;mut </span>R,
-        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Types::Membership&gt;&gt;,
+        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
         required_peer_id: <span class="kw-2">&amp;</span>PeerId,
     ) -&gt; AnyhowResult&lt;()&gt; {
         <span class="comment">// If we have a stake table, check if the remote peer is in it
@@ -857,7 +868,11 @@
             }
 
             <span class="comment">// Check if the public key is in the stake table
-            </span><span class="kw">if </span>!stake_table.has_stake(<span class="kw-2">&amp;</span>public_key, Types::Epoch::new(<span class="number">0</span>)) {
+            </span><span class="kw">if </span>!stake_table
+                .read()
+                .<span class="kw">await
+                </span>.has_stake(<span class="kw-2">&amp;</span>public_key, Types::Epoch::new(<span class="number">0</span>))
+            {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"Peer not in stake table"</span>));
             }
         }
@@ -872,7 +887,7 @@
     </span><span class="kw">fn </span>gen_handshake&lt;F: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T::Output, T::Error&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
         original_future: F,
         outgoing: bool,
-        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Types::Membership&gt;&gt;,
+        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
         auth_message: Arc&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;,
     ) -&gt; UpgradeFuture&lt;T&gt;
     <span class="kw">where
@@ -1345,7 +1360,7 @@
         <span class="comment">// Verify the authentication message
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
             <span class="kw-2">&amp;mut </span>stream,
-            Arc::new(<span class="prelude-val">Some</span>(stake_table)),
+            Arc::new(<span class="prelude-val">Some</span>(Arc::new(RwLock::new(stake_table)))),
             <span class="kw-2">&amp;</span>peer_id,
         )
         .<span class="kw">await</span>;
@@ -1365,7 +1380,10 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="macro">cursor_from!</span>(auth_message);
 
         <span class="comment">// Create an empty stake table
-        </span><span class="kw">let </span>stake_table = &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[], <span class="macro">vec!</span>[]);
+        </span><span class="kw">let </span>stake_table = Arc::new(RwLock::new(&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
+            <span class="macro">vec!</span>[],
+            <span class="macro">vec!</span>[],
+        )));
 
         <span class="comment">// Verify the authentication message
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
@@ -1401,8 +1419,10 @@
             stake_table_entry: keypair.<span class="number">0</span>.stake_table_entry(<span class="number">1</span>),
             state_ver_key: StateVerKey::default(),
         };
-        <span class="kw">let </span>stake_table =
-            &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[peer_config.clone()], <span class="macro">vec!</span>[peer_config]);
+        <span class="kw">let </span>stake_table = Arc::new(RwLock::new(&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
+            <span class="macro">vec!</span>[peer_config.clone()],
+            <span class="macro">vec!</span>[peer_config],
+        )));
 
         <span class="comment">// Check against the malicious peer ID
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(

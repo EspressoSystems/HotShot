@@ -388,6 +388,9 @@
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -437,7 +440,9 @@
         </span>.is_high_qc_for_last_block();
     <span class="kw">let </span>we_are_leader = task_state
         .membership
-        .leader(vote.view_number() + <span class="number">1</span>, vote.data.epoch)<span class="question-mark">?
+        .read()
+        .<span class="kw">await
+        </span>.leader(vote.view_number() + <span class="number">1</span>, vote.data.epoch)<span class="question-mark">?
         </span>== task_state.public_key;
     <span class="macro">ensure!</span>(
         in_transition || we_are_leader,
@@ -467,10 +472,12 @@
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// If the vote sender belongs to the next epoch, collect it separately to form the second QC
-    </span><span class="kw">if </span>task_state
+    </span><span class="kw">let </span>has_stake = task_state
         .membership
-        .has_stake(<span class="kw-2">&amp;</span>vote.signing_key(), vote.epoch() + <span class="number">1</span>)
-    {
+        .read()
+        .<span class="kw">await
+        </span>.has_stake(<span class="kw-2">&amp;</span>vote.signing_key(), vote.epoch() + <span class="number">1</span>);
+    <span class="kw">if </span>has_stake {
         handle_vote(
             <span class="kw-2">&amp;mut </span>task_state.next_epoch_vote_collectors,
             <span class="kw-2">&amp;</span>vote.clone().into(),
@@ -504,7 +511,9 @@
     </span><span class="macro">ensure!</span>(
         task_state
             .membership
-            .leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
+            .read()
+            .<span class="kw">await
+            </span>.leader(vote.view_number() + <span class="number">1</span>, task_state.cur_epoch)<span class="question-mark">?
             </span>== task_state.public_key,
         <span class="macro">info!</span>(
             <span class="string">"We are not the leader for view {:?}"</span>,
@@ -548,7 +557,9 @@
     <span class="kw">let </span>high_qc = task_state.consensus.read().<span class="kw">await</span>.high_qc().clone();
     <span class="kw">let </span>leader = task_state
         .membership
-        .leader(new_view_number, TYPES::Epoch::new(<span class="number">0</span>))<span class="question-mark">?</span>;
+        .read()
+        .<span class="kw">await
+        </span>.leader(new_view_number, TYPES::Epoch::new(<span class="number">0</span>))<span class="question-mark">?</span>;
     broadcast_event(
         Arc::new(HotShotEvent::HighQcSend(
             high_qc,
@@ -648,17 +659,19 @@
     <span class="comment">// Cancel the old timeout task
     </span>std::mem::replace(<span class="kw-2">&amp;mut </span>task_state.timeout_task, new_timeout_task).abort();
 
+    <span class="kw">let </span>old_view_leader_key = task_state
+        .membership
+        .read()
+        .<span class="kw">await
+        </span>.leader(old_view_number, task_state.cur_epoch)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
     consensus_reader
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     <span class="kw">let </span>cur_view_time = Utc::now().timestamp();
-    <span class="kw">if </span>task_state
-        .membership
-        .leader(old_view_number, task_state.cur_epoch)<span class="question-mark">?
-        </span>== task_state.public_key
-    {
+    <span class="kw">if </span>old_view_leader_key == task_state.public_key {
         <span class="attr">#[allow(clippy::cast_precision_loss)]
         </span>consensus_reader
             .metrics
@@ -710,7 +723,9 @@
     <span class="macro">ensure!</span>(
         task_state
             .membership
-            .has_stake(<span class="kw-2">&amp;</span>task_state.public_key, epoch),
+            .read()
+            .<span class="kw">await
+            </span>.has_stake(<span class="kw-2">&amp;</span>task_state.public_key, epoch),
         <span class="macro">debug!</span>(
             <span class="string">"We were not chosen for the consensus committee for view {:?}"</span>,
             view_number
@@ -755,25 +770,16 @@
     )
     .<span class="kw">await</span>;
 
-    task_state
-        .consensus
+    <span class="kw">let </span>leader = task_state
+        .membership
         .read()
         .<span class="kw">await
-        </span>.metrics
-        .number_of_timeouts
-        .add(<span class="number">1</span>);
-    <span class="kw">if </span>task_state
-        .membership
-        .leader(view_number, task_state.cur_epoch)<span class="question-mark">?
-        </span>== task_state.public_key
-    {
-        task_state
-            .consensus
-            .read()
-            .<span class="kw">await
-            </span>.metrics
-            .number_of_timeouts_as_leader
-            .add(<span class="number">1</span>);
+        </span>.leader(view_number, task_state.cur_epoch);
+
+    <span class="kw">let </span>consensus_reader = task_state.consensus.read().<span class="kw">await</span>;
+    consensus_reader.metrics.number_of_timeouts.add(<span class="number">1</span>);
+    <span class="kw">if </span>leader<span class="question-mark">? </span>== task_state.public_key {
+        consensus_reader.metrics.number_of_timeouts_as_leader.add(<span class="number">1</span>);
     }
 
     <span class="prelude-val">Ok</span>(())

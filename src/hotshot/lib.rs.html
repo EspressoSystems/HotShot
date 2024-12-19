@@ -1084,6 +1084,15 @@
 <a href="#1084" id="1084">1084</a>
 <a href="#1085" id="1085">1085</a>
 <a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1194,7 +1203,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Memberships used by consensus
-    </span><span class="kw">pub </span>memberships: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>memberships: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// the metrics that the implementor is using.
     </span>metrics: Arc&lt;ConsensusMetricsValue&gt;,
@@ -1285,7 +1294,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
-        memberships: TYPES::Membership,
+        memberships: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
@@ -1338,7 +1347,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
-        memberships: TYPES::Membership,
+        memberships: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
@@ -1451,7 +1460,7 @@
             start_view: initializer.start_view,
             start_epoch: initializer.start_epoch,
             network,
-            memberships: Arc::new(memberships),
+            memberships,
             metrics: Arc::clone(<span class="kw-2">&amp;</span>consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx.clone(), external_rx.clone().deactivate()),
@@ -1598,6 +1607,15 @@
         })<span class="question-mark">?</span>;
 
         spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>memberships_da_committee_members = api
+                .memberships
+                .read()
+                .<span class="kw">await
+                </span>.da_committee_members(view_number, epoch)
+                .iter()
+                .cloned()
+                .collect();
+
             <span class="macro">join!</span> {
                 <span class="comment">// TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
@@ -1609,7 +1627,7 @@
                 </span>api
                     .network.da_broadcast_message(
                         serialized_message,
-                        api.memberships.da_committee_members(view_number, epoch).iter().cloned().collect(),
+                        memberships_da_committee_members,
                         BroadcastDelay::None,
                     ),
                 api
@@ -1694,7 +1712,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         node_id: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
-        memberships: TYPES::Membership,
+        memberships: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
@@ -1857,7 +1875,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
-        memberships: TYPES::Membership,
+        memberships: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
@@ -1873,7 +1891,7 @@
             private_key.clone(),
             nonce,
             config.clone(),
-            memberships.clone(),
+            Arc::clone(<span class="kw-2">&amp;</span>memberships),
             Arc::clone(<span class="kw-2">&amp;</span>network),
             initializer.clone(),
             metrics.clone(),

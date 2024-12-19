@@ -2026,7 +2026,7 @@
     </span><span class="kw">pub async fn </span>calculate_and_update_vid(
         consensus: OuterConsensus&lt;TYPES&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
-        membership: Arc&lt;TYPES::Membership&gt;,
+        membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
         <span class="kw">let </span>txns = Arc::clone(consensus.read().<span class="kw">await</span>.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>);

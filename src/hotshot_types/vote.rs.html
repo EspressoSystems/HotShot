@@ -251,6 +251,14 @@
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -263,8 +271,10 @@
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
     num::NonZeroU64,
+    sync::Arc,
 };
 
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>bitvec::{bitvec, vec::BitVec};
 <span class="kw">use </span>committable::{Commitment, Committable};
 <span class="kw">use </span>either::Either;
@@ -415,7 +425,7 @@ The votes all must be over the `Commitment` associated type.
     </span><span class="kw">pub async fn </span>accumulate(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vote: <span class="kw-2">&amp;</span>VOTE,
-        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         epoch: TYPES::Epoch,
     ) -&gt; Either&lt;(), CERT&gt; {
         <span class="kw">let </span>key = vote.signing_key();
@@ -439,10 +449,16 @@ The votes all must be over the `Commitment` associated type.
             <span class="kw">return </span>Either::Left(());
         }
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = CERT::stake_table_entry(membership, <span class="kw-2">&amp;</span>key, epoch) <span class="kw">else </span>{
+        <span class="kw">let </span>membership_reader = membership.read().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="prelude-val">Some</span>(stake_table_entry) = CERT::stake_table_entry(<span class="kw-2">&amp;*</span>membership_reader, <span class="kw-2">&amp;</span>key, epoch)
+        <span class="kw">else </span>{
             <span class="kw">return </span>Either::Left(());
         };
-        <span class="kw">let </span>stake_table = CERT::stake_table(membership, epoch);
+        <span class="kw">let </span>stake_table = CERT::stake_table(<span class="kw-2">&amp;*</span>membership_reader, epoch);
+        <span class="kw">let </span>total_nodes = CERT::total_nodes(<span class="kw-2">&amp;*</span>membership_reader, epoch);
+        <span class="kw">let </span>threshold = CERT::threshold(<span class="kw-2">&amp;*</span>membership_reader, epoch);
+        drop(membership_reader);
+
         <span class="kw">let </span><span class="prelude-val">Some</span>(vote_node_id) = stake_table
             .iter()
             .position(|x| <span class="kw-2">*</span>x == stake_table_entry.clone())
@@ -465,7 +481,7 @@ The votes all must be over the `Commitment` associated type.
         <span class="kw">let </span>(signers, sig_list) = <span class="self">self
             </span>.signers
             .entry(vote_commitment)
-            .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; CERT::total_nodes(membership, epoch)], Vec::new()));
+            .or_insert((<span class="macro">bitvec!</span>[<span class="number">0</span>; total_nodes], Vec::new()));
         <span class="kw">if </span>signers.get(vote_node_id).as_deref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="bool-val">true</span>) {
             <span class="macro">error!</span>(<span class="string">"Node id is already in signers list"</span>);
             <span class="kw">return </span>Either::Left(());
@@ -476,12 +492,12 @@ The votes all must be over the `Commitment` associated type.
         <span class="kw-2">*</span>total_stake_casted += stake_table_entry.stake();
         total_vote_map.insert(key, (vote.signature(), vote_commitment));
 
-        <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= CERT::threshold(membership, epoch).into() {
+        <span class="kw">if </span><span class="kw-2">*</span>total_stake_casted &gt;= threshold.into() {
             <span class="comment">// Assemble QC
             </span><span class="kw">let </span>real_qc_pp: &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcParams =
                 &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
                     stake_table,
-                    U256::from(CERT::threshold(membership, epoch)),
+                    U256::from(threshold),
                 );
 
             <span class="kw">let </span>real_qc_sig = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::assemble(

@@ -177,14 +177,39 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, time::Duration};
+</span><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -195,15 +220,17 @@
 </span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt; = NonZeroUsize::new(<span class="number">10</span>);
 
 <span class="doccomment">/// describe the configuration of the network
-</span><span class="attr">#[derive(Clone, Default, derive_builder::Builder, derive_more::Debug)]
+</span><span class="attr">#[derive(Default, derive_builder::Builder, derive_more::Debug)]
 </span><span class="kw">pub struct </span>NetworkNodeConfig&lt;T: NodeType&gt; {
     <span class="doccomment">/// The keypair for the node
     </span><span class="attr">#[builder(setter(into, strip_option), default)]
     #[debug(skip)]
     </span><span class="kw">pub </span>keypair: <span class="prelude-ty">Option</span>&lt;Keypair&gt;,
+
     <span class="doccomment">/// The address to bind to
     </span><span class="attr">#[builder(default)]
     </span><span class="kw">pub </span>bind_address: <span class="prelude-ty">Option</span>&lt;Multiaddr&gt;,
+
     <span class="doccomment">/// Replication factor for entries in the DHT
     </span><span class="attr">#[builder(setter(into, strip_option), default = <span class="string">"DEFAULT_REPLICATION_FACTOR"</span>)]
     </span><span class="kw">pub </span>replication_factor: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt;,
@@ -218,9 +245,11 @@
 
     <span class="doccomment">/// list of addresses to connect to at initialization
     </span><span class="kw">pub </span>to_connect_addrs: HashSet&lt;(PeerId, Multiaddr)&gt;,
+
     <span class="doccomment">/// republication interval in DHT, must be much less than `ttl`
     </span><span class="attr">#[builder(default)]
     </span><span class="kw">pub </span>republication_interval: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+
     <span class="doccomment">/// expiratiry for records in DHT
     </span><span class="attr">#[builder(default)]
     </span><span class="kw">pub </span>ttl: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
@@ -228,7 +257,7 @@
     <span class="doccomment">/// The stake table. Used for authenticating other nodes. If not supplied
     /// we will not check other nodes against the stake table
     </span><span class="attr">#[builder(default)]
-    </span><span class="kw">pub </span>stake_table: <span class="prelude-ty">Option</span>&lt;T::Membership&gt;,
+    </span><span class="kw">pub </span>stake_table: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;T::Membership&gt;&gt;&gt;,
 
     <span class="doccomment">/// The path to the file to save the DHT to
     </span><span class="attr">#[builder(default)]
@@ -242,6 +271,25 @@
     <span class="attr">#[builder(default)]
     </span><span class="doccomment">/// The timeout for DHT lookups.
     </span><span class="kw">pub </span>dht_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+}
+
+<span class="kw">impl</span>&lt;T: NodeType&gt; Clone <span class="kw">for </span>NetworkNodeConfig&lt;T&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            keypair: <span class="self">self</span>.keypair.clone(),
+            bind_address: <span class="self">self</span>.bind_address.clone(),
+            replication_factor: <span class="self">self</span>.replication_factor,
+            gossip_config: <span class="self">self</span>.gossip_config.clone(),
+            request_response_config: <span class="self">self</span>.request_response_config.clone(),
+            to_connect_addrs: <span class="self">self</span>.to_connect_addrs.clone(),
+            republication_interval: <span class="self">self</span>.republication_interval,
+            ttl: <span class="self">self</span>.ttl,
+            stake_table: <span class="self">self</span>.stake_table.as_ref().map(Arc::clone),
+            dht_file_path: <span class="self">self</span>.dht_file_path.clone(),
+            auth_message: <span class="self">self</span>.auth_message.clone(),
+            dht_timeout: <span class="self">self</span>.dht_timeout,
+        }
+    }
 }
 
 <span class="doccomment">/// Configuration for Libp2p's Gossipsub

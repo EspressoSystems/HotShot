@@ -141,7 +141,7 @@
 <span class="kw">use crate</span>::{traits::signature_key::SignatureKey, PeerConfig};
 
 <span class="doccomment">/// A protocol for determining membership in and participating in a committee.
-</span><span class="kw">pub trait </span>Membership&lt;TYPES: NodeType&gt;: Clone + Debug + Send + Sync {
+</span><span class="kw">pub trait </span>Membership&lt;TYPES: NodeType&gt;: Debug + Send + Sync {
     <span class="doccomment">/// The error type returned by methods like `lookup_leader`.
     </span><span class="kw">type </span>Error: std::fmt::Display;
 

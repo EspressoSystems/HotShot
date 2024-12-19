@@ -1085,6 +1085,11 @@
 <a href="#1085" id="1085">1085</a>
 <a href="#1086" id="1086">1086</a>
 <a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1477,7 +1482,7 @@
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>from_config(
         <span class="kw-2">mut </span>config: NetworkConfig&lt;T::SignatureKey&gt;,
-        quorum_membership: T::Membership,
+        membership: Arc&lt;RwLock&lt;T::Membership&gt;&gt;,
         gossip_config: GossipConfig,
         request_response_config: RequestResponseConfig,
         bind_address: Multiaddr,
@@ -1508,7 +1513,7 @@
 
         <span class="comment">// Set the auth message and stake table
         </span>config_builder
-            .stake_table(<span class="prelude-val">Some</span>(quorum_membership))
+            .stake_table(<span class="prelude-val">Some</span>(membership))
             .auth_message(<span class="prelude-val">Some</span>(auth_message));
 
         <span class="comment">// The replication factor is the minimum of [the default and 2/3 the number of nodes]
@@ -2065,13 +2070,18 @@
     /// So the logic with libp2p is to prefetch upcoming leaders libp2p address to
     /// save time when we later need to direct message the leader our vote. Hence the
     /// use of the future view and leader to queue the lookups.
-    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, epoch: u64, membership: <span class="kw-2">&amp;</span>TYPES::Membership)
-    <span class="kw">where
+    </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+        view: u64,
+        epoch: u64,
+        membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
+    ) <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = T::SignatureKey&gt; + <span class="lifetime">'a</span>,
     {
         <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::View::new(view) + LOOK_AHEAD;
         <span class="kw">let </span>epoch = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch::new(epoch);
-        <span class="kw">let </span>future_leader = <span class="kw">match </span>membership.leader(future_view, epoch) {
+
+        <span class="kw">let </span>future_leader = <span class="kw">match </span>membership.read().<span class="kw">await</span>.leader(future_view, epoch) {
             <span class="prelude-val">Ok</span>(l) =&gt; l,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="kw">return </span><span class="macro">tracing::info!</span>(

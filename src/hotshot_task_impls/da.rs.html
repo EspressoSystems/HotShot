@@ -377,6 +377,15 @@
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -435,7 +444,7 @@
     <span class="doccomment">/// Membership for the DA committee and quorum committee.
     /// We need the latter only for calculating the proper VID scheme
     /// from the number of nodes in the quorum.
-    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
@@ -494,7 +503,11 @@
                 }
 
                 <span class="kw">let </span>encoded_transactions_hash = Sha256::digest(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
-                <span class="kw">let </span>view_leader_key = <span class="self">self</span>.membership.leader(view, proposal.data.epoch)<span class="question-mark">?</span>;
+                <span class="kw">let </span>view_leader_key = <span class="self">self
+                    </span>.membership
+                    .read()
+                    .<span class="kw">await
+                    </span>.leader(view, proposal.data.epoch)<span class="question-mark">?</span>;
                 <span class="macro">ensure!</span>(
                     view_leader_key == sender,
                     <span class="macro">warn!</span>(
@@ -542,16 +555,18 @@
                 )
                 .<span class="kw">await</span>;
 
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
                 <span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership.has_da_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, epoch_number),
+                    membership_reader.has_da_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, epoch_number),
                     <span class="macro">debug!</span>(
                         <span class="string">"We were not chosen for consensus committee for view {:?} in epoch {:?}"</span>,
                         view_number, epoch_number
                     )
                 );
+                <span class="kw">let </span>num_nodes = membership_reader.total_nodes(epoch_number);
+                drop(membership_reader);
 
                 <span class="kw">let </span>txns = Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
-                <span class="kw">let </span>num_nodes = <span class="self">self</span>.membership.total_nodes(epoch_number);
                 <span class="kw">let </span>payload_commitment =
                     spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = payload_commitment.unwrap();
@@ -637,14 +652,16 @@
                 </span><span class="kw">let </span>view = vote.view_number();
                 <span class="kw">let </span>epoch = vote.data.epoch;
 
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
                 <span class="macro">ensure!</span>(
-                    <span class="self">self</span>.membership.leader(view, epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
+                    membership_reader.leader(view, epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key,
                     <span class="macro">debug!</span>(
                       <span class="string">"We are not the DA committee leader for view {} are we leader for next view? {}"</span>,
                       <span class="kw-2">*</span>view,
-                      <span class="self">self</span>.membership.leader(view + <span class="number">1</span>, epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key
+                      membership_reader.leader(view + <span class="number">1</span>, epoch)<span class="question-mark">? </span>== <span class="self">self</span>.public_key
                     )
                 );
+                drop(membership_reader);
 
                 handle_vote(
                     <span class="kw-2">&amp;mut </span><span class="self">self</span>.vote_collectors,
@@ -694,7 +711,8 @@
                         .wrap()<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>epoch = <span class="self">self</span>.cur_epoch;
-                <span class="kw">if </span><span class="self">self</span>.membership.leader(view_number, epoch)<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
+                <span class="kw">let </span>leader = <span class="self">self</span>.membership.read().<span class="kw">await</span>.leader(view_number, epoch)<span class="question-mark">?</span>;
+                <span class="kw">if </span>leader != <span class="self">self</span>.public_key {
                     <span class="macro">tracing::debug!</span>(
                         <span class="string">"We are not the leader in the current epoch. Do not send the DA proposal"
                     </span>);

@@ -506,6 +506,10 @@
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -983,8 +987,12 @@
         <span class="self">self</span>.secondary().queue_node_lookup(view_number, pk)
     }
 
-    <span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, T&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, view: u64, epoch: u64, membership: <span class="kw-2">&amp;</span>T::Membership)
-    <span class="kw">where
+    <span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, T&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+        view: u64,
+        epoch: u64,
+        membership: Arc&lt;RwLock&lt;T::Membership&gt;&gt;,
+    ) <span class="kw">where
         </span>T: NodeType&lt;SignatureKey = TYPES::SignatureKey&gt; + <span class="lifetime">'a</span>,
     {
         <span class="kw">let </span>delayed_tasks_channels = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.delayed_tasks_channels);

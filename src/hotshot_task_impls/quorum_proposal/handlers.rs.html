@@ -527,6 +527,19 @@
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -616,7 +629,7 @@
     </span><span class="kw">pub </span>instance_state: Arc&lt;TYPES::InstanceState&gt;,
 
     <span class="doccomment">/// Membership for Quorum Certs/votes
-    </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// Our public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -629,6 +642,7 @@
 
     <span class="doccomment">/// View timeout from config.
     </span><span class="kw">pub </span>timeout: u64,
+
     <span class="doccomment">/// The most recent upgrade certificate this node formed.
     /// Note: this is ONLY for certificates that have been formed internally,
     /// so that we can propose with them.
@@ -661,10 +675,16 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;QuorumCertificate2&lt;TYPES&gt;&gt; {
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(event) = rx.recv_direct().<span class="kw">await </span>{
             <span class="kw">if let </span>HotShotEvent::HighQcRecv(qc, _sender) = event.as_ref() {
+                <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
+                <span class="kw">let </span>membership_stake_table = membership_reader.stake_table(qc.data.epoch);
+                <span class="kw">let </span>membership_success_threshold =
+                    membership_reader.success_threshold(qc.data.epoch);
+                drop(membership_reader);
+
                 <span class="kw">if </span>qc
                     .is_valid_cert(
-                        <span class="self">self</span>.quorum_membership.stake_table(qc.data.epoch),
-                        <span class="self">self</span>.quorum_membership.success_threshold(qc.data.epoch),
+                        membership_stake_table,
+                        membership_success_threshold,
                         <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
                     .<span class="kw">await
@@ -796,7 +816,7 @@
         <span class="kw">let </span>(parent_leaf, state) = parent_leaf_and_state(
             <span class="kw-2">&amp;</span><span class="self">self</span>.sender,
             <span class="kw-2">&amp;</span><span class="self">self</span>.receiver,
-            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+            Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="self">self</span>.public_key.clone(),
             <span class="self">self</span>.private_key.clone(),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
@@ -899,7 +919,13 @@
         ));
         <span class="comment">// Make sure we are the leader for the view and epoch.
         // We might have ended up here because we were in the epoch transition.
-        </span><span class="kw">if </span><span class="self">self</span>.quorum_membership.leader(<span class="self">self</span>.view_number, epoch)<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
+        </span><span class="kw">if </span><span class="self">self
+            </span>.membership
+            .read()
+            .<span class="kw">await
+            </span>.leader(<span class="self">self</span>.view_number, epoch)<span class="question-mark">?
+            </span>!= <span class="self">self</span>.public_key
+        {
             <span class="macro">tracing::debug!</span>(
                 <span class="string">"We are not the leader in the epoch for which we are about to propose. Do not send the quorum proposal."
             </span>);

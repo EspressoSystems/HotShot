@@ -371,6 +371,11 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -442,7 +447,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Memberships used by consensus
-    </span><span class="kw">pub </span>memberships: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>memberships: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
     </span><span class="kw">pub </span>epoch_height: u64,
@@ -529,7 +534,7 @@
             signed_proposal_request.commit().as_ref(),
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>mem = (<span class="kw-2">*</span><span class="self">self</span>.memberships).clone();
+        <span class="kw">let </span>mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.memberships);
         <span class="kw">let </span>receiver = <span class="self">self</span>.internal_event_stream.<span class="number">1</span>.activate_cloned();
         <span class="kw">let </span>sender = <span class="self">self</span>.internal_event_stream.<span class="number">0</span>.clone();
         <span class="kw">let </span>epoch_height = <span class="self">self</span>.epoch_height;
@@ -560,10 +565,13 @@
                 </span><span class="kw">if let </span>HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     <span class="comment">// Make sure that the quorum_proposal is valid
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem, epoch_height) {
+                    </span><span class="kw">let </span>mem_reader = mem.read().<span class="kw">await</span>;
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = quorum_proposal.validate_signature(<span class="kw-2">&amp;</span>mem_reader, epoch_height)
+                    {
                         <span class="macro">tracing::warn!</span>(<span class="string">"Invalid Proposal Received after Request.  Err {:?}"</span>, err);
                         <span class="kw">continue</span>;
                     }
+                    drop(mem_reader);
                     <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>quorum_proposal.data);
                     <span class="kw">let </span>commit = proposed_leaf.commit();
                     <span class="kw">if </span>commit == leaf_commitment {
@@ -699,7 +707,9 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.hotshot
             .memberships
-            .leader(view_number, epoch_number)
+            .read()
+            .<span class="kw">await
+            </span>.leader(view_number, epoch_number)
             .context(<span class="string">"Failed to lookup leader"</span>)
     }
 

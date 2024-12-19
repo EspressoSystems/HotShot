@@ -209,6 +209,14 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -269,7 +277,7 @@
     </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
 
     <span class="doccomment">/// Membership for Quorum Certs/votes
-    </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// View timeout from config.
     </span><span class="kw">pub </span>timeout: u64,
@@ -299,20 +307,28 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ValidationInfo&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+
     <span class="doccomment">/// Our public key
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) public_key: TYPES::SignatureKey,
+
     <span class="doccomment">/// Our Private Key
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+
     <span class="doccomment">/// Reference to consensus. The replica will require a write lock on this.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) consensus: OuterConsensus&lt;TYPES&gt;,
+
     <span class="doccomment">/// Membership for Quorum Certs/votes
-    </span><span class="kw">pub </span>quorum_membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
+
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// This node's storage ref
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
+
     <span class="doccomment">/// Lock for a decided upgrade
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+
     <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
     </span><span class="kw">pub </span>epoch_height: u64,
 }
@@ -353,7 +369,7 @@
                     public_key: <span class="self">self</span>.public_key.clone(),
                     private_key: <span class="self">self</span>.private_key.clone(),
                     consensus: <span class="self">self</span>.consensus.clone(),
-                    quorum_membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.quorum_membership),
+                    membership: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     output_event_stream: <span class="self">self</span>.output_event_stream.clone(),
                     storage: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.storage),
                     upgrade_lock: <span class="self">self</span>.upgrade_lock.clone(),

@@ -185,6 +185,7 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -203,8 +204,9 @@
 <span class="doccomment">/// Forked `cbor` codec with altered request/response sizes
 </span><span class="kw">pub mod </span>cbor;
 
-<span class="kw">use </span>std::{collections::HashSet, fmt::Debug};
+<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, sync::Arc};
 
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 <span class="kw">use </span>libp2p::{
@@ -346,7 +348,7 @@
 </span><span class="attr">#[instrument(skip(identity))]
 </span><span class="kw">pub async fn </span>gen_transport&lt;T: NodeType&gt;(
     identity: Keypair,
-    stake_table: <span class="prelude-ty">Option</span>&lt;T::Membership&gt;,
+    stake_table: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;T::Membership&gt;&gt;&gt;,
     auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BoxedTransport, NetworkError&gt; {
     <span class="comment">// Create the initial `Quic` transport

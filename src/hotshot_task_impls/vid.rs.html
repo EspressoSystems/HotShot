@@ -254,6 +254,14 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -263,6 +271,7 @@
 </span><span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
@@ -301,7 +310,7 @@
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
 
     <span class="doccomment">/// Membership for the quorum
-    </span><span class="kw">pub </span>membership: Arc&lt;TYPES::Membership&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
     <span class="doccomment">/// This Nodes Public Key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
@@ -339,7 +348,14 @@
                     &lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockPayload::from_bytes(encoded_transactions, metadata);
                 <span class="kw">let </span>builder_commitment = payload.builder_commitment(metadata);
                 <span class="kw">let </span>epoch = <span class="self">self</span>.cur_epoch;
-                <span class="kw">if </span><span class="self">self</span>.membership.leader(<span class="kw-2">*</span>view_number, epoch).ok()<span class="question-mark">? </span>!= <span class="self">self</span>.public_key {
+                <span class="kw">if </span><span class="self">self
+                    </span>.membership
+                    .read()
+                    .<span class="kw">await
+                    </span>.leader(<span class="kw-2">*</span>view_number, epoch)
+                    .ok()<span class="question-mark">?
+                    </span>!= <span class="self">self</span>.public_key
+                {
                     <span class="macro">tracing::debug!</span>(
                         <span class="string">"We are not the leader in the current epoch. Do not send the VID dispersal."
                     </span>);

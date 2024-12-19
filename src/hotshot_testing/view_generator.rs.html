@@ -594,6 +594,11 @@
 <a href="#594" id="594">594</a>
 <a href="#595" id="595">595</a>
 <a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -608,6 +613,7 @@
     task::{Context, Poll},
 };
 
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>futures::{FutureExt, Stream};
 <span class="kw">use </span>hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
@@ -651,7 +657,7 @@
     <span class="kw">pub </span>leaf: Leaf2&lt;TestTypes&gt;,
     <span class="kw">pub </span>view_number: ViewNumber,
     <span class="kw">pub </span>epoch_number: EpochNumber,
-    <span class="kw">pub </span>membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
+    <span class="kw">pub </span>membership: Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     <span class="kw">pub </span>vid_disperse: Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>vid_proposal: (
         Vec&lt;Proposal&lt;TestTypes, VidDisperseShare2&lt;TestTypes&gt;&gt;&gt;,
@@ -668,7 +674,7 @@
 }
 
 <span class="kw">impl </span>TestView {
-    <span class="kw">pub async fn </span>genesis(membership: <span class="kw-2">&amp;</span>&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub async fn </span>genesis(membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>genesis_view = ViewNumber::new(<span class="number">1</span>);
         <span class="kw">let </span>genesis_epoch = EpochNumber::new(<span class="number">0</span>);
         <span class="kw">let </span>upgrade_lock = UpgradeLock::new();
@@ -694,7 +700,8 @@
         <span class="kw">let </span>leader_public_key = public_key;
 
         <span class="kw">let </span>payload_commitment =
-            da_payload_commitment::&lt;TestTypes&gt;(membership, transactions.clone(), genesis_epoch);
+            da_payload_commitment::&lt;TestTypes&gt;(membership, transactions.clone(), genesis_epoch)
+                .<span class="kw">await</span>;
 
         <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
             membership,
@@ -702,7 +709,8 @@
             genesis_epoch,
             transactions.clone(),
             <span class="kw-2">&amp;</span>private_key,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="kw">let </span>da_certificate = build_da_certificate(
             membership,
@@ -837,7 +845,8 @@
         );
 
         <span class="kw">let </span>payload_commitment =
-            da_payload_commitment::&lt;TestTypes&gt;(membership, transactions.clone(), <span class="self">self</span>.epoch_number);
+            da_payload_commitment::&lt;TestTypes&gt;(membership, transactions.clone(), <span class="self">self</span>.epoch_number)
+                .<span class="kw">await</span>;
 
         <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
             membership,
@@ -845,7 +854,8 @@
             <span class="self">self</span>.epoch_number,
             transactions.clone(),
             <span class="kw-2">&amp;</span>private_key,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="kw">let </span>da_certificate = build_da_certificate::&lt;TestTypes, TestVersions&gt;(
             membership,
@@ -1088,11 +1098,11 @@
 
 <span class="kw">pub struct </span>TestViewGenerator {
     <span class="kw">pub </span>current_view: <span class="prelude-ty">Option</span>&lt;TestView&gt;,
-    <span class="kw">pub </span>membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership,
+    <span class="kw">pub </span>membership: Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
 }
 
 <span class="kw">impl </span>TestViewGenerator {
-    <span class="kw">pub fn </span>generate(membership: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>generate(membership: Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;) -&gt; <span class="self">Self </span>{
         TestViewGenerator {
             current_view: <span class="prelude-val">None</span>,
             membership,
@@ -1172,13 +1182,13 @@
     <span class="kw">type </span>Item = TestView;
 
     <span class="kw">fn </span>poll_next(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
-        <span class="kw">let </span>mem = <span class="kw-2">&amp;</span><span class="self">self</span>.membership.clone();
+        <span class="kw">let </span>mem = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership);
         <span class="kw">let </span>curr_view = <span class="kw-2">&amp;</span><span class="self">self</span>.current_view.clone();
 
         <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>view) = curr_view {
             <span class="kw">async move </span>{ TestView::next_view(view).<span class="kw">await </span>}.boxed()
         } <span class="kw">else </span>{
-            <span class="kw">async move </span>{ TestView::genesis(mem).<span class="kw">await </span>}.boxed()
+            <span class="kw">async move </span>{ TestView::genesis(<span class="kw-2">&amp;</span>mem).<span class="kw">await </span>}.boxed()
         };
 
         <span class="kw">match </span>fut.as_mut().poll(cx) {

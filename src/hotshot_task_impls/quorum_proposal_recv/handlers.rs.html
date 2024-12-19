@@ -333,6 +333,10 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -344,7 +348,7 @@
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>async_broadcast::{broadcast, Receiver, Sender};
-<span class="kw">use </span>async_lock::RwLockUpgradableReadGuard;
+<span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
@@ -435,7 +439,7 @@
     view: TYPES::View,
     event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    membership: Arc&lt;TYPES::Membership&gt;,
+    membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -497,14 +501,15 @@
         validation_info.epoch_height,
     ));
 
+    <span class="kw">let </span>membership_reader = validation_info.membership.read().<span class="kw">await</span>;
+    <span class="kw">let </span>membership_stake_table = membership_reader.stake_table(justify_qc.data.epoch);
+    <span class="kw">let </span>membership_success_threshold = membership_reader.success_threshold(justify_qc.data.epoch);
+    drop(membership_reader);
+
     <span class="kw">if </span>!justify_qc
         .is_valid_cert(
-            validation_info
-                .quorum_membership
-                .stake_table(justify_qc.data.epoch),
-            validation_info
-                .quorum_membership
-                .success_threshold(justify_qc.data.epoch),
+            membership_stake_table,
+            membership_success_threshold,
             <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
         )
         .<span class="kw">await
@@ -522,15 +527,18 @@
         {
             <span class="macro">bail!</span>(<span class="string">"Next epoch justify qc exists but it's not equal with justify qc."</span>);
         }
+
+        <span class="kw">let </span>membership_reader = validation_info.membership.read().<span class="kw">await</span>;
+        <span class="kw">let </span>membership_next_stake_table = membership_reader.stake_table(justify_qc.data.epoch + <span class="number">1</span>);
+        <span class="kw">let </span>membership_next_success_threshold =
+            membership_reader.success_threshold(justify_qc.data.epoch + <span class="number">1</span>);
+        drop(membership_reader);
+
         <span class="comment">// Validate the next epoch justify qc as well
         </span><span class="kw">if </span>!next_epoch_justify_qc
             .is_valid_cert(
-                validation_info
-                    .quorum_membership
-                    .stake_table(justify_qc.data.epoch + <span class="number">1</span>),
-                validation_info
-                    .quorum_membership
-                    .success_threshold(justify_qc.data.epoch + <span class="number">1</span>),
+                membership_next_stake_table,
+                membership_next_success_threshold,
                 <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
             )
             .<span class="kw">await
@@ -564,7 +572,7 @@
             justify_qc.view_number(),
             event_sender.clone(),
             event_receiver.clone(),
-            Arc::clone(<span class="kw-2">&amp;</span>validation_info.quorum_membership),
+            Arc::clone(<span class="kw-2">&amp;</span>validation_info.membership),
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>validation_info.consensus.inner_consensus)),
             <span class="comment">// Note that we explicitly use the node key here instead of the provided key in the signature.
             // This is because the key that we receive is for the prior leader, so the payload would be routed

@@ -383,6 +383,20 @@
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -399,6 +413,7 @@
 };
 
 <span class="kw">use </span>async_broadcast::{Receiver, Sender};
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::{
     dependency::{Dependency, EventDependency},
@@ -439,23 +454,32 @@
     <span class="doccomment">/// Network to send requests over
     /// The underlying network
     </span><span class="kw">pub </span>network: Arc&lt;I::Network&gt;,
+
     <span class="doccomment">/// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
+
     <span class="doccomment">/// Last seen view, we won't request for proposals before older than this view
     </span><span class="kw">pub </span>view: TYPES::View,
+
     <span class="doccomment">/// Delay before requesting peers
     </span><span class="kw">pub </span>delay: Duration,
-    <span class="doccomment">/// Membership (Here containing only DA)
-    </span><span class="kw">pub </span>membership: TYPES::Membership,
+
+    <span class="doccomment">/// Membership (Used here only for DA)
+    </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
+
     <span class="doccomment">/// This nodes public key
     </span><span class="kw">pub </span>public_key: TYPES::SignatureKey,
+
     <span class="doccomment">/// This nodes private/signing key, used to sign requests.
     </span><span class="kw">pub </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+
     <span class="doccomment">/// The node's id
     </span><span class="kw">pub </span>id: u64,
+
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
     </span><span class="kw">pub </span>shutdown_flag: Arc&lt;AtomicBool&gt;,
+
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
     </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::View, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
 }
@@ -498,7 +522,8 @@
                         </span>.vid_shares()
                         .contains_key(<span class="kw-2">&amp;</span>prop_view)
                 {
-                    <span class="self">self</span>.spawn_requests(prop_view, prop_epoch, sender, receiver);
+                    <span class="self">self</span>.spawn_requests(prop_view, prop_epoch, sender, receiver)
+                        .<span class="kw">await</span>;
                 }
                 <span class="prelude-val">Ok</span>(())
             }
@@ -530,7 +555,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; NetworkRequestState&lt;TYPES, I&gt; {
     <span class="doccomment">/// Creates and signs the payload, then will create a request task
-    </span><span class="kw">fn </span>spawn_requests(
+    </span><span class="kw">async fn </span>spawn_requests(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::View,
         epoch: TYPES::Epoch,
@@ -548,13 +573,14 @@
                 receiver.clone(),
                 view,
                 epoch,
-            );
+            )
+            .<span class="kw">await</span>;
         }
     }
 
     <span class="doccomment">/// Creates a task that will request a VID share from a DA member and wait for the `HotShotEvent::VidResponseRecv`event
     /// If we get the VID disperse share, broadcast `HotShotEvent::VidShareRecv` and terminate task
-    </span><span class="kw">fn </span>create_vid_request_task(
+    </span><span class="kw">async fn </span>create_vid_request_task(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         request: RequestKind&lt;TYPES&gt;,
         signature: Signature&lt;TYPES&gt;,
@@ -570,17 +596,19 @@
         <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
 
         <span class="comment">// Get the committee members for the view and the leader, if applicable
-        </span><span class="kw">let </span><span class="kw-2">mut </span>da_committee_for_view = <span class="self">self</span>.membership.da_committee_members(view, epoch);
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(leader) = <span class="self">self</span>.membership.leader(view, epoch) {
+        </span><span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>da_committee_for_view = membership_reader.da_committee_members(view, epoch);
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(leader) = membership_reader.leader(view, epoch) {
             da_committee_for_view.insert(leader);
         }
 
         <span class="comment">// Get committee members for view
-        </span><span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;TYPES::SignatureKey&gt; = <span class="self">self
-            </span>.membership
+        </span><span class="kw">let </span><span class="kw-2">mut </span>recipients: Vec&lt;TYPES::SignatureKey&gt; = membership_reader
             .da_committee_members(view, epoch)
             .into_iter()
             .collect();
+        drop(membership_reader);
+
         <span class="comment">// Randomize the recipients so all replicas don't overload the same 1 recipients
         // and so we don't implicitly rely on the same replica all the time.
         </span>recipients.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());

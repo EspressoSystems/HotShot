@@ -597,6 +597,7 @@
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
 <a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -616,6 +617,7 @@
     time::Duration,
 };
 
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>dyn_clone::DynClone;
 <span class="kw">use </span>futures::{future::join_all, Future};
@@ -861,7 +863,7 @@
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         _view: u64,
         _epoch: u64,
-        _membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        _membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     ) <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,
     {

@@ -1580,10 +1580,6 @@
 <a href="#1580" id="1580">1580</a>
 <a href="#1581" id="1581">1581</a>
 <a href="#1582" id="1582">1582</a>
-<a href="#1583" id="1583">1583</a>
-<a href="#1584" id="1584">1584</a>
-<a href="#1585" id="1585">1585</a>
-<a href="#1586" id="1586">1586</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1810,15 +1806,17 @@
     <span class="doccomment">/// Create VID dispersal from a specified membership for the target epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
-    </span><span class="kw">pub fn </span>from_membership(
+    </span><span class="kw">pub async fn </span>from_membership(
         view_number: TYPES::View,
         <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
-        membership: <span class="kw-2">&amp;</span>TYPES::Membership,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         target_epoch: TYPES::Epoch,
         sender_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shares = membership
-            .committee_members(view_number, target_epoch)
+            .read()
+            .<span class="kw">await
+            </span>.committee_members(view_number, target_epoch)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(<span class="number">0</span>)))
             .collect();
@@ -1841,13 +1839,13 @@
     </span><span class="attr">#[allow(clippy::panic)]
     </span><span class="kw">pub async fn </span>calculate_vid_disperse(
         txns: Arc&lt;[u8]&gt;,
-        membership: <span class="kw-2">&amp;</span>Arc&lt;TYPES::Membership&gt;,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         view: TYPES::View,
         target_epoch: TYPES::Epoch,
         sender_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         precompute_data: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>num_nodes = membership.total_nodes(target_epoch);
+        <span class="kw">let </span>num_nodes = membership.read().<span class="kw">await</span>.total_nodes(target_epoch);
 
         <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
             precompute_data
@@ -1860,14 +1858,8 @@
         <span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
 
-        <span class="self">Self</span>::from_membership(
-            view,
-            vid_disperse,
-            membership.as_ref(),
-            target_epoch,
-            sender_epoch,
-        )
-    }
+        <span class="self">Self</span>::from_membership(view, vid_disperse, membership, target_epoch, sender_epoch).<span class="kw">await
+    </span>}
 }
 
 <span class="doccomment">/// Helper type to encapsulate the various ways that proposal certificates can be captured and

@@ -566,6 +566,7 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -650,7 +651,7 @@
 ) {
     <span class="kw">let </span>state = NetworkResponseState::&lt;TYPES&gt;::new(
         handle.hotshot.consensus(),
-        (<span class="kw-2">*</span>handle.hotshot.memberships).clone().into(),
+        Arc::clone(<span class="kw-2">&amp;</span>handle.hotshot.memberships),
         handle.public_key().clone(),
         handle.private_key().clone(),
         handle.hotshot.id,
@@ -758,7 +759,7 @@
 &gt;(
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
     network: Arc&lt;NET&gt;,
-    membership: TYPES::Membership,
+    membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 ) {
     <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, V, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
         network,
@@ -889,7 +890,7 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
-        memberships: TYPES::Membership,
+        memberships: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         network: Arc&lt;I::Network&gt;,
         initializer: HotShotInitializer&lt;TYPES&gt;,
         metrics: ConsensusMetricsValue,
@@ -1084,8 +1085,9 @@
     <span class="doccomment">/// Adds the `NetworkEventTaskState` tasks possibly modifying them as well.
     </span><span class="kw">fn </span>add_network_event_tasks(<span class="kw-2">&amp;</span><span class="self">self</span>, handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;) {
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>handle.network);
+        <span class="kw">let </span>memberships = Arc::clone(<span class="kw-2">&amp;</span>handle.memberships);
 
-        <span class="self">self</span>.add_network_event_task(handle, Arc::clone(<span class="kw-2">&amp;</span>network), (<span class="kw-2">*</span>handle.memberships).clone());
+        <span class="self">self</span>.add_network_event_task(handle, network, memberships);
     }
 
     <span class="doccomment">/// Adds a `NetworkEventTaskState` task. Can be reimplemented to modify its behaviour.
@@ -1093,7 +1095,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
         channel: Arc&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Network&gt;,
-        membership: TYPES::Membership,
+        membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     ) {
         add_network_event_task(handle, channel, membership);
     }
@@ -1131,7 +1133,7 @@
     add_network_event_task(
         handle,
         Arc::clone(<span class="kw-2">&amp;</span>handle.network),
-        (<span class="kw-2">*</span>handle.memberships).clone(),
+        Arc::clone(<span class="kw-2">&amp;</span>handle.memberships),
     );
 }
 </code></pre></div></section></main></body></html>

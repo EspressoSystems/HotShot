@@ -1127,6 +1127,16 @@
 <a href="#1127" id="1127">1127</a>
 <a href="#1128" id="1128">1128</a>
 <a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1144,6 +1154,7 @@
     time::Instant,
 };
 
+<span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>cdn_broker::reexports::crypto::signature::KeyPair;
 <span class="kw">use </span>chrono::Utc;
@@ -1479,13 +1490,17 @@
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Initializes the genesis state and HotShot instance; does not start HotShot consensus
     /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
     /// get the anchored view
     /// Note: sequencing leaf does not have state, so does not return state
-    </span><span class="kw">async fn </span>initialize_state_and_hotshot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SystemContextHandle&lt;TYPES, NODE, V&gt; {
+    </span><span class="kw">async fn </span>initialize_state_and_hotshot(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        membership: Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
+    ) -&gt; SystemContextHandle&lt;TYPES, NODE, V&gt; {
         <span class="kw">let </span>initializer =
             hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(TestInstanceState::default())
                 .<span class="kw">await
@@ -1500,20 +1515,6 @@
 
         <span class="kw">let </span>network = <span class="self">self</span>.network();
 
-        <span class="kw">let </span>all_nodes = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"fixed-leader-election"</span>) {
-            <span class="kw">let </span><span class="kw-2">mut </span>vec = config.config.known_nodes_with_stake.clone();
-            vec.truncate(config.config.fixed_leader_for_gpuvid);
-            vec
-        } <span class="kw">else </span>{
-            config.config.known_nodes_with_stake.clone()
-        };
-
-        <span class="kw">let </span>da_nodes = config.config.known_da_nodes.clone();
-
-        <span class="comment">// Create the quorum membership from all nodes, specifying the committee
-        // as the known da nodes
-        </span><span class="kw">let </span>memberships = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::new(all_nodes, da_nodes);
-
         <span class="kw">let </span>marketplace_config = MarketplaceConfig {
             auction_results_provider: TestAuctionResultsProvider::&lt;TYPES&gt;::default().into(),
             <span class="comment">// TODO: we need to pass a valid fallback builder url here somehow
@@ -1525,7 +1526,7 @@
             sk,
             config.node_index,
             config.config,
-            memberships,
+            membership,
             Arc::from(network),
             initializer,
             ConsensusMetricsValue::default(),
@@ -1655,13 +1656,15 @@
                 }
             }
         }
-        <span class="kw">let </span>consensus_lock = context.hotshot.consensus();
-        <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
         <span class="kw">let </span>num_eligible_leaders = context
             .hotshot
             .memberships
-            .committee_leaders(TYPES::View::genesis(), TYPES::Epoch::genesis())
+            .read()
+            .<span class="kw">await
+            </span>.committee_leaders(TYPES::View::genesis(), TYPES::Epoch::genesis())
             .len();
+        <span class="kw">let </span>consensus_lock = context.hotshot.consensus();
+        <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
         <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
         <span class="comment">// `failed_num_views` could include uncommitted views
         </span><span class="kw">let </span>failed_num_views = total_num_views - num_successful_commits;
@@ -1751,6 +1754,7 @@
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         _libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        _membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     ) -&gt; PushCdnDaRun&lt;TYPES&gt; {
         <span class="comment">// Convert to the Push-CDN-compatible type
         </span><span class="kw">let </span>keypair = KeyPair {
@@ -1837,6 +1841,7 @@
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     ) -&gt; Libp2pDaRun&lt;TYPES&gt; {
         <span class="comment">// Extrapolate keys for ease of use
         </span><span class="kw">let </span>public_key = <span class="kw-2">&amp;</span>validator_config.public_key;
@@ -1865,11 +1870,6 @@
             .to_string()
         };
 
-        <span class="comment">// Create the quorum membership from the list of known nodes
-        </span><span class="kw">let </span>all_nodes = config.config.known_nodes_with_stake.clone();
-        <span class="kw">let </span>da_nodes = config.config.known_da_nodes.clone();
-        <span class="kw">let </span>quorum_membership = TYPES::Membership::new(all_nodes, da_nodes);
-
         <span class="comment">// Derive the bind address
         </span><span class="kw">let </span>bind_address =
             derive_libp2p_multiaddr(<span class="kw-2">&amp;</span>bind_address).expect(<span class="string">"failed to derive bind address"</span>);
@@ -1877,7 +1877,7 @@
         <span class="comment">// Create the Libp2p network
         </span><span class="kw">let </span>libp2p_network = Libp2pNetwork::from_config(
             config.clone(),
-            quorum_membership,
+            Arc::clone(membership),
             GossipConfig::default(),
             RequestResponseConfig::default(),
             bind_address,
@@ -1949,6 +1949,7 @@
         config: NetworkConfig&lt;TYPES::SignatureKey&gt;,
         validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt;,
         libp2p_advertise_address: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     ) -&gt; CombinedDaRun&lt;TYPES&gt; {
         <span class="comment">// Initialize our Libp2p network
         </span><span class="kw">let </span>libp2p_network: Libp2pDaRun&lt;TYPES&gt; = &lt;Libp2pDaRun&lt;TYPES&gt; <span class="kw">as </span>RunDa&lt;
@@ -1960,6 +1961,7 @@
             config.clone(),
             validator_config.clone(),
             libp2p_advertise_address.clone(),
+            membership,
         )
         .<span class="kw">await</span>;
 
@@ -1973,6 +1975,7 @@
             config.clone(),
             validator_config.clone(),
             libp2p_advertise_address,
+            membership,
         )
         .<span class="kw">await</span>;
 
@@ -2007,7 +2010,8 @@
     }
 }
 
-<span class="doccomment">/// Main entry point for validators
+<span class="attr">#[allow(clippy::too_many_lines)]
+</span><span class="doccomment">/// Main entry point for validators
 /// # Panics
 /// if unable to get the local ip address
 </span><span class="kw">pub async fn </span>main_entry_point&lt;
@@ -2103,11 +2107,27 @@
             .join(<span class="string">","</span>)
     );
 
+    <span class="kw">let </span>all_nodes = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"fixed-leader-election"</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>vec = run_config.config.known_nodes_with_stake.clone();
+        vec.truncate(run_config.config.fixed_leader_for_gpuvid);
+        vec
+    } <span class="kw">else </span>{
+        run_config.config.known_nodes_with_stake.clone()
+    };
+    <span class="kw">let </span>membership = Arc::new(RwLock::new(&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::new(
+        all_nodes,
+        run_config.config.known_da_nodes.clone(),
+    )));
+
     <span class="macro">info!</span>(<span class="string">"Initializing networking"</span>);
-    <span class="kw">let </span>run =
-        RUNDA::initialize_networking(run_config.clone(), validator_config, args.advertise_address)
-            .<span class="kw">await</span>;
-    <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot().<span class="kw">await</span>;
+    <span class="kw">let </span>run = RUNDA::initialize_networking(
+        run_config.clone(),
+        validator_config,
+        args.advertise_address,
+        <span class="kw-2">&amp;</span>membership,
+    )
+    .<span class="kw">await</span>;
+    <span class="kw">let </span>hotshot = run.initialize_state_and_hotshot(membership).<span class="kw">await</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(task) = builder_task {
         task.start(Box::new(hotshot.event_stream()));
