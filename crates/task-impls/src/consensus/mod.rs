@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use async_broadcast::{Receiver, Sender};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use either::Either;
 use hotshot_task::task::TaskState;
@@ -14,8 +15,8 @@ use hotshot_types::{
     consensus::OuterConsensus,
     event::Event,
     message::UpgradeLock,
-    simple_certificate::{QuorumCertificate2, TimeoutCertificate2},
-    simple_vote::{QuorumVote2, TimeoutVote2},
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, TimeoutCertificate2},
+    simple_vote::{NextEpochQuorumVote2, QuorumVote2, TimeoutVote2},
     traits::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -50,10 +51,18 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     pub network: Arc<I::Network>,
 
     /// Membership for Quorum Certs/votes
-    pub membership: Arc<TYPES::Membership>,
+    pub membership: Arc<RwLock<TYPES::Membership>>,
 
     /// A map of `QuorumVote` collector tasks.
     pub vote_collectors: VoteCollectorsMap<TYPES, QuorumVote2<TYPES>, QuorumCertificate2<TYPES>, V>,
+
+    /// A map of `QuorumVote` collector tasks. They collect votes from the nodes in the next epoch.
+    pub next_epoch_vote_collectors: VoteCollectorsMap<
+        TYPES,
+        NextEpochQuorumVote2<TYPES>,
+        NextEpochQuorumCertificate2<TYPES>,
+        V,
+    >,
 
     /// A map of `TimeoutVote` collector tasks.
     pub timeout_vote_collectors:
@@ -89,6 +98,7 @@ pub struct ConsensusTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
 }
+
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusTaskState<TYPES, I, V> {
     /// Handles a consensus event received on the event stream
     #[instrument(skip_all, fields(id = self.id, cur_view = *self.cur_view, cur_epoch = *self.cur_epoch), name = "Consensus replica task", level = "error", target = "ConsensusTaskState")]

@@ -25,7 +25,7 @@ use crate::{
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate2, QuorumCertificate2},
+    simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -34,7 +34,8 @@ use crate::{
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
+        epoch_from_block_number, is_last_block_in_epoch, BuilderCommitment, LeafCommitment,
+        StateAndDelta, Terminator,
     },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
@@ -317,6 +318,9 @@ pub struct Consensus<TYPES: NodeType> {
     /// the highqc per spec
     high_qc: QuorumCertificate2<TYPES>,
 
+    /// The high QC for the next epoch
+    next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
+
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
 
@@ -415,6 +419,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         saved_leaves: CommitmentMap<Leaf2<TYPES>>,
         saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
         high_qc: QuorumCertificate2<TYPES>,
+        next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
         metrics: Arc<ConsensusMetricsValue>,
         epoch_height: u64,
     ) -> Self {
@@ -431,6 +436,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             saved_leaves,
             saved_payloads,
             high_qc,
+            next_epoch_high_qc,
             metrics,
             epoch_height,
             vote_tracker: VoteTracker::new(),
@@ -460,6 +466,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the high QC.
     pub fn high_qc(&self) -> &QuorumCertificate2<TYPES> {
         &self.high_qc
+    }
+
+    /// Get the next epoch high QC.
+    pub fn next_epoch_high_qc(&self) -> Option<&NextEpochQuorumCertificate2<TYPES>> {
+        self.next_epoch_high_qc.as_ref()
     }
 
     /// Get the validated state map.
@@ -756,6 +767,28 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         Ok(())
     }
 
+    /// Update the next epoch high QC if given a newer one.
+    /// # Errors
+    /// Can return an error when the provided high_qc is not newer than the existing entry.
+    /// # Panics
+    /// It can't actually panic. If the option is None, we will not call unwrap on it.
+    pub fn update_next_epoch_high_qc(
+        &mut self,
+        high_qc: NextEpochQuorumCertificate2<TYPES>,
+    ) -> Result<()> {
+        if let Some(next_epoch_high_qc) = self.next_epoch_high_qc() {
+            ensure!(
+                high_qc.view_number > next_epoch_high_qc.view_number
+                    || high_qc == *next_epoch_high_qc,
+                debug!("Next epoch high QC with an equal or higher view exists.")
+            );
+        }
+        tracing::debug!("Updating next epoch high QC");
+        self.next_epoch_high_qc = Some(high_qc);
+
+        Ok(())
+    }
+
     /// Add a new entry to the vid_shares map.
     pub fn update_vid_shares(
         &mut self,
@@ -921,7 +954,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub async fn calculate_and_update_vid(
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
-        membership: Arc<TYPES::Membership>,
+        membership: Arc<RwLock<TYPES::Membership>>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Option<()> {
         let txns = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
@@ -932,7 +965,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .get(&view)?
             .view_inner
             .epoch()?;
-        let vid = VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None).await;
+        let vid =
+            VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, epoch, None).await;
         let shares = VidDisperseShare2::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
@@ -1026,11 +1060,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             return false;
         };
         let block_height = leaf.height();
-        if block_height == 0 || self.epoch_height == 0 {
-            false
-        } else {
-            block_height % self.epoch_height == 0
-        }
+        is_last_block_in_epoch(block_height, self.epoch_height)
     }
 
     /// Returns true if our high QC is for the last block in the epoch
@@ -1040,11 +1070,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             return false;
         };
         let block_height = leaf.height();
-        if block_height == 0 || self.epoch_height == 0 {
-            false
-        } else {
-            block_height % self.epoch_height == 0
-        }
+        is_last_block_in_epoch(block_height, self.epoch_height)
     }
 
     /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`

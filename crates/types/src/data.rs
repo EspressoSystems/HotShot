@@ -34,8 +34,8 @@ use crate::{
     impl_has_epoch,
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        QuorumCertificate, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
-        ViewSyncFinalizeCertificate2,
+        NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate2,
+        UpgradeCertificate, ViewSyncFinalizeCertificate2,
     },
     simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData},
     traits::{
@@ -146,6 +146,8 @@ pub struct DaProposal<TYPES: NodeType> {
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::View,
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
 }
 
 /// A proposal to start providing data availability for a block.
@@ -179,6 +181,7 @@ impl<TYPES: NodeType> From<DaProposal2<TYPES>> for DaProposal<TYPES> {
             encoded_transactions: da_proposal2.encoded_transactions,
             metadata: da_proposal2.metadata,
             view_number: da_proposal2.view_number,
+            epoch: TYPES::Epoch::new(0),
         }
     }
 }
@@ -194,6 +197,8 @@ where
     pub upgrade_proposal: UpgradeProposalData<TYPES>,
     /// View this proposal applies to
     pub view_number: TYPES::View,
+    /// Epoch this proposal applies to
+    pub epoch: TYPES::Epoch,
 }
 
 /// VID dispersal data
@@ -205,10 +210,14 @@ where
 pub struct VidDisperse<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::View,
-    /// The epoch number for which this VID data is intended
+    /// Epoch the data of this proposal belongs to
     pub epoch: TYPES::Epoch,
-    /// Block payload commitment
+    /// Epoch to which the recipients of this VID belong to
+    pub target_epoch: TYPES::Epoch,
+    /// VidCommitment calculated based on the number of nodes in `target_epoch`.
     pub payload_commitment: VidCommitment,
+    /// VidCommitment calculated based on the number of nodes in `epoch`. Needed during epoch transition.
+    pub data_epoch_payload_commitment: Option<VidCommitment>,
     /// A storage node's key and its corresponding VID share
     pub shares: BTreeMap<TYPES::SignatureKey, VidShare>,
     /// VID common data sent to all storage nodes
@@ -216,57 +225,85 @@ pub struct VidDisperse<TYPES: NodeType> {
 }
 
 impl<TYPES: NodeType> VidDisperse<TYPES> {
-    /// Create VID dispersal from a specified membership for a given epoch.
+    /// Create VID dispersal from a specified membership for the target epoch.
     /// Uses the specified function to calculate share dispersal
     /// Allows for more complex stake table functionality
-    pub fn from_membership(
+    pub async fn from_membership(
         view_number: TYPES::View,
         mut vid_disperse: JfVidDisperse<VidSchemeType>,
-        membership: &TYPES::Membership,
-        epoch: TYPES::Epoch,
+        membership: &Arc<RwLock<TYPES::Membership>>,
+        target_epoch: TYPES::Epoch,
+        data_epoch: TYPES::Epoch,
+        data_epoch_payload_commitment: Option<VidCommitment>,
     ) -> Self {
         let shares = membership
-            .committee_members(view_number, epoch)
+            .read()
+            .await
+            .committee_members(view_number, target_epoch)
             .iter()
             .map(|node| (node.clone(), vid_disperse.shares.remove(0)))
             .collect();
 
         Self {
             view_number,
-            epoch,
             shares,
             common: vid_disperse.common,
             payload_commitment: vid_disperse.commit,
+            data_epoch_payload_commitment,
+            epoch: data_epoch,
+            target_epoch,
         }
     }
 
     /// Calculate the vid disperse information from the payload given a view, epoch and membership,
-    /// optionally using precompute data from builder
+    /// optionally using precompute data from builder.
+    /// If the sender epoch is missing, it means it's the same as the target epoch.
     ///
     /// # Panics
     /// Panics if the VID calculation fails, this should not happen.
     #[allow(clippy::panic)]
     pub async fn calculate_vid_disperse(
         txns: Arc<[u8]>,
-        membership: &Arc<TYPES::Membership>,
+        membership: &Arc<RwLock<TYPES::Membership>>,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
+        target_epoch: TYPES::Epoch,
+        data_epoch: TYPES::Epoch,
         precompute_data: Option<VidPrecomputeData>,
     ) -> Self {
-        let num_nodes = membership.total_nodes(epoch);
+        let num_nodes = membership.read().await.total_nodes(target_epoch);
 
+        let txns_clone = Arc::clone(&txns);
         let vid_disperse = spawn_blocking(move || {
             precompute_data
                 .map_or_else(
-                    || vid_scheme(num_nodes).disperse(Arc::clone(&txns)),
-                    |data| vid_scheme(num_nodes).disperse_precompute(Arc::clone(&txns), &data)
+                    || vid_scheme(num_nodes).disperse(&txns_clone),
+                    |data| vid_scheme(num_nodes).disperse_precompute(&txns_clone, &data)
                 )
-                .unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
+                .unwrap_or_else(|err| panic!("VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns_clone.len()))
         }).await;
+        let data_epoch_payload_commitment = if target_epoch == data_epoch {
+            None
+        } else {
+            let data_epoch_num_nodes = membership.read().await.total_nodes(data_epoch);
+            Some(spawn_blocking(move || {
+                vid_scheme(data_epoch_num_nodes).commit_only(&txns)
+                    .unwrap_or_else(|err| panic!("VID commit_only failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}", txns.len()))
+            }).await)
+        };
         // Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
         let vid_disperse = vid_disperse.unwrap();
+        let data_epoch_payload_commitment =
+            data_epoch_payload_commitment.map(|result| result.unwrap());
 
-        Self::from_membership(view, vid_disperse, membership.as_ref(), epoch)
+        Self::from_membership(
+            view,
+            vid_disperse,
+            membership,
+            target_epoch,
+            data_epoch,
+            data_epoch_payload_commitment,
+        )
+        .await
     }
 }
 
@@ -354,7 +391,9 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         let mut vid_disperse = VidDisperse {
             view_number: first_vid_disperse_share.view_number,
             epoch: TYPES::Epoch::new(0),
+            target_epoch: TYPES::Epoch::new(0),
             payload_commitment: first_vid_disperse_share.payload_commitment,
+            data_epoch_payload_commitment: None,
             common: first_vid_disperse_share.common,
             shares: share_map,
         };
@@ -395,10 +434,14 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
 pub struct VidDisperseShare2<TYPES: NodeType> {
     /// The view number for which this VID data is intended
     pub view_number: TYPES::View,
-    /// The epoch number for which this VID data is intended
+    /// The epoch number for which this VID data belongs to
     pub epoch: TYPES::Epoch,
+    /// The epoch number to which the recipient of this VID belongs to
+    pub target_epoch: TYPES::Epoch,
     /// Block payload commitment
     pub payload_commitment: VidCommitment,
+    /// VidCommitment calculated based on the number of nodes in `epoch`. Needed during epoch transition.
+    pub data_epoch_payload_commitment: Option<VidCommitment>,
     /// A storage node's key and its corresponding VID share
     pub share: VidShare,
     /// VID common data sent to all storage nodes
@@ -412,7 +455,9 @@ impl<TYPES: NodeType> From<VidDisperseShare2<TYPES>> for VidDisperseShare<TYPES>
         let VidDisperseShare2 {
             view_number,
             epoch: _,
+            target_epoch: _,
             payload_commitment,
+            data_epoch_payload_commitment: _,
             share,
             common,
             recipient_key,
@@ -441,7 +486,9 @@ impl<TYPES: NodeType> From<VidDisperseShare<TYPES>> for VidDisperseShare2<TYPES>
         Self {
             view_number,
             epoch: TYPES::Epoch::new(0),
+            target_epoch: TYPES::Epoch::new(0),
             payload_commitment,
+            data_epoch_payload_commitment: None,
             share,
             common,
             recipient_key,
@@ -452,7 +499,6 @@ impl<TYPES: NodeType> From<VidDisperseShare<TYPES>> for VidDisperseShare2<TYPES>
 impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
     /// Create a vector of `VidDisperseShare` from `VidDisperse`
     pub fn from_vid_disperse(vid_disperse: VidDisperse<TYPES>) -> Vec<Self> {
-        let epoch = vid_disperse.epoch;
         vid_disperse
             .shares
             .into_iter()
@@ -462,7 +508,9 @@ impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
                 view_number: vid_disperse.view_number,
                 common: vid_disperse.common.clone(),
                 payload_commitment: vid_disperse.payload_commitment,
-                epoch,
+                data_epoch_payload_commitment: vid_disperse.data_epoch_payload_commitment,
+                epoch: vid_disperse.epoch,
+                target_epoch: vid_disperse.target_epoch,
             })
             .collect()
     }
@@ -491,7 +539,6 @@ impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
         I: Iterator<Item = &'a Self>,
     {
         let first_vid_disperse_share = it.next()?.clone();
-        let epoch = first_vid_disperse_share.epoch;
         let mut share_map = BTreeMap::new();
         share_map.insert(
             first_vid_disperse_share.recipient_key,
@@ -499,8 +546,10 @@ impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
         );
         let mut vid_disperse = VidDisperse {
             view_number: first_vid_disperse_share.view_number,
-            epoch,
+            epoch: first_vid_disperse_share.epoch,
+            target_epoch: first_vid_disperse_share.target_epoch,
             payload_commitment: first_vid_disperse_share.payload_commitment,
+            data_epoch_payload_commitment: first_vid_disperse_share.data_epoch_payload_commitment,
             common: first_vid_disperse_share.common,
             shares: share_map,
         };
@@ -517,7 +566,6 @@ impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
     pub fn to_vid_share_proposals(
         vid_disperse_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
     ) -> Vec<Proposal<TYPES, Self>> {
-        let epoch = vid_disperse_proposal.data.epoch;
         vid_disperse_proposal
             .data
             .shares
@@ -529,7 +577,11 @@ impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
                     view_number: vid_disperse_proposal.data.view_number,
                     common: vid_disperse_proposal.data.common.clone(),
                     payload_commitment: vid_disperse_proposal.data.payload_commitment,
-                    epoch,
+                    data_epoch_payload_commitment: vid_disperse_proposal
+                        .data
+                        .data_epoch_payload_commitment,
+                    epoch: vid_disperse_proposal.data.epoch,
+                    target_epoch: vid_disperse_proposal.data.target_epoch,
                 },
                 signature: vid_disperse_proposal.signature.clone(),
                 _pd: vid_disperse_proposal._pd,
@@ -574,6 +626,9 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// certificate that the proposal is chaining from
     pub justify_qc: QuorumCertificate2<TYPES>,
 
+    /// certificate that the proposal is chaining from formed by the next epoch nodes
+    pub next_epoch_justify_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
+
     /// Possible upgrade certificate, which the leader may optionally attach.
     pub upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
 
@@ -599,6 +654,7 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
             block_header: quorum_proposal.block_header,
             view_number: quorum_proposal.view_number,
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
+            next_epoch_justify_qc: None,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
             drb_seed: INITIAL_DRB_SEED_INPUT,
@@ -627,6 +683,7 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
             view_number: leaf.view_number,
             epoch: TYPES::Epoch::genesis(),
             justify_qc: leaf.justify_qc.to_qc2(),
+            next_epoch_justify_qc: None,
             parent_commitment: Commitment::from_raw(bytes),
             block_header: leaf.block_header,
             upgrade_certificate: leaf.upgrade_certificate,
@@ -759,6 +816,9 @@ pub struct Leaf2<TYPES: NodeType> {
     /// Per spec, justification
     justify_qc: QuorumCertificate2<TYPES>,
 
+    /// certificate that the proposal is chaining from formed by the next epoch nodes
+    next_epoch_justify_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
+
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
     parent_commitment: Commitment<Self>,
@@ -834,6 +894,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         Self {
             view_number: TYPES::View::genesis(),
             justify_qc,
+            next_epoch_justify_qc: None,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
             block_header: block_header.clone(),
@@ -1001,6 +1062,7 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
             view_number,
             epoch,
             justify_qc,
+            next_epoch_justify_qc,
             parent_commitment,
             block_header,
             upgrade_certificate,
@@ -1013,6 +1075,7 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
         *view_number == other.view_number
             && *epoch == other.epoch
             && *justify_qc == other.justify_qc
+            && *next_epoch_justify_qc == other.next_epoch_justify_qc
             && *parent_commitment == other.parent_commitment
             && *block_header == other.block_header
             && *upgrade_certificate == other.upgrade_certificate
@@ -1378,6 +1441,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         let QuorumProposal2 {
             view_number,
             justify_qc,
+            next_epoch_justify_qc,
             block_header,
             upgrade_certificate,
             view_change_evidence,
@@ -1392,6 +1456,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
                 TYPES::EPOCH_HEIGHT,
             )),
             justify_qc: justify_qc.clone(),
+            next_epoch_justify_qc: next_epoch_justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,
             block_header: block_header.clone(),
             upgrade_certificate: upgrade_certificate.clone(),

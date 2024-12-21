@@ -189,6 +189,7 @@ where
                 &TestInstanceState::default(),
             )
             .await,
+            next_epoch_high_qc: None,
             async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
             channel_generator: launcher.resource_generator.channel_generator,
@@ -323,6 +324,7 @@ where
 
     pub async fn init_builders<B: TestBuilderImplementation<TYPES>>(
         &self,
+        num_nodes: usize,
     ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>, Url) {
         let config = self.launcher.resource_generator.config.clone();
         let mut builder_tasks = Vec::new();
@@ -332,7 +334,7 @@ where
             let builder_url =
                 Url::parse(&format!("http://localhost:{builder_port}")).expect("Invalid URL");
             let builder_task = B::start(
-                config.num_nodes_with_stake.into(),
+                num_nodes,
                 builder_url.clone(),
                 B::Config::default(),
                 metadata.changes.clone(),
@@ -397,8 +399,14 @@ where
         let mut results = vec![];
         let config = self.launcher.resource_generator.config.clone();
 
+        // TODO This is only a workaround. Number of nodes changes from epoch to epoch. Builder should be made epoch-aware.
+        let temp_memberships = <TYPES as NodeType>::Membership::new(
+            config.known_nodes_with_stake.clone(),
+            config.known_da_nodes.clone(),
+        );
+        let num_nodes = temp_memberships.total_nodes(TYPES::Epoch::new(0));
         let (mut builder_tasks, builder_urls, fallback_builder_url) =
-            self.init_builders::<B>().await;
+            self.init_builders::<B>(num_nodes).await;
 
         if self.launcher.metadata.start_solver {
             self.add_solver(builder_urls.clone()).await;
@@ -417,10 +425,11 @@ where
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
 
-            let memberships = <TYPES as NodeType>::Membership::new(
-                config.known_nodes_with_stake.clone(),
-                config.known_da_nodes.clone(),
-            );
+            //let memberships =Arc::new(RwLock::new(<TYPES as NodeType>::Membership::new(
+            //config.known_nodes_with_stake.clone(),
+            //config.known_da_nodes.clone(),
+            //)));
+
             config.builder_urls = builder_urls
                 .clone()
                 .try_into()
@@ -457,7 +466,10 @@ where
                             context: LateNodeContext::UninitializedContext(
                                 LateNodeContextParameters {
                                     storage,
-                                    memberships,
+                                    memberships: <TYPES as NodeType>::Membership::new(
+                                        config.known_nodes_with_stake.clone(),
+                                        config.known_da_nodes.clone(),
+                                    ),
                                     config,
                                     marketplace_config,
                                 },
@@ -481,7 +493,10 @@ where
                     let hotshot = Self::add_node_with_config(
                         node_id,
                         network.clone(),
-                        memberships,
+                        <TYPES as NodeType>::Membership::new(
+                            config.known_nodes_with_stake.clone(),
+                            config.known_da_nodes.clone(),
+                        ),
                         initializer,
                         config,
                         validator_config,
@@ -501,7 +516,10 @@ where
                 uninitialized_nodes.push((
                     node_id,
                     network,
-                    memberships,
+                    <TYPES as NodeType>::Membership::new(
+                        config.known_nodes_with_stake.clone(),
+                        config.known_da_nodes.clone(),
+                    ),
                     config,
                     storage,
                     marketplace_config,
@@ -536,7 +554,7 @@ where
                 self.launcher.metadata.clone(),
                 node_id,
                 network.clone(),
-                memberships,
+                Arc::new(RwLock::new(memberships)),
                 config.clone(),
                 storage,
                 marketplace_config,
@@ -591,7 +609,7 @@ where
             private_key,
             node_id,
             config,
-            memberships,
+            Arc::new(RwLock::new(memberships)),
             network,
             initializer,
             ConsensusMetricsValue::default(),
@@ -608,7 +626,7 @@ where
     pub async fn add_node_with_config_and_channels(
         node_id: u64,
         network: Network<TYPES, I>,
-        memberships: TYPES::Membership,
+        memberships: Arc<RwLock<TYPES::Membership>>,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,

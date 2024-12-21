@@ -29,6 +29,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
+    utils::EpochTransitionIndicator,
     vote::{Certificate, HasViewNumber, Vote},
 };
 use tokio::{spawn, task::JoinHandle, time::sleep};
@@ -73,7 +74,7 @@ pub struct ViewSyncTaskState<TYPES: NodeType, V: Versions> {
     pub cur_epoch: TYPES::Epoch,
 
     /// Membership for the quorum
-    pub membership: Arc<TYPES::Membership>,
+    pub membership: Arc<RwLock<TYPES::Membership>>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -160,7 +161,7 @@ pub struct ViewSyncReplicaTaskState<TYPES: NodeType, V: Versions> {
     pub id: u64,
 
     /// Membership for the quorum
-    pub membership: Arc<TYPES::Membership>,
+    pub membership: Arc<RwLock<TYPES::Membership>>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -310,7 +311,11 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay, self.cur_epoch)? == self.public_key,
+                    self.membership
+                        .read()
+                        .await
+                        .leader(vote_view + relay, self.cur_epoch)?
+                        == self.public_key,
                     "View sync vote sent to wrong leader"
                 );
 
@@ -318,15 +323,15 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    epoch: self.cur_epoch,
                     id: self.id,
+                    epoch: vote.data.epoch,
                 };
                 let vote_collector = create_vote_accumulator(
                     &info,
                     event,
                     &event_stream,
                     self.upgrade_lock.clone(),
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await?;
 
@@ -355,7 +360,11 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay, self.cur_epoch)? == self.public_key,
+                    self.membership
+                        .read()
+                        .await
+                        .leader(vote_view + relay, self.cur_epoch)?
+                        == self.public_key,
                     debug!("View sync vote sent to wrong leader")
                 );
 
@@ -363,8 +372,8 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    epoch: self.cur_epoch,
                     id: self.id,
+                    epoch: vote.data.epoch,
                 };
 
                 let vote_collector = create_vote_accumulator(
@@ -372,7 +381,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     event,
                     &event_stream,
                     self.upgrade_lock.clone(),
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await?;
                 relay_map.insert(relay, vote_collector);
@@ -400,7 +409,11 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
 
                 // We do not have a relay task already running, so start one
                 ensure!(
-                    self.membership.leader(vote_view + relay, self.cur_epoch)? == self.public_key,
+                    self.membership
+                        .read()
+                        .await
+                        .leader(vote_view + relay, self.cur_epoch)?
+                        == self.public_key,
                     debug!("View sync vote sent to wrong leader")
                 );
 
@@ -408,15 +421,15 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    epoch: self.cur_epoch,
                     id: self.id,
+                    epoch: vote.data.epoch,
                 };
                 let vote_collector = create_vote_accumulator(
                     &info,
                     event,
                     &event_stream,
                     self.upgrade_lock.clone(),
-                    true,
+                    EpochTransitionIndicator::NotInTransition,
                 )
                 .await;
                 if let Ok(vote_task) = vote_collector {
@@ -473,7 +486,11 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                 );
 
                 self.num_timeouts_tracked += 1;
-                let leader = self.membership.leader(view_number, self.cur_epoch)?;
+                let leader = self
+                    .membership
+                    .read()
+                    .await
+                    .leader(view_number, self.cur_epoch)?;
                 tracing::warn!(
                     %leader,
                     leader_mnemonic = hotshot_types::utils::mnemonic(&leader),
@@ -531,11 +548,17 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                     return None;
                 }
 
+                let membership_reader = self.membership.read().await;
+                let membership_stake_table = membership_reader.stake_table(self.cur_epoch);
+                let membership_failure_threshold =
+                    membership_reader.failure_threshold(self.cur_epoch);
+                drop(membership_reader);
+
                 // If certificate is not valid, return current state
                 if !certificate
                     .is_valid_cert(
-                        self.membership.stake_table(self.cur_epoch),
-                        self.membership.failure_threshold(self.cur_epoch),
+                        membership_stake_table,
+                        membership_failure_threshold,
                         &self.upgrade_lock,
                     )
                     .await
@@ -615,11 +638,17 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                     return None;
                 }
 
+                let membership_reader = self.membership.read().await;
+                let membership_stake_table = membership_reader.stake_table(self.cur_epoch);
+                let membership_success_threshold =
+                    membership_reader.success_threshold(self.cur_epoch);
+                drop(membership_reader);
+
                 // If certificate is not valid, return current state
                 if !certificate
                     .is_valid_cert(
-                        self.membership.stake_table(self.cur_epoch),
-                        self.membership.success_threshold(self.cur_epoch),
+                        membership_stake_table,
+                        membership_success_threshold,
                         &self.upgrade_lock,
                     )
                     .await
@@ -710,11 +739,17 @@ impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
                     return None;
                 }
 
+                let membership_reader = self.membership.read().await;
+                let membership_stake_table = membership_reader.stake_table(self.cur_epoch);
+                let membership_success_threshold =
+                    membership_reader.success_threshold(self.cur_epoch);
+                drop(membership_reader);
+
                 // If certificate is not valid, return current state
                 if !certificate
                     .is_valid_cert(
-                        self.membership.stake_table(self.cur_epoch),
-                        self.membership.success_threshold(self.cur_epoch),
+                        membership_stake_table,
+                        membership_success_threshold,
                         &self.upgrade_lock,
                     )
                     .await
