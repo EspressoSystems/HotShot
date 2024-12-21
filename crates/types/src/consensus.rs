@@ -25,7 +25,7 @@ use crate::{
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
+    simple_certificate::{DaCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -34,8 +34,7 @@ use crate::{
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, is_last_block_in_epoch, BuilderCommitment, LeafCommitment,
-        StateAndDelta, Terminator,
+        epoch_from_block_number, BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
     },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
@@ -318,9 +317,6 @@ pub struct Consensus<TYPES: NodeType> {
     /// the highqc per spec
     high_qc: QuorumCertificate2<TYPES>,
 
-    /// The high QC for the next epoch
-    next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
-
     /// A reference to the metrics trait
     pub metrics: Arc<ConsensusMetricsValue>,
 
@@ -419,7 +415,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         saved_leaves: CommitmentMap<Leaf2<TYPES>>,
         saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
         high_qc: QuorumCertificate2<TYPES>,
-        next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
         metrics: Arc<ConsensusMetricsValue>,
         epoch_height: u64,
     ) -> Self {
@@ -436,7 +431,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             saved_leaves,
             saved_payloads,
             high_qc,
-            next_epoch_high_qc,
             metrics,
             epoch_height,
             vote_tracker: VoteTracker::new(),
@@ -466,11 +460,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the high QC.
     pub fn high_qc(&self) -> &QuorumCertificate2<TYPES> {
         &self.high_qc
-    }
-
-    /// Get the next epoch high QC.
-    pub fn next_epoch_high_qc(&self) -> Option<&NextEpochQuorumCertificate2<TYPES>> {
-        self.next_epoch_high_qc.as_ref()
     }
 
     /// Get the validated state map.
@@ -566,22 +555,74 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_action(&mut self, action: HotShotAction, view: TYPES::View) -> bool {
         match action {
             HotShotAction::DaVote => {
-                // Use vote tracker to prevent double voting
                 let voter_key = Arc::new(self.public_key().clone());
                 
-                if !self.vote_tracker.record_vote(view, voter_key) {
-                    tracing::warn!("Prevented double voting attempt for view {}", view);
-                    return false;
-                }
+                match self.vote_tracker.record_vote(view, voter_key, self.cur_epoch) {
+                    Ok(_) => {
+                        // Update last action view if the new view is higher
+                        if view > self.last_actions.da_vote {
+                            self.last_actions.da_vote = view;
+                        }
+                        
+                        // Log successful vote
+                        tracing::debug!(
+                            "Vote recorded successfully for view {} in epoch {}",
+                            view.as_u64(),
+                            self.cur_epoch.as_u64()
+                        );
 
-                if view > self.last_actions.da_vote {
-                    self.last_actions.da_vote = view;
+                        // Perform periodic cleanup of old vote records
+                        if let Err(e) = self.vote_tracker.cleanup_old_views(view) {
+                            tracing::warn!("Vote cleanup failed: {}", e);
+                        }
+
+                        // Log detailed metrics
+                        if let Some(metrics) = self.vote_tracker.get_metrics() {
+                            tracing::debug!(
+                                "Vote metrics - Total: {}, Rejected: {}, Out of Order: {}, Pending: {}", 
+                                metrics.total_votes,
+                                metrics.rejected_votes,
+                                metrics.out_of_order_votes,
+                                metrics.pending_votes
+                            );
+                        }
+                        
+                        true
+                    }
+                    Err(e) => {
+                        match e {
+                            VoteError::MissingPreviousVote(prev_view) => {
+                                tracing::warn!(
+                                    "Missing vote in view {} before voting in view {}", 
+                                    prev_view, 
+                                    view
+                                );
+                            }
+                            VoteError::NonSequentialVote => {
+                                tracing::debug!(
+                                    "Non-sequential vote detected for view {} (will be queued)", 
+                                    view
+                                );
+                            }
+                            VoteError::ViewJumpTooLarge => {
+                                tracing::warn!(
+                                    "View jump too large from last view to view {}", 
+                                    view
+                                );
+                            }
+                            VoteError::ViewTooOld => {
+                                tracing::warn!(
+                                    "View {} is too old (minimum valid view is higher)", 
+                                    view
+                                );
+                            }
+                            _ => {
+                                tracing::warn!("Vote validation failed for view {}: {}", view, e);
+                            }
+                        }
+                        false
+                    }
                 }
-                
-                // Clean up old vote records periodically
-                self.vote_tracker.cleanup_old_views(view);
-                
-                true
             }
             HotShotAction::Vote => &mut self.last_actions.voted,
             HotShotAction::Propose => &mut self.last_actions.proposed,
@@ -767,28 +808,6 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         Ok(())
     }
 
-    /// Update the next epoch high QC if given a newer one.
-    /// # Errors
-    /// Can return an error when the provided high_qc is not newer than the existing entry.
-    /// # Panics
-    /// It can't actually panic. If the option is None, we will not call unwrap on it.
-    pub fn update_next_epoch_high_qc(
-        &mut self,
-        high_qc: NextEpochQuorumCertificate2<TYPES>,
-    ) -> Result<()> {
-        if let Some(next_epoch_high_qc) = self.next_epoch_high_qc() {
-            ensure!(
-                high_qc.view_number > next_epoch_high_qc.view_number
-                    || high_qc == *next_epoch_high_qc,
-                debug!("Next epoch high QC with an equal or higher view exists.")
-            );
-        }
-        tracing::debug!("Updating next epoch high QC");
-        self.next_epoch_high_qc = Some(high_qc);
-
-        Ok(())
-    }
-
     /// Add a new entry to the vid_shares map.
     pub fn update_vid_shares(
         &mut self,
@@ -954,7 +973,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub async fn calculate_and_update_vid(
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
-        membership: Arc<RwLock<TYPES::Membership>>,
+        membership: Arc<TYPES::Membership>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Option<()> {
         let txns = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
@@ -965,8 +984,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .get(&view)?
             .view_inner
             .epoch()?;
-        let vid =
-            VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, epoch, None).await;
+        let vid = VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None).await;
         let shares = VidDisperseShare2::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
@@ -1060,17 +1078,25 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             return false;
         };
         let block_height = leaf.height();
-        is_last_block_in_epoch(block_height, self.epoch_height)
+        if block_height == 0 || self.epoch_height == 0 {
+            false
+        } else {
+            block_height % self.epoch_height == 0
+        }
     }
 
-    /// Returns true if our high QC is for the last block in the epoch
+    /// Returns true if our high qc is for the last block in the epoch
     pub fn is_high_qc_for_last_block(&self) -> bool {
         let Some(leaf) = self.saved_leaves.get(&self.high_qc().data.leaf_commit) else {
             tracing::trace!("We don't have a leaf corresponding to the high QC");
             return false;
         };
         let block_height = leaf.height();
-        is_last_block_in_epoch(block_height, self.epoch_height)
+        if block_height == 0 || self.epoch_height == 0 {
+            false
+        } else {
+            block_height % self.epoch_height == 0
+        }
     }
 
     /// Returns true if the `parent_leaf` formed an eQC for the previous epoch to the `proposed_leaf`
