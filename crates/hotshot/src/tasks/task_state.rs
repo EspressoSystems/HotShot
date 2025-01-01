@@ -37,6 +37,15 @@ use tokio::spawn;
 use crate::{types::SystemContextHandle, Versions};
 
 /// Trait for creating task states.
+/// 
+/// This trait provides a standardized way to initialize different task states
+/// from a system context handle. It is implemented by various task state types
+/// that are part of the HotShot consensus system.
+///
+/// # Type Parameters
+/// * `TYPES` - The node type configuration
+/// * `I` - The node implementation
+/// * `V` - The version information
 #[async_trait]
 pub trait CreateTaskState<TYPES, I, V>
 where
@@ -44,7 +53,13 @@ where
     I: NodeImplementation<TYPES>,
     V: Versions,
 {
-    /// Function to create the task state from a given `SystemContextHandle`.
+    /// Creates a new instance of the task state.
+    ///
+    /// # Arguments
+    /// * `handle` - Reference to the system context handle containing node configuration
+    ///
+    /// # Returns
+    /// A new instance of the task state initialized with the provided context
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self;
 }
 
