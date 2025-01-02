@@ -59,7 +59,6 @@ async fn test_upgrade_task_with_vote() {
         new_version_hash: [0u8; 12].to_vec(),
         old_version_last_view: ViewNumber::new(6),
         new_version_first_view: ViewNumber::new(7),
-        epoch: EpochNumber::new(0),
     };
 
     let mut proposals = Vec::new();
@@ -71,7 +70,7 @@ async fn test_upgrade_task_with_vote() {
     let consensus = handle.hotshot.consensus().clone();
     let mut consensus_writer = consensus.write().await;
 
-    let membership = (*handle.hotshot.memberships).clone();
+    let membership = Arc::clone(&handle.hotshot.memberships);
     let mut generator = TestViewGenerator::generate(membership);
 
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {

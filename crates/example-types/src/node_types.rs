@@ -52,6 +52,8 @@ use crate::{
 /// to select our traits
 pub struct TestTypes;
 impl NodeType for TestTypes {
+    const EPOCH_HEIGHT: u64 = 10;
+
     type AuctionResult = TestAuctionResult;
     type View = ViewNumber;
     type Epoch = EpochNumber;
@@ -82,6 +84,8 @@ impl NodeType for TestTypes {
 /// to select our traits
 pub struct TestTypesRandomizedLeader;
 impl NodeType for TestTypesRandomizedLeader {
+    const EPOCH_HEIGHT: u64 = 10;
+
     type AuctionResult = TestAuctionResult;
     type View = ViewNumber;
     type Epoch = EpochNumber;
@@ -115,6 +119,8 @@ pub struct TestTypesRandomizedCommitteeMembers<CONFIG: QuorumFilterConfig> {
 }
 
 impl<CONFIG: QuorumFilterConfig> NodeType for TestTypesRandomizedCommitteeMembers<CONFIG> {
+    const EPOCH_HEIGHT: u64 = 10;
+
     type AuctionResult = TestAuctionResult;
     type View = ViewNumber;
     type Epoch = EpochNumber;
@@ -146,6 +152,8 @@ impl<CONFIG: QuorumFilterConfig> NodeType for TestTypesRandomizedCommitteeMember
 /// to select our traits
 pub struct TestConsecutiveLeaderTypes;
 impl NodeType for TestConsecutiveLeaderTypes {
+    const EPOCH_HEIGHT: u64 = 10;
+
     type AuctionResult = TestAuctionResult;
     type View = ViewNumber;
     type Epoch = EpochNumber;
@@ -176,6 +184,8 @@ impl NodeType for TestConsecutiveLeaderTypes {
 /// to select our traits
 pub struct TestTwoStakeTablesTypes;
 impl NodeType for TestTwoStakeTablesTypes {
+    const EPOCH_HEIGHT: u64 = 10;
+
     type AuctionResult = TestAuctionResult;
     type View = ViewNumber;
     type Epoch = EpochNumber;
@@ -295,7 +305,7 @@ impl Versions for EpochsTestVersions {
         0, 0,
     ];
 
-    type Marketplace = StaticVersion<0, 99>;
+    type Marketplace = StaticVersion<0, 3>;
 
     type Epochs = StaticVersion<0, 4>;
 }

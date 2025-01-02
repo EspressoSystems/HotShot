@@ -6,6 +6,7 @@
 
 #[cfg(test)]
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use committable::Committable;
 use hotshot_example_types::node_types::TestTypes;
@@ -13,7 +14,7 @@ use hotshot_types::{
     message::{GeneralConsensusMessage, Message, MessageKind, SequencingMessage},
     signature_key::BLSPubKey,
     simple_certificate::SimpleCertificate,
-    simple_vote::ViewSyncCommitData,
+    simple_vote::ViewSyncCommitData2,
     traits::{node_implementation::ConsensusTime, signature_key::SignatureKey},
 };
 use vbs::{
@@ -38,7 +39,7 @@ fn version_number_at_start_of_serialization() {
     type TestVersion = StaticVersion<MAJOR, MINOR>;
     // The specific data we attach to our message shouldn't affect the serialization,
     // we're using ViewSyncCommitData for simplicity.
-    let data: ViewSyncCommitData<TestTypes> = ViewSyncCommitData {
+    let data: ViewSyncCommitData2<TestTypes> = ViewSyncCommitData2 {
         relay: 37,
         round: view_number,
         epoch,
@@ -48,7 +49,7 @@ fn version_number_at_start_of_serialization() {
     let message = Message {
         sender,
         kind: MessageKind::Consensus(SequencingMessage::General(
-            GeneralConsensusMessage::ViewSyncCommitCertificate(simple_certificate),
+            GeneralConsensusMessage::ViewSyncCommitCertificate2(simple_certificate),
         )),
     };
     let serialized_message: Vec<u8> = Serializer::<TestVersion>::serialize(&message).unwrap();
@@ -78,9 +79,9 @@ async fn test_certificate2_validity() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let membership = (*handle.hotshot.memberships).clone();
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut generator = TestViewGenerator::generate(membership.clone());
+    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -103,10 +104,15 @@ async fn test_certificate2_validity() {
     let qc2 = proposal.data.justify_qc.clone();
     let qc = qc2.clone().to_qc();
 
+    let membership_reader = membership.read().await;
+    let membership_stake_table = membership_reader.stake_table(EpochNumber::new(0));
+    let membership_success_threshold = membership_reader.success_threshold(EpochNumber::new(0));
+    drop(membership_reader);
+
     assert!(
         qc.is_valid_cert(
-            membership.stake_table(EpochNumber::new(0)),
-            membership.success_threshold(EpochNumber::new(0)),
+            membership_stake_table.clone(),
+            membership_success_threshold,
             &handle.hotshot.upgrade_lock
         )
         .await
@@ -114,8 +120,8 @@ async fn test_certificate2_validity() {
 
     assert!(
         qc2.is_valid_cert(
-            membership.stake_table(EpochNumber::new(0)),
-            membership.success_threshold(EpochNumber::new(0)),
+            membership_stake_table,
+            membership_success_threshold,
             &handle.hotshot.upgrade_lock
         )
         .await

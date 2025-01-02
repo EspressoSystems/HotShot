@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use async_broadcast::{broadcast, Receiver, Sender};
-use async_lock::RwLockUpgradableReadGuard;
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
@@ -100,7 +100,7 @@ fn spawn_fetch_proposal<TYPES: NodeType, V: Versions>(
     view: TYPES::View,
     event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
-    membership: Arc<TYPES::Membership>,
+    membership: Arc<RwLock<TYPES::Membership>>,
     consensus: OuterConsensus<TYPES>,
     sender_public_key: TYPES::SignatureKey,
     sender_private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -152,31 +152,25 @@ pub(crate) async fn handle_quorum_proposal_recv<
         .context(warn!("Failed to validate proposal view or attached certs"))?;
 
     let view_number = proposal.data.view_number();
+
     let justify_qc = proposal.data.justify_qc.clone();
     let maybe_next_epoch_justify_qc = proposal.data.next_epoch_justify_qc.clone();
+
     let proposal_block_number = proposal.data.block_header.block_number();
     let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
         proposal_block_number,
         validation_info.epoch_height,
     ));
-    let justify_qc_epoch = if validation_info.epoch_height != 0
-        && proposal_block_number % validation_info.epoch_height == 1
-    {
-        // if the proposal is for the first block in an epoch, the justify QC must be from the previous epoch
-        proposal_epoch - 1
-    } else {
-        // otherwise justify QC is from the same epoch
-        proposal_epoch
-    };
+
+    let membership_reader = validation_info.membership.read().await;
+    let membership_stake_table = membership_reader.stake_table(justify_qc.data.epoch);
+    let membership_success_threshold = membership_reader.success_threshold(justify_qc.data.epoch);
+    drop(membership_reader);
 
     if !justify_qc
         .is_valid_cert(
-            validation_info
-                .quorum_membership
-                .stake_table(justify_qc_epoch),
-            validation_info
-                .quorum_membership
-                .success_threshold(justify_qc_epoch),
+            membership_stake_table,
+            membership_success_threshold,
             &validation_info.upgrade_lock,
         )
         .await
@@ -194,15 +188,18 @@ pub(crate) async fn handle_quorum_proposal_recv<
         {
             bail!("Next epoch justify qc exists but it's not equal with justify qc.");
         }
+
+        let membership_reader = validation_info.membership.read().await;
+        let membership_next_stake_table = membership_reader.stake_table(justify_qc.data.epoch + 1);
+        let membership_next_success_threshold =
+            membership_reader.success_threshold(justify_qc.data.epoch + 1);
+        drop(membership_reader);
+
         // Validate the next epoch justify qc as well
         if !next_epoch_justify_qc
             .is_valid_cert(
-                validation_info
-                    .quorum_membership
-                    .stake_table(justify_qc_epoch + 1),
-                validation_info
-                    .quorum_membership
-                    .success_threshold(justify_qc_epoch + 1),
+                membership_next_stake_table,
+                membership_next_success_threshold,
                 &validation_info.upgrade_lock,
             )
             .await
@@ -236,7 +233,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
             justify_qc.view_number(),
             event_sender.clone(),
             event_receiver.clone(),
-            Arc::clone(&validation_info.quorum_membership),
+            Arc::clone(&validation_info.membership),
             OuterConsensus::new(Arc::clone(&validation_info.consensus.inner_consensus)),
             // Note that we explicitly use the node key here instead of the provided key in the signature.
             // This is because the key that we receive is for the prior leader, so the payload would be routed

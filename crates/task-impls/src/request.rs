@@ -14,6 +14,7 @@ use std::{
 };
 
 use async_broadcast::{Receiver, Sender};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::{
     dependency::{Dependency, EventDependency},
@@ -21,13 +22,14 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    simple_vote::HasEpoch,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
+    utils::epoch_from_block_number,
     vote::HasViewNumber,
 };
 use rand::{seq::SliceRandom, thread_rng};
@@ -53,23 +55,32 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Network to send requests over
     /// The underlying network
     pub network: Arc<I::Network>,
+
     /// Consensus shared state so we can check if we've gotten the information
     /// before sending a request
     pub consensus: OuterConsensus<TYPES>,
+
     /// Last seen view, we won't request for proposals before older than this view
     pub view: TYPES::View,
+
     /// Delay before requesting peers
     pub delay: Duration,
-    /// Membership (Here containing only DA)
-    pub membership: TYPES::Membership,
+
+    /// Membership (Used here only for DA)
+    pub membership: Arc<RwLock<TYPES::Membership>>,
+
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,
+
     /// This nodes private/signing key, used to sign requests.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+
     /// The node's id
     pub id: u64,
+
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
+
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub spawned_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
 }
@@ -98,7 +109,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.data.view_number();
-                let prop_epoch = proposal.data.epoch();
+                let prop_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                    proposal.data.block_header.block_number(),
+                    TYPES::EPOCH_HEIGHT,
+                ));
 
                 // If we already have the VID shares for the next view, do nothing.
                 if prop_view >= self.view
@@ -109,7 +123,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                         .vid_shares()
                         .contains_key(&prop_view)
                 {
-                    self.spawn_requests(prop_view, prop_epoch, sender, receiver);
+                    self.spawn_requests(prop_view, prop_epoch, sender, receiver)
+                        .await;
                 }
                 Ok(())
             }
@@ -141,7 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I> {
     /// Creates and signs the payload, then will create a request task
-    fn spawn_requests(
+    async fn spawn_requests(
         &mut self,
         view: TYPES::View,
         epoch: TYPES::Epoch,
@@ -159,13 +174,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 receiver.clone(),
                 view,
                 epoch,
-            );
+            )
+            .await;
         }
     }
 
     /// Creates a task that will request a VID share from a DA member and wait for the `HotShotEvent::VidResponseRecv`event
     /// If we get the VID disperse share, broadcast `HotShotEvent::VidShareRecv` and terminate task
-    fn create_vid_request_task(
+    async fn create_vid_request_task(
         &mut self,
         request: RequestKind<TYPES>,
         signature: Signature<TYPES>,
@@ -181,17 +197,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         let public_key = self.public_key.clone();
 
         // Get the committee members for the view and the leader, if applicable
-        let mut da_committee_for_view = self.membership.da_committee_members(view, epoch);
-        if let Ok(leader) = self.membership.leader(view, epoch) {
+        let membership_reader = self.membership.read().await;
+        let mut da_committee_for_view = membership_reader.da_committee_members(view, epoch);
+        if let Ok(leader) = membership_reader.leader(view, epoch) {
             da_committee_for_view.insert(leader);
         }
 
         // Get committee members for view
-        let mut recipients: Vec<TYPES::SignatureKey> = self
-            .membership
+        let mut recipients: Vec<TYPES::SignatureKey> = membership_reader
             .da_committee_members(view, epoch)
             .into_iter()
             .collect();
+        drop(membership_reader);
+
         // Randomize the recipients so all replicas don't overload the same 1 recipients
         // and so we don't implicitly rely on the same replica all the time.
         recipients.shuffle(&mut thread_rng());
@@ -202,6 +220,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             view,
             signature,
         };
+        let my_id = self.id;
         let handle: JoinHandle<()> = spawn(async move {
             // Do the delay only if primary is up and then start sending
             if !network.is_primary_down() {
@@ -243,8 +262,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 } else {
                     // This shouldnt be possible `recipients_it.next()` should clone original and start over if `None`
                     tracing::warn!(
-                        "Sent VID request to all available DA members and got no response for view: {:?}",
-                        view
+                        "Sent VID request to all available DA members and got no response for view: {:?}, my id: {:?}",
+                        view,
+                        my_id,
                     );
                     return;
                 }

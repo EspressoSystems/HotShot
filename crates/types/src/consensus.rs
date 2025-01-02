@@ -21,12 +21,12 @@ use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
     message::Proposal,
-    simple_certificate::{DaCertificate, NextEpochQuorumCertificate2, QuorumCertificate2},
+    simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
@@ -48,7 +48,7 @@ pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
-    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare2<TYPES>>>,
 >;
 
 /// Type alias for consensus state wrapped in a lock.
@@ -283,7 +283,7 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// All the DA certs we've received for current and future views.
     /// view -> DA cert
-    saved_da_certs: HashMap<TYPES::View, DaCertificate<TYPES>>,
+    saved_da_certs: HashMap<TYPES::View, DaCertificate2<TYPES>>,
 
     /// View number that is currently on.
     cur_view: TYPES::View,
@@ -495,7 +495,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the saved DA certs.
-    pub fn saved_da_certs(&self) -> &HashMap<TYPES::View, DaCertificate<TYPES>> {
+    pub fn saved_da_certs(&self) -> &HashMap<TYPES::View, DaCertificate2<TYPES>> {
         &self.saved_da_certs
     }
 
@@ -765,12 +765,13 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         &mut self,
         high_qc: NextEpochQuorumCertificate2<TYPES>,
     ) -> Result<()> {
-        ensure!(
-            self.next_epoch_high_qc().is_none()
-                || high_qc.view_number > self.next_epoch_high_qc.as_ref().unwrap().view_number
-                || high_qc == *self.next_epoch_high_qc.as_ref().unwrap(),
-            debug!("Next epoch high QC with an equal or higher view exists.")
-        );
+        if let Some(next_epoch_high_qc) = self.next_epoch_high_qc() {
+            ensure!(
+                high_qc.view_number > next_epoch_high_qc.view_number
+                    || high_qc == *next_epoch_high_qc,
+                debug!("Next epoch high QC with an equal or higher view exists.")
+            );
+        }
         tracing::debug!("Updating next epoch high QC");
         self.next_epoch_high_qc = Some(high_qc);
 
@@ -781,7 +782,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_vid_shares(
         &mut self,
         view_number: TYPES::View,
-        disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
+        disperse: Proposal<TYPES, VidDisperseShare2<TYPES>>,
     ) {
         self.vid_shares
             .entry(view_number)
@@ -790,7 +791,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Add a new entry to the da_certs map.
-    pub fn update_saved_da_certs(&mut self, view_number: TYPES::View, cert: DaCertificate<TYPES>) {
+    pub fn update_saved_da_certs(&mut self, view_number: TYPES::View, cert: DaCertificate2<TYPES>) {
         self.saved_da_certs.insert(view_number, cert);
     }
 
@@ -942,7 +943,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub async fn calculate_and_update_vid(
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
-        membership: Arc<TYPES::Membership>,
+        membership: Arc<RwLock<TYPES::Membership>>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Option<()> {
         let txns = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
@@ -954,8 +955,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .view_inner
             .epoch()?;
         let vid =
-            VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, None, None).await;
-        let shares = VidDisperseShare::from_vid_disperse(vid);
+            VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, epoch, None).await;
+        let shares = VidDisperseShare2::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {

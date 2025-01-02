@@ -10,6 +10,7 @@ use std::{
 };
 
 use async_broadcast::{Receiver, Sender};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 use hotshot_builder_api::v0_1::block_info::AvailableBlockInfo;
@@ -94,7 +95,7 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     pub consensus: OuterConsensus<TYPES>,
 
     /// Membership for the quorum
-    pub membership: Arc<TYPES::Membership>,
+    pub membership: Arc<RwLock<TYPES::Membership>>,
 
     /// Builder 0.1 API clients
     pub builder_clients: Vec<BuilderClientBase<TYPES>>,
@@ -119,6 +120,9 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
 
     /// fallback builder url
     pub fallback_builder_url: Url,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTaskState<TYPES, I, V> {
@@ -127,6 +131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         &mut self,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -> Option<HotShotTaskCompleted> {
         let version = match self.upgrade_lock.version(block_view).await {
             Ok(v) => v,
@@ -137,10 +142,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         };
 
         if version < V::Marketplace::VERSION {
-            self.handle_view_change_legacy(event_stream, block_view)
+            self.handle_view_change_legacy(event_stream, block_view, block_epoch)
                 .await
         } else {
-            self.handle_view_change_marketplace(event_stream, block_view)
+            self.handle_view_change_marketplace(event_stream, block_view, block_epoch)
                 .await
         }
     }
@@ -151,6 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         &mut self,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -> Option<HotShotTaskCompleted> {
         let version = match self.upgrade_lock.version(block_view).await {
             Ok(v) => v,
@@ -188,6 +194,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     block_payload.encode(),
                     metadata,
                     block_view,
+                    block_epoch,
                     vec1::vec1![fee],
                     precompute_data,
                     None,
@@ -210,12 +217,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 .number_of_empty_blocks_proposed
                 .add(1);
 
-            let membership_total_nodes = self.membership.total_nodes(self.cur_epoch);
-            let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
-                self.membership.total_nodes(self.cur_epoch),
-                version,
-                *block_view,
-            ) else {
+            let membership_total_nodes = self.membership.read().await.total_nodes(self.cur_epoch);
+            let Some(null_fee) =
+                null_block::builder_fee::<TYPES, V>(membership_total_nodes, version, *block_view)
+            else {
                 tracing::error!("Failed to get null fee");
                 return None;
             };
@@ -231,6 +236,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     vec![].into(),
                     metadata,
                     block_view,
+                    block_epoch,
                     vec1::vec1![null_fee],
                     Some(precompute_data),
                     None,
@@ -251,6 +257,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     async fn produce_block_marketplace(
         &mut self,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
         task_start_time: Instant,
     ) -> Result<PackedBundle<TYPES>> {
         ensure!(
@@ -343,6 +350,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             block_payload.encode(),
             metadata,
             block_view,
+            block_epoch,
             sequencing_fees,
             None,
             Some(auction_result),
@@ -350,17 +358,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
     }
 
     /// Produce a null block
-    pub fn null_block(
+    pub async fn null_block(
         &self,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
         version: Version,
     ) -> Option<PackedBundle<TYPES>> {
-        let membership_total_nodes = self.membership.total_nodes(self.cur_epoch);
-        let Some(null_fee) = null_block::builder_fee::<TYPES, V>(
-            self.membership.total_nodes(self.cur_epoch),
-            version,
-            *block_view,
-        ) else {
+        let membership_total_nodes = self.membership.read().await.total_nodes(self.cur_epoch);
+        let Some(null_fee) =
+            null_block::builder_fee::<TYPES, V>(membership_total_nodes, version, *block_view)
+        else {
             tracing::error!("Failed to calculate null block fee.");
             return None;
         };
@@ -374,6 +381,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             vec![].into(),
             metadata,
             block_view,
+            block_epoch,
             vec1::vec1![null_fee],
             Some(precompute_data),
             Some(TYPES::AuctionResult::default()),
@@ -386,6 +394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         &mut self,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -> Option<HotShotTaskCompleted> {
         let task_start_time = Instant::now();
 
@@ -398,7 +407,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         };
 
         let packed_bundle = match self
-            .produce_block_marketplace(block_view, task_start_time)
+            .produce_block_marketplace(block_view, block_epoch, task_start_time)
             .await
         {
             Ok(b) => b,
@@ -409,7 +418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     e
                 );
 
-                let null_block = self.null_block(block_view, version)?;
+                let null_block = self.null_block(block_view, block_epoch, version).await?;
 
                 // Increment the metric for number of empty blocks proposed
                 self.consensus
@@ -438,12 +447,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         &mut self,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
         block_view: TYPES::View,
+        block_epoch: TYPES::Epoch,
     ) -> Option<HotShotTaskCompleted> {
         if self.consensus.read().await.is_high_qc_forming_eqc() {
             tracing::info!("Reached end of epoch. Not getting a new block until we form an eQC.");
             None
         } else {
-            self.handle_view_change_marketplace(event_stream, block_view)
+            self.handle_view_change_marketplace(event_stream, block_view, block_epoch)
                 .await
         }
     }
@@ -470,8 +480,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             }
             HotShotEvent::ViewChange(view, epoch) => {
                 let view = TYPES::View::new(std::cmp::max(1, **view));
+                let epoch = if self.epoch_height != 0 {
+                    TYPES::Epoch::new(std::cmp::max(1, **epoch))
+                } else {
+                    *epoch
+                };
                 ensure!(
-                    *view > *self.cur_view || *epoch > self.cur_epoch,
+                    *view > *self.cur_view && *epoch >= *self.cur_epoch,
                     debug!(
                       "Received a view change to an older view and epoch: tried to change view to {:?}\
                       and epoch {:?} though we are at view {:?} and epoch {:?}",
@@ -479,10 +494,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                     )
                 );
                 self.cur_view = view;
-                self.cur_epoch = *epoch;
-                let epoch = self.cur_epoch;
-                if self.membership.leader(view, epoch)? == self.public_key {
-                    self.handle_view_change(&event_stream, view).await;
+                self.cur_epoch = epoch;
+
+                let leader = self.membership.read().await.leader(view, epoch)?;
+                if leader == self.public_key {
+                    self.handle_view_change(&event_stream, view, epoch).await;
                     return Ok(());
                 }
             }
@@ -745,8 +761,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 // If epochs are supported, provide the latest `num_nodes` information to the
                 // builder for VID computation.
                 let (block, header_input) = if version >= V::Epochs::VERSION {
+                    let total_nodes = self.membership.read().await.total_nodes(self.cur_epoch);
                     futures::join! {
-                        client.claim_block_with_num_nodes(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature, self.membership.total_nodes(self.cur_epoch)) ,
+                        client.claim_block_with_num_nodes(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature, total_nodes),
                         client.claim_block_header_input(block_info.block_hash.clone(), view_number.u64(), self.public_key.clone(), &request_signature)
                     }
                 } else {

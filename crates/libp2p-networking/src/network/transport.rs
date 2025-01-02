@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{ensure, Context, Result as AnyhowResult};
+use async_lock::RwLock;
 use futures::{future::poll_fn, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use hotshot_types::traits::{
     election::Membership,
@@ -14,7 +15,11 @@ use hotshot_types::traits::{
     signature_key::SignatureKey,
 };
 use libp2p::{
-    core::{muxing::StreamMuxerExt, transport::TransportEvent, StreamMuxer},
+    core::{
+        muxing::StreamMuxerExt,
+        transport::{DialOpts, TransportEvent},
+        StreamMuxer,
+    },
     identity::PeerId,
     Transport,
 };
@@ -42,7 +47,7 @@ pub struct StakeTableAuthentication<T: Transport, Types: NodeType, C: StreamMuxe
     pub inner: T,
 
     /// The stake table we check against to authenticate connections
-    pub stake_table: Arc<Option<Types::Membership>>,
+    pub stake_table: Arc<Option<Arc<RwLock<Types::Membership>>>>,
 
     /// A pre-signed message that we send to the remote peer for authentication
     pub auth_message: Arc<Option<Vec<u8>>>,
@@ -60,7 +65,7 @@ impl<T: Transport, Types: NodeType, C: StreamMuxer + Unpin> StakeTableAuthentica
     /// and authenticates connections against the stake table.
     pub fn new(
         inner: T,
-        stake_table: Option<Types::Membership>,
+        stake_table: Option<Arc<RwLock<Types::Membership>>>,
         auth_message: Option<Vec<u8>>,
     ) -> Self {
         Self {
@@ -105,7 +110,7 @@ impl<T: Transport, Types: NodeType, C: StreamMuxer + Unpin> StakeTableAuthentica
     /// - The signature is invalid
     pub async fn verify_peer_authentication<R: AsyncReadExt + Unpin>(
         stream: &mut R,
-        stake_table: Arc<Option<Types::Membership>>,
+        stake_table: Arc<Option<Arc<RwLock<Types::Membership>>>>,
         required_peer_id: &PeerId,
     ) -> AnyhowResult<()> {
         // If we have a stake table, check if the remote peer is in it
@@ -132,7 +137,11 @@ impl<T: Transport, Types: NodeType, C: StreamMuxer + Unpin> StakeTableAuthentica
             }
 
             // Check if the public key is in the stake table
-            if !stake_table.has_stake(&public_key, Types::Epoch::new(0)) {
+            if !stake_table
+                .read()
+                .await
+                .has_stake(&public_key, Types::Epoch::new(0))
+            {
                 return Err(anyhow::anyhow!("Peer not in stake table"));
             }
         }
@@ -147,7 +156,7 @@ impl<T: Transport, Types: NodeType, C: StreamMuxer + Unpin> StakeTableAuthentica
     fn gen_handshake<F: Future<Output = Result<T::Output, T::Error>> + Send + 'static>(
         original_future: F,
         outgoing: bool,
-        stake_table: Arc<Option<Types::Membership>>,
+        stake_table: Arc<Option<Arc<RwLock<Types::Membership>>>>,
         auth_message: Arc<Option<Vec<u8>>>,
     ) -> UpgradeFuture<T>
     where
@@ -314,9 +323,10 @@ where
     fn dial(
         &mut self,
         addr: libp2p::Multiaddr,
+        opts: DialOpts,
     ) -> Result<Self::Dial, libp2p::TransportError<Self::Error>> {
         // Perform the inner dial
-        let res = self.inner.dial(addr);
+        let res = self.inner.dial(addr, opts);
 
         // Clone the necessary fields
         let auth_message = Arc::clone(&self.auth_message);
@@ -325,27 +335,6 @@ where
         // If the dial was successful, perform the authentication handshake on top
         match res {
             Ok(dial) => Ok(Self::gen_handshake(dial, true, stake_table, auth_message)),
-            Err(err) => Err(err),
-        }
-    }
-
-    /// Dial a remote peer as a listener. This function is changed to perform an authentication
-    /// handshake on top. The flow should be the reverse of the `dial` function and the
-    /// same as the `poll` function.
-    fn dial_as_listener(
-        &mut self,
-        addr: libp2p::Multiaddr,
-    ) -> Result<Self::Dial, libp2p::TransportError<Self::Error>> {
-        // Perform the inner dial
-        let res = self.inner.dial(addr);
-
-        // Clone the necessary fields
-        let auth_message = Arc::clone(&self.auth_message);
-        let stake_table = Arc::clone(&self.stake_table);
-
-        // If the dial was successful, perform the authentication handshake on top
-        match res {
-            Ok(dial) => Ok(Self::gen_handshake(dial, false, stake_table, auth_message)),
             Err(err) => Err(err),
         }
     }
@@ -419,13 +408,6 @@ where
     /// to define them
     fn remove_listener(&mut self, id: libp2p::core::transport::ListenerId) -> bool {
         self.inner.remove_listener(id)
-    }
-    fn address_translation(
-        &self,
-        listen: &libp2p::Multiaddr,
-        observed: &libp2p::Multiaddr,
-    ) -> Option<libp2p::Multiaddr> {
-        self.inner.address_translation(listen, observed)
     }
     fn listen_on(
         &mut self,
@@ -647,7 +629,7 @@ mod test {
         // Verify the authentication message
         let result = MockStakeTableAuth::verify_peer_authentication(
             &mut stream,
-            Arc::new(Some(stake_table)),
+            Arc::new(Some(Arc::new(RwLock::new(stake_table)))),
             &peer_id,
         )
         .await;
@@ -667,7 +649,10 @@ mod test {
         let mut stream = cursor_from!(auth_message);
 
         // Create an empty stake table
-        let stake_table = <TestTypes as NodeType>::Membership::new(vec![], vec![]);
+        let stake_table = Arc::new(RwLock::new(<TestTypes as NodeType>::Membership::new(
+            vec![],
+            vec![],
+        )));
 
         // Verify the authentication message
         let result = MockStakeTableAuth::verify_peer_authentication(
@@ -703,8 +688,10 @@ mod test {
             stake_table_entry: keypair.0.stake_table_entry(1),
             state_ver_key: StateVerKey::default(),
         };
-        let stake_table =
-            <TestTypes as NodeType>::Membership::new(vec![peer_config.clone()], vec![peer_config]);
+        let stake_table = Arc::new(RwLock::new(<TestTypes as NodeType>::Membership::new(
+            vec![peer_config.clone()],
+            vec![peer_config],
+        )));
 
         // Check against the malicious peer ID
         let result = MockStakeTableAuth::verify_peer_authentication(

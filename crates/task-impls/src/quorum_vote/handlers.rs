@@ -12,7 +12,7 @@ use chrono::Utc;
 use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal2, VidDisperseShare},
+    data::{Leaf2, QuorumProposal2, VidDisperseShare2},
     drb::{compute_drb_result, DrbResult},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
@@ -171,6 +171,8 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
         // Verify and store the result depending on our membership.
         if task_state
             .membership
+            .read()
+            .await
             .has_stake(&task_state.public_key, current_epoch_number)
         {
             let computed_result =
@@ -181,6 +183,8 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
             return Ok(());
         } else if task_state
             .membership
+            .read()
+            .await
             .has_stake(&task_state.public_key, current_epoch_number + 1)
         {
             store_received_drb_result(current_epoch_number + 1, proposal_result, task_state)
@@ -199,12 +203,14 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
 ) {
     let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
         proposal.block_header.block_number(),
-        task_state.epoch_height,
+        TYPES::EPOCH_HEIGHT,
     ));
 
     // Start the new task if we're in the committee for this epoch
     if task_state
         .membership
+        .read()
+        .await
         .has_stake(&task_state.public_key, current_epoch_number)
     {
         let new_epoch_number = current_epoch_number + 1;
@@ -310,6 +316,8 @@ async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>
         // Skip if we are not in the committee of the next epoch.
         if task_state
             .membership
+            .read()
+            .await
             .has_stake(&task_state.public_key, current_epoch_number + 1)
         {
             let new_epoch_number = current_epoch_number + 2;
@@ -469,7 +477,7 @@ pub(crate) async fn update_shared_state<
     consensus: OuterConsensus<TYPES>,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
     receiver: InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
-    quorum_membership: Arc<TYPES::Membership>,
+    membership: Arc<RwLock<TYPES::Membership>>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: UpgradeLock<TYPES, V>,
@@ -477,14 +485,14 @@ pub(crate) async fn update_shared_state<
     instance_state: Arc<TYPES::InstanceState>,
     storage: Arc<RwLock<I::Storage>>,
     proposed_leaf: &Leaf2<TYPES>,
-    vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
     parent_view_number: Option<TYPES::View>,
     epoch_height: u64,
 ) -> Result<()> {
     let justify_qc = &proposed_leaf.justify_qc();
 
     let consensus_reader = consensus.read().await;
-    // Try to find the validated vview within the validasted state map. This will be present
+    // Try to find the validated view within the validated state map. This will be present
     // if we have the saved leaf, but if not we'll get it when we fetch_proposal.
     let mut maybe_validated_view = parent_view_number.and_then(|view_number| {
         consensus_reader
@@ -508,7 +516,7 @@ pub(crate) async fn update_shared_state<
                 justify_qc.view_number(),
                 sender.clone(),
                 receiver.activate_cloned(),
-                Arc::clone(&quorum_membership),
+                Arc::clone(&membership),
                 OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                 public_key.clone(),
                 private_key.clone(),
@@ -595,23 +603,29 @@ pub(crate) async fn update_shared_state<
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
-    quorum_membership: Arc<TYPES::Membership>,
+    membership: Arc<RwLock<TYPES::Membership>>,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     upgrade_lock: UpgradeLock<TYPES, V>,
     view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
     storage: Arc<RwLock<I::Storage>>,
     leaf: Leaf2<TYPES>,
-    vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
+    vid_share: Proposal<TYPES, VidDisperseShare2<TYPES>>,
     extended_vote: bool,
-    epoch_height: u64,
 ) -> Result<()> {
-    let committee_member_in_current_epoch = quorum_membership.has_stake(&public_key, epoch_number);
+    let epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        leaf.block_header().block_number(),
+        TYPES::EPOCH_HEIGHT,
+    ));
+
+    let membership_reader = membership.read().await;
+    let committee_member_in_current_epoch = membership_reader.has_stake(&public_key, epoch_number);
     // If the proposed leaf is for the last block in the epoch and the node is part of the quorum committee
     // in the next epoch, the node should vote to achieve the double quorum.
-    let committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), epoch_height)
-        && quorum_membership.has_stake(&public_key, epoch_number + 1);
+    let committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), TYPES::EPOCH_HEIGHT)
+        && membership_reader.has_stake(&public_key, epoch_number + 1);
+    drop(membership_reader);
+
     ensure!(
         committee_member_in_current_epoch || committee_member_in_next_epoch,
         info!(
@@ -638,7 +652,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     storage
         .write()
         .await
-        .append_vid(&vid_share)
+        .append_vid2(&vid_share)
         .await
         .wrap()
         .context(error!("Failed to store VID share"))?;
