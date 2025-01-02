@@ -667,7 +667,7 @@
         <span class="self">self</span>.hotshot.consensus()
     }
 
-    <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.
+    <span class="doccomment">/// Shut down the inner hotshot and wait until all background threads are closed.
     </span><span class="kw">pub async fn </span>shut_down(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="comment">// this is required because `SystemContextHandle` holds an inactive receiver and
         // `broadcast_direct` below can wait indefinitely

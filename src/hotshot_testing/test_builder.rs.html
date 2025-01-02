@@ -998,7 +998,7 @@
     <span class="doccomment">/// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
-    /// if some of the the configuration values are zero
+    /// if some of the configuration values are zero
     </span><span class="kw">pub fn </span>gen_launcher(<span class="self">self</span>, node_id: u64) -&gt; TestLauncher&lt;TYPES, I, V&gt; {
         <span class="self">self</span>.gen_launcher_with_tasks(node_id, <span class="macro">vec!</span>[])
     }
@@ -1007,7 +1007,7 @@
     /// a [`TestLauncher`] that can be used to launch the test, with
     /// additional testing tasks to run in test harness
     /// # Panics
-    /// if some of the the configuration values are zero
+    /// if some of the configuration values are zero
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>gen_launcher_with_tasks(
         <span class="self">self</span>,
