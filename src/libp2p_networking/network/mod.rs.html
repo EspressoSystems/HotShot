@@ -316,14 +316,14 @@
 </span><span class="kw">pub enum </span>NetworkEventInternal {
     <span class="doccomment">/// a DHT event
     </span>DHTEvent(libp2p::kad::Event),
-    <span class="doccomment">/// a identify event. Is boxed because this event is much larger than the other ones so we want
+    <span class="doccomment">/// an identify event. Is boxed because this event is much larger than the other ones so we want
     /// to store it on the heap.
     </span>IdentifyEvent(Box&lt;IdentifyEvent&gt;),
     <span class="doccomment">/// a gossip  event
     </span>GossipEvent(Box&lt;GossipEvent&gt;),
     <span class="doccomment">/// a direct message event
     </span>DMEvent(libp2p::request_response::Event&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;),
-    <span class="doccomment">/// a autonat event
+    <span class="doccomment">/// an autonat event
     </span>AutonatEvent(libp2p::autonat::Event),
 }
 
