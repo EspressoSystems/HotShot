@@ -681,7 +681,6 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
 
         Self {
             view_number: leaf.view_number,
-            epoch: TYPES::Epoch::genesis(),
             justify_qc: leaf.justify_qc.to_qc2(),
             next_epoch_justify_qc: None,
             parent_commitment: Commitment::from_raw(bytes),
@@ -810,9 +809,6 @@ pub struct Leaf2<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     view_number: TYPES::View,
 
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    epoch: TYPES::Epoch,
-
     /// Per spec, justification
     justify_qc: QuorumCertificate2<TYPES>,
 
@@ -899,7 +895,6 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             upgrade_certificate: None,
             block_header: block_header.clone(),
             block_payload: Some(payload),
-            epoch: TYPES::Epoch::genesis(),
             view_change_evidence: None,
             drb_seed: [0; 32],
             drb_result: [0; 32],
@@ -910,8 +905,11 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         self.view_number
     }
     /// Epoch in which this leaf was created.
-    pub fn epoch(&self) -> TYPES::Epoch {
-        self.epoch
+    pub fn epoch(&self, epoch_height: u64) -> TYPES::Epoch {
+        TYPES::Epoch::new(epoch_from_block_number(
+            self.block_header.block_number(),
+            epoch_height,
+        ))
     }
     /// Height of this leaf in the chain.
     ///
@@ -1060,7 +1058,6 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
     fn eq(&self, other: &Self) -> bool {
         let Leaf2 {
             view_number,
-            epoch,
             justify_qc,
             next_epoch_justify_qc,
             parent_commitment,
@@ -1073,7 +1070,6 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
         } = self;
 
         *view_number == other.view_number
-            && *epoch == other.epoch
             && *justify_qc == other.justify_qc
             && *next_epoch_justify_qc == other.next_epoch_justify_qc
             && *parent_commitment == other.parent_commitment
@@ -1451,10 +1447,6 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
         Self {
             view_number: *view_number,
-            epoch: TYPES::Epoch::new(epoch_from_block_number(
-                quorum_proposal.block_header.block_number(),
-                TYPES::EPOCH_HEIGHT,
-            )),
             justify_qc: justify_qc.clone(),
             next_epoch_justify_qc: next_epoch_justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,
