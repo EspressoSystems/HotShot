@@ -661,7 +661,7 @@
                         <span class="kw">return</span>;
                     }
                 } <span class="kw">else </span>{
-                    <span class="comment">// This shouldnt be possible `recipients_it.next()` should clone original and start over if `None`
+                    <span class="comment">// This shouldn't be possible `recipients_it.next()` should clone original and start over if `None`
                     </span><span class="macro">tracing::warn!</span>(
                         <span class="string">"Sent VID request to all available DA members and got no response for view: {:?}, my id: {:?}"</span>,
                         view,
