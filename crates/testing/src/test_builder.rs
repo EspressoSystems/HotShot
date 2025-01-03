@@ -387,7 +387,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
     fn default() -> Self {
         let num_nodes_with_stake = 7;
         Self {
-            epoch_height: 0,
+            epoch_height: 10,
             timing_data: TimingData::default(),
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,

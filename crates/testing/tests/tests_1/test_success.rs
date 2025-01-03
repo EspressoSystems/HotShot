@@ -37,6 +37,7 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
+            epoch_height: 0,
             ..TestDescription::default()
         }
     },
@@ -96,6 +97,7 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
+            epoch_height: 0,
             ..TestDescription::default()
         };
 
@@ -161,6 +163,7 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
+            epoch_height: 0,
             ..TestDescription::default()
         };
 
@@ -236,6 +239,7 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
+        metadata.epoch_height = 0;
         metadata.num_bootstrap_nodes = 10;
         metadata.num_nodes_with_stake = 12;
         metadata.da_staked_committee_size = 12;

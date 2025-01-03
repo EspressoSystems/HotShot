@@ -329,6 +329,7 @@ cross_tests!(
       }
 
       metadata.timing_data = timing_data;
+      metadata.epoch_height = 0;
       metadata.start_nodes = 20;
       metadata.num_nodes_with_stake = 20;
 
@@ -385,6 +386,7 @@ cross_tests!(
       metadata.timing_data = timing_data;
       metadata.start_nodes = 20;
       metadata.num_nodes_with_stake = 20;
+      metadata.epoch_height = 0;
 
       // Explicitly make the DA tiny to exaggerate a missing proposal.
       metadata.da_staked_committee_size = 1;
@@ -446,6 +448,7 @@ cross_tests!(
 
       metadata.start_nodes = 10;
       metadata.num_nodes_with_stake = 10;
+      metadata.epoch_height = 0;
 
       // Explicitly make the DA small to simulate real network.
       metadata.da_staked_committee_size = 4;
