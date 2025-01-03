@@ -25,7 +25,7 @@ use hotshot_types::{
         storage::Storage,
         ValidatedState,
     },
-    utils::{epoch_from_block_number, is_last_block_in_epoch, is_third_from_last_block_in_epoch},
+    utils::{epoch_from_block_number, is_epoch_root, is_last_block_in_epoch},
     vote::HasViewNumber,
 };
 use tokio::spawn;
@@ -294,8 +294,7 @@ async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>
         .block_number();
 
     // Skip if this is not the expected block.
-    if task_state.epoch_height != 0
-        && is_third_from_last_block_in_epoch(decided_block_number, task_state.epoch_height)
+    if task_state.epoch_height != 0 && is_epoch_root(decided_block_number, task_state.epoch_height)
     {
         // Cancel old DRB computation tasks.
         let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(

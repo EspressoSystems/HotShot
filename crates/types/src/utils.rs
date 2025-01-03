@@ -283,7 +283,7 @@ pub fn is_last_block_in_epoch(block_number: u64, epoch_height: u64) -> bool {
 /// Returns true if the given block number is the third from the last in the epoch based on the
 /// given epoch height.
 #[must_use]
-pub fn is_third_from_last_block_in_epoch(block_number: u64, epoch_height: u64) -> bool {
+pub fn is_epoch_root(block_number: u64, epoch_height: u64) -> bool {
     if block_number == 0 || epoch_height == 0 {
         false
     } else {
