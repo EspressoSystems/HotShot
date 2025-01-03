@@ -1007,6 +1007,7 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
             .u64_field("view number", *self.view_number)
             .field("parent leaf commitment", self.parent_commitment)
             .field("block header", self.block_header.commit())
+            .field("justify qc", self.justify_qc.commit())
             .optional("upgrade certificate", &self.upgrade_certificate)
             .finalize()
     }
