@@ -796,9 +796,6 @@
 <a href="#796" id="796">796</a>
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -811,7 +808,6 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>committable::Committable;
-<span class="kw">use </span>drb_computations::DrbComputations;
 <span class="kw">use </span>hotshot_task::{
     dependency::{AndDependency, EventDependency},
     dependency_task::{DependencyTask, HandleDepOutput},
@@ -820,6 +816,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::{ConsensusMetricsValue, OuterConsensus},
     data::{Leaf2, QuorumProposal2},
+    drb::DrbComputation,
     event::Event,
     message::{Proposal, UpgradeLock},
     traits::{
@@ -844,9 +841,6 @@
     helpers::broadcast_event,
     quorum_vote::handlers::{handle_quorum_proposal_validated, submit_vote, update_shared_state},
 };
-
-<span class="doccomment">/// Helper for DRB Computations
-</span><span class="kw">pub mod </span>drb_computations;
 
 <span class="doccomment">/// Event handlers for `QuorumProposalValidated`.
 </span><span class="kw">mod </span>handlers;
@@ -1097,9 +1091,8 @@
     <span class="doccomment">/// Membership for Quorum certs/votes and DA committee certs/votes.
     </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 
-    <span class="doccomment">/// Table for the in-progress DRB computation tasks.
-    </span><span class="comment">//pub drb_computations: BTreeMap&lt;TYPES::Epoch, JoinHandle&lt;DrbResult&gt;&gt;,
-    </span><span class="kw">pub </span>drb_computations: DrbComputations&lt;TYPES&gt;,
+    <span class="doccomment">/// In-progress DRB computation task.
+    </span><span class="kw">pub </span>drb_computation: DrbComputation&lt;TYPES&gt;,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -1371,6 +1364,7 @@
 
                 <span class="comment">// Validate the VID share.
                 </span><span class="kw">let </span>payload_commitment = <span class="kw-2">&amp;</span>disperse.data.payload_commitment;
+
                 <span class="comment">// Check that the signature is valid
                 </span><span class="macro">ensure!</span>(
                     sender.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()),

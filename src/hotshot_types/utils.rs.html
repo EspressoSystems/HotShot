@@ -279,6 +279,17 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -558,6 +569,17 @@
         <span class="bool-val">false
     </span>} <span class="kw">else </span>{
         block_number % epoch_height == <span class="number">0
+    </span>}
+}
+
+<span class="doccomment">/// Returns true if the given block number is the third from the last in the epoch based on the
+/// given epoch height.
+</span><span class="attr">#[must_use]
+</span><span class="kw">pub fn </span>is_epoch_root(block_number: u64, epoch_height: u64) -&gt; bool {
+    <span class="kw">if </span>block_number == <span class="number">0 </span>|| epoch_height == <span class="number">0 </span>{
+        <span class="bool-val">false
+    </span>} <span class="kw">else </span>{
+        (block_number + <span class="number">2</span>) % epoch_height == <span class="number">0
     </span>}
 }
 </code></pre></div></section></main></body></html>

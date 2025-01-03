@@ -1593,35 +1593,6 @@
 <a href="#1593" id="1593">1593</a>
 <a href="#1594" id="1594">1594</a>
 <a href="#1595" id="1595">1595</a>
-<a href="#1596" id="1596">1596</a>
-<a href="#1597" id="1597">1597</a>
-<a href="#1598" id="1598">1598</a>
-<a href="#1599" id="1599">1599</a>
-<a href="#1600" id="1600">1600</a>
-<a href="#1601" id="1601">1601</a>
-<a href="#1602" id="1602">1602</a>
-<a href="#1603" id="1603">1603</a>
-<a href="#1604" id="1604">1604</a>
-<a href="#1605" id="1605">1605</a>
-<a href="#1606" id="1606">1606</a>
-<a href="#1607" id="1607">1607</a>
-<a href="#1608" id="1608">1608</a>
-<a href="#1609" id="1609">1609</a>
-<a href="#1610" id="1610">1610</a>
-<a href="#1611" id="1611">1611</a>
-<a href="#1612" id="1612">1612</a>
-<a href="#1613" id="1613">1613</a>
-<a href="#1614" id="1614">1614</a>
-<a href="#1615" id="1615">1615</a>
-<a href="#1616" id="1616">1616</a>
-<a href="#1617" id="1617">1617</a>
-<a href="#1618" id="1618">1618</a>
-<a href="#1619" id="1619">1619</a>
-<a href="#1620" id="1620">1620</a>
-<a href="#1621" id="1621">1621</a>
-<a href="#1622" id="1622">1622</a>
-<a href="#1623" id="1623">1623</a>
-<a href="#1624" id="1624">1624</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1654,7 +1625,7 @@
 <span class="kw">use </span>vec1::Vec1;
 
 <span class="kw">use crate</span>::{
-    drb::{DrbResult, DrbSeedInput, INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
+    drb::DrbResult,
     impl_has_epoch,
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -2259,17 +2230,12 @@
     <span class="doccomment">/// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     </span><span class="kw">pub </span>view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// The DRB seed for the next epoch.
+    <span class="doccomment">/// The DRB result for the next epoch.
     ///
-    /// The DRB computation using this seed was started in the previous epoch.
+    /// This is required only for the last block of the epoch. Nodes will verify that it's
+    /// consistent with the result from their computations.
     </span><span class="attr">#[serde(with = <span class="string">"serde_bytes"</span>)]
-    </span><span class="kw">pub </span>drb_seed: DrbSeedInput,
-
-    <span class="doccomment">/// The DRB result for the current epoch.
-    ///
-    /// The DRB computation with this result was started two epochs ago.
-    </span><span class="attr">#[serde(with = <span class="string">"serde_bytes"</span>)]
-    </span><span class="kw">pub </span>drb_result: DrbResult,
+    </span><span class="kw">pub </span>next_drb_result: <span class="prelude-ty">Option</span>&lt;DrbResult&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;QuorumProposal&lt;TYPES&gt;&gt; <span class="kw">for </span>QuorumProposal2&lt;TYPES&gt; {
@@ -2281,8 +2247,7 @@
             next_epoch_justify_qc: <span class="prelude-val">None</span>,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
-            drb_result: INITIAL_DRB_RESULT,
+            next_drb_result: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -2313,8 +2278,6 @@
             upgrade_certificate: leaf.upgrade_certificate,
             block_payload: leaf.block_payload,
             view_change_evidence: <span class="prelude-val">None</span>,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
-            drb_result: INITIAL_DRB_RESULT,
         }
     }
 }
@@ -2460,18 +2423,6 @@
 
     <span class="doccomment">/// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     </span><span class="kw">pub </span>view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// The DRB seed for the next epoch.
-    ///
-    /// The DRB computation using this seed was started in the previous epoch.
-    </span><span class="attr">#[serde(with = <span class="string">"serde_bytes"</span>)]
-    </span><span class="kw">pub </span>drb_seed: DrbSeedInput,
-
-    <span class="doccomment">/// The DRB result for the current epoch.
-    ///
-    /// The DRB computation with this result was started two epochs ago.
-    </span><span class="attr">#[serde(with = <span class="string">"serde_bytes"</span>)]
-    </span><span class="kw">pub </span>drb_result: DrbResult,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf2&lt;TYPES&gt; {
@@ -2525,8 +2476,6 @@
             block_payload: <span class="prelude-val">Some</span>(payload),
             epoch: TYPES::Epoch::genesis(),
             view_change_evidence: <span class="prelude-val">None</span>,
-            drb_seed: [<span class="number">0</span>; <span class="number">32</span>],
-            drb_result: [<span class="number">0</span>; <span class="number">32</span>],
         }
     }
     <span class="doccomment">/// Time when this leaf was created.
@@ -2692,8 +2641,6 @@
             upgrade_certificate,
             block_payload: <span class="kw">_</span>,
             view_change_evidence,
-            drb_seed,
-            drb_result,
         } = <span class="self">self</span>;
 
         <span class="kw-2">*</span>view_number == other.view_number
@@ -2704,8 +2651,6 @@
             &amp;&amp; <span class="kw-2">*</span>block_header == other.block_header
             &amp;&amp; <span class="kw-2">*</span>upgrade_certificate == other.upgrade_certificate
             &amp;&amp; <span class="kw-2">*</span>view_change_evidence == other.view_change_evidence
-            &amp;&amp; <span class="kw-2">*</span>drb_seed == other.drb_seed
-            &amp;&amp; <span class="kw-2">*</span>drb_result == other.drb_result
     }
 }
 
@@ -3069,8 +3014,7 @@
             block_header,
             upgrade_certificate,
             view_change_evidence,
-            drb_seed,
-            drb_result,
+            next_drb_result: <span class="kw">_</span>,
         } = quorum_proposal;
 
         <span class="self">Self </span>{
@@ -3086,8 +3030,6 @@
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: <span class="prelude-val">None</span>,
             view_change_evidence: view_change_evidence.clone(),
-            drb_seed: <span class="kw-2">*</span>drb_seed,
-            drb_result: <span class="kw-2">*</span>drb_result,
         }
     }
 }
