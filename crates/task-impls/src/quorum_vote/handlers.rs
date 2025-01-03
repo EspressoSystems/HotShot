@@ -218,7 +218,7 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
         // If a task is currently live AND has finished, join it and save the result.
         // If the epoch for the calculation was the same as the provided epoch, return.
         // If a task is currently live and NOT finished, abort it UNLESS the task epoch is the
-        // same as cur_epoch, in which case keep letting it run and return.∂
+        // same as cur_epoch, in which case keep letting it run and return.
         // Continue the function if a task should be spawned for the given epoch.
         if let Some((task_epoch, join_handle)) = &mut task_state.drb_computation {
             if join_handle.is_finished() {
@@ -268,7 +268,7 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     }
 }
 
-/// Store the DRB seed two epochs in advance and compurated DRB result for next epoch.
+/// Store the DRB seed two epochs in advance and the computed DRB result for next epoch.
 ///
 /// We store the DRB seed and result if the decided block is the third from the last block in the
 /// current epoch and for the former, if we are in the quorum committee of the next epoch.
