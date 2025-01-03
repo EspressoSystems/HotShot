@@ -188,7 +188,7 @@ This will output:
 
 # Debugging
 
-A debugging config file is provided for vscode and vscodium in [`.vscode/launch.json`](https://github.com/EspressoSystems/HotShot/blob/main/.cargo/config). This is intended to be used with [vadimcn/vscode-lldb](https://open-vsx.org/extension/vadimcn/vscode-lldb) but may work with other rust debuggers as well.
+A debugging config file is provided for vscode and vscodium in [`.vscode/launch.json`](https://github.com/EspressoSystems/HotShot/blob/main/.cargo/config.toml). This is intended to be used with [vadimcn/vscode-lldb](https://open-vsx.org/extension/vadimcn/vscode-lldb) but may work with other rust debuggers as well.
 
 To bring `lldb` into scope with nix, run `nix develop .#debugShell`.
 
