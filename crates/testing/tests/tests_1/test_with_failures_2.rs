@@ -160,3 +160,47 @@ cross_tests!(
         metadata
     }
 );
+
+cross_tests!(
+    TestName: test_with_double_leader_failures_with_epochs,
+    Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
+    Types: [TestConsecutiveLeaderTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription::default_more_nodes();
+        metadata.num_nodes_with_stake = 12;
+        metadata.da_staked_committee_size = 12;
+        metadata.start_nodes = 12;
+        let dead_nodes = vec![
+            ChangeNode {
+                idx: 5,
+                updown: NodeAction::Down,
+            },
+        ];
+
+        // shutdown while node 5 is leader
+        // we want to trigger `ViewSyncTrigger` during epoch transition
+        // then ensure we do not fail again as next leader will be leader 2 views also
+        let view_spin_node_down = 9;
+        metadata.spinning_properties = SpinningTaskDescription {
+            node_changes: vec![(view_spin_node_down, dead_nodes)]
+        };
+
+        // node 5 is leader twice when we shut down
+        metadata.overall_safety_properties.num_failed_views = 2;
+        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
+            // next views after turning node off
+            (ViewNumber::new(view_spin_node_down + 1), false),
+            (ViewNumber::new(view_spin_node_down + 2), false)
+        ]);
+        // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
+        metadata.overall_safety_properties.num_successful_views = 13;
+
+        // only turning off 1 node, so expected should be num_nodes_with_stake - 1
+        let expected_nodes_in_view_sync = metadata.num_nodes_with_stake - 1;
+        metadata.view_sync_properties = ViewSyncTaskDescription::Threshold(expected_nodes_in_view_sync, expected_nodes_in_view_sync);
+
+        metadata
+    }
+);
