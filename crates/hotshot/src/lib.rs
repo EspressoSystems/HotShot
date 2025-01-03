@@ -110,6 +110,9 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     /// Memberships used by consensus
     pub memberships: Arc<RwLock<TYPES::Membership>>,
 
+    /// Committee of Stake Holders
+    pub stake_holders: Arc<StakeMembers<TYPES>>,
+
     /// the metrics that the implementor is using.
     metrics: Arc<ConsensusMetricsValue>,
 
