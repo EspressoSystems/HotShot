@@ -275,8 +275,8 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
 ///
 /// Special cases:
 /// * Epoch 0: No DRB computation since we'll transition to epoch 1 immediately.
-/// * Epoch 1 and 2: Use `INITIAL_DRB_RESULT` as the DRB result since when we first start the
-///   computation in epoch 1, the result is for epoch 3.
+/// * Epoch 1 and 2: No computed DRB result since when we first start the computation in epoch 1,
+///   the result is for epoch 3.
 ///
 /// We don't need to handle the special cases explicitly here, because the first proposal with
 /// which we'll start the DRB computation is for epoch 3.

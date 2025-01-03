@@ -100,8 +100,6 @@ impl<
 {
     /// Take one vote and accumulate it. Returns either the cert or the updated state
     /// after the vote is accumulated
-    /// voter_epoch against which epoch the vote needs to be checked.
-    /// For `NextEpochQuorumVoteState` the epoch is one greater than the vote's epoch.
     ///
     /// # Errors
     /// If are unable to accumulate the vote

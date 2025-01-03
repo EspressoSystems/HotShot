@@ -112,11 +112,17 @@ pub struct DrbSeedsAndResults<TYPES: NodeType> {
 
 impl<TYPES: NodeType> DrbSeedsAndResults<TYPES> {
     #[must_use]
-    /// Constructor.
+    /// Constructor with initial values for epochs 1 and 2.
     pub fn new() -> Self {
         Self {
-            seeds: BTreeMap::new(),
-            results: BTreeMap::new(),
+            seeds: BTreeMap::from([
+                (TYPES::Epoch::new(1), INITIAL_DRB_SEED_INPUT),
+                (TYPES::Epoch::new(2), INITIAL_DRB_SEED_INPUT),
+            ]),
+            results: BTreeMap::from([
+                (TYPES::Epoch::new(1), INITIAL_DRB_RESULT),
+                (TYPES::Epoch::new(2), INITIAL_DRB_RESULT),
+            ]),
         }
     }
 

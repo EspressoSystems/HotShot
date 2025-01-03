@@ -26,7 +26,6 @@ use hotshot_types::{
         DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
         ViewChangeEvidence, ViewNumber,
     },
-    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
         DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
@@ -144,8 +143,6 @@ impl TestView {
             next_epoch_justify_qc: None,
             upgrade_certificate: None,
             view_change_evidence: None,
-            next_drb_seed: INITIAL_DRB_SEED_INPUT,
-            current_drb_result: INITIAL_DRB_RESULT,
             next_drb_result: None,
         };
 
@@ -378,8 +375,6 @@ impl TestView {
             next_epoch_justify_qc: None,
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
-            next_drb_seed: INITIAL_DRB_SEED_INPUT,
-            current_drb_result: INITIAL_DRB_RESULT,
             next_drb_result: None,
         };
 

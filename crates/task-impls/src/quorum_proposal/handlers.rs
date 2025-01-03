@@ -25,7 +25,6 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence},
-    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -418,9 +417,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             next_epoch_justify_qc: next_epoch_qc,
             upgrade_certificate,
             view_change_evidence: proposal_certificate,
-            // TODO fix these to use the proper values
-            next_drb_seed: INITIAL_DRB_SEED_INPUT,
-            current_drb_result: INITIAL_DRB_RESULT,
             next_drb_result,
         };
 
@@ -441,9 +437,8 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             _pd: PhantomData,
         };
         tracing::debug!(
-            "Sending proposal for view {:?}, proposal: {:?}",
+            "Sending proposal for view {:?}",
             proposed_leaf.view_number(),
-            message,
         );
 
         broadcast_event(
