@@ -673,6 +673,10 @@
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1048,6 +1052,8 @@
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
             Arc::clone(<span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate),
             <span class="kw-2">&amp;</span>task_state.public_key,
+            version &gt;= V::Epochs::VERSION,
+            <span class="kw-2">&amp;</span>task_state.membership,
         )
         .<span class="kw">await
     </span>} <span class="kw">else </span>{
@@ -1056,6 +1062,8 @@
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>task_state.consensus.inner_consensus)),
             Arc::clone(<span class="kw-2">&amp;</span>task_state.upgrade_lock.decided_upgrade_certificate),
             <span class="kw-2">&amp;</span>task_state.public_key,
+            version &gt;= V::Epochs::VERSION,
+            <span class="kw-2">&amp;</span>task_state.membership,
         )
         .<span class="kw">await
     </span>};
