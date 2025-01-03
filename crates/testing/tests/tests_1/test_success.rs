@@ -76,6 +76,7 @@ cross_tests!(
 //                                                  duration: Duration::from_secs(60),
 //                                              },
 //                                          ),
+//             epoch_height: 10,
 //             ..TestDescription::default()
 //         }
 //     },
@@ -309,6 +310,7 @@ cross_tests!(
                     duration: Duration::from_millis(100000),
                 },
             ),
+            epoch_height: 10,
             ..TestDescription::default()
         };
         // after the first 3 leaders the next leader is down. It's a hack to make sure we decide in
