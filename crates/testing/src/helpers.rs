@@ -46,7 +46,7 @@ use serde::Serialize;
 
 use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 
-/// create the [`SystemContextHandle`] from a node id
+/// create the [`SystemContextHandle`] from a node id, with no epochs
 /// # Panics
 /// if cannot create a [`HotShotInitializer`]
 pub async fn build_system_handle<
@@ -64,7 +64,8 @@ pub async fn build_system_handle<
     Sender<Arc<HotShotEvent<TYPES>>>,
     Receiver<Arc<HotShotEvent<TYPES>>>,
 ) {
-    let builder: TestDescription<TYPES, I, V> = TestDescription::default_multiple_rounds();
+    let mut builder: TestDescription<TYPES, I, V> = TestDescription::default_multiple_rounds();
+    builder.epoch_height = 0;
 
     let launcher = builder.gen_launcher(node_id);
     build_system_handle_from_launcher(node_id, &launcher).await
