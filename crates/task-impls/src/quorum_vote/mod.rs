@@ -725,7 +725,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             self.epoch_height,
         )
         .await
-        .context(error!("Failed to update shared consensus state"))?;
+        .context(|e| error!("Failed to update shared consensus state, error = {}", e))?;
 
         let current_block_number = proposed_leaf.height();
         let current_epoch = TYPES::Epoch::new(epoch_from_block_number(
@@ -771,7 +771,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             self.epoch_height,
         )
         .await
-        .context(debug!("Failed to submit vote"))
+        .context(|e| debug!("Failed to submit vote; error = {}", e))
     }
 }
 
