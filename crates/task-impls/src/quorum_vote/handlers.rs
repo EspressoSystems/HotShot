@@ -150,14 +150,16 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    let current_block_number = proposal.block_header.block_number();
-
     // Skip if this is not the expected block.
-    ensure!(
-        task_state.epoch_height != 0
-            && is_last_block_in_epoch(current_block_number, task_state.epoch_height),
-        debug!("Not expected block number.")
-    );
+    if task_state.epoch_height == 0
+        || !is_last_block_in_epoch(
+            proposal.block_header.block_number(),
+            task_state.epoch_height,
+        )
+    {
+        tracing::debug!("Skipping DRB result verification");
+        return Ok(());
+    }
 
     let epoch = TYPES::Epoch::new(epoch_from_block_number(
         proposal.block_header.block_number(),
