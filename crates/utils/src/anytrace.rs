@@ -176,6 +176,15 @@ impl<T> Context<T> for Option<T> {
     }
 }
 
+impl<'a, T> Context<&'a mut T> for &'a mut Option<T> {
+    fn context(self, error: Error) -> Result<&'a mut T> {
+        match self {
+            Some(t) => Ok(t),
+            None => Err(error),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
