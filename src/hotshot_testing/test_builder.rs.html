@@ -558,20 +558,13 @@
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see &lt;https://mit-license.org/&gt;.
 
-</span><span class="kw">use </span>std::{
-    any::TypeId, collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration,
-};
+</span><span class="kw">use </span>std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{ensure, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>async_lock::RwLock;
@@ -582,8 +575,8 @@
     HotShotInitializer, MarketplaceConfig, SystemContext, TwinsHandlerState,
 };
 <span class="kw">use </span>hotshot_example_types::{
-    auction_results_provider_types::TestAuctionResultsProvider, node_types::EpochsTestVersions,
-    state_types::TestInstanceState, storage_types::TestStorage, testable_delay::DelayConfig,
+    auction_results_provider_types::TestAuctionResultsProvider, state_types::TestInstanceState,
+    storage_types::TestStorage, testable_delay::DelayConfig,
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
@@ -666,6 +659,8 @@
     </span><span class="kw">pub </span>start_solver: bool,
     <span class="doccomment">/// boxed closure used to validate the resulting transactions
     </span><span class="kw">pub </span>validate_transactions: TransactionValidator,
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">pub fn </span>nonempty_block_threshold(threshold: (u64, u64)) -&gt; TransactionValidator {
@@ -952,6 +947,7 @@
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">7</span>;
         <span class="self">Self </span>{
+            epoch_height: <span class="number">10</span>,
             timing_data: TimingData::default(),
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,
@@ -1052,12 +1048,6 @@
             <span class="comment">// This is the config for node 0
             </span><span class="number">0 </span>&lt; da_staked_committee_size,
         );
-        <span class="comment">// let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
-        </span><span class="kw">let </span>epoch_height = <span class="kw">if </span>TypeId::of::&lt;V&gt;() == TypeId::of::&lt;EpochsTestVersions&gt;() {
-            <span class="number">10
-        </span>} <span class="kw">else </span>{
-            <span class="number">0
-        </span>};
         <span class="kw">let </span>config = HotShotConfig {
             start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
             num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
@@ -1081,7 +1071,7 @@
             stop_proposing_time: <span class="number">0</span>,
             start_voting_time: u64::MAX,
             stop_voting_time: <span class="number">0</span>,
-            epoch_height,
+            epoch_height: <span class="self">self</span>.epoch_height,
         };
         <span class="kw">let </span>TimingData {
             next_view_timeout,

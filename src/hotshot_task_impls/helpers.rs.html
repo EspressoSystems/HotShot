@@ -1007,7 +1007,7 @@
             leaf: leaf.commit(),
             state,
             delta: <span class="prelude-val">None</span>,
-            epoch: leaf.epoch(),
+            epoch: leaf.epoch(epoch_height),
         },
     };
     <span class="prelude-val">Ok</span>((leaf, view))
@@ -1662,7 +1662,7 @@
     </span>{
         <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
             proposal.data.block_header.block_number(),
-            TYPES::EPOCH_HEIGHT,
+            validation_info.epoch_height,
         ));
         UpgradeCertificate::validate(
             <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,

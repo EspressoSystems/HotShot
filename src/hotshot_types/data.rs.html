@@ -1585,14 +1585,6 @@
 <a href="#1585" id="1585">1585</a>
 <a href="#1586" id="1586">1586</a>
 <a href="#1587" id="1587">1587</a>
-<a href="#1588" id="1588">1588</a>
-<a href="#1589" id="1589">1589</a>
-<a href="#1590" id="1590">1590</a>
-<a href="#1591" id="1591">1591</a>
-<a href="#1592" id="1592">1592</a>
-<a href="#1593" id="1593">1593</a>
-<a href="#1594" id="1594">1594</a>
-<a href="#1595" id="1595">1595</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2270,7 +2262,6 @@
 
         <span class="self">Self </span>{
             view_number: leaf.view_number,
-            epoch: TYPES::Epoch::genesis(),
             justify_qc: leaf.justify_qc.to_qc2(),
             next_epoch_justify_qc: <span class="prelude-val">None</span>,
             parent_commitment: Commitment::from_raw(bytes),
@@ -2397,9 +2388,6 @@
     <span class="doccomment">/// CurView from leader when proposing leaf
     </span>view_number: TYPES::View,
 
-    <span class="doccomment">/// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    </span>epoch: TYPES::Epoch,
-
     <span class="doccomment">/// Per spec, justification
     </span>justify_qc: QuorumCertificate2&lt;TYPES&gt;,
 
@@ -2474,7 +2462,6 @@
             upgrade_certificate: <span class="prelude-val">None</span>,
             block_header: block_header.clone(),
             block_payload: <span class="prelude-val">Some</span>(payload),
-            epoch: TYPES::Epoch::genesis(),
             view_change_evidence: <span class="prelude-val">None</span>,
         }
     }
@@ -2483,8 +2470,11 @@
         <span class="self">self</span>.view_number
     }
     <span class="doccomment">/// Epoch in which this leaf was created.
-    </span><span class="kw">pub fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch {
-        <span class="self">self</span>.epoch
+    </span><span class="kw">pub fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch_height: u64) -&gt; TYPES::Epoch {
+        TYPES::Epoch::new(epoch_from_block_number(
+            <span class="self">self</span>.block_header.block_number(),
+            epoch_height,
+        ))
     }
     <span class="doccomment">/// Height of this leaf in the chain.
     ///
@@ -2633,7 +2623,6 @@
     <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="kw">let </span>Leaf2 {
             view_number,
-            epoch,
             justify_qc,
             next_epoch_justify_qc,
             parent_commitment,
@@ -2644,7 +2633,6 @@
         } = <span class="self">self</span>;
 
         <span class="kw-2">*</span>view_number == other.view_number
-            &amp;&amp; <span class="kw-2">*</span>epoch == other.epoch
             &amp;&amp; <span class="kw-2">*</span>justify_qc == other.justify_qc
             &amp;&amp; <span class="kw-2">*</span>next_epoch_justify_qc == other.next_epoch_justify_qc
             &amp;&amp; <span class="kw-2">*</span>parent_commitment == other.parent_commitment
@@ -3019,10 +3007,6 @@
 
         <span class="self">Self </span>{
             view_number: <span class="kw-2">*</span>view_number,
-            epoch: TYPES::Epoch::new(epoch_from_block_number(
-                quorum_proposal.block_header.block_number(),
-                TYPES::EPOCH_HEIGHT,
-            )),
             justify_qc: justify_qc.clone(),
             next_epoch_justify_qc: next_epoch_justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,

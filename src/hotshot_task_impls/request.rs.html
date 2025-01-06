@@ -399,6 +399,9 @@
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -484,6 +487,9 @@
 
     <span class="doccomment">/// A flag indicating that `HotShotEvent::Shutdown` has been received
     </span><span class="kw">pub </span>spawned_tasks: BTreeMap&lt;TYPES::View, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; Drop <span class="kw">for </span>NetworkRequestState&lt;TYPES, I&gt; {
@@ -512,7 +518,7 @@
                 <span class="kw">let </span>prop_view = proposal.data.view_number();
                 <span class="kw">let </span>prop_epoch = TYPES::Epoch::new(epoch_from_block_number(
                     proposal.data.block_header.block_number(),
-                    TYPES::EPOCH_HEIGHT,
+                    <span class="self">self</span>.epoch_height,
                 ));
 
                 <span class="comment">// If we already have the VID shares for the next view, do nothing.

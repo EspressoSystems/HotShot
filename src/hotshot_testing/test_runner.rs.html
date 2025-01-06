@@ -729,6 +729,7 @@
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -933,6 +934,7 @@
         <span class="comment">// add safety task
         </span><span class="kw">let </span>overall_safety_task_state = OverallSafetyTask {
             handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
+            epoch_height: launcher.metadata.epoch_height,
             ctx: RoundCtx::default(),
             properties: launcher.metadata.overall_safety_properties.clone(),
             error: <span class="prelude-val">None</span>,
