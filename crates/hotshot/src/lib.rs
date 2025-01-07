@@ -47,7 +47,7 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
+    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, VidShares, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
@@ -70,7 +70,6 @@ use hotshot_types::{
 pub use rand;
 use tokio::{spawn, time::sleep};
 use tracing::{debug, instrument, trace};
-
 // -- Rexports
 // External
 use crate::{
@@ -335,6 +334,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         };
         let consensus = Consensus::new(
             validated_state_map,
+            initializer.saved_vid_shares,
             anchored_leaf.view_number(),
             anchored_epoch,
             anchored_leaf.view_number(),
@@ -1025,6 +1025,8 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     undecided_state: BTreeMap<TYPES::View, View<TYPES>>,
     /// Proposals we have sent out to provide to others for catchup
     saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+    /// Saved VID shares
+    saved_vid_shares: Option<VidShares<TYPES>>,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -1051,6 +1053,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             undecided_leaves: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,
+            saved_vid_shares: None,
         })
     }
 
@@ -1075,6 +1078,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
         undecided_leaves: Vec<Leaf2<TYPES>>,
         undecided_state: BTreeMap<TYPES::View, View<TYPES>>,
+        saved_vid_shares: Option<VidShares<TYPES>>,
     ) -> Self {
         Self {
             inner: anchor_leaf,
@@ -1090,6 +1094,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             decided_upgrade_certificate,
             undecided_leaves,
             undecided_state,
+            saved_vid_shares,
         }
     }
 }

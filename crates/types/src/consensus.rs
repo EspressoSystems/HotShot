@@ -407,6 +407,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         validated_state_map: BTreeMap<TYPES::View, View<TYPES>>,
+        vid_shares: Option<VidShares<TYPES>>,
         cur_view: TYPES::View,
         cur_epoch: TYPES::Epoch,
         locked_view: TYPES::View,
@@ -422,7 +423,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) -> Self {
         Consensus {
             validated_state_map,
-            vid_shares: BTreeMap::new(),
+            vid_shares: vid_shares.unwrap_or_default(),
             saved_da_certs: HashMap::new(),
             cur_view,
             cur_epoch,

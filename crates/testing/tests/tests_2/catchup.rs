@@ -7,7 +7,8 @@
 use std::time::Duration;
 
 use hotshot_example_types::node_types::{
-    CombinedImpl, EpochsTestVersions, PushCdnImpl, TestTypes, TestTypesRandomizedLeader, TestVersions,
+    CombinedImpl, EpochsTestVersions, PushCdnImpl, TestTypes, TestTypesRandomizedLeader,
+    TestVersions,
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
@@ -382,7 +383,7 @@ cross_tests!(
       metadata.num_nodes_with_stake = 20;
 
       metadata.spinning_properties = SpinningTaskDescription {
-          // Restart all the nodes in view 13
+          // Restart all the nodes in view 10
           node_changes: vec![(10, catchup_nodes)],
       };
       metadata.view_sync_properties =
