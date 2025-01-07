@@ -103,7 +103,7 @@ pub trait Storage<TYPES: NodeType>: Send + Sync + Clone {
         self.update_undecided_state(
             leaves
                 .iter()
-                .map(|(&commitment, &ref leaf)| {
+                .map(|(&commitment, leaf)| {
                     (
                         Commitment::from_raw(commitment.into()),
                         leaf.clone().to_leaf_unsafe(),
