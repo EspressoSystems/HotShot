@@ -99,6 +99,37 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -114,6 +145,7 @@
 
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>committable::Commitment;
 <span class="kw">use </span>jf_vid::VidScheme;
 
 <span class="kw">use </span><span class="kw">super</span>::node_implementation::NodeType;
@@ -124,7 +156,7 @@
         VidDisperseShare2,
     },
     event::HotShotAction,
-    message::Proposal,
+    message::{convert_proposal, Proposal},
     simple_certificate::{
         NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, UpgradeCertificate,
     },
@@ -137,8 +169,12 @@
     <span class="doccomment">/// Add a proposal to the stored VID proposals.
     </span><span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Add a proposal to the stored VID proposals.
-    </span><span class="kw">async fn </span>append_vid2(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;)
-        -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">async fn </span>append_vid2(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.append_vid2(<span class="kw-2">&amp;</span>convert_proposal(proposal.clone())).<span class="kw">await
+    </span>}
     <span class="doccomment">/// Add a proposal to the stored DA proposals.
     </span><span class="kw">async fn </span>append_da(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -150,7 +186,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;,
         vid_commit: &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.append_da(<span class="kw-2">&amp;</span>convert_proposal(proposal.clone()), vid_commit)
+            .<span class="kw">await
+    </span>}
     <span class="doccomment">/// Add a proposal we sent to the store
     </span><span class="kw">async fn </span>append_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -160,18 +199,25 @@
     </span><span class="kw">async fn </span>append_proposal2(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.append_proposal(<span class="kw-2">&amp;</span>convert_proposal(proposal.clone()))
+            .<span class="kw">await
+    </span>}
     <span class="doccomment">/// Record a HotShotAction taken.
     </span><span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the current high QC in storage.
     </span><span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the current high QC in storage.
-    </span><span class="kw">async fn </span>update_high_qc2(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate2&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">async fn </span>update_high_qc2(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate2&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.update_high_qc(high_qc.to_qc()).<span class="kw">await
+    </span>}
     <span class="doccomment">/// Update the current high QC in storage.
     </span><span class="kw">async fn </span>update_next_epoch_high_qc2(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        next_epoch_high_qc: NextEpochQuorumCertificate2&lt;TYPES&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+        _next_epoch_high_qc: NextEpochQuorumCertificate2&lt;TYPES&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
     <span class="doccomment">/// Update the currently undecided state of consensus.  This includes the undecided leaf chain,
     /// and the undecided state.
     </span><span class="kw">async fn </span>update_undecided_state(
@@ -185,7 +231,21 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         leaves: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
         state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.update_undecided_state(
+            leaves
+                .iter()
+                .map(|(<span class="kw-2">&amp;</span>commitment, leaf)| {
+                    (
+                        Commitment::from_raw(commitment.into()),
+                        leaf.clone().to_leaf_unsafe(),
+                    )
+                })
+                .collect(),
+            state,
+        )
+        .<span class="kw">await
+    </span>}
     <span class="doccomment">/// Upgrade the current decided upgrade certificate in storage.
     </span><span class="kw">async fn </span>update_decided_upgrade_certificate(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -194,10 +254,12 @@
     <span class="doccomment">/// Migrate leaves from `Leaf` to `Leaf2`, and proposals from `QuorumProposal` to `QuorumProposal2`
     </span><span class="kw">async fn </span>migrate_consensus(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        convert_leaf: <span class="kw">fn</span>(Leaf&lt;TYPES&gt;) -&gt; Leaf2&lt;TYPES&gt;,
-        convert_proposal: <span class="kw">fn</span>(
+        _convert_leaf: <span class="kw">fn</span>(Leaf&lt;TYPES&gt;) -&gt; Leaf2&lt;TYPES&gt;,
+        _convert_proposal: <span class="kw">fn</span>(
             Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;,
         ) -&gt; Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 </code></pre></div></section></main></body></html>

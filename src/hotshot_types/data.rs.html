@@ -1585,6 +1585,20 @@
 <a href="#1585" id="1585">1585</a>
 <a href="#1586" id="1586">1586</a>
 <a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2583,6 +2597,20 @@
         // ensure!(self.parent_commitment() == parent_leaf.commit(), "The commitment of the parent leaf does not match the specified parent commitment.");
 
         </span><span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Converts a `Leaf2` to a `Leaf`. This operation is fundamentally unsafe and should not be used.
+    </span><span class="kw">pub fn </span>to_leaf_unsafe(<span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
+        <span class="kw">let </span>bytes: [u8; <span class="number">32</span>] = <span class="self">self</span>.parent_commitment.into();
+
+        Leaf {
+            view_number: <span class="self">self</span>.view_number,
+            justify_qc: <span class="self">self</span>.justify_qc.to_qc(),
+            parent_commitment: Commitment::from_raw(bytes),
+            block_header: <span class="self">self</span>.block_header,
+            upgrade_certificate: <span class="self">self</span>.upgrade_certificate,
+            block_payload: <span class="self">self</span>.block_payload,
+        }
     }
 }
 
