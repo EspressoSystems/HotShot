@@ -796,8 +796,6 @@
 <a href="#796" id="796">796</a>
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1298,7 +1296,8 @@
                     </span>.is_leaf_forming_eqc(proposal.data.justify_qc.data.leaf_commit);
 
                 <span class="kw">if </span>version &gt;= V::Epochs::VERSION &amp;&amp; is_justify_qc_forming_eqc {
-                    <span class="self">self</span>.handle_eqc_voting(proposal, parent_leaf, event_sender, event_receiver)
+                    <span class="kw">let _ </span>= <span class="self">self
+                        </span>.handle_eqc_voting(proposal, parent_leaf, event_sender, event_receiver)
                         .<span class="kw">await</span>;
                 } <span class="kw">else </span>{
                     <span class="self">self</span>.create_dependency_task_if_new(
@@ -1458,55 +1457,56 @@
         parent_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
-    ) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">"Reached end of epoch. Justify QC is for the last block in the epoch."</span>);
         <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
         <span class="kw">let </span>parent_commitment = parent_leaf.commit();
-        <span class="kw">if </span>proposed_leaf.height() != parent_leaf.height()
-            || proposed_leaf.payload_commitment() != parent_leaf.payload_commitment()
-        {
-            <span class="macro">tracing::error!</span>(<span class="string">"Justify QC is for the last block but it's not extended and a new block is proposed. Not voting!"</span>);
-            <span class="kw">return</span>;
-        }
+
+        <span class="macro">ensure!</span>(
+            proposed_leaf.height() == parent_leaf.height() &amp;&amp; proposed_leaf.payload_commitment() == parent_leaf.payload_commitment(),
+            <span class="macro">error!</span>(<span class="string">"Justify QC is for the last block but it's not extended and a new block is proposed. Not voting!"</span>)
+        );
 
         <span class="macro">tracing::info!</span>(
             <span class="string">"Reached end of epoch. Proposed leaf has the same height and payload as its parent."
         </span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
-        <span class="kw">let </span><span class="prelude-val">Some</span>(vid_shares) = consensus_writer
+
+        <span class="kw">let </span>vid_shares = consensus_writer
             .vid_shares()
             .get(<span class="kw-2">&amp;</span>parent_leaf.view_number())
-        <span class="kw">else </span>{
-            <span class="macro">tracing::warn!</span>(
+            .context(<span class="macro">warn!</span>(
                 <span class="string">"Proposed leaf is the same as its parent but we don't have our VID for it"
-            </span>);
-            <span class="kw">return</span>;
-        };
-        <span class="kw">let </span><span class="prelude-val">Some</span>(vid) = vid_shares.get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key) <span class="kw">else </span>{
-            <span class="macro">tracing::warn!</span>(
-                <span class="string">"Proposed leaf is the same as its parent but we don't have our VID for it"
-            </span>);
-            <span class="kw">return</span>;
-        };
+            </span>))<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>vid = vid_shares.get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key).context(<span class="macro">warn!</span>(
+            <span class="string">"Proposed leaf is the same as its parent but we don't have our VID for it"
+        </span>))<span class="question-mark">?</span>;
+
         <span class="kw">let </span><span class="kw-2">mut </span>updated_vid = vid.clone();
         updated_vid.data.view_number = proposal.data.view_number;
         consensus_writer.update_vid_shares(updated_vid.data.view_number, updated_vid.clone());
+
         drop(consensus_writer);
 
-        <span class="kw">if </span>proposed_leaf.parent_commitment() != parent_commitment {
-            <span class="macro">tracing::warn!</span>(<span class="string">"Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote."</span>);
-            <span class="kw">return</span>;
-        }
+        <span class="macro">ensure!</span>(
+            proposed_leaf.parent_commitment() == parent_commitment,
+            <span class="macro">warn!</span>(<span class="string">"Proposed leaf parent commitment does not match parent leaf payload commitment. Aborting vote."</span>)
+        );
+
         <span class="comment">// Update our persistent storage of the proposal. If we cannot store the proposal return
         // and error so we don't vote
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.storage.write().<span class="kw">await</span>.append_proposal2(proposal).<span class="kw">await </span>{
-            <span class="macro">tracing::error!</span>(<span class="string">"failed to store proposal, not voting.  error = {e:#}"</span>);
-            <span class="kw">return</span>;
-        }
+        </span><span class="self">self</span>.storage
+            .write()
+            .<span class="kw">await
+            </span>.append_proposal2(proposal)
+            .<span class="kw">await
+            </span>.wrap()
+            .context(|e| <span class="macro">error!</span>(<span class="string">"failed to store proposal, not voting. error = {}"</span>, e))<span class="question-mark">?</span>;
 
         <span class="comment">// Update internal state
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = update_shared_state::&lt;TYPES, I, V&gt;(
+        </span>update_shared_state::&lt;TYPES, I, V&gt;(
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus)),
             event_sender.clone(),
             event_receiver.clone().deactivate(),
@@ -1523,10 +1523,7 @@
             <span class="self">self</span>.epoch_height,
         )
         .<span class="kw">await
-        </span>{
-            <span class="macro">tracing::error!</span>(<span class="string">"Failed to update shared consensus state; error = {e:#}"</span>);
-            <span class="kw">return</span>;
-        }
+        </span>.context(|e| <span class="macro">error!</span>(<span class="string">"Failed to update shared consensus state, error = {}"</span>, e))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>current_block_number = proposed_leaf.height();
         <span class="kw">let </span>current_epoch = TYPES::Epoch::new(epoch_from_block_number(
@@ -1557,7 +1554,8 @@
             )
             .<span class="kw">await</span>;
         }
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = submit_vote::&lt;TYPES, I, V&gt;(
+
+        submit_vote::&lt;TYPES, I, V&gt;(
             event_sender.clone(),
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="self">self</span>.public_key.clone(),
@@ -1571,9 +1569,7 @@
             <span class="self">self</span>.epoch_height,
         )
         .<span class="kw">await
-        </span>{
-            <span class="macro">tracing::debug!</span>(<span class="string">"Failed to vote; error = {e:#}"</span>);
-        }
+        </span>.context(|e| <span class="macro">debug!</span>(<span class="string">"Failed to submit vote; error = {}"</span>, e))
     }
 }
 
