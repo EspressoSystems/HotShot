@@ -9,6 +9,7 @@ documentation.workspace = true
 repository.workspace = true
 
 [dependencies]
+async-lock.workspace = true
 tokio.workspace = true
 clap.workspace = true
 hotshot = { path = "../hotshot" }

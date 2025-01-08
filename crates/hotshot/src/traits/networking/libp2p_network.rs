@@ -20,6 +20,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use futures::future::join_all;
 #[cfg(feature = "hotshot-testing")]
@@ -313,7 +314,10 @@ impl<T: NodeType> TestableNetworkingImplementation<T> for Libp2pNetwork<T> {
                 }
 
                 // Create the quorum membership from the list we just made
-                let quorum_membership = T::Membership::new(all_nodes.clone(), all_nodes);
+                let quorum_membership = Arc::new(RwLock::new(T::Membership::new(
+                    all_nodes.clone(),
+                    all_nodes,
+                )));
 
                 // Create the Libp2p configuration
                 let config = Libp2pConfig::<T> {
@@ -915,13 +919,18 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
     /// So the logic with libp2p is to prefetch upcoming leaders libp2p address to
     /// save time when we later need to direct message the leader our vote. Hence the
     /// use of the future view and leader to queue the lookups.
-    async fn update_view<'a, TYPES>(&'a self, view: u64, epoch: u64, membership: &TYPES::Membership)
-    where
+    async fn update_view<'a, TYPES>(
+        &'a self,
+        view: u64,
+        epoch: u64,
+        membership: Arc<RwLock<TYPES::Membership>>,
+    ) where
         TYPES: NodeType<SignatureKey = T::SignatureKey> + 'a,
     {
         let future_view = <TYPES as NodeType>::View::new(view) + LOOK_AHEAD;
         let epoch = <TYPES as NodeType>::Epoch::new(epoch);
-        let future_leader = match membership.leader(future_view, epoch) {
+
+        let future_leader = match membership.read().await.leader(future_view, epoch) {
             Ok(l) => l,
             Err(e) => {
                 return tracing::info!(

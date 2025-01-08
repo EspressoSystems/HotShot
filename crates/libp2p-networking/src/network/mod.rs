@@ -16,8 +16,9 @@ pub mod transport;
 /// Forked `cbor` codec with altered request/response sizes
 pub mod cbor;
 
-use std::{collections::HashSet, fmt::Debug};
+use std::{collections::HashSet, fmt::Debug, sync::Arc};
 
+use async_lock::RwLock;
 use futures::channel::oneshot::Sender;
 use hotshot_types::traits::{network::NetworkError, node_implementation::NodeType};
 use libp2p::{
@@ -123,14 +124,14 @@ pub enum NetworkEvent {
 pub enum NetworkEventInternal {
     /// a DHT event
     DHTEvent(libp2p::kad::Event),
-    /// a identify event. Is boxed because this event is much larger than the other ones so we want
+    /// an identify event. Is boxed because this event is much larger than the other ones so we want
     /// to store it on the heap.
     IdentifyEvent(Box<IdentifyEvent>),
     /// a gossip  event
     GossipEvent(Box<GossipEvent>),
     /// a direct message event
     DMEvent(libp2p::request_response::Event<Vec<u8>, Vec<u8>>),
-    /// a autonat event
+    /// an autonat event
     AutonatEvent(libp2p::autonat::Event),
 }
 
@@ -148,7 +149,7 @@ type BoxedTransport = Boxed<(PeerId, StreamMuxerBox)>;
 #[instrument(skip(identity))]
 pub async fn gen_transport<T: NodeType>(
     identity: Keypair,
-    quorum_membership: Option<T::Membership>,
+    quorum_membership: Option<Arc<RwLock<T::Membership>>>,
     auth_message: Option<Vec<u8>>,
 ) -> Result<BoxedTransport, NetworkError> {
     // Create the initial `Quic` transport

@@ -52,7 +52,7 @@ pub struct QuorumProposalTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>
     pub instance_state: Arc<TYPES::InstanceState>,
 
     /// Membership for Quorum Certs/votes
-    pub quorum_membership: Arc<TYPES::Membership>,
+    pub membership: Arc<RwLock<TYPES::Membership>>,
 
     /// Our public key
     pub public_key: TYPES::SignatureKey,
@@ -267,7 +267,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
     /// without losing the data that it received, as the dependency task would otherwise have no
     /// ability to receive the event and, thus, would never propose.
     #[instrument(skip_all, fields(latest_proposed_view = *self.latest_proposed_view), name = "Create dependency task", level = "error")]
-    fn create_dependency_task_if_new(
+    async fn create_dependency_task_if_new(
         &mut self,
         view_number: TYPES::View,
         epoch_number: TYPES::Epoch,
@@ -276,17 +276,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         event: Arc<HotShotEvent<TYPES>>,
         epoch_transition_indicator: EpochTransitionIndicator,
     ) -> Result<()> {
+        let membership_reader = self.membership.read().await;
         let leader_in_current_epoch =
-            self.quorum_membership.leader(view_number, epoch_number)? == self.public_key;
+            membership_reader.leader(view_number, epoch_number)? == self.public_key;
         // If we are in the epoch transition and we are the leader in the next epoch,
         // we might want to start collecting dependencies for our next epoch proposal.
         let leader_in_next_epoch = matches!(
             epoch_transition_indicator,
             EpochTransitionIndicator::InTransition
-        ) && self
-            .quorum_membership
-            .leader(view_number, epoch_number + 1)?
+        ) && membership_reader.leader(view_number, epoch_number + 1)?
             == self.public_key;
+        drop(membership_reader);
+
         // Don't even bother making the task if we are not entitled to propose anyway.
         ensure!(
             leader_in_current_epoch || leader_in_next_epoch,
@@ -318,7 +319,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                 view_number,
                 sender: event_sender,
                 receiver: event_receiver,
-                quorum_membership: Arc::clone(&self.quorum_membership),
+                membership: Arc::clone(&self.membership),
                 public_key: self.public_key.clone(),
                 private_key: self.private_key.clone(),
                 instance_state: Arc::clone(&self.instance_state),
@@ -400,7 +401,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_sender,
                         Arc::clone(&event),
                         epoch_transition_indicator,
-                    )?;
+                    )
+                    .await?;
                 }
                 either::Left(qc) => {
                     // Only update if the qc is from a newer view
@@ -434,7 +436,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         event_sender,
                         Arc::clone(&event),
                         epoch_transition_indicator,
-                    )?;
+                    )
+                    .await?;
                 }
             },
             HotShotEvent::SendPayloadCommitmentAndMetadata(
@@ -454,21 +457,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_sender,
                     Arc::clone(&event),
                     EpochTransitionIndicator::NotInTransition,
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::ViewSyncFinalizeCertificateRecv(certificate) => {
-                // MERGE TODO
-                //
-                // HotShotEvent::ViewSyncFinalizeCertificate2Recv(certificate) => {
-                //    let cert_epoch_number = certificate.data.epoch;
-                //
-                let epoch_number = self.consensus.read().await.cur_epoch();
+                let epoch_number = certificate.data.epoch;
+
+                let membership_reader = self.membership.read().await;
+                let membership_stake_table = membership_reader.stake_table(epoch_number);
+                let membership_success_threshold =
+                    membership_reader.success_threshold(epoch_number);
+                drop(membership_reader);
 
                 ensure!(
                     certificate
                         .is_valid_cert(
-                            self.quorum_membership.stake_table(epoch_number),
-                            self.quorum_membership.success_threshold(epoch_number),
+                            membership_stake_table,
+                            membership_success_threshold,
                             &self.upgrade_lock
                         )
                         .await,
@@ -487,7 +492,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_sender,
                     event,
                     EpochTransitionIndicator::NotInTransition,
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::QuorumProposalPreliminarilyValidated(proposal) => {
                 let view_number = proposal.data.view_number();
@@ -503,7 +509,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_sender,
                     Arc::clone(&event),
                     epoch_transition_indicator,
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::QuorumProposalSend(proposal, _) => {
                 let view = proposal.data.view_number();
@@ -522,30 +529,66 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     event_sender,
                     Arc::clone(&event),
                     EpochTransitionIndicator::NotInTransition,
-                )?;
+                )
+                .await?;
             }
             HotShotEvent::ViewChange(view, epoch) => {
                 if epoch > &self.cur_epoch {
                     self.cur_epoch = *epoch;
                 }
-                self.cancel_tasks(*view);
+                let keep_view = TYPES::View::new(view.saturating_sub(1));
+                self.cancel_tasks(keep_view);
             }
             HotShotEvent::Timeout(view, ..) => {
-                self.cancel_tasks(*view);
+                let keep_view = TYPES::View::new(view.saturating_sub(1));
+                self.cancel_tasks(keep_view);
             }
             HotShotEvent::HighQcSend(qc, ..) => {
                 ensure!(qc.view_number() > self.highest_qc.view_number());
                 let cert_epoch_number = qc.data.epoch;
+
+                let membership_reader = self.membership.read().await;
+                let membership_stake_table = membership_reader.stake_table(cert_epoch_number);
+                let membership_success_threshold =
+                    membership_reader.success_threshold(cert_epoch_number);
+                drop(membership_reader);
+
                 ensure!(
                     qc.is_valid_cert(
-                        self.quorum_membership.stake_table(cert_epoch_number),
-                        self.quorum_membership.success_threshold(cert_epoch_number),
+                        membership_stake_table,
+                        membership_success_threshold,
                         &self.upgrade_lock
                     )
                     .await,
                     warn!("Quorum certificate {:?} was invalid", qc.data())
                 );
                 self.highest_qc = qc.clone();
+            }
+            HotShotEvent::NextEpochQc2Formed(Either::Left(next_epoch_qc)) => {
+                // Only update if the qc is from a newer view
+                let current_next_epoch_qc =
+                    self.consensus.read().await.next_epoch_high_qc().cloned();
+                ensure!(current_next_epoch_qc.is_none() ||
+                    next_epoch_qc.view_number > current_next_epoch_qc.unwrap().view_number,
+                    debug!("Received a next epoch QC for a view that was not > than our current next epoch high QC")
+                );
+                self.consensus
+                    .write()
+                    .await
+                    .update_next_epoch_high_qc(next_epoch_qc.clone())
+                    .wrap()
+                    .context(error!(
+                        "Failed to update next epoch high QC in internal consensus state!"
+                    ))?;
+
+                // Then update the next epoch high QC in storage
+                self.storage
+                    .write()
+                    .await
+                    .update_next_epoch_high_qc2(next_epoch_qc.clone())
+                    .await
+                    .wrap()
+                    .context(error!("Failed to update next epoch high QC in storage!"))?;
             }
             _ => {}
         }

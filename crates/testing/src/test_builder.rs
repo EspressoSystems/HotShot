@@ -7,6 +7,7 @@
 use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
 
 use anyhow::{ensure, Result};
+use async_lock::RwLock;
 use hotshot::{
     tasks::EventTransformerState,
     traits::{NetworkReliability, NodeImplementation, TestableNodeImplementation},
@@ -173,7 +174,7 @@ pub async fn create_test_handle<
     metadata: TestDescription<TYPES, I, V>,
     node_id: u64,
     network: Network<TYPES, I>,
-    memberships: TYPES::Membership,
+    memberships: Arc<RwLock<TYPES::Membership>>,
     config: HotShotConfig<TYPES::SignatureKey>,
     storage: I::Storage,
     marketplace_config: MarketplaceConfig<TYPES, I>,
@@ -376,8 +377,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
     /// by default, just a single round
     #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
-        let num_nodes_with_stake = 6;
+        let num_nodes_with_stake = 7;
         Self {
+            epoch_height: 10,
             timing_data: TimingData::default(),
             num_nodes_with_stake,
             start_nodes: num_nodes_with_stake,
@@ -408,7 +410,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             upgrade_view: None,
             start_solver: true,
             validate_transactions: Arc::new(|_| Ok(())),
-            epoch_height: 0,
         }
     }
 }
@@ -424,7 +425,7 @@ where
     /// turn a description of a test (e.g. a [`TestDescription`]) into
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
-    /// if some of the the configuration values are zero
+    /// if some of the configuration values are zero
     pub fn gen_launcher(self, node_id: u64) -> TestLauncher<TYPES, I, V> {
         self.gen_launcher_with_tasks(node_id, vec![])
     }
@@ -433,7 +434,7 @@ where
     /// a [`TestLauncher`] that can be used to launch the test, with
     /// additional testing tasks to run in test harness
     /// # Panics
-    /// if some of the the configuration values are zero
+    /// if some of the configuration values are zero
     #[must_use]
     pub fn gen_launcher_with_tasks(
         self,
@@ -445,7 +446,6 @@ where
             timing_data,
             da_staked_committee_size,
             unreliable_network,
-            epoch_height,
             ..
         } = self.clone();
 
@@ -478,7 +478,6 @@ where
             // This is the config for node 0
             0 < da_staked_committee_size,
         );
-        // let da_committee_nodes = known_nodes[0..da_committee_size].to_vec();
         let config = HotShotConfig {
             known_nodes: known_nodes_with_stake,
             // Currently making this zero for simplicity
@@ -498,7 +497,7 @@ where
             stop_proposing_time: 0,
             start_voting_time: u64::MAX,
             stop_voting_time: 0,
-            epoch_height,
+            epoch_height: self.epoch_height,
         };
         let TimingData {
             next_view_timeout,

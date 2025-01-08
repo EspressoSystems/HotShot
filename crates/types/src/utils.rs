@@ -268,9 +268,31 @@ pub fn non_crypto_hash<H: Hash>(val: H) -> u64 {
 
 /// A helper enum to indicate whether a node is in the epoch transition
 /// A node is in epoch transition when its high QC is for the last block in an epoch
+#[derive(Debug, Clone)]
 pub enum EpochTransitionIndicator {
     /// A node is currently in the epoch transition
     InTransition,
     /// A node is not in the epoch transition
     NotInTransition,
+}
+
+/// Returns true if the given block number is the last in the epoch based on the given epoch height.
+#[must_use]
+pub fn is_last_block_in_epoch(block_number: u64, epoch_height: u64) -> bool {
+    if block_number == 0 || epoch_height == 0 {
+        false
+    } else {
+        block_number % epoch_height == 0
+    }
+}
+
+/// Returns true if the given block number is the third from the last in the epoch based on the
+/// given epoch height.
+#[must_use]
+pub fn is_epoch_root(block_number: u64, epoch_height: u64) -> bool {
+    if block_number == 0 || epoch_height == 0 {
+        false
+    } else {
+        (block_number + 2) % epoch_height == 0
+    }
 }

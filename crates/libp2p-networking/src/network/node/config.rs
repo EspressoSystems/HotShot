@@ -4,8 +4,9 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
+use async_lock::RwLock;
 use hotshot_types::traits::node_implementation::NodeType;
 use libp2p::Multiaddr;
 use libp2p_identity::Keypair;
@@ -153,7 +154,7 @@ pub struct Libp2pConfig<T: NodeType> {
     pub known_peers: Vec<Multiaddr>,
 
     /// The quorum membership
-    pub quorum_membership: Option<T::Membership>,
+    pub quorum_membership: Option<Arc<RwLock<T::Membership>>>,
     /// The (signed) authentication message
     pub auth_message: Option<Vec<u8>>,
 

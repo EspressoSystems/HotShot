@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use async_lock::RwLock;
 use hotshot_types::{
     data::EpochNumber, traits::node_implementation::ConsensusTime, utils::non_crypto_hash,
 };
@@ -202,7 +203,7 @@ async fn start_consensus<
         public_key,
         private_key,
         config,
-        memberships.clone(),
+        Arc::new(RwLock::new(memberships.clone())),
         network,
         hotshot_initializer,
         ConsensusMetricsValue::default(),
