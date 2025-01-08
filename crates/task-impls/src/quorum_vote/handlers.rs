@@ -14,7 +14,7 @@ use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf2, QuorumProposal2, VidDisperseShare2},
     drb::{compute_drb_result, DrbResult},
-    event::{Event, EventType, LeafInfo},
+    event::{Event, EventType},
     message::{Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
     traits::{
@@ -270,28 +270,21 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
 
 /// Store the DRB seed two epochs in advance and the computed DRB result for next epoch.
 ///
-/// We store the DRB seed and result if the decided block is the third from the last block in the
-/// current epoch and for the former, if we are in the quorum committee of the next epoch.
+/// We store the DRB seed and result of the decided block if it's the third from the last block in
+/// the current epoch and for the former, if we are in the quorum committee of the next epoch.
 ///
 /// Special cases:
 /// * Epoch 0: No DRB computation since we'll transition to epoch 1 immediately.
 /// * Epoch 1 and 2: No computed DRB result since when we first start the computation in epoch 1,
 ///   the result is for epoch 3.
 ///
-/// We don't need to handle the special cases explicitly here, because the first proposal with
-/// which we'll start the DRB computation is for epoch 3.
+/// We don't need to handle the special cases explicitly here, because the first leaf with which
+/// we'll start the DRB computation is for epoch 3.
 async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
-    leaf_views: &[LeafInfo<TYPES>],
+    decided_leaf: &Leaf2<TYPES>,
 ) -> Result<()> {
-    // This is never none if we've reached a new decide, so this is safe to unwrap.
-    let decided_block_number = leaf_views
-        .last()
-        .unwrap()
-        .leaf
-        .block_header()
-        .block_number();
+    let decided_block_number = decided_leaf.block_header().block_number();
 
     // Skip if this is not the expected block.
     if task_state.epoch_height != 0 && is_epoch_root(decided_block_number, task_state.epoch_height)
@@ -320,7 +313,8 @@ async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>
             .has_stake(&task_state.public_key, current_epoch_number + 1)
         {
             let new_epoch_number = current_epoch_number + 2;
-            let Ok(drb_seed_input_vec) = bincode::serialize(&proposal.justify_qc.signatures) else {
+            let Ok(drb_seed_input_vec) = bincode::serialize(&decided_leaf.justify_qc().signatures)
+            else {
                 bail!("Failed to serialize the QC signature.");
             };
             let Ok(drb_seed_input) = drb_seed_input_vec.try_into() else {
@@ -462,7 +456,9 @@ pub(crate) async fn handle_quorum_proposal_validated<
         tracing::debug!("Successfully sent decide event");
 
         if version >= V::Epochs::VERSION {
-            store_drb_seed_and_result(proposal, task_state, &leaf_views).await?;
+            // `leaf_views.last()` is never none if we've reached a new decide, so this is safe to
+            // unwrap.
+            store_drb_seed_and_result(task_state, &leaf_views.last().unwrap().leaf).await?;
         }
     }
 

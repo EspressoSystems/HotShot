@@ -166,22 +166,12 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
 }
 
 /// Handles calling add_epoch_root and sync_l1 on Membership if necessary.
-async fn decide_from_proposal_add_epoch_root<TYPES: NodeType>(
-    proposal: &QuorumProposal2<TYPES>,
-    leaf_views: &[LeafInfo<TYPES>],
+async fn decide_epoch_root<TYPES: NodeType>(
+    decided_leaf: &Leaf2<TYPES>,
     epoch_height: u64,
     membership: &Arc<RwLock<TYPES::Membership>>,
 ) {
-    if leaf_views.is_empty() {
-        return;
-    }
-
-    let decided_block_number = leaf_views
-        .last()
-        .unwrap()
-        .leaf
-        .block_header()
-        .block_number();
+    let decided_block_number = decided_leaf.block_header().block_number();
 
     // Skip if this is not the expected block.
     if epoch_height != 0 && is_epoch_root(decided_block_number, epoch_height) {
@@ -191,7 +181,7 @@ async fn decide_from_proposal_add_epoch_root<TYPES: NodeType>(
         let write_callback = {
             let membership_reader = membership.read().await;
             membership_reader
-                .add_epoch_root(next_epoch_number, proposal.block_header.clone())
+                .add_epoch_root(next_epoch_number, decided_leaf.block_header().clone())
                 .await
         };
 
@@ -257,7 +247,8 @@ impl<TYPES: NodeType + Default> Default for LeafChainTraversalOutcome<TYPES> {
 /// calculate the new decided leaf chain based on the rules of HotStuff 2
 ///
 /// # Panics
-/// Can't actually panic
+/// If the leaf chain contains no decided leaf while reaching a decided view, which should be
+/// impossible.
 pub async fn decide_from_proposal_2<TYPES: NodeType>(
     proposal: &QuorumProposal2<TYPES>,
     consensus: OuterConsensus<TYPES>,
@@ -340,8 +331,14 @@ pub async fn decide_from_proposal_2<TYPES: NodeType>(
         let epoch_height = consensus_reader.epoch_height;
         drop(consensus_reader);
 
-        decide_from_proposal_add_epoch_root(proposal, &res.leaf_views, epoch_height, membership)
-            .await;
+        // `leaf_views.last()` is never none if we've reached a new decide, so this is safe to
+        // unwrap.
+        decide_epoch_root(
+            &res.leaf_views.last().unwrap().leaf,
+            epoch_height,
+            membership,
+        )
+        .await;
     }
 
     res
@@ -374,6 +371,10 @@ pub async fn decide_from_proposal_2<TYPES: NodeType>(
 ///
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
+///
+/// # Panics
+/// If the leaf chain contains no decided leaf while reaching a decided view, which should be
+/// impossible.
 pub async fn decide_from_proposal<TYPES: NodeType>(
     proposal: &QuorumProposal2<TYPES>,
     consensus: OuterConsensus<TYPES>,
@@ -496,8 +497,14 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
         let epoch_height = consensus_reader.epoch_height;
         drop(consensus_reader);
 
-        decide_from_proposal_add_epoch_root(proposal, &res.leaf_views, epoch_height, membership)
-            .await;
+        // `leaf_views.last()` is never none if we've reached a new decide, so this is safe to
+        // unwrap.
+        decide_epoch_root(
+            &res.leaf_views.last().unwrap().leaf,
+            epoch_height,
+            membership,
+        )
+        .await;
     }
 
     res
