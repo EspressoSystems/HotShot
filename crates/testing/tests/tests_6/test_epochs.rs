@@ -8,9 +8,9 @@ use std::time::Duration;
 
 use hotshot_example_types::{
     node_types::{
-        CombinedImpl, EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl,
-        TestConsecutiveLeaderTypes, TestTwoStakeTablesTypes, TestTypes, TestTypesRandomizedLeader,
-        TestVersions,
+        CombinedImpl, EpochUpgradeTestVersions, EpochsTestVersions, Libp2pImpl, MemoryImpl,
+        PushCdnImpl, TestConsecutiveLeaderTypes, TestTwoStakeTablesTypes, TestTypes,
+        TestTypesRandomizedLeader,
     },
     testable_delay::{DelayConfig, DelayOptions, DelaySettings, SupportedTraitTypesForAsyncDelay},
 };
@@ -215,5 +215,26 @@ cross_tests!(
         metadata.overall_safety_properties.num_successful_views = 1;
         metadata.overall_safety_properties.num_failed_views = 0;
         metadata
+    },
+);
+
+cross_tests!(
+    TestName: test_epoch_upgrade,
+    Impls: [MemoryImpl],
+    Types: [TestTypes, TestTypesRandomizedLeader, TestTwoStakeTablesTypes],
+    Versions: [EpochUpgradeTestVersions],
+    Ignore: true,
+    Metadata: {
+        TestDescription {
+            // allow more time to pass in CI
+            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+                                             TimeBasedCompletionTaskDescription {
+                                                 duration: Duration::from_secs(60),
+                                             },
+                                         ),
+            epoch_height: 50,
+            upgrade_view: Some(5),
+            ..TestDescription::default()
+        }
     },
 );
