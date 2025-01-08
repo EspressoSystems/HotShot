@@ -133,7 +133,7 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
 impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
     async fn append_vid(&self, proposal: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+            bail!("Failed to append VID dispersal share to storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -150,7 +150,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         proposal: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+            bail!("Failed to append VID2 dispersal share to storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -168,7 +168,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         _vid_commit: <VidSchemeType as VidScheme>::Commit,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+            bail!("Failed to append DA (Data Availability) proposal to storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -183,7 +183,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         _vid_commit: <VidSchemeType as VidScheme>::Commit,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+            bail!("Failed to append DA2 (Data Availability) proposal to storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -197,7 +197,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         proposal: &Proposal<TYPES, QuorumProposal<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+            bail!("Failed to append Quorum proposal to storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -211,7 +211,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to append VID proposal to storage");
+            bail!("Failed to append Quorum proposal 2 to storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -227,7 +227,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         action: hotshot_types::event::HotShotAction,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to append Action to storage");
+            bail!("Failed to record HotShot action in storage");
         }
         let mut inner = self.inner.write().await;
         if view > inner.action && matches!(action, HotShotAction::Vote | HotShotAction::Propose) {
@@ -242,7 +242,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         new_high_qc: hotshot_types::simple_certificate::QuorumCertificate<TYPES>,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to update high qc to storage");
+            bail!("Failed to update high Quorum Certificate in storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -261,7 +261,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         new_high_qc: hotshot_types::simple_certificate::QuorumCertificate2<TYPES>,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to update high qc to storage");
+            bail!("Failed to update high Quorum Certificate 2 in storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         let mut inner = self.inner.write().await;
@@ -300,7 +300,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         _state: BTreeMap<TYPES::View, View<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to update high qc to storage");
+            bail!("Failed to update undecided state in storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         Ok(())
@@ -311,7 +311,7 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         _state: BTreeMap<TYPES::View, View<TYPES>>,
     ) -> Result<()> {
         if self.should_return_err {
-            bail!("Failed to update high qc to storage");
+            bail!("Failed to update undecided state 2 in storage");
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         Ok(())
