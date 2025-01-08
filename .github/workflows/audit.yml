@@ -22,5 +22,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Install cargo audit
+        run: cargo install cargo-audit
+
       - name: Audit Dependencies
         run: cargo audit

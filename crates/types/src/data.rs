@@ -30,7 +30,7 @@ use utils::anytrace::*;
 use vec1::Vec1;
 
 use crate::{
-    drb::{DrbResult, DrbSeedInput, INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
+    drb::DrbResult,
     impl_has_epoch,
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -635,17 +635,12 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     pub view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
 
-    /// The DRB seed for the next epoch.
+    /// The DRB result for the next epoch.
     ///
-    /// The DRB computation using this seed was started in the previous epoch.
+    /// This is required only for the last block of the epoch. Nodes will verify that it's
+    /// consistent with the result from their computations.
     #[serde(with = "serde_bytes")]
-    pub drb_seed: DrbSeedInput,
-
-    /// The DRB result for the current epoch.
-    ///
-    /// The DRB computation with this result was started two epochs ago.
-    #[serde(with = "serde_bytes")]
-    pub drb_result: DrbResult,
+    pub next_drb_result: Option<DrbResult>,
 }
 
 impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
@@ -657,8 +652,7 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
             next_epoch_justify_qc: None,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
             view_change_evidence: quorum_proposal.proposal_certificate,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
-            drb_result: INITIAL_DRB_RESULT,
+            next_drb_result: None,
         }
     }
 }
@@ -681,7 +675,6 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
 
         Self {
             view_number: leaf.view_number,
-            epoch: TYPES::Epoch::genesis(),
             justify_qc: leaf.justify_qc.to_qc2(),
             next_epoch_justify_qc: None,
             parent_commitment: Commitment::from_raw(bytes),
@@ -689,8 +682,6 @@ impl<TYPES: NodeType> From<Leaf<TYPES>> for Leaf2<TYPES> {
             upgrade_certificate: leaf.upgrade_certificate,
             block_payload: leaf.block_payload,
             view_change_evidence: None,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
-            drb_result: INITIAL_DRB_RESULT,
         }
     }
 }
@@ -810,9 +801,6 @@ pub struct Leaf2<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     view_number: TYPES::View,
 
-    /// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    epoch: TYPES::Epoch,
-
     /// Per spec, justification
     justify_qc: QuorumCertificate2<TYPES>,
 
@@ -836,18 +824,6 @@ pub struct Leaf2<TYPES: NodeType> {
 
     /// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     pub view_change_evidence: Option<ViewChangeEvidence<TYPES>>,
-
-    /// The DRB seed for the next epoch.
-    ///
-    /// The DRB computation using this seed was started in the previous epoch.
-    #[serde(with = "serde_bytes")]
-    pub drb_seed: DrbSeedInput,
-
-    /// The DRB result for the current epoch.
-    ///
-    /// The DRB computation with this result was started two epochs ago.
-    #[serde(with = "serde_bytes")]
-    pub drb_result: DrbResult,
 }
 
 impl<TYPES: NodeType> Leaf2<TYPES> {
@@ -899,10 +875,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             upgrade_certificate: None,
             block_header: block_header.clone(),
             block_payload: Some(payload),
-            epoch: TYPES::Epoch::genesis(),
             view_change_evidence: None,
-            drb_seed: [0; 32],
-            drb_result: [0; 32],
         }
     }
     /// Time when this leaf was created.
@@ -910,8 +883,11 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         self.view_number
     }
     /// Epoch in which this leaf was created.
-    pub fn epoch(&self) -> TYPES::Epoch {
-        self.epoch
+    pub fn epoch(&self, epoch_height: u64) -> TYPES::Epoch {
+        TYPES::Epoch::new(epoch_from_block_number(
+            self.block_header.block_number(),
+            epoch_height,
+        ))
     }
     /// Height of this leaf in the chain.
     ///
@@ -1021,6 +997,20 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
         Ok(())
     }
+
+    /// Converts a `Leaf2` to a `Leaf`. This operation is fundamentally unsafe and should not be used.
+    pub fn to_leaf_unsafe(self) -> Leaf<TYPES> {
+        let bytes: [u8; 32] = self.parent_commitment.into();
+
+        Leaf {
+            view_number: self.view_number,
+            justify_qc: self.justify_qc.to_qc(),
+            parent_commitment: Commitment::from_raw(bytes),
+            block_header: self.block_header,
+            upgrade_certificate: self.upgrade_certificate,
+            block_payload: self.block_payload,
+        }
+    }
 }
 
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
@@ -1060,7 +1050,6 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
     fn eq(&self, other: &Self) -> bool {
         let Leaf2 {
             view_number,
-            epoch,
             justify_qc,
             next_epoch_justify_qc,
             parent_commitment,
@@ -1068,20 +1057,15 @@ impl<TYPES: NodeType> PartialEq for Leaf2<TYPES> {
             upgrade_certificate,
             block_payload: _,
             view_change_evidence,
-            drb_seed,
-            drb_result,
         } = self;
 
         *view_number == other.view_number
-            && *epoch == other.epoch
             && *justify_qc == other.justify_qc
             && *next_epoch_justify_qc == other.next_epoch_justify_qc
             && *parent_commitment == other.parent_commitment
             && *block_header == other.block_header
             && *upgrade_certificate == other.upgrade_certificate
             && *view_change_evidence == other.view_change_evidence
-            && *drb_seed == other.drb_seed
-            && *drb_result == other.drb_result
     }
 }
 
@@ -1445,16 +1429,11 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             block_header,
             upgrade_certificate,
             view_change_evidence,
-            drb_seed,
-            drb_result,
+            next_drb_result: _,
         } = quorum_proposal;
 
         Self {
             view_number: *view_number,
-            epoch: TYPES::Epoch::new(epoch_from_block_number(
-                quorum_proposal.block_header.block_number(),
-                TYPES::EPOCH_HEIGHT,
-            )),
             justify_qc: justify_qc.clone(),
             next_epoch_justify_qc: next_epoch_justify_qc.clone(),
             parent_commitment: justify_qc.data().leaf_commit,
@@ -1462,8 +1441,6 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: None,
             view_change_evidence: view_change_evidence.clone(),
-            drb_seed: *drb_seed,
-            drb_result: *drb_result,
         }
     }
 }
