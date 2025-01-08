@@ -17,6 +17,7 @@ use std::{
     time::Duration,
 };
 
+use async_lock::RwLock;
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 use futures::{future::join_all, Future};
@@ -144,7 +145,7 @@ pub enum RequestKind<TYPES: NodeType> {
 }
 
 /// A response for a request.  `SequencingMessage` is the same as other network messages
-/// The kind of message `M` is is determined by what we requested
+/// The kind of message `M` is determined by what we requested
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 #[allow(clippy::large_enum_variant)]
@@ -262,7 +263,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
         &'a self,
         _view: u64,
         _epoch: u64,
-        _membership: &TYPES::Membership,
+        _membership: Arc<RwLock<TYPES::Membership>>,
     ) where
         TYPES: NodeType<SignatureKey = K> + 'a,
     {

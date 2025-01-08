@@ -12,17 +12,10 @@ use std::{
 use async_trait::async_trait;
 use chrono::Utc;
 use hotshot_task_impls::{
-    builder::BuilderClient,
-    consensus::ConsensusTaskState,
-    da::DaTaskState,
-    quorum_proposal::QuorumProposalTaskState,
-    quorum_proposal_recv::QuorumProposalRecvTaskState,
-    quorum_vote::{drb_computations::DrbComputations, QuorumVoteTaskState},
-    request::NetworkRequestState,
-    rewind::RewindTaskState,
-    transactions::TransactionTaskState,
-    upgrade::UpgradeTaskState,
-    vid::VidTaskState,
+    builder::BuilderClient, consensus::ConsensusTaskState, da::DaTaskState,
+    quorum_proposal::QuorumProposalTaskState, quorum_proposal_recv::QuorumProposalRecvTaskState,
+    quorum_vote::QuorumVoteTaskState, request::NetworkRequestState, rewind::RewindTaskState,
+    transactions::TransactionTaskState, upgrade::UpgradeTaskState, vid::VidTaskState,
     view_sync::ViewSyncTaskState,
 };
 use hotshot_types::{
@@ -58,12 +51,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             view: handle.cur_view().await,
             delay: handle.hotshot.config.data_request_delay,
-            membership: (*handle.hotshot.memberships).clone(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
             spawned_tasks: BTreeMap::new(),
+            epoch_height: handle.epoch_height,
         }
     }
 }
@@ -78,7 +72,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             cur_view: handle.cur_view().await,
             cur_epoch: handle.cur_epoch().await,
-            quorum_membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             vote_collectors: BTreeMap::default(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
@@ -99,7 +93,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             cur_view: handle.cur_view().await,
             cur_epoch: handle.cur_epoch().await,
-            membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             network: Arc::clone(&handle.hotshot.network),
             vote_collector: None.into(),
             public_key: handle.public_key().clone(),
@@ -128,10 +122,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             cur_view: handle.cur_view().await,
             cur_epoch: handle.cur_epoch().await,
             network: Arc::clone(&handle.hotshot.network),
-            membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             id: handle.hotshot.id,
+            epoch_height: handle.epoch_height,
         }
     }
 }
@@ -144,7 +139,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
         Self {
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
-            membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             network: Arc::clone(&handle.hotshot.network),
             cur_view: handle.cur_view().await,
             cur_epoch: handle.cur_epoch().await,
@@ -169,7 +164,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             cur_view,
             next_view: cur_view,
             cur_epoch: handle.cur_epoch().await,
-            membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             num_timeouts_tracked: 0,
@@ -196,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             consensus: OuterConsensus::new(handle.hotshot.consensus()),
             cur_view: handle.cur_view().await,
             cur_epoch: handle.cur_epoch().await,
-            membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             instance_state: handle.hotshot.instance_state(),
@@ -218,6 +213,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
                 .marketplace_config
                 .fallback_builder_url
                 .clone(),
+            epoch_height: handle.epoch_height,
         }
     }
 }
@@ -240,8 +236,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             latest_voted_view: handle.cur_view().await,
             vote_dependencies: BTreeMap::new(),
             network: Arc::clone(&handle.hotshot.network),
-            membership: (*handle.hotshot.memberships).clone().into(),
-            drb_computations: DrbComputations::new(),
+            membership: Arc::clone(&handle.hotshot.memberships),
+            drb_computation: None,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
@@ -261,10 +257,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
 
         Self {
             latest_proposed_view: handle.cur_view().await,
+            cur_epoch: handle.cur_epoch().await,
             proposal_dependencies: BTreeMap::new(),
             consensus: OuterConsensus::new(consensus),
             instance_state: handle.hotshot.instance_state(),
-            quorum_membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             storage: Arc::clone(&handle.storage),
@@ -291,7 +288,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             consensus: OuterConsensus::new(consensus),
             cur_view: handle.cur_view().await,
             cur_epoch: handle.cur_epoch().await,
-            quorum_membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             timeout: handle.hotshot.config.next_view_timeout,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             storage: Arc::clone(&handle.storage),
@@ -315,8 +312,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             private_key: handle.private_key().clone(),
             instance_state: handle.hotshot.instance_state(),
             network: Arc::clone(&handle.hotshot.network),
-            membership: (*handle.hotshot.memberships).clone().into(),
+            membership: Arc::clone(&handle.hotshot.memberships),
             vote_collectors: BTreeMap::default(),
+            next_epoch_vote_collectors: BTreeMap::default(),
             timeout_vote_collectors: BTreeMap::default(),
             cur_view: handle.cur_view().await,
             cur_view_time: Utc::now().timestamp(),

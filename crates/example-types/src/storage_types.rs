@@ -16,10 +16,11 @@ use hotshot_types::{
     consensus::CommitmentMap,
     data::{
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
+        VidDisperseShare2,
     },
     event::HotShotAction,
     message::Proposal,
-    simple_certificate::{QuorumCertificate2, UpgradeCertificate},
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
         node_implementation::{ConsensusTime, NodeType},
         storage::Storage,
@@ -36,15 +37,23 @@ type VidShares<TYPES> = HashMap<
     <TYPES as NodeType>::View,
     HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
+type VidShares2<TYPES> = HashMap<
+    <TYPES as NodeType>::View,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare2<TYPES>>>,
+>;
+
 #[derive(Clone, Debug)]
 pub struct TestStorageState<TYPES: NodeType> {
     vids: VidShares<TYPES>,
+    vid2: VidShares2<TYPES>,
     das: HashMap<TYPES::View, Proposal<TYPES, DaProposal<TYPES>>>,
     da2s: HashMap<TYPES::View, Proposal<TYPES, DaProposal2<TYPES>>>,
     proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
     proposals2: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
     high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
     high_qc2: Option<hotshot_types::simple_certificate::QuorumCertificate2<TYPES>>,
+    next_epoch_high_qc2:
+        Option<hotshot_types::simple_certificate::NextEpochQuorumCertificate2<TYPES>>,
     action: TYPES::View,
     epoch: TYPES::Epoch,
 }
@@ -53,11 +62,13 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
     fn default() -> Self {
         Self {
             vids: HashMap::new(),
+            vid2: HashMap::new(),
             das: HashMap::new(),
             da2s: HashMap::new(),
             proposals: BTreeMap::new(),
             proposals2: BTreeMap::new(),
             high_qc: None,
+            next_epoch_high_qc2: None,
             high_qc2: None,
             action: TYPES::View::genesis(),
             epoch: TYPES::Epoch::genesis(),
@@ -104,6 +115,9 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
     pub async fn high_qc_cloned(&self) -> Option<QuorumCertificate2<TYPES>> {
         self.inner.read().await.high_qc2.clone()
     }
+    pub async fn next_epoch_high_qc_cloned(&self) -> Option<NextEpochQuorumCertificate2<TYPES>> {
+        self.inner.read().await.next_epoch_high_qc2.clone()
+    }
     pub async fn decided_upgrade_certificate(&self) -> Option<UpgradeCertificate<TYPES>> {
         self.decided_upgrade_certificate.read().await.clone()
     }
@@ -125,6 +139,23 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         let mut inner = self.inner.write().await;
         inner
             .vids
+            .entry(proposal.data.view_number)
+            .or_default()
+            .insert(proposal.data.recipient_key.clone(), proposal.clone());
+        Ok(())
+    }
+
+    async fn append_vid2(
+        &self,
+        proposal: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to append VID proposal to storage");
+        }
+        Self::run_delay_settings_from_config(&self.delay_config).await;
+        let mut inner = self.inner.write().await;
+        inner
+            .vid2
             .entry(proposal.data.view_number)
             .or_default()
             .insert(proposal.data.recipient_key.clone(), proposal.clone());
@@ -240,6 +271,26 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
             }
         } else {
             inner.high_qc2 = Some(new_high_qc);
+        }
+        Ok(())
+    }
+    async fn update_next_epoch_high_qc2(
+        &self,
+        new_next_epoch_high_qc: hotshot_types::simple_certificate::NextEpochQuorumCertificate2<
+            TYPES,
+        >,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to update next epoch high qc to storage");
+        }
+        Self::run_delay_settings_from_config(&self.delay_config).await;
+        let mut inner = self.inner.write().await;
+        if let Some(ref current_next_epoch_high_qc) = inner.next_epoch_high_qc2 {
+            if new_next_epoch_high_qc.view_number() > current_next_epoch_high_qc.view_number() {
+                inner.next_epoch_high_qc2 = Some(new_next_epoch_high_qc);
+            }
+        } else {
+            inner.next_epoch_high_qc2 = Some(new_next_epoch_high_qc);
         }
         Ok(())
     }

@@ -133,7 +133,7 @@ This second window should now display task usage.
 
 To view distributed logs with just the centralized server and one client, first edit the `centralized_server/orchestrator` file to include have a threshold and num_nodes of 1.
 
-Then open 3 terminals.
+Then open three separate terminals.
 
 ```bash
 # Terminal 1
@@ -188,7 +188,7 @@ This will output:
 
 # Debugging
 
-A debugging config file is provided for vscode and vscodium in [`.vscode/launch.json`](https://github.com/EspressoSystems/HotShot/blob/main/.cargo/config). This is intended to be used with [vadimcn/vscode-lldb](https://open-vsx.org/extension/vadimcn/vscode-lldb) but may work with other rust debuggers as well.
+A debugging config file is provided for vscode and vscodium in [`.vscode/launch.json`](https://github.com/EspressoSystems/HotShot/blob/main/.vscode/launch.json). This is intended to be used with [vadimcn/vscode-lldb](https://open-vsx.org/extension/vadimcn/vscode-lldb) but may work with other rust debuggers as well.
 
 To bring `lldb` into scope with nix, run `nix develop .#debugShell`.
 

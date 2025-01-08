@@ -69,7 +69,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub network: Arc<I::Network>,
 
     /// Memberships used by consensus
-    pub memberships: Arc<TYPES::Membership>,
+    pub memberships: Arc<RwLock<TYPES::Membership>>,
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
@@ -140,7 +140,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     pub fn request_proposal(
         &self,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
         leaf_commitment: Commitment<Leaf2<TYPES>>,
     ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal2<TYPES>>>>>
     {
@@ -157,9 +156,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             signed_proposal_request.commit().as_ref(),
         )?;
 
-        let mem = (*self.memberships).clone();
+        let mem = Arc::clone(&self.memberships);
         let receiver = self.internal_event_stream.1.activate_cloned();
         let sender = self.internal_event_stream.0.clone();
+        let epoch_height = self.epoch_height;
         Ok(async move {
             // First, broadcast that we need a proposal
             broadcast_event(
@@ -187,10 +187,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     // Make sure that the quorum_proposal is valid
-                    if let Err(err) = quorum_proposal.validate_signature(&mem, epoch) {
+                    let mem_reader = mem.read().await;
+                    if let Err(err) = quorum_proposal.validate_signature(&mem_reader, epoch_height)
+                    {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }
+                    drop(mem_reader);
                     let proposed_leaf = Leaf2::from_quorum_proposal(&quorum_proposal.data);
                     let commit = proposed_leaf.commit();
                     if commit == leaf_commitment {
@@ -286,7 +289,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.hotshot.consensus()
     }
 
-    /// Shut down the the inner hotshot and wait until all background threads are closed.
+    /// Shut down the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(&mut self) {
         // this is required because `SystemContextHandle` holds an inactive receiver and
         // `broadcast_direct` below can wait indefinitely
@@ -326,6 +329,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     ) -> Result<TYPES::SignatureKey> {
         self.hotshot
             .memberships
+            .read()
+            .await
             .leader(view_number, epoch_number)
             .context("Failed to lookup leader")
     }

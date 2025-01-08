@@ -10,12 +10,13 @@ use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
     event::{Event, EventType},
-    simple_vote::{QuorumVote2, TimeoutData, TimeoutVote},
+    simple_vote::{HasEpoch, QuorumVote2, TimeoutData2, TimeoutVote2},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
-    vote::HasViewNumber,
+    utils::EpochTransitionIndicator,
+    vote::{HasViewNumber, Vote},
 };
 use tokio::{spawn, time::sleep};
 use tracing::instrument;
@@ -39,36 +40,65 @@ pub(crate) async fn handle_quorum_vote_recv<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
-    let is_vote_leaf_extended = task_state
+    let in_transition = task_state
         .consensus
         .read()
         .await
-        .is_leaf_extended(vote.data.leaf_commit);
+        .is_high_qc_for_last_block();
     let we_are_leader = task_state
         .membership
-        .leader(vote.view_number() + 1, task_state.cur_epoch)?
+        .read()
+        .await
+        .leader(vote.view_number() + 1, vote.data.epoch)?
         == task_state.public_key;
     ensure!(
-        is_vote_leaf_extended || we_are_leader,
+        in_transition || we_are_leader,
         info!(
-            "We are not the leader for view {:?} and this is not the last vote for eQC",
+            "We are not the leader for view {:?} and we are not in the epoch transition",
             vote.view_number() + 1
         )
     );
 
+    let transition_indicator = if in_transition {
+        EpochTransitionIndicator::InTransition
+    } else {
+        EpochTransitionIndicator::NotInTransition
+    };
     handle_vote(
         &mut task_state.vote_collectors,
         vote,
         task_state.public_key.clone(),
         &task_state.membership,
-        task_state.cur_epoch,
+        vote.data.epoch,
         task_state.id,
         &event,
         sender,
         &task_state.upgrade_lock,
-        !is_vote_leaf_extended,
+        transition_indicator.clone(),
     )
     .await?;
+
+    // If the vote sender belongs to the next epoch, collect it separately to form the second QC
+    let has_stake = task_state
+        .membership
+        .read()
+        .await
+        .has_stake(&vote.signing_key(), vote.epoch() + 1);
+    if has_stake {
+        handle_vote(
+            &mut task_state.next_epoch_vote_collectors,
+            &vote.clone().into(),
+            task_state.public_key.clone(),
+            &task_state.membership,
+            vote.data.epoch,
+            task_state.id,
+            &event,
+            sender,
+            &task_state.upgrade_lock,
+            transition_indicator,
+        )
+        .await?;
+    }
 
     Ok(())
 }
@@ -79,7 +109,7 @@ pub(crate) async fn handle_timeout_vote_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    vote: &TimeoutVote<TYPES>,
+    vote: &TimeoutVote2<TYPES>,
     event: Arc<HotShotEvent<TYPES>>,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
@@ -88,6 +118,8 @@ pub(crate) async fn handle_timeout_vote_recv<
     ensure!(
         task_state
             .membership
+            .read()
+            .await
             .leader(vote.view_number() + 1, task_state.cur_epoch)?
             == task_state.public_key,
         info!(
@@ -101,12 +133,12 @@ pub(crate) async fn handle_timeout_vote_recv<
         vote,
         task_state.public_key.clone(),
         &task_state.membership,
-        task_state.cur_epoch,
+        vote.data.epoch,
         task_state.id,
         &event,
         sender,
         &task_state.upgrade_lock,
-        true,
+        EpochTransitionIndicator::NotInTransition,
     )
     .await?;
 
@@ -132,6 +164,8 @@ pub async fn send_high_qc<TYPES: NodeType, V: Versions, I: NodeImplementation<TY
     let high_qc = task_state.consensus.read().await.high_qc().clone();
     let leader = task_state
         .membership
+        .read()
+        .await
         .leader(new_view_number, TYPES::Epoch::new(0))?;
     broadcast_event(
         Arc::new(HotShotEvent::HighQcSend(
@@ -159,6 +193,11 @@ pub(crate) async fn handle_view_change<
 ) -> Result<()> {
     if epoch_number > task_state.cur_epoch {
         task_state.cur_epoch = epoch_number;
+        let _ = task_state
+            .consensus
+            .write()
+            .await
+            .update_epoch(epoch_number);
         tracing::info!("Progress: entered epoch {:>6}", *epoch_number);
     }
 
@@ -214,7 +253,10 @@ pub(crate) async fn handle_view_change<
         async move {
             sleep(Duration::from_millis(timeout)).await;
             broadcast_event(
-                Arc::new(HotShotEvent::Timeout(TYPES::View::new(*view_number))),
+                Arc::new(HotShotEvent::Timeout(
+                    TYPES::View::new(*view_number),
+                    epoch_number,
+                )),
                 &stream,
             )
             .await;
@@ -224,17 +266,19 @@ pub(crate) async fn handle_view_change<
     // Cancel the old timeout task
     std::mem::replace(&mut task_state.timeout_task, new_timeout_task).abort();
 
+    let old_view_leader_key = task_state
+        .membership
+        .read()
+        .await
+        .leader(old_view_number, task_state.cur_epoch)?;
+
     let consensus_reader = task_state.consensus.read().await;
     consensus_reader
         .metrics
         .current_view
         .set(usize::try_from(task_state.cur_view.u64()).unwrap());
     let cur_view_time = Utc::now().timestamp();
-    if task_state
-        .membership
-        .leader(old_view_number, task_state.cur_epoch)?
-        == task_state.public_key
-    {
+    if old_view_leader_key == task_state.public_key {
         #[allow(clippy::cast_precision_loss)]
         consensus_reader
             .metrics
@@ -274,6 +318,7 @@ pub(crate) async fn handle_view_change<
 #[instrument(skip_all)]
 pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     view_number: TYPES::View,
+    epoch: TYPES::Epoch,
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
@@ -285,15 +330,20 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     ensure!(
         task_state
             .membership
-            .has_stake(&task_state.public_key, task_state.cur_epoch),
+            .read()
+            .await
+            .has_stake(&task_state.public_key, epoch),
         debug!(
             "We were not chosen for the consensus committee for view {:?}",
             view_number
         )
     );
 
-    let vote = TimeoutVote::create_signed_vote(
-        TimeoutData::<TYPES> { view: view_number },
+    let vote = TimeoutVote2::create_signed_vote(
+        TimeoutData2::<TYPES> {
+            view: view_number,
+            epoch,
+        },
         view_number,
         &task_state.public_key,
         &task_state.private_key,
@@ -327,25 +377,16 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    task_state
-        .consensus
+    let leader = task_state
+        .membership
         .read()
         .await
-        .metrics
-        .number_of_timeouts
-        .add(1);
-    if task_state
-        .membership
-        .leader(view_number, task_state.cur_epoch)?
-        == task_state.public_key
-    {
-        task_state
-            .consensus
-            .read()
-            .await
-            .metrics
-            .number_of_timeouts_as_leader
-            .add(1);
+        .leader(view_number, task_state.cur_epoch);
+
+    let consensus_reader = task_state.consensus.read().await;
+    consensus_reader.metrics.number_of_timeouts.add(1);
+    if leader? == task_state.public_key {
+        consensus_reader.metrics.number_of_timeouts_as_leader.add(1);
     }
 
     Ok(())

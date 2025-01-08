@@ -12,6 +12,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use async_lock::RwLock;
 use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
@@ -22,25 +23,23 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal2, EpochNumber, Leaf, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
         ViewChangeEvidence, ViewNumber,
     },
-    drb::{INITIAL_DRB_RESULT, INITIAL_DRB_SEED_INPUT},
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
-        UpgradeCertificate, ViewSyncFinalizeCertificate,
+        DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
+        ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData, TimeoutVote, UpgradeProposalData,
-        UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData2, TimeoutVote2,
+        UpgradeProposalData, UpgradeVote, ViewSyncFinalizeData2, ViewSyncFinalizeVote2,
     },
     traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType},
         BlockPayload,
     },
-    utils::epoch_from_block_number,
 };
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
@@ -56,10 +55,10 @@ pub struct TestView {
     pub leaf: Leaf2<TestTypes>,
     pub view_number: ViewNumber,
     pub epoch_number: EpochNumber,
-    pub membership: <TestTypes as NodeType>::Membership,
+    pub membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>,
     pub vid_disperse: Proposal<TestTypes, VidDisperse<TestTypes>>,
     pub vid_proposal: (
-        Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
+        Vec<Proposal<TestTypes, VidDisperseShare2<TestTypes>>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
@@ -67,13 +66,13 @@ pub struct TestView {
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
     formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
-    view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
-    timeout_cert_data: Option<TimeoutData<TestTypes>>,
+    view_sync_finalize_data: Option<ViewSyncFinalizeData2<TestTypes>>,
+    timeout_cert_data: Option<TimeoutData2<TestTypes>>,
     upgrade_lock: UpgradeLock<TestTypes, TestVersions>,
 }
 
 impl TestView {
-    pub async fn genesis(membership: &<TestTypes as NodeType>::Membership) -> Self {
+    pub async fn genesis(membership: &Arc<RwLock<<TestTypes as NodeType>::Membership>>) -> Self {
         let genesis_view = ViewNumber::new(1);
         let genesis_epoch = EpochNumber::new(0);
         let upgrade_lock = UpgradeLock::new();
@@ -99,7 +98,8 @@ impl TestView {
         let leader_public_key = public_key;
 
         let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), genesis_epoch);
+            da_payload_commitment::<TestTypes>(membership, transactions.clone(), genesis_epoch)
+                .await;
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             membership,
@@ -107,7 +107,8 @@ impl TestView {
             genesis_epoch,
             transactions.clone(),
             &private_key,
-        );
+        )
+        .await;
 
         let da_certificate = build_da_certificate(
             membership,
@@ -121,12 +122,11 @@ impl TestView {
         .await;
 
         let block_header = TestBlockHeader::new(
-            &Leaf::<TestTypes>::genesis(
+            &Leaf2::<TestTypes>::genesis(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await
-            .into(),
+            .await,
             payload_commitment,
             builder_commitment,
             metadata,
@@ -135,16 +135,15 @@ impl TestView {
         let quorum_proposal_inner = QuorumProposal2::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis::<TestVersions>(
+            justify_qc: QuorumCertificate2::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
-            .await
-            .to_qc2(),
+            .await,
+            next_epoch_justify_qc: None,
             upgrade_certificate: None,
             view_change_evidence: None,
-            drb_result: INITIAL_DRB_RESULT,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
+            next_drb_result: None,
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -157,7 +156,7 @@ impl TestView {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
-            epoch_number: genesis_epoch,
+            epoch: genesis_epoch,
         };
 
         let da_proposal = Proposal {
@@ -208,6 +207,7 @@ impl TestView {
     pub async fn next_view_from_ancestor(&self, ancestor: TestView) -> Self {
         let old = ancestor;
         let old_view = old.view_number;
+        let old_epoch = old.epoch_number;
 
         // This ensures that we're always moving forward in time since someone could pass in any
         // test view here.
@@ -219,7 +219,7 @@ impl TestView {
 
         let quorum_data = QuorumData2 {
             leaf_commit: old.leaf.commit(),
-            epoch: EpochNumber::new(0),
+            epoch: old_epoch,
         };
 
         let (old_private_key, old_public_key) = key_pair_for_id::<TestTypes>(*old_view);
@@ -242,7 +242,8 @@ impl TestView {
         );
 
         let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), self.epoch_number);
+            da_payload_commitment::<TestTypes>(membership, transactions.clone(), self.epoch_number)
+                .await;
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
             membership,
@@ -250,7 +251,8 @@ impl TestView {
             self.epoch_number,
             transactions.clone(),
             &private_key,
-        );
+        )
+        .await;
 
         let da_certificate = build_da_certificate::<TestTypes, TestVersions>(
             membership,
@@ -307,9 +309,9 @@ impl TestView {
             let cert = build_cert::<
                 TestTypes,
                 TestVersions,
-                ViewSyncFinalizeData<TestTypes>,
-                ViewSyncFinalizeVote<TestTypes>,
-                ViewSyncFinalizeCertificate<TestTypes>,
+                ViewSyncFinalizeData2<TestTypes>,
+                ViewSyncFinalizeVote2<TestTypes>,
+                ViewSyncFinalizeCertificate2<TestTypes>,
             >(
                 data.clone(),
                 membership,
@@ -330,9 +332,9 @@ impl TestView {
             let cert = build_cert::<
                 TestTypes,
                 TestVersions,
-                TimeoutData<TestTypes>,
-                TimeoutVote<TestTypes>,
-                TimeoutCertificate<TestTypes>,
+                TimeoutData2<TestTypes>,
+                TimeoutVote2<TestTypes>,
+                TimeoutCertificate2<TestTypes>,
             >(
                 data.clone(),
                 membership,
@@ -370,10 +372,10 @@ impl TestView {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
+            next_epoch_justify_qc: None,
             upgrade_certificate: upgrade_certificate.clone(),
             view_change_evidence,
-            drb_result: INITIAL_DRB_RESULT,
-            drb_seed: INITIAL_DRB_SEED_INPUT,
+            next_drb_result: None,
         };
 
         let mut leaf = Leaf2::from_quorum_proposal(&proposal);
@@ -400,7 +402,7 @@ impl TestView {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: next_view,
-            epoch_number: self.epoch_number,
+            epoch: old_epoch,
         };
 
         let da_proposal = Proposal {
@@ -446,10 +448,7 @@ impl TestView {
         QuorumVote2::<TestTypes>::create_signed_vote(
             QuorumData2 {
                 leaf_commit: self.leaf.commit(),
-                epoch: EpochNumber::new(epoch_from_block_number(
-                    self.leaf.height(),
-                    handle.hotshot.config.epoch_height,
-                )),
+                epoch: self.epoch_number,
             },
             self.view_number,
             &handle.public_key(),
@@ -495,11 +494,11 @@ impl TestView {
 
 pub struct TestViewGenerator {
     pub current_view: Option<TestView>,
-    pub membership: <TestTypes as NodeType>::Membership,
+    pub membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>,
 }
 
 impl TestViewGenerator {
-    pub fn generate(membership: <TestTypes as NodeType>::Membership) -> Self {
+    pub fn generate(membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>) -> Self {
         TestViewGenerator {
             current_view: None,
             membership,
@@ -530,7 +529,7 @@ impl TestViewGenerator {
 
     pub fn add_view_sync_finalize(
         &mut self,
-        view_sync_finalize_data: ViewSyncFinalizeData<TestTypes>,
+        view_sync_finalize_data: ViewSyncFinalizeData2<TestTypes>,
     ) {
         if let Some(ref view) = self.current_view {
             self.current_view = Some(TestView {
@@ -542,7 +541,7 @@ impl TestViewGenerator {
         }
     }
 
-    pub fn add_timeout(&mut self, timeout_data: TimeoutData<TestTypes>) {
+    pub fn add_timeout(&mut self, timeout_data: TimeoutData2<TestTypes>) {
         if let Some(ref view) = self.current_view {
             self.current_view = Some(TestView {
                 timeout_cert_data: Some(timeout_data),
@@ -579,13 +578,13 @@ impl Stream for TestViewGenerator {
     type Item = TestView;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mem = &self.membership.clone();
+        let mem = Arc::clone(&self.membership);
         let curr_view = &self.current_view.clone();
 
         let mut fut = if let Some(ref view) = curr_view {
             async move { TestView::next_view(view).await }.boxed()
         } else {
-            async move { TestView::genesis(mem).await }.boxed()
+            async move { TestView::genesis(&mem).await }.boxed()
         };
 
         match fut.as_mut().poll(cx) {

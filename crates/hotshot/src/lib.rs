@@ -49,10 +49,10 @@ pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
     consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
-    data::{Leaf, Leaf2, QuorumProposal, QuorumProposal2},
+    data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
     message::{convert_proposal, DataMessage, Message, MessageKind, Proposal},
-    simple_certificate::{QuorumCertificate, QuorumCertificate2, UpgradeCertificate},
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -63,15 +63,16 @@ use hotshot_types::{
         storage::Storage,
         EncodeBytes,
     },
+    utils::epoch_from_block_number,
     HotShotConfig,
 };
-// -- Rexports
-// External
 /// Reexport rand crate
 pub use rand;
 use tokio::{spawn, time::sleep};
 use tracing::{debug, instrument, trace};
 
+// -- Rexports
+// External
 use crate::{
     tasks::{add_consensus_tasks, add_network_tasks},
     traits::NodeImplementation,
@@ -107,7 +108,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     pub network: Arc<I::Network>,
 
     /// Memberships used by consensus
-    pub memberships: Arc<TYPES::Membership>,
+    pub memberships: Arc<RwLock<TYPES::Membership>>,
 
     /// the metrics that the implementor is using.
     metrics: Arc<ConsensusMetricsValue>,
@@ -198,7 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
-        memberships: TYPES::Membership,
+        memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
@@ -251,7 +252,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
-        memberships: TYPES::Membership,
+        memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
@@ -291,6 +292,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             )),
         };
 
+        let epoch = TYPES::Epoch::new(epoch_from_block_number(
+            anchored_leaf.height(),
+            config.epoch_height,
+        ));
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -300,6 +305,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                     leaf: anchored_leaf.commit(),
                     state: Arc::clone(&validated_state),
                     delta: initializer.state_delta.clone(),
+                    epoch,
                 },
             },
         );
@@ -338,6 +344,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             saved_leaves,
             saved_payloads,
             initializer.high_qc,
+            initializer.next_epoch_high_qc,
             Arc::clone(&consensus_metrics),
             config.epoch_height,
         );
@@ -358,7 +365,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             start_view: initializer.start_view,
             start_epoch: initializer.start_epoch,
             network,
-            memberships: Arc::new(memberships),
+            memberships,
             metrics: Arc::clone(&consensus_metrics),
             internal_event_stream: (internal_tx, internal_rx.deactivate()),
             output_event_stream: (external_tx.clone(), external_rx.clone().deactivate()),
@@ -403,6 +410,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         let event_stream = self.internal_event_stream.0.clone();
         let next_view_timeout = self.config.next_view_timeout;
         let start_view = self.start_view;
+        let start_epoch = self.start_epoch;
 
         // Spawn a task that will sleep for the next view timeout and then send a timeout event
         // if not cancelled
@@ -410,7 +418,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             async move {
                 sleep(Duration::from_millis(next_view_timeout)).await;
                 broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(start_view + 1)),
+                    Arc::new(HotShotEvent::Timeout(start_view + 1, start_epoch + 1)),
                     &event_stream,
                 )
                 .await;
@@ -438,9 +446,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                     TYPES::ValidatedState::genesis(&self.instance_state);
 
                 let qc = Arc::new(
-                    QuorumCertificate::genesis::<V>(&validated_state, self.instance_state.as_ref())
-                        .await
-                        .to_qc2(),
+                    QuorumCertificate2::genesis::<V>(
+                        &validated_state,
+                        self.instance_state.as_ref(),
+                    )
+                    .await,
                 );
 
                 broadcast_event(
@@ -483,7 +493,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         trace!("Adding transaction to our own queue");
 
         let api = self.clone();
-        let view_number = api.consensus.read().await.cur_view();
+
+        let consensus_reader = api.consensus.read().await;
+        let view_number = consensus_reader.cur_view();
+        let epoch = consensus_reader.cur_epoch();
+        drop(consensus_reader);
 
         // Wrap up a message
         let message_kind: DataMessage<TYPES> =
@@ -498,6 +512,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         })?;
 
         spawn(async move {
+            let memberships_da_committee_members = api
+                .memberships
+                .read()
+                .await
+                .da_committee_members(view_number, epoch)
+                .iter()
+                .cloned()
+                .collect();
+
             join! {
                 // TODO We should have a function that can return a network error if there is one
                 // but first we'd need to ensure our network implementations can support that
@@ -509,7 +532,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
                 api
                     .network.da_broadcast_message(
                         serialized_message,
-                        api.memberships.da_committee_members(view_number, TYPES::Epoch::new(1)).iter().cloned().collect(),
+                        memberships_da_committee_members,
                         BroadcastDelay::None,
                     ),
                 api
@@ -594,7 +617,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
-        memberships: TYPES::Membership,
+        memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
@@ -757,7 +780,7 @@ where
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
-        memberships: TYPES::Membership,
+        memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
@@ -773,7 +796,7 @@ where
             private_key.clone(),
             nonce,
             config.clone(),
-            memberships.clone(),
+            Arc::clone(&memberships),
             Arc::clone(&network),
             initializer.clone(),
             metrics.clone(),
@@ -991,6 +1014,8 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     high_qc: QuorumCertificate2<TYPES>,
+    /// Next epoch highest QC that was seen. This is needed to propose during epoch transition after restart.
+    next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
     /// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     /// Undecided leaves that were seen, but not yet decided on.  These allow a restarting node
@@ -1010,14 +1035,10 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         instance_state: TYPES::InstanceState,
     ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
-        let high_qc = QuorumCertificate::genesis::<V>(&validated_state, &instance_state)
-            .await
-            .to_qc2();
+        let high_qc = QuorumCertificate2::genesis::<V>(&validated_state, &instance_state).await;
 
         Ok(Self {
-            inner: Leaf::genesis(&validated_state, &instance_state)
-                .await
-                .into(),
+            inner: Leaf2::genesis(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::View::new(0),
@@ -1025,6 +1046,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             actioned_view: TYPES::View::new(0),
             saved_proposals: BTreeMap::new(),
             high_qc,
+            next_epoch_high_qc: None,
             decided_upgrade_certificate: None,
             undecided_leaves: Vec::new(),
             undecided_state: BTreeMap::new(),
@@ -1049,6 +1071,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         actioned_view: TYPES::View,
         saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
         high_qc: QuorumCertificate2<TYPES>,
+        next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
         undecided_leaves: Vec<Leaf2<TYPES>>,
         undecided_state: BTreeMap<TYPES::View, View<TYPES>>,
@@ -1063,6 +1086,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             actioned_view,
             saved_proposals,
             high_qc,
+            next_epoch_high_qc,
             decided_upgrade_certificate,
             undecided_leaves,
             undecided_state,
