@@ -406,7 +406,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
 
     let mut consensus_writer = task_state.consensus.write().await;
     if let Some(locked_view_number) = new_locked_view_number {
-        let _ = consensus_writer.update_locked_view(locked_view_number);
+        consensus_writer.update_locked_view(locked_view_number)?;
     }
 
     #[allow(clippy::cast_precision_loss)]
