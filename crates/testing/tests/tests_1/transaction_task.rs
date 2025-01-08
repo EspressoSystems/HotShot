@@ -39,10 +39,16 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
         EpochNumber::new(1),
     ));
     input.push(HotShotEvent::Shutdown);
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
 
-    let (_, precompute_data) =
-        precompute_vid_commitment(&[], quorum_membership.total_nodes(EpochNumber::new(0)));
+    let (_, precompute_data) = precompute_vid_commitment(
+        &[],
+        handle
+            .hotshot
+            .memberships
+            .read()
+            .await
+            .total_nodes(EpochNumber::new(0)),
+    );
 
     // current view
     let mut exp_packed_bundle = PackedBundle::new(
@@ -51,9 +57,15 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
             num_transactions: 0,
         },
         current_view,
+        EpochNumber::new(1),
         vec1::vec1![
             null_block::builder_fee::<TestConsecutiveLeaderTypes, TestVersions>(
-                quorum_membership.total_nodes(EpochNumber::new(0)),
+                handle
+                    .hotshot
+                    .memberships
+                    .read()
+                    .await
+                    .total_nodes(EpochNumber::new(0)),
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(4),
             )

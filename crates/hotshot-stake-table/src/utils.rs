@@ -7,7 +7,7 @@
 //! Utilities to help building a stake table.
 
 use ark_ff::{Field, PrimeField};
-use ethereum_types::U256;
+use primitive_types::U256;
 
 /// A trait that converts into a field element.
 pub trait ToFields<F: Field> {

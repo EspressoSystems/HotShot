@@ -4,10 +4,18 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
+use std::marker::PhantomData;
+
+pub use hotshot::traits::election::helpers::{
+    RandomOverlapQuorumFilterConfig, StableQuorumFilterConfig,
+};
 use hotshot::traits::{
     election::{
-        randomized_committee::RandomizedCommittee, static_committee::StaticCommittee,
+        helpers::QuorumFilterConfig, randomized_committee::RandomizedCommittee,
+        randomized_committee_members::RandomizedCommitteeMembers,
+        static_committee::StaticCommittee,
         static_committee_leader_two_views::StaticCommitteeLeaderForTwoViews,
+        two_static_committees::TwoStaticCommittees,
     },
     implementations::{CombinedNetworks, Libp2pNetwork, MemoryNetwork, PushCdnNetwork},
     NodeImplementation,
@@ -102,6 +110,40 @@ impl NodeType for TestTypesRandomizedLeader {
 )]
 /// filler struct to implement node type and allow us
 /// to select our traits
+pub struct TestTypesRandomizedCommitteeMembers<CONFIG: QuorumFilterConfig> {
+    _pd: PhantomData<CONFIG>,
+}
+
+impl<CONFIG: QuorumFilterConfig> NodeType for TestTypesRandomizedCommitteeMembers<CONFIG> {
+    type AuctionResult = TestAuctionResult;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
+    type BlockHeader = TestBlockHeader;
+    type BlockPayload = TestBlockPayload;
+    type SignatureKey = BLSPubKey;
+    type Transaction = TestTransaction;
+    type ValidatedState = TestValidatedState;
+    type InstanceState = TestInstanceState;
+    type Membership =
+        RandomizedCommitteeMembers<TestTypesRandomizedCommitteeMembers<CONFIG>, CONFIG>;
+    type BuilderSignatureKey = BuilderKey;
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+/// filler struct to implement node type and allow us
+/// to select our traits
 pub struct TestConsecutiveLeaderTypes;
 impl NodeType for TestConsecutiveLeaderTypes {
     type AuctionResult = TestAuctionResult;
@@ -114,6 +156,36 @@ impl NodeType for TestConsecutiveLeaderTypes {
     type ValidatedState = TestValidatedState;
     type InstanceState = TestInstanceState;
     type Membership = StaticCommitteeLeaderForTwoViews<TestConsecutiveLeaderTypes>;
+    type BuilderSignatureKey = BuilderKey;
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+/// filler struct to implement node type and allow us
+/// to select our traits
+pub struct TestTwoStakeTablesTypes;
+impl NodeType for TestTwoStakeTablesTypes {
+    type AuctionResult = TestAuctionResult;
+    type View = ViewNumber;
+    type Epoch = EpochNumber;
+    type BlockHeader = TestBlockHeader;
+    type BlockPayload = TestBlockPayload;
+    type SignatureKey = BLSPubKey;
+    type Transaction = TestTransaction;
+    type ValidatedState = TestValidatedState;
+    type InstanceState = TestInstanceState;
+    type Membership = TwoStaticCommittees<TestTwoStakeTablesTypes>;
     type BuilderSignatureKey = BuilderKey;
 }
 
@@ -133,7 +205,7 @@ pub struct Libp2pImpl;
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct WebImpl;
 
-/// Combined Network implementation (libp2p + web sever)
+/// Combined Network implementation (libp2p + web server)
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub struct CombinedImpl;
 
@@ -232,7 +304,10 @@ impl Versions for EpochsTestVersions {
 mod tests {
     use committable::{Commitment, Committable};
     use hotshot_types::{
-        message::UpgradeLock, simple_vote::VersionedVoteData,
+        data::EpochNumber,
+        impl_has_epoch,
+        message::UpgradeLock,
+        simple_vote::{HasEpoch, VersionedVoteData},
         traits::node_implementation::ConsensusTime,
     };
     use serde::{Deserialize, Serialize};
@@ -240,11 +315,12 @@ mod tests {
     use crate::node_types::{MarketplaceTestVersions, NodeType, TestTypes};
     #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Hash, Eq)]
     /// Dummy data used for test
-    struct TestData {
+    struct TestData<TYPES: NodeType> {
         data: u64,
+        epoch: TYPES::Epoch,
     }
 
-    impl Committable for TestData {
+    impl<TYPES: NodeType> Committable for TestData<TYPES> {
         fn commit(&self) -> Commitment<Self> {
             committable::RawCommitmentBuilder::new("Test data")
                 .u64(self.data)
@@ -252,32 +328,35 @@ mod tests {
         }
     }
 
+    impl_has_epoch!(TestData<TYPES>);
+
     #[tokio::test(flavor = "multi_thread")]
     /// Test that the view number affects the commitment post-marketplace
     async fn test_versioned_commitment_includes_view() {
         let upgrade_lock = UpgradeLock::new();
 
-        let data = TestData { data: 10 };
+        let data = TestData {
+            data: 10,
+            epoch: EpochNumber::new(0),
+        };
 
         let view_0 = <TestTypes as NodeType>::View::new(0);
         let view_1 = <TestTypes as NodeType>::View::new(1);
 
-        let versioned_data_0 =
-            VersionedVoteData::<TestTypes, TestData, MarketplaceTestVersions>::new(
-                data,
-                view_0,
-                &upgrade_lock,
-            )
-            .await
-            .unwrap();
-        let versioned_data_1 =
-            VersionedVoteData::<TestTypes, TestData, MarketplaceTestVersions>::new(
-                data,
-                view_1,
-                &upgrade_lock,
-            )
-            .await
-            .unwrap();
+        let versioned_data_0 = VersionedVoteData::<
+            TestTypes,
+            TestData<TestTypes>,
+            MarketplaceTestVersions,
+        >::new(data, view_0, &upgrade_lock)
+        .await
+        .unwrap();
+        let versioned_data_1 = VersionedVoteData::<
+            TestTypes,
+            TestData<TestTypes>,
+            MarketplaceTestVersions,
+        >::new(data, view_1, &upgrade_lock)
+        .await
+        .unwrap();
 
         let versioned_data_commitment_0: [u8; 32] = versioned_data_0.commit().into();
         let versioned_data_commitment_1: [u8; 32] = versioned_data_1.commit().into();

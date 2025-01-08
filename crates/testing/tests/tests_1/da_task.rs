@@ -23,7 +23,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{null_block, EpochNumber, PackedBundle, ViewNumber},
-    simple_vote::DaData,
+    simple_vote::DaData2,
     traits::{
         block_contents::precompute_vid_commitment,
         election::Membership,
@@ -39,8 +39,8 @@ async fn test_da_task() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
@@ -51,11 +51,12 @@ async fn test_da_task() {
         handle
             .hotshot
             .memberships
-            .quorum_membership
+            .read()
+            .await
             .total_nodes(EpochNumber::new(0)),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -67,8 +68,14 @@ async fn test_da_task() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData2 {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -80,8 +87,14 @@ async fn test_da_task() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData2 {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -89,16 +102,17 @@ async fn test_da_task() {
 
     let inputs = vec![
         serial![
-            ViewChange(ViewNumber::new(1), EpochNumber::new(1)),
-            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(1), EpochNumber::new(0)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
                     num_transactions: transactions.len() as u64
                 },
                 ViewNumber::new(2),
+                EpochNumber::new(0),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )
@@ -139,8 +153,7 @@ async fn test_da_task_storage_failure() {
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
@@ -151,11 +164,12 @@ async fn test_da_task_storage_failure() {
         handle
             .hotshot
             .memberships
-            .quorum_membership
+            .read()
+            .await
             .total_nodes(EpochNumber::new(0)),
     );
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -167,8 +181,14 @@ async fn test_da_task_storage_failure() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData2 {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -180,8 +200,14 @@ async fn test_da_task_storage_failure() {
         proposals.push(view.da_proposal.clone());
         leaders.push(view.leader_public_key);
         votes.push(
-            view.create_da_vote(DaData { payload_commit }, &handle)
-                .await,
+            view.create_da_vote(
+                DaData2 {
+                    payload_commit,
+                    epoch: view.da_proposal.data.epoch,
+                },
+                &handle,
+            )
+            .await,
         );
         dacs.push(view.da_certificate.clone());
         vids.push(view.vid_proposal.clone());
@@ -189,16 +215,17 @@ async fn test_da_task_storage_failure() {
 
     let inputs = vec![
         serial![
-            ViewChange(ViewNumber::new(1), EpochNumber::new(1)),
-            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(1), EpochNumber::new(0)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
                     num_transactions: transactions.len() as u64
                 },
                 ViewNumber::new(2),
+                EpochNumber::new(0),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )

@@ -11,12 +11,13 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::{DaProposal, Leaf, QuorumProposal, UpgradeProposal, VidDisperseShare},
+    data::{DaProposal2, Leaf2, QuorumProposal2, UpgradeProposal, VidDisperseShare2},
     error::HotShotError,
     message::Proposal,
-    simple_certificate::QuorumCertificate,
+    simple_certificate::QuorumCertificate2,
     traits::{node_implementation::NodeType, ValidatedState},
 };
+
 /// A status event emitted by a `HotShot` instance
 ///
 /// This includes some metadata, such as the stage and view number that the event was generated in,
@@ -35,22 +36,22 @@ pub struct Event<TYPES: NodeType> {
 #[serde(bound(deserialize = "TYPES: NodeType"))]
 pub struct LeafInfo<TYPES: NodeType> {
     /// Decided leaf.
-    pub leaf: Leaf<TYPES>,
+    pub leaf: Leaf2<TYPES>,
     /// Validated state.
     pub state: Arc<<TYPES as NodeType>::ValidatedState>,
     /// Optional application-specific state delta.
     pub delta: Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
     /// Optional VID share data.
-    pub vid_share: Option<VidDisperseShare<TYPES>>,
+    pub vid_share: Option<VidDisperseShare2<TYPES>>,
 }
 
 impl<TYPES: NodeType> LeafInfo<TYPES> {
     /// Constructor.
     pub fn new(
-        leaf: Leaf<TYPES>,
+        leaf: Leaf2<TYPES>,
         state: Arc<<TYPES as NodeType>::ValidatedState>,
         delta: Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
-        vid_share: Option<VidDisperseShare<TYPES>>,
+        vid_share: Option<VidDisperseShare2<TYPES>>,
     ) -> Self {
         Self {
             leaf,
@@ -100,6 +101,7 @@ pub mod error_adaptor {
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound(deserialize = "TYPES: NodeType"))]
+#[allow(clippy::large_enum_variant)]
 pub enum EventType<TYPES: NodeType> {
     /// A view encountered an error and was interrupted
     Error {
@@ -109,7 +111,7 @@ pub enum EventType<TYPES: NodeType> {
     },
     /// A new decision event was issued
     Decide {
-        /// The chain of Leafs that were committed by this decision
+        /// The chain of Leaves that were committed by this decision
         ///
         /// This list is sorted in reverse view number order, with the newest (highest view number)
         /// block first in the list.
@@ -121,7 +123,7 @@ pub enum EventType<TYPES: NodeType> {
         ///
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
         /// before it using
-        qc: Arc<QuorumCertificate<TYPES>>,
+        qc: Arc<QuorumCertificate2<TYPES>>,
         /// Optional information of the number of transactions in the block, for logging purposes.
         block_size: Option<u64>,
     },
@@ -150,7 +152,7 @@ pub enum EventType<TYPES: NodeType> {
     /// or submitted to the network by us
     DaProposal {
         /// Contents of the proposal
-        proposal: Proposal<TYPES, DaProposal<TYPES>>,
+        proposal: Proposal<TYPES, DaProposal2<TYPES>>,
         /// Public key of the leader submitting the proposal
         sender: TYPES::SignatureKey,
     },
@@ -158,7 +160,7 @@ pub enum EventType<TYPES: NodeType> {
     /// or submitted to the network by us
     QuorumProposal {
         /// Contents of the proposal
-        proposal: Proposal<TYPES, QuorumProposal<TYPES>>,
+        proposal: Proposal<TYPES, QuorumProposal2<TYPES>>,
         /// Public key of the leader submitting the proposal
         sender: TYPES::SignatureKey,
     },

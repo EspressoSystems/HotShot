@@ -12,6 +12,8 @@ use std::{
     task::{Context, Poll},
 };
 
+use async_lock::RwLock;
+use committable::Committable;
 use futures::{FutureExt, Stream};
 use hotshot::types::{BLSPubKey, SignatureKey, SystemContextHandle};
 use hotshot_example_types::{
@@ -21,17 +23,17 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal, EpochNumber, Leaf, QuorumProposal, VidDisperse, VidDisperseShare,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
         ViewChangeEvidence, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
-        DaCertificate, QuorumCertificate, TimeoutCertificate, UpgradeCertificate,
+        DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
     },
     simple_vote::{
-        DaData, DaVote, QuorumData, QuorumVote, TimeoutData, TimeoutVote, UpgradeProposalData,
-        UpgradeVote, ViewSyncFinalizeData, ViewSyncFinalizeVote,
+        DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData2, TimeoutVote2,
+        UpgradeProposalData, UpgradeVote, ViewSyncFinalizeData2, ViewSyncFinalizeVote2,
     },
     traits::{
         consensus_api::ConsensusApi,
@@ -48,35 +50,31 @@ use crate::helpers::{
 
 #[derive(Clone)]
 pub struct TestView {
-    pub da_proposal: Proposal<TestTypes, DaProposal<TestTypes>>,
-    pub quorum_proposal: Proposal<TestTypes, QuorumProposal<TestTypes>>,
-    pub leaf: Leaf<TestTypes>,
+    pub da_proposal: Proposal<TestTypes, DaProposal2<TestTypes>>,
+    pub quorum_proposal: Proposal<TestTypes, QuorumProposal2<TestTypes>>,
+    pub leaf: Leaf2<TestTypes>,
     pub view_number: ViewNumber,
     pub epoch_number: EpochNumber,
-    pub quorum_membership: <TestTypes as NodeType>::Membership,
-    pub da_membership: <TestTypes as NodeType>::Membership,
+    pub membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>,
     pub vid_disperse: Proposal<TestTypes, VidDisperse<TestTypes>>,
     pub vid_proposal: (
-        Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
+        Vec<Proposal<TestTypes, VidDisperseShare2<TestTypes>>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
-    pub da_certificate: DaCertificate<TestTypes>,
+    pub da_certificate: DaCertificate2<TestTypes>,
     pub transactions: Vec<TestTransaction>,
     upgrade_data: Option<UpgradeProposalData<TestTypes>>,
     formed_upgrade_certificate: Option<UpgradeCertificate<TestTypes>>,
-    view_sync_finalize_data: Option<ViewSyncFinalizeData<TestTypes>>,
-    timeout_cert_data: Option<TimeoutData<TestTypes>>,
+    view_sync_finalize_data: Option<ViewSyncFinalizeData2<TestTypes>>,
+    timeout_cert_data: Option<TimeoutData2<TestTypes>>,
     upgrade_lock: UpgradeLock<TestTypes, TestVersions>,
 }
 
 impl TestView {
-    pub async fn genesis(
-        quorum_membership: &<TestTypes as NodeType>::Membership,
-        da_membership: &<TestTypes as NodeType>::Membership,
-    ) -> Self {
+    pub async fn genesis(membership: &Arc<RwLock<<TestTypes as NodeType>::Membership>>) -> Self {
         let genesis_view = ViewNumber::new(1);
-        let genesis_epoch = EpochNumber::new(1);
+        let genesis_epoch = EpochNumber::new(0);
         let upgrade_lock = UpgradeLock::new();
 
         let transactions = Vec::new();
@@ -99,23 +97,21 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let payload_commitment = da_payload_commitment::<TestTypes>(
-            quorum_membership,
-            transactions.clone(),
-            genesis_epoch,
-        );
+        let payload_commitment =
+            da_payload_commitment::<TestTypes>(membership, transactions.clone(), genesis_epoch)
+                .await;
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
-            quorum_membership,
+            membership,
             genesis_view,
             genesis_epoch,
             transactions.clone(),
             &private_key,
-        );
+        )
+        .await;
 
         let da_certificate = build_da_certificate(
-            quorum_membership,
-            da_membership,
+            membership,
             genesis_view,
             genesis_epoch,
             transactions.clone(),
@@ -126,7 +122,7 @@ impl TestView {
         .await;
 
         let block_header = TestBlockHeader::new(
-            &Leaf::<TestTypes>::genesis(
+            &Leaf2::<TestTypes>::genesis(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
@@ -136,16 +132,18 @@ impl TestView {
             metadata,
         );
 
-        let quorum_proposal_inner = QuorumProposal::<TestTypes> {
+        let quorum_proposal_inner = QuorumProposal2::<TestTypes> {
             block_header: block_header.clone(),
             view_number: genesis_view,
-            justify_qc: QuorumCertificate::genesis::<TestVersions>(
+            justify_qc: QuorumCertificate2::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
             .await,
+            next_epoch_justify_qc: None,
             upgrade_certificate: None,
-            proposal_certificate: None,
+            view_change_evidence: None,
+            next_drb_result: None,
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -154,10 +152,11 @@ impl TestView {
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
                 .expect("Failed to sign block payload");
 
-        let da_proposal_inner = DaProposal::<TestTypes> {
+        let da_proposal_inner = DaProposal2::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: genesis_view,
+            epoch: genesis_epoch,
         };
 
         let da_proposal = Proposal {
@@ -166,16 +165,13 @@ impl TestView {
             _pd: PhantomData,
         };
 
-        let mut leaf = Leaf::from_quorum_proposal(&quorum_proposal_inner);
+        let mut leaf = Leaf2::from_quorum_proposal(&quorum_proposal_inner);
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
 
-        let signature = <BLSPubKey as SignatureKey>::sign(
-            &private_key,
-            leaf.commit(&upgrade_lock).await.as_ref(),
-        )
-        .expect("Failed to sign leaf commitment!");
+        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
+            .expect("Failed to sign leaf commitment!");
 
         let quorum_proposal = Proposal {
             data: quorum_proposal_inner,
@@ -188,8 +184,7 @@ impl TestView {
             leaf,
             view_number: genesis_view,
             epoch_number: genesis_epoch,
-            quorum_membership: quorum_membership.clone(),
-            da_membership: da_membership.clone(),
+            membership: membership.clone(),
             vid_disperse,
             vid_proposal: (vid_proposal, public_key),
             da_certificate,
@@ -212,18 +207,19 @@ impl TestView {
     pub async fn next_view_from_ancestor(&self, ancestor: TestView) -> Self {
         let old = ancestor;
         let old_view = old.view_number;
+        let old_epoch = old.epoch_number;
 
         // This ensures that we're always moving forward in time since someone could pass in any
         // test view here.
         let next_view = max(old_view, self.view_number) + 1;
 
-        let quorum_membership = &self.quorum_membership;
-        let da_membership = &self.da_membership;
+        let membership = &self.membership;
 
         let transactions = &self.transactions;
 
-        let quorum_data = QuorumData {
-            leaf_commit: old.leaf.commit(&self.upgrade_lock).await,
+        let quorum_data = QuorumData2 {
+            leaf_commit: old.leaf.commit(),
+            epoch: old_epoch,
         };
 
         let (old_private_key, old_public_key) = key_pair_for_id::<TestTypes>(*old_view);
@@ -245,23 +241,21 @@ impl TestView {
             &metadata,
         );
 
-        let payload_commitment = da_payload_commitment::<TestTypes>(
-            quorum_membership,
-            transactions.clone(),
-            self.epoch_number,
-        );
+        let payload_commitment =
+            da_payload_commitment::<TestTypes>(membership, transactions.clone(), self.epoch_number)
+                .await;
 
         let (vid_disperse, vid_proposal) = build_vid_proposal(
-            quorum_membership,
+            membership,
             next_view,
             self.epoch_number,
             transactions.clone(),
             &private_key,
-        );
+        )
+        .await;
 
         let da_certificate = build_da_certificate::<TestTypes, TestVersions>(
-            quorum_membership,
-            da_membership,
+            membership,
             next_view,
             self.epoch_number,
             transactions.clone(),
@@ -274,12 +268,12 @@ impl TestView {
         let quorum_certificate = build_cert::<
             TestTypes,
             TestVersions,
-            QuorumData<TestTypes>,
-            QuorumVote<TestTypes>,
-            QuorumCertificate<TestTypes>,
+            QuorumData2<TestTypes>,
+            QuorumVote2<TestTypes>,
+            QuorumCertificate2<TestTypes>,
         >(
             quorum_data,
-            quorum_membership,
+            membership,
             old_view,
             self.epoch_number,
             &old_public_key,
@@ -297,7 +291,7 @@ impl TestView {
                 UpgradeCertificate<TestTypes>,
             >(
                 data.clone(),
-                quorum_membership,
+                membership,
                 next_view,
                 self.epoch_number,
                 &public_key,
@@ -315,12 +309,12 @@ impl TestView {
             let cert = build_cert::<
                 TestTypes,
                 TestVersions,
-                ViewSyncFinalizeData<TestTypes>,
-                ViewSyncFinalizeVote<TestTypes>,
+                ViewSyncFinalizeData2<TestTypes>,
+                ViewSyncFinalizeVote2<TestTypes>,
                 ViewSyncFinalizeCertificate2<TestTypes>,
             >(
                 data.clone(),
-                quorum_membership,
+                membership,
                 next_view,
                 self.epoch_number,
                 &public_key,
@@ -338,12 +332,12 @@ impl TestView {
             let cert = build_cert::<
                 TestTypes,
                 TestVersions,
-                TimeoutData<TestTypes>,
-                TimeoutVote<TestTypes>,
-                TimeoutCertificate<TestTypes>,
+                TimeoutData2<TestTypes>,
+                TimeoutVote2<TestTypes>,
+                TimeoutCertificate2<TestTypes>,
             >(
                 data.clone(),
-                quorum_membership,
+                membership,
                 next_view,
                 self.epoch_number,
                 &public_key,
@@ -357,7 +351,7 @@ impl TestView {
             None
         };
 
-        let proposal_certificate = if let Some(tc) = timeout_certificate {
+        let view_change_evidence = if let Some(tc) = timeout_certificate {
             Some(ViewChangeEvidence::Timeout(tc))
         } else {
             view_sync_certificate.map(ViewChangeEvidence::ViewSync)
@@ -374,24 +368,23 @@ impl TestView {
             random,
         };
 
-        let proposal = QuorumProposal::<TestTypes> {
+        let proposal = QuorumProposal2::<TestTypes> {
             block_header: block_header.clone(),
             view_number: next_view,
             justify_qc: quorum_certificate.clone(),
+            next_epoch_justify_qc: None,
             upgrade_certificate: upgrade_certificate.clone(),
-            proposal_certificate,
+            view_change_evidence,
+            next_drb_result: None,
         };
 
-        let mut leaf = Leaf::from_quorum_proposal(&proposal);
+        let mut leaf = Leaf2::from_quorum_proposal(&proposal);
         leaf.fill_block_payload_unchecked(TestBlockPayload {
             transactions: transactions.clone(),
         });
 
-        let signature = <BLSPubKey as SignatureKey>::sign(
-            &private_key,
-            leaf.commit(&self.upgrade_lock).await.as_ref(),
-        )
-        .expect("Failed to sign leaf commitment.");
+        let signature = <BLSPubKey as SignatureKey>::sign(&private_key, leaf.commit().as_ref())
+            .expect("Failed to sign leaf commitment.");
 
         let quorum_proposal = Proposal {
             data: proposal,
@@ -405,10 +398,11 @@ impl TestView {
             <TestTypes as NodeType>::SignatureKey::sign(&private_key, &encoded_transactions_hash)
                 .expect("Failed to sign block payload");
 
-        let da_proposal_inner = DaProposal::<TestTypes> {
+        let da_proposal_inner = DaProposal2::<TestTypes> {
             encoded_transactions: encoded_transactions.clone(),
             metadata,
             view_number: next_view,
+            epoch: old_epoch,
         };
 
         let da_proposal = Proposal {
@@ -424,8 +418,7 @@ impl TestView {
             leaf,
             view_number: next_view,
             epoch_number: self.epoch_number,
-            quorum_membership: quorum_membership.clone(),
-            da_membership: self.da_membership.clone(),
+            membership: self.membership.clone(),
             vid_disperse,
             vid_proposal: (vid_proposal, public_key),
             da_certificate,
@@ -451,10 +444,11 @@ impl TestView {
     pub async fn create_quorum_vote(
         &self,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
-    ) -> QuorumVote<TestTypes> {
-        QuorumVote::<TestTypes>::create_signed_vote(
-            QuorumData {
-                leaf_commit: self.leaf.commit(&handle.hotshot.upgrade_lock).await,
+    ) -> QuorumVote2<TestTypes> {
+        QuorumVote2::<TestTypes>::create_signed_vote(
+            QuorumData2 {
+                leaf_commit: self.leaf.commit(),
+                epoch: self.epoch_number,
             },
             self.view_number,
             &handle.public_key(),
@@ -483,10 +477,10 @@ impl TestView {
 
     pub async fn create_da_vote(
         &self,
-        data: DaData,
+        data: DaData2<TestTypes>,
         handle: &SystemContextHandle<TestTypes, MemoryImpl, TestVersions>,
-    ) -> DaVote<TestTypes> {
-        DaVote::create_signed_vote(
+    ) -> DaVote2<TestTypes> {
+        DaVote2::create_signed_vote(
             data,
             self.view_number,
             &handle.public_key(),
@@ -500,19 +494,14 @@ impl TestView {
 
 pub struct TestViewGenerator {
     pub current_view: Option<TestView>,
-    pub quorum_membership: <TestTypes as NodeType>::Membership,
-    pub da_membership: <TestTypes as NodeType>::Membership,
+    pub membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>,
 }
 
 impl TestViewGenerator {
-    pub fn generate(
-        quorum_membership: <TestTypes as NodeType>::Membership,
-        da_membership: <TestTypes as NodeType>::Membership,
-    ) -> Self {
+    pub fn generate(membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>) -> Self {
         TestViewGenerator {
             current_view: None,
-            quorum_membership,
-            da_membership,
+            membership,
         }
     }
 
@@ -540,7 +529,7 @@ impl TestViewGenerator {
 
     pub fn add_view_sync_finalize(
         &mut self,
-        view_sync_finalize_data: ViewSyncFinalizeData<TestTypes>,
+        view_sync_finalize_data: ViewSyncFinalizeData2<TestTypes>,
     ) {
         if let Some(ref view) = self.current_view {
             self.current_view = Some(TestView {
@@ -552,7 +541,7 @@ impl TestViewGenerator {
         }
     }
 
-    pub fn add_timeout(&mut self, timeout_data: TimeoutData<TestTypes>) {
+    pub fn add_timeout(&mut self, timeout_data: TimeoutData2<TestTypes>) {
         if let Some(ref view) = self.current_view {
             self.current_view = Some(TestView {
                 timeout_cert_data: Some(timeout_data),
@@ -576,7 +565,7 @@ impl TestViewGenerator {
         }
     }
 
-    pub async fn next_from_anscestor_view(&mut self, ancestor: TestView) {
+    pub async fn next_from_ancestor_view(&mut self, ancestor: TestView) {
         if let Some(ref view) = self.current_view {
             self.current_view = Some(view.next_view_from_ancestor(ancestor).await)
         } else {
@@ -589,14 +578,13 @@ impl Stream for TestViewGenerator {
     type Item = TestView;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let qm = &self.quorum_membership.clone();
-        let da = &self.da_membership.clone();
+        let mem = Arc::clone(&self.membership);
         let curr_view = &self.current_view.clone();
 
         let mut fut = if let Some(ref view) = curr_view {
             async move { TestView::next_view(view).await }.boxed()
         } else {
-            async move { TestView::genesis(qm, da).await }.boxed()
+            async move { TestView::genesis(&mem).await }.boxed()
         };
 
         match fut.as_mut().poll(cx) {

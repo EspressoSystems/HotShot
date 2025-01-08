@@ -26,9 +26,9 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     constants::EVENT_CHANNEL_SIZE,
-    data::Leaf,
+    data::Leaf2,
     event::Event,
-    simple_certificate::QuorumCertificate,
+    simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -43,7 +43,7 @@ use crate::{
     test_task::{TestResult, TestTaskState},
 };
 
-/// convience type for state and block
+/// convenience type for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
 /// Spinning task state
@@ -62,9 +62,11 @@ pub struct SpinningTask<
     /// most recent view seen by spinning task
     pub(crate) latest_view: Option<TYPES::View>,
     /// Last decided leaf that can be used as the anchor leaf to initialize the node.
-    pub(crate) last_decided_leaf: Leaf<TYPES>,
+    pub(crate) last_decided_leaf: Leaf2<TYPES>,
     /// Highest qc seen in the test for restarting nodes
-    pub(crate) high_qc: QuorumCertificate<TYPES>,
+    pub(crate) high_qc: QuorumCertificate2<TYPES>,
+    /// Next epoch highest qc seen in the test for restarting nodes
+    pub(crate) next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
     /// Add specified delay to async calls
     pub(crate) async_delay_config: DelayConfig,
     /// Context stored for nodes to be restarted with
@@ -160,6 +162,7 @@ where
                                             TYPES::View::genesis(),
                                             BTreeMap::new(),
                                             self.high_qc.clone(),
+                                            self.next_epoch_high_qc.clone(),
                                             None,
                                             Vec::new(),
                                             BTreeMap::new(),
@@ -225,11 +228,11 @@ where
                                     context: LateNodeContext::Restart,
                                 }) = self.late_start.get(&node_id)
                                 else {
-                                    panic!("Restarted Nodes must have an unitialized context");
+                                    panic!("Restarted Nodes must have an uninitialized context");
                                 };
 
                                 let storage = node.handle.storage().clone();
-                                let memberships = node.handle.memberships.clone();
+                                let memberships = Arc::clone(&node.handle.memberships);
                                 let config = node.handle.hotshot.config.clone();
                                 let marketplace_config =
                                     node.handle.hotshot.marketplace_config.clone();
@@ -243,12 +246,13 @@ where
                                     read_storage.last_actioned_view().await,
                                     read_storage.proposals_cloned().await,
                                     read_storage.high_qc_cloned().await.unwrap_or(
-                                        QuorumCertificate::genesis::<V>(
+                                        QuorumCertificate2::genesis::<V>(
                                             &TestValidatedState::default(),
                                             &TestInstanceState::default(),
                                         )
                                         .await,
                                     ),
+                                    read_storage.next_epoch_high_qc_cloned().await,
                                     read_storage.decided_upgrade_certificate().await,
                                     Vec::new(),
                                     BTreeMap::new(),
@@ -266,7 +270,7 @@ where
                                     TestRunner::<TYPES, I, V, N>::add_node_with_config_and_channels(
                                         node_id,
                                         generated_network.clone(),
-                                        (*memberships).clone(),
+                                        memberships,
                                         initializer,
                                         config,
                                         validator_config,
@@ -390,7 +394,7 @@ pub enum NodeAction {
     /// Take a node down to be restarted after a number of views
     RestartDown(u64),
     /// Start a node up again after it's been shutdown for restart.  This
-    /// should only be created following a `ResartDown`
+    /// should only be created following a `RestartDown`
     RestartUp,
 }
 

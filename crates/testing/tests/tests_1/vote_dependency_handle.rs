@@ -15,7 +15,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{EpochNumber, Leaf, ViewNumber},
+    data::{EpochNumber, Leaf2, ViewNumber},
     traits::{consensus_api::ConsensusApi, node_implementation::ConsensusTime},
 };
 use itertools::Itertools;
@@ -30,16 +30,15 @@ async fn test_vote_dependency_handle() {
 
     hotshot::helpers::initialize_logging();
 
-    // We use a node ID of 2 here abitrarily. We just need it to build the system handle.
+    // We use a node ID of 2 here arbitrarily. We just need it to build the system handle.
     let node_id = 2;
     // Construct the system handle for the node ID to build all of the state objects.
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(membership);
 
     // Generate our state for the test
     let mut proposals = Vec::new();
@@ -55,12 +54,10 @@ async fn test_vote_dependency_handle() {
         vids.push(view.vid_proposal.clone());
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);
@@ -91,8 +88,9 @@ async fn test_vote_dependency_handle() {
                 public_key: handle.public_key(),
                 private_key: handle.private_key().clone(),
                 consensus: OuterConsensus::new(consensus.clone()),
+                consensus_metrics: Arc::clone(&consensus.read().await.metrics),
                 instance_state: handle.hotshot.instance_state(),
-                quorum_membership: handle.hotshot.memberships.quorum_membership.clone().into(),
+                membership: Arc::clone(&handle.hotshot.memberships),
                 storage: Arc::clone(&handle.storage()),
                 view_number,
                 sender: event_sender.clone(),

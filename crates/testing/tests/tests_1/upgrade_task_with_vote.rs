@@ -29,7 +29,7 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{null_block, EpochNumber, Leaf, ViewNumber},
+    data::{null_block, EpochNumber, Leaf2, ViewNumber},
     simple_vote::UpgradeProposalData,
     traits::{election::Membership, node_implementation::ConsensusTime},
     vote::HasViewNumber,
@@ -48,8 +48,6 @@ async fn test_upgrade_task_with_vote() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
     let old_version = Version { major: 0, minor: 1 };
     let new_version = Version { major: 0, minor: 2 };
@@ -72,7 +70,9 @@ async fn test_upgrade_task_with_vote() {
     let consensus = handle.hotshot.consensus().clone();
     let mut consensus_writer = consensus.write().await;
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let membership = Arc::clone(&handle.hotshot.memberships);
+    let mut generator = TestViewGenerator::generate(membership);
+
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
         proposals.push(view.quorum_proposal.clone());
         votes.push(view.create_quorum_vote(&handle).await);
@@ -82,12 +82,10 @@ async fn test_upgrade_task_with_vote() {
         leaves.push(view.leaf.clone());
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);

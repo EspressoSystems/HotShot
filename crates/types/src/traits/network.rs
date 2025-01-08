@@ -17,8 +17,8 @@ use std::{
     time::Duration,
 };
 
+use async_lock::RwLock;
 use async_trait::async_trait;
-use derivative::Derivative;
 use dyn_clone::DynClone;
 use futures::{future::join_all, Future};
 use rand::{
@@ -121,7 +121,7 @@ pub trait ViewMessage<TYPES: NodeType> {
 }
 
 /// A request for some data that the consensus layer is asking for.
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct DataRequest<TYPES: NodeType> {
     /// Request
@@ -134,7 +134,7 @@ pub struct DataRequest<TYPES: NodeType> {
 }
 
 /// Underlying data request
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RequestKind<TYPES: NodeType> {
     /// Request VID data by our key and the VID commitment
     Vid(TYPES::View, TYPES::SignatureKey),
@@ -145,8 +145,8 @@ pub enum RequestKind<TYPES: NodeType> {
 }
 
 /// A response for a request.  `SequencingMessage` is the same as other network messages
-/// The kind of message `M` is is determined by what we requested
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq, Hash)]
+/// The kind of message `M` is determined by what we requested
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 #[allow(clippy::large_enum_variant)]
 /// TODO: Put `Found` content in a `Box` to make enum smaller
@@ -263,7 +263,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
         &'a self,
         _view: u64,
         _epoch: u64,
-        _membership: &TYPES::Membership,
+        _membership: Arc<RwLock<TYPES::Membership>>,
     ) where
         TYPES: NodeType<SignatureKey = K> + 'a,
     {

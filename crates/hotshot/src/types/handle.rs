@@ -20,7 +20,7 @@ use hotshot_task::{
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
     consensus::Consensus,
-    data::{Leaf, QuorumProposal},
+    data::{Leaf2, QuorumProposal2},
     error::HotShotError,
     message::{Message, MessageKind, Proposal, RecipientList},
     request_response::ProposalRequestPayload,
@@ -35,7 +35,7 @@ use hotshot_types::{
 };
 use tracing::instrument;
 
-use crate::{traits::NodeImplementation, types::Event, Memberships, SystemContext, Versions};
+use crate::{traits::NodeImplementation, types::Event, SystemContext, Versions};
 
 /// Event streaming handle for a [`SystemContext`] instance running in the background
 ///
@@ -69,7 +69,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub network: Arc<I::Network>,
 
     /// Memberships used by consensus
-    pub memberships: Arc<Memberships<TYPES>>,
+    pub memberships: Arc<RwLock<TYPES::Membership>>,
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
@@ -94,7 +94,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.output_event_stream.1.activate_cloned()
     }
 
-    /// Message other participents with a serialized message from the application
+    /// Message other participants with a serialized message from the application
     /// Receivers of this message will get an `Event::ExternalMessageReceived` via
     /// the event stream.
     ///
@@ -140,9 +140,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     pub fn request_proposal(
         &self,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
-        leaf_commitment: Commitment<Leaf<TYPES>>,
-    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal<TYPES>>>>> {
+        leaf_commitment: Commitment<Leaf2<TYPES>>,
+    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal2<TYPES>>>>>
+    {
         // We need to be able to sign this request before submitting it to the network. Compute the
         // payload first.
         let signed_proposal_request = ProposalRequestPayload {
@@ -156,10 +156,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             signed_proposal_request.commit().as_ref(),
         )?;
 
-        let mem = self.memberships.quorum_membership.clone();
-        let upgrade_lock = self.hotshot.upgrade_lock.clone();
+        let mem = Arc::clone(&self.memberships);
         let receiver = self.internal_event_stream.1.activate_cloned();
         let sender = self.internal_event_stream.0.clone();
+        let epoch_height = self.epoch_height;
         Ok(async move {
             // First, broadcast that we need a proposal
             broadcast_event(
@@ -184,23 +184,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 .ok_or(anyhow!("Event dependency failed to get event"))?;
 
                 // Then, if it's `Some`, make sure that the data is correct
-
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     // Make sure that the quorum_proposal is valid
-                    if let Err(err) = quorum_proposal
-                        .validate_signature(&mem, epoch, &upgrade_lock)
-                        .await
+                    let mem_reader = mem.read().await;
+                    if let Err(err) = quorum_proposal.validate_signature(&mem_reader, epoch_height)
                     {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }
-                    let proposed_leaf = Leaf::from_quorum_proposal(&quorum_proposal.data);
-                    let commit = proposed_leaf.commit(&upgrade_lock).await;
+                    drop(mem_reader);
+                    let proposed_leaf = Leaf2::from_quorum_proposal(&quorum_proposal.data);
+                    let commit = proposed_leaf.commit();
                     if commit == leaf_commitment {
                         return Ok(quorum_proposal.clone());
                     }
-                    tracing::warn!("Proposal receied from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
+                    tracing::warn!("Proposal received from request has different commitment than expected.\nExpected = {:?}\nReceived{:?}", leaf_commitment, commit);
                 }
             }
         })
@@ -255,7 +254,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     ///
     /// # Panics
     /// If the internal consensus is in an inconsistent state.
-    pub async fn decided_leaf(&self) -> Leaf<TYPES> {
+    pub async fn decided_leaf(&self) -> Leaf2<TYPES> {
         self.hotshot.decided_leaf().await
     }
 
@@ -265,7 +264,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     /// # Panics
     /// Panics if internal consensus is in an inconsistent state.
     #[must_use]
-    pub fn try_decided_leaf(&self) -> Option<Leaf<TYPES>> {
+    pub fn try_decided_leaf(&self) -> Option<Leaf2<TYPES>> {
         self.hotshot.try_decided_leaf()
     }
 
@@ -290,7 +289,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.hotshot.consensus()
     }
 
-    /// Shut down the the inner hotshot and wait until all background threads are closed.
+    /// Shut down the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(&mut self) {
         // this is required because `SystemContextHandle` holds an inactive receiver and
         // `broadcast_direct` below can wait indefinitely
@@ -330,7 +329,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     ) -> Result<TYPES::SignatureKey> {
         self.hotshot
             .memberships
-            .quorum_membership
+            .read()
+            .await
             .leader(view_number, epoch_number)
             .context("Failed to lookup leader")
     }

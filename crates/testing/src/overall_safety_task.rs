@@ -15,11 +15,14 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
 use hotshot_types::{
-    data::Leaf,
+    data::Leaf2,
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
-    simple_certificate::QuorumCertificate,
-    traits::node_implementation::{ConsensusTime, NodeType, Versions},
+    simple_certificate::QuorumCertificate2,
+    traits::{
+        election::Membership,
+        node_implementation::{ConsensusTime, NodeType, Versions},
+    },
     vid::VidCommitment,
 };
 use thiserror::Error;
@@ -92,6 +95,8 @@ pub struct OverallSafetyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPE
     pub error: Option<Box<OverallSafetyTaskErr<TYPES>>>,
     /// sender to test event channel
     pub test_sender: Sender<TestEvent>,
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions>
@@ -138,7 +143,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             check_block,
             num_failed_views,
             num_successful_views,
-            threshold_calculator,
             transaction_threshold,
             ..
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
@@ -183,10 +187,30 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             _ => return Ok(()),
         };
 
-        let len = self.handles.read().await.len();
+        if let Some(ref key) = key {
+            if *key.epoch(self.epoch_height) > self.ctx.latest_epoch {
+                self.ctx.latest_epoch = *key.epoch(self.epoch_height);
+            }
+        }
+
+        let epoch = TYPES::Epoch::new(self.ctx.latest_epoch);
+        let memberships_arc = Arc::clone(
+            &self
+                .handles
+                .read()
+                .await
+                .first()
+                .unwrap()
+                .handle
+                .memberships,
+        );
+        let memberships_reader = memberships_arc.read().await;
+        let len = memberships_reader.total_nodes(epoch);
 
         // update view count
-        let threshold = (threshold_calculator)(len, len);
+        let threshold = memberships_reader.success_threshold(epoch).get() as usize;
+        drop(memberships_reader);
+        drop(memberships_arc);
 
         let view = self.ctx.round_results.get_mut(&view_number).unwrap();
         if let Some(key) = key {
@@ -311,7 +335,7 @@ pub struct RoundResult<TYPES: NodeType> {
 
     /// Nodes that committed this round
     /// id -> (leaf, qc)
-    success_nodes: HashMap<u64, (LeafChain<TYPES>, QuorumCertificate<TYPES>)>,
+    success_nodes: HashMap<u64, (LeafChain<TYPES>, QuorumCertificate2<TYPES>)>,
 
     /// Nodes that failed to commit this round
     pub failed_nodes: HashMap<u64, Arc<HotShotError<TYPES>>>,
@@ -322,7 +346,7 @@ pub struct RoundResult<TYPES: NodeType> {
     /// NOTE: technically a map is not needed
     /// left one anyway for ease of viewing
     /// leaf -> # entries decided on that leaf
-    pub leaf_map: HashMap<Leaf<TYPES>, usize>,
+    pub leaf_map: HashMap<Leaf2<TYPES>, usize>,
 
     /// block -> # entries decided on that block
     pub block_map: HashMap<VidCommitment, usize>,
@@ -352,6 +376,7 @@ impl<TYPES: NodeType> Default for RoundCtx<TYPES> {
             round_results: HashMap::default(),
             failed_views: HashSet::default(),
             successful_views: HashSet::default(),
+            latest_epoch: 0u64,
         }
     }
 }
@@ -369,6 +394,8 @@ pub struct RoundCtx<TYPES: NodeType> {
     pub failed_views: HashSet<TYPES::View>,
     /// successful views
     pub successful_views: HashSet<TYPES::View>,
+    /// latest epoch, updated when a leaf with a higher epoch is seen
+    pub latest_epoch: u64,
 }
 
 impl<TYPES: NodeType> RoundCtx<TYPES> {
@@ -403,9 +430,9 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
     pub fn insert_into_result(
         &mut self,
         idx: usize,
-        result: (LeafChain<TYPES>, QuorumCertificate<TYPES>),
+        result: (LeafChain<TYPES>, QuorumCertificate2<TYPES>),
         maybe_block_size: Option<u64>,
-    ) -> Option<Leaf<TYPES>> {
+    ) -> Option<Leaf2<TYPES>> {
         self.success_nodes.insert(idx as u64, result.clone());
 
         let maybe_leaf = result.0.first();
@@ -458,7 +485,7 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         &mut self,
         threshold: usize,
         total_num_nodes: usize,
-        key: &Leaf<TYPES>,
+        key: &Leaf2<TYPES>,
         check_leaf: bool,
         check_block: bool,
         transaction_threshold: u64,
@@ -530,8 +557,8 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
 
     /// generate leaves
     #[must_use]
-    pub fn gen_leaves(&self) -> HashMap<Leaf<TYPES>, usize> {
-        let mut leaves = HashMap::<Leaf<TYPES>, usize>::new();
+    pub fn gen_leaves(&self) -> HashMap<Leaf2<TYPES>, usize> {
+        let mut leaves = HashMap::<Leaf2<TYPES>, usize>::new();
 
         for (leaf_vec, _) in self.success_nodes.values() {
             let most_recent_leaf = leaf_vec.iter().last();

@@ -9,12 +9,15 @@
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
+    num::NonZeroU64,
+    sync::Arc,
 };
 
+use async_lock::RwLock;
 use bitvec::{bitvec, vec::BitVec};
 use committable::{Commitment, Committable};
 use either::Either;
-use ethereum_types::U256;
+use primitive_types::U256;
 use tracing::error;
 use utils::anytrace::Result;
 
@@ -32,7 +35,7 @@ use crate::{
 /// A simple vote that has a signer and commitment to the data voted on.
 pub trait Vote<TYPES: NodeType>: HasViewNumber<TYPES> {
     /// Type of data commitment this vote uses.
-    type Commitment: Voteable;
+    type Commitment: Voteable<TYPES>;
 
     /// Get the signature of the vote sender
     fn signature(&self) -> <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType;
@@ -56,9 +59,9 @@ The certificate formed from the collection of signatures a committee.
 The committee is defined by the `Membership` associated type.
 The votes all must be over the `Commitment` associated type.
 */
-pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
+pub trait Certificate<TYPES: NodeType, T>: HasViewNumber<TYPES> {
     /// The data commitment this certificate certifies.
-    type Voteable: Voteable;
+    type Voteable: Voteable<TYPES>;
 
     /// Threshold Functions
     type Threshold: Threshold<TYPES>;
@@ -72,17 +75,41 @@ pub trait Certificate<TYPES: NodeType>: HasViewNumber<TYPES> {
     ) -> Self;
 
     /// Checks if the cert is valid in the given epoch
-    fn is_valid_cert<MEMBERSHIP: Membership<TYPES>, V: Versions>(
+    fn is_valid_cert<V: Versions>(
         &self,
-        membership: &MEMBERSHIP,
-        epoch: TYPES::Epoch,
+        stake_table: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
+        threshold: NonZeroU64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> impl std::future::Future<Output = bool>;
     /// Returns the amount of stake needed to create this certificate
     // TODO: Make this a static ratio of the total stake of `Membership`
-    fn threshold<MEMBERSHIP: Membership<TYPES>>(membership: &MEMBERSHIP) -> u64;
+    fn threshold<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: TYPES::Epoch,
+    ) -> u64;
+
+    /// Get  Stake Table from Membership implementation.
+    fn stake_table<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: TYPES::Epoch,
+    ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+
+    /// Get Total Nodes from Membership implementation.
+    fn total_nodes<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        epoch: TYPES::Epoch,
+    ) -> usize;
+
+    /// Get  `StakeTableEntry` from Membership implementation.
+    fn stake_table_entry<MEMBERSHIP: Membership<TYPES>>(
+        membership: &MEMBERSHIP,
+        pub_key: &TYPES::SignatureKey,
+        epoch: TYPES::Epoch,
+    ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>;
+
     /// Get the commitment which was voted on
     fn data(&self) -> &Self::Voteable;
+
     /// Get the vote commitment which the votes commit to
     fn data_commitment<V: Versions>(
         &self,
@@ -103,7 +130,7 @@ type SignersMap<COMMITMENT, KEY> = HashMap<
 pub struct VoteAccumulator<
     TYPES: NodeType,
     VOTE: Vote<TYPES>,
-    CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+    CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
     V: Versions,
 > {
     /// Map of all signatures accumulated so far
@@ -127,7 +154,7 @@ pub struct VoteAccumulator<
 impl<
         TYPES: NodeType,
         VOTE: Vote<TYPES>,
-        CERT: Certificate<TYPES, Voteable = VOTE::Commitment>,
+        CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
         V: Versions,
     > VoteAccumulator<TYPES, VOTE, CERT, V>
 {
@@ -137,7 +164,7 @@ impl<
     pub async fn accumulate(
         &mut self,
         vote: &VOTE,
-        membership: &TYPES::Membership,
+        membership: &Arc<RwLock<TYPES::Membership>>,
         epoch: TYPES::Epoch,
     ) -> Either<(), CERT> {
         let key = vote.signing_key();
@@ -161,10 +188,16 @@ impl<
             return Either::Left(());
         }
 
-        let Some(stake_table_entry) = membership.stake(&key, epoch) else {
+        let membership_reader = membership.read().await;
+        let Some(stake_table_entry) = CERT::stake_table_entry(&*membership_reader, &key, epoch)
+        else {
             return Either::Left(());
         };
-        let stake_table = membership.stake_table(epoch);
+        let stake_table = CERT::stake_table(&*membership_reader, epoch);
+        let total_nodes = CERT::total_nodes(&*membership_reader, epoch);
+        let threshold = CERT::threshold(&*membership_reader, epoch);
+        drop(membership_reader);
+
         let Some(vote_node_id) = stake_table
             .iter()
             .position(|x| *x == stake_table_entry.clone())
@@ -187,7 +220,7 @@ impl<
         let (signers, sig_list) = self
             .signers
             .entry(vote_commitment)
-            .or_insert((bitvec![0; membership.total_nodes(epoch)], Vec::new()));
+            .or_insert((bitvec![0; total_nodes], Vec::new()));
         if signers.get(vote_node_id).as_deref() == Some(&true) {
             error!("Node id is already in signers list");
             return Either::Left(());
@@ -195,16 +228,15 @@ impl<
         signers.set(vote_node_id, true);
         sig_list.push(original_signature);
 
-        // TODO: Get the stake from the stake table entry.
         *total_stake_casted += stake_table_entry.stake();
         total_vote_map.insert(key, (vote.signature(), vote_commitment));
 
-        if *total_stake_casted >= CERT::threshold(membership).into() {
+        if *total_stake_casted >= threshold.into() {
             // Assemble QC
             let real_qc_pp: <<TYPES as NodeType>::SignatureKey as SignatureKey>::QcParams =
                 <TYPES::SignatureKey as SignatureKey>::public_parameter(
                     stake_table,
-                    U256::from(CERT::threshold(membership)),
+                    U256::from(threshold),
                 );
 
             let real_qc_sig = <TYPES::SignatureKey as SignatureKey>::assemble(

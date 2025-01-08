@@ -20,6 +20,8 @@ pub mod bundle;
 pub mod consensus;
 pub mod constants;
 pub mod data;
+/// Holds the types and functions for DRB computation.
+pub mod drb;
 pub mod error;
 pub mod event;
 /// Holds the configuration file specification for a HotShot node.
@@ -159,7 +161,7 @@ impl<KEY: SignatureKey> Default for PeerConfig<KEY> {
 }
 
 /// Holds configuration for a `HotShot`
-#[derive(Clone, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, derive_more::Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(deserialize = ""))]
 pub struct HotShotConfig<KEY: SignatureKey> {
     /// The proportion of nodes required before the orchestrator issues the ready signal,

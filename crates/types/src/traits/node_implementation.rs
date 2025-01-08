@@ -35,7 +35,7 @@ use super::{
     ValidatedState,
 };
 use crate::{
-    data::{Leaf, TestableLeaf},
+    data::{Leaf2, TestableLeaf},
     traits::{
         election::Membership, signature_key::SignatureKey, states::InstanceState, BlockPayload,
     },
@@ -45,7 +45,7 @@ use crate::{
 /// essentially ensures that the results returned by the [`AuctionResultsProvider`] trait includes a
 /// list of urls for the builders that HotShot must request from.
 pub trait HasUrls {
-    /// Returns the builer url associated with the datatype
+    /// Returns the builder url associated with the datatype
     fn urls(&self) -> Vec<Url>;
 }
 
@@ -87,7 +87,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     /// otherwise panics
     /// `padding` is the bytes of padding to add to the transaction
     fn leaf_create_random_transaction(
-        leaf: &Leaf<TYPES>,
+        leaf: &Leaf2<TYPES>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction;
@@ -126,11 +126,11 @@ where
     }
 
     fn leaf_create_random_transaction(
-        leaf: &Leaf<TYPES>,
+        leaf: &Leaf2<TYPES>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <TYPES::BlockPayload as BlockPayload<TYPES>>::Transaction {
-        Leaf::create_random_transaction(leaf, rng, padding)
+        Leaf2::create_random_transaction(leaf, rng, padding)
     }
 
     fn block_genesis() -> TYPES::BlockPayload {

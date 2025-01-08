@@ -25,8 +25,8 @@ use hotshot_testing::{
     view_generator::TestViewGenerator,
 };
 use hotshot_types::{
-    data::{null_block, EpochNumber, Leaf, ViewChangeEvidence, ViewNumber},
-    simple_vote::{TimeoutData, ViewSyncFinalizeData},
+    data::{null_block, EpochNumber, Leaf2, ViewChangeEvidence, ViewNumber},
+    simple_vote::{TimeoutData2, ViewSyncFinalizeData2},
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, Versions},
@@ -50,16 +50,17 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
     let payload_commitment = build_payload_commitment::<TestTypes>(
-        &quorum_membership,
+        &membership,
         ViewNumber::new(node_id),
         EpochNumber::new(1),
-    );
+    )
+    .await;
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -79,12 +80,10 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         // to make sure they show up during tests.
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
 
@@ -92,7 +91,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     let genesis_cert = proposals[0].data.justify_qc.clone();
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        quorum_membership.total_nodes(EpochNumber::new(1)),
+        membership.read().await.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -105,7 +104,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
             handle.public_key()
         )],
         random![
-            QcFormed(either::Left(genesis_cert.clone())),
+            Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 payload_commitment,
                 builder_commitment,
@@ -146,10 +145,10 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let membership = Arc::clone(&handle.hotshot.memberships);
+
+    let mut generator = TestViewGenerator::generate(membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -169,12 +168,10 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         // to make sure they show up during tests.
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
 
@@ -186,7 +183,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        quorum_membership.total_nodes(EpochNumber::new(1)),
+        membership.read().await.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -194,13 +191,14 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     let inputs = vec![
         random![
-            QcFormed(either::Left(genesis_cert.clone())),
+            Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(1),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 TestMetadata {
                     num_transactions: 0
@@ -213,13 +211,14 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
-            QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(2),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[0].data.block_header.metadata,
                 ViewNumber::new(2),
@@ -230,13 +229,14 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
-            QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(3),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[1].data.block_header.metadata,
                 ViewNumber::new(3),
@@ -247,13 +247,14 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
-            QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(4),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[2].data.block_header.metadata,
                 ViewNumber::new(4),
@@ -264,13 +265,14 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
-            QcFormed(either::Left(proposals[4].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[4].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(5),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment,
                 proposals[3].data.block_header.metadata,
                 ViewNumber::new(5),
@@ -312,17 +314,17 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
     let payload_commitment = build_payload_commitment::<TestTypes>(
-        &quorum_membership,
+        &membership,
         ViewNumber::new(node_id),
         EpochNumber::new(1),
-    );
+    )
+    .await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -336,8 +338,9 @@ async fn test_quorum_proposal_task_qc_timeout() {
         vid_dispersals.push(view.vid_disperse.clone());
         leaves.push(view.leaf.clone());
     }
-    let timeout_data = TimeoutData {
+    let timeout_data = TimeoutData2 {
         view: ViewNumber::new(1),
+        epoch: EpochNumber::new(0),
     };
     generator.add_timeout(timeout_data);
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
@@ -349,13 +352,13 @@ async fn test_quorum_proposal_task_qc_timeout() {
     }
 
     // Get the proposal cert out for the view sync input
-    let cert = match proposals[1].data.proposal_certificate.clone().unwrap() {
+    let cert = match proposals[1].data.view_change_evidence.clone().unwrap() {
         ViewChangeEvidence::Timeout(tc) => tc,
         _ => panic!("Found a View Sync Cert when there should have been a Timeout cert"),
     };
 
     let inputs = vec![random![
-        QcFormed(either::Right(cert.clone())),
+        Qc2Formed(either::Right(cert.clone())),
         SendPayloadCommitmentAndMetadata(
             payload_commitment,
             builder_commitment,
@@ -364,7 +367,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
             },
             ViewNumber::new(3),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                quorum_membership.total_nodes(EpochNumber::new(1)),
+                membership.read().await.total_nodes(EpochNumber::new(1)),
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(3),
             )
@@ -400,17 +403,18 @@ async fn test_quorum_proposal_task_view_sync() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
     let payload_commitment = build_payload_commitment::<TestTypes>(
-        &quorum_membership,
+        &membership,
         ViewNumber::new(node_id),
         EpochNumber::new(1),
-    );
+    )
+    .await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -425,9 +429,10 @@ async fn test_quorum_proposal_task_view_sync() {
         leaves.push(view.leaf.clone());
     }
 
-    let view_sync_finalize_data = ViewSyncFinalizeData {
+    let view_sync_finalize_data = ViewSyncFinalizeData2 {
         relay: 2,
         round: ViewNumber::new(node_id),
+        epoch: EpochNumber::new(0),
     };
     generator.add_view_sync_finalize(view_sync_finalize_data);
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
@@ -439,13 +444,13 @@ async fn test_quorum_proposal_task_view_sync() {
     }
 
     // Get the proposal cert out for the view sync input
-    let cert = match proposals[1].data.proposal_certificate.clone().unwrap() {
+    let cert = match proposals[1].data.view_change_evidence.clone().unwrap() {
         ViewChangeEvidence::ViewSync(vsc) => vsc,
         _ => panic!("Found a TC when there should have been a view sync cert"),
     };
 
     let inputs = vec![random![
-        ViewSyncFinalizeCertificate2Recv(cert.clone()),
+        ViewSyncFinalizeCertificateRecv(cert.clone()),
         SendPayloadCommitmentAndMetadata(
             payload_commitment,
             builder_commitment,
@@ -454,7 +459,7 @@ async fn test_quorum_proposal_task_view_sync() {
             },
             ViewNumber::new(2),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                quorum_membership.total_nodes(EpochNumber::new(1)),
+                membership.read().await.total_nodes(EpochNumber::new(1)),
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(2),
             )
@@ -488,10 +493,10 @@ async fn test_quorum_proposal_task_liveness_check() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let membership = Arc::clone(&handle.hotshot.memberships);
+
+    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -511,19 +516,17 @@ async fn test_quorum_proposal_task_liveness_check() {
         // to make sure they show up during tests.
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        quorum_membership.total_nodes(EpochNumber::new(1)),
+        membership.read().await.total_nodes(EpochNumber::new(1)),
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -535,13 +538,14 @@ async fn test_quorum_proposal_task_liveness_check() {
 
     let inputs = vec![
         random![
-            QcFormed(either::Left(genesis_cert.clone())),
+            Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(1),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 TestMetadata {
                     num_transactions: 0
@@ -554,13 +558,14 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
-            QcFormed(either::Left(proposals[1].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[1].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(2),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[0].data.block_header.metadata,
                 ViewNumber::new(2),
@@ -571,13 +576,14 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
-            QcFormed(either::Left(proposals[2].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[2].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(3),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[1].data.block_header.metadata,
                 ViewNumber::new(3),
@@ -588,13 +594,14 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
-            QcFormed(either::Left(proposals[3].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[3].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(4),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment.clone(),
                 proposals[2].data.block_header.metadata,
                 ViewNumber::new(4),
@@ -605,13 +612,14 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
-            QcFormed(either::Left(proposals[4].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[4].data.justify_qc.clone())),
             SendPayloadCommitmentAndMetadata(
                 build_payload_commitment::<TestTypes>(
-                    &quorum_membership,
+                    &membership,
                     ViewNumber::new(5),
                     EpochNumber::new(1)
-                ),
+                )
+                .await,
                 builder_commitment,
                 proposals[3].data.block_header.metadata,
                 ViewNumber::new(5),
@@ -649,10 +657,9 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let mut generator = TestViewGenerator::generate(membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();

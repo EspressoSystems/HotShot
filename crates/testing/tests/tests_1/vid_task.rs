@@ -45,14 +45,14 @@ async fn test_vid_task() {
         .0;
     let pub_key = handle.public_key();
 
-    // quorum membership for VID share distribution
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
+    let membership = Arc::clone(&handle.hotshot.memberships);
 
     let mut vid = vid_scheme_from_view_number::<TestTypes>(
-        &quorum_membership,
+        &membership,
         ViewNumber::new(0),
         EpochNumber::new(0),
-    );
+    )
+    .await;
     let transactions = vec![TestTransaction::new(vec![0])];
 
     let (payload, metadata) = <TestBlockPayload as BlockPayload<TestTypes>>::from_transactions(
@@ -80,6 +80,7 @@ async fn test_vid_task() {
             num_transactions: encoded_transactions.len() as u64,
         },
         view_number: ViewNumber::new(2),
+        epoch: EpochNumber::new(0),
     };
     let message = Proposal {
         data: proposal.clone(),
@@ -90,9 +91,12 @@ async fn test_vid_task() {
     let vid_disperse = VidDisperse::from_membership(
         message.data.view_number,
         vid_disperse,
-        &quorum_membership,
+        &membership,
         EpochNumber::new(0),
-    );
+        EpochNumber::new(0),
+        None,
+    )
+    .await;
 
     let vid_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -100,17 +104,18 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
     let inputs = vec![
-        serial![ViewChange(ViewNumber::new(1), EpochNumber::new(1))],
+        serial![ViewChange(ViewNumber::new(1), EpochNumber::new(0))],
         serial![
-            ViewChange(ViewNumber::new(2), EpochNumber::new(1)),
+            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
                     num_transactions: transactions.len() as u64
                 },
                 ViewNumber::new(2),
+                EpochNumber::new(0),
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )
@@ -132,7 +137,7 @@ async fn test_vid_task() {
                 },
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    quorum_membership.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(EpochNumber::new(0)),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )

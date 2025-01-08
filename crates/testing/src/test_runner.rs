@@ -17,7 +17,7 @@ use futures::future::join_all;
 use hotshot::{
     traits::TestableNodeImplementation,
     types::{Event, SystemContextHandle},
-    HotShotInitializer, MarketplaceConfig, Memberships, SystemContext,
+    HotShotInitializer, MarketplaceConfig, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -30,11 +30,11 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     constants::EVENT_CHANNEL_SIZE,
-    data::Leaf,
-    simple_certificate::QuorumCertificate,
+    data::Leaf2,
+    simple_certificate::QuorumCertificate2,
     traits::{
         election::Membership,
-        network::{ConnectedNetwork, Topic},
+        network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
     HotShotConfig, ValidatorConfig,
@@ -179,16 +179,17 @@ where
             late_start,
             latest_view: None,
             changes,
-            last_decided_leaf: Leaf::genesis(
+            last_decided_leaf: Leaf2::genesis(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
             .await,
-            high_qc: QuorumCertificate::genesis::<V>(
+            high_qc: QuorumCertificate2::genesis::<V>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
             .await,
+            next_epoch_high_qc: None,
             async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
             channel_generator: launcher.resource_generator.channel_generator,
@@ -201,6 +202,7 @@ where
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
             handles: Arc::clone(&handles),
+            epoch_height: launcher.metadata.epoch_height,
             ctx: RoundCtx::default(),
             properties: launcher.metadata.overall_safety_properties.clone(),
             error: None,
@@ -306,7 +308,7 @@ where
         for node in &mut *nodes {
             node.handle.shut_down().await;
         }
-        tracing::info!("Nodes shtudown");
+        tracing::info!("Nodes shutdown");
 
         completion_handle.abort();
 
@@ -323,6 +325,7 @@ where
 
     pub async fn init_builders<B: TestBuilderImplementation<TYPES>>(
         &self,
+        num_nodes: usize,
     ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>, Url) {
         let config = self.launcher.resource_generator.config.clone();
         let mut builder_tasks = Vec::new();
@@ -332,7 +335,7 @@ where
             let builder_url =
                 Url::parse(&format!("http://localhost:{builder_port}")).expect("Invalid URL");
             let builder_task = B::start(
-                config.num_nodes_with_stake.into(),
+                num_nodes,
                 builder_url.clone(),
                 B::Config::default(),
                 metadata.changes.clone(),
@@ -397,8 +400,14 @@ where
         let mut results = vec![];
         let config = self.launcher.resource_generator.config.clone();
 
+        // TODO This is only a workaround. Number of nodes changes from epoch to epoch. Builder should be made epoch-aware.
+        let temp_memberships = <TYPES as NodeType>::Membership::new(
+            config.known_nodes_with_stake.clone(),
+            config.known_da_nodes.clone(),
+        );
+        let num_nodes = temp_memberships.total_nodes(TYPES::Epoch::new(0));
         let (mut builder_tasks, builder_urls, fallback_builder_url) =
-            self.init_builders::<B>().await;
+            self.init_builders::<B>(num_nodes).await;
 
         if self.launcher.metadata.start_solver {
             self.add_solver(builder_urls.clone()).await;
@@ -417,17 +426,11 @@ where
             self.next_node_id += 1;
             tracing::debug!("launch node {}", i);
 
-            let all_nodes = config.known_nodes_with_stake.clone();
-            let da_nodes = config.known_da_nodes.clone();
+            //let memberships =Arc::new(RwLock::new(<TYPES as NodeType>::Membership::new(
+            //config.known_nodes_with_stake.clone(),
+            //config.known_da_nodes.clone(),
+            //)));
 
-            let memberships = Memberships {
-                quorum_membership: <TYPES as NodeType>::Membership::new(
-                    all_nodes.clone(),
-                    all_nodes.clone(),
-                    Topic::Global,
-                ),
-                da_membership: <TYPES as NodeType>::Membership::new(all_nodes, da_nodes, Topic::Da),
-            };
             config.builder_urls = builder_urls
                 .clone()
                 .try_into()
@@ -464,7 +467,10 @@ where
                             context: LateNodeContext::UninitializedContext(
                                 LateNodeContextParameters {
                                     storage,
-                                    memberships,
+                                    memberships: <TYPES as NodeType>::Membership::new(
+                                        config.known_nodes_with_stake.clone(),
+                                        config.known_da_nodes.clone(),
+                                    ),
                                     config,
                                     marketplace_config,
                                 },
@@ -488,7 +494,10 @@ where
                     let hotshot = Self::add_node_with_config(
                         node_id,
                         network.clone(),
-                        memberships,
+                        <TYPES as NodeType>::Membership::new(
+                            config.known_nodes_with_stake.clone(),
+                            config.known_da_nodes.clone(),
+                        ),
                         initializer,
                         config,
                         validator_config,
@@ -508,7 +517,10 @@ where
                 uninitialized_nodes.push((
                     node_id,
                     network,
-                    memberships,
+                    <TYPES as NodeType>::Membership::new(
+                        config.known_nodes_with_stake.clone(),
+                        config.known_da_nodes.clone(),
+                    ),
                     config,
                     storage,
                     marketplace_config,
@@ -543,7 +555,7 @@ where
                 self.launcher.metadata.clone(),
                 node_id,
                 network.clone(),
-                memberships,
+                Arc::new(RwLock::new(memberships)),
                 config.clone(),
                 storage,
                 marketplace_config,
@@ -582,7 +594,7 @@ where
     pub async fn add_node_with_config(
         node_id: u64,
         network: Network<TYPES, I>,
-        memberships: Memberships<TYPES>,
+        memberships: TYPES::Membership,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
@@ -598,7 +610,7 @@ where
             private_key,
             node_id,
             config,
-            memberships,
+            Arc::new(RwLock::new(memberships)),
             network,
             initializer,
             ConsensusMetricsValue::default(),
@@ -615,7 +627,7 @@ where
     pub async fn add_node_with_config_and_channels(
         node_id: u64,
         network: Network<TYPES, I>,
-        memberships: Memberships<TYPES>,
+        memberships: Arc<RwLock<TYPES::Membership>>,
         initializer: HotShotInitializer<TYPES>,
         config: HotShotConfig<TYPES::SignatureKey>,
         validator_config: ValidatorConfig<TYPES::SignatureKey>,
@@ -645,7 +657,6 @@ where
             internal_channel,
             external_channel,
         )
-        .await
     }
 }
 
@@ -659,16 +670,16 @@ pub struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versio
     pub handle: SystemContextHandle<TYPES, I, V>,
 }
 
-/// This type combines all of the paramters needed to build the context for a node that started
+/// This type combines all of the parameters needed to build the context for a node that started
 /// late during a unit test or integration test.
 pub struct LateNodeContextParameters<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// The storage trait for Sequencer persistence.
     pub storage: I::Storage,
 
     /// The memberships of this particular node.
-    pub memberships: Memberships<TYPES>,
+    pub memberships: TYPES::Membership,
 
-    /// The config associted with this node.
+    /// The config associated with this node.
     pub config: HotShotConfig<TYPES::SignatureKey>,
 
     /// The marketplace config for this node.

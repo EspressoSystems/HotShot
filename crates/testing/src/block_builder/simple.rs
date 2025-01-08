@@ -29,7 +29,7 @@ use hotshot_builder_api::{
         block_info::{AvailableBlockData, AvailableBlockHeaderInput, AvailableBlockInfo},
         builder::{BuildError, Error, Options},
     },
-    v0_3,
+    v0_99,
 };
 use hotshot_types::{
     bundle::Bundle,
@@ -132,7 +132,7 @@ impl<TYPES: NodeType> ReadState for SimpleBuilderSource<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeType> v0_3::data_source::BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES>
+impl<TYPES: NodeType> v0_99::data_source::BuilderDataSource<TYPES> for SimpleBuilderSource<TYPES>
 where
     <TYPES as NodeType>::InstanceState: Default,
 {
@@ -238,7 +238,7 @@ where
             .await;
 
         if transactions.is_empty() {
-            // We don't want to return an empty block if we have no trasnactions, as we would end up
+            // We don't want to return an empty block if we have no transactions, as we would end up
             // driving consensus to produce empty blocks extremely quickly when mempool is empty.
             // Instead, we return no blocks, so that view leader will keep asking for blocks until
             // either we have something non-trivial to propose, or leader runs out of time to propose,
@@ -342,7 +342,7 @@ impl<TYPES: NodeType> SimpleBuilderSource<TYPES> {
         >(&Options::default())
         .expect("Failed to construct the builder API");
 
-        let builder_api_0_3 = hotshot_builder_api::v0_3::builder::define_api::<
+        let builder_api_0_3 = hotshot_builder_api::v0_99::builder::define_api::<
             SimpleBuilderSource<TYPES>,
             TYPES,
         >(&Options::default())

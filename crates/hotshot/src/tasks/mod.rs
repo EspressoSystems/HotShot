@@ -10,11 +10,6 @@
 pub mod task_state;
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroUsize, sync::Arc, time::Duration};
 
-use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
-    MarketplaceConfig, Memberships, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
-};
 use async_broadcast::{broadcast, RecvError};
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -47,6 +42,12 @@ use hotshot_types::{
 };
 use tokio::{spawn, time::sleep};
 use vbs::version::StaticVersionType;
+
+use crate::{
+    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
+    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    MarketplaceConfig, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
+};
 
 /// event for global event stream
 #[derive(Clone, Debug)]
@@ -81,7 +82,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
 ) {
     let state = NetworkResponseState::<TYPES>::new(
         handle.hotshot.consensus(),
-        handle.hotshot.memberships.quorum_membership.clone().into(),
+        Arc::clone(&handle.memberships),
         handle.public_key().clone(),
         handle.private_key().clone(),
         handle.hotshot.id,
@@ -93,7 +94,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     ));
 }
 
-/// Add a task which updates our queue lenght metric at a set interval
+/// Add a task which updates our queue length metric at a set interval
 pub fn add_queue_len_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
@@ -155,7 +156,9 @@ pub fn add_network_message_task<
                 message = network.recv_message().fuse() => {
                     // Make sure the message did not fail
                     let message = match message {
-                        Ok(message) => message,
+                        Ok(message) => {
+                            message
+                        }
                         Err(e) => {
                             tracing::error!("Failed to receive message: {:?}", e);
                             continue;
@@ -189,15 +192,13 @@ pub fn add_network_event_task<
 >(
     handle: &mut SystemContextHandle<TYPES, I, V>,
     network: Arc<NET>,
-    quorum_membership: TYPES::Membership,
-    da_membership: TYPES::Membership,
+    membership: Arc<RwLock<TYPES::Membership>>,
 ) {
     let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
         network,
         view: TYPES::View::genesis(),
         epoch: TYPES::Epoch::genesis(),
-        quorum_membership,
-        da_membership,
+        membership,
         storage: Arc::clone(&handle.storage()),
         consensus: OuterConsensus::new(handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
@@ -215,7 +216,7 @@ pub fn add_network_event_task<
 pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
-    handle.add_task(ViewSyncTaskState::<TYPES, I, V>::create_from(handle).await);
+    handle.add_task(ViewSyncTaskState::<TYPES, V>::create_from(handle).await);
     handle.add_task(VidTaskState::<TYPES, I>::create_from(handle).await);
     handle.add_task(DaTaskState::<TYPES, I, V>::create_from(handle).await);
     handle.add_task(TransactionTaskState::<TYPES, I, V>::create_from(handle).await);
@@ -239,7 +240,7 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
 
     // only spawn the upgrade task if we are actually configured to perform an upgrade.
     if V::Base::VERSION < V::Upgrade::VERSION {
-        handle.add_task(UpgradeTaskState::<TYPES, I, V>::create_from(handle).await);
+        handle.add_task(UpgradeTaskState::<TYPES, V>::create_from(handle).await);
     }
 
     {
@@ -322,7 +323,7 @@ where
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
-        memberships: Memberships<TYPES>,
+        memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
         initializer: HotShotInitializer<TYPES>,
         metrics: ConsensusMetricsValue,
@@ -517,15 +518,9 @@ where
     /// Adds the `NetworkEventTaskState` tasks possibly modifying them as well.
     fn add_network_event_tasks(&self, handle: &mut SystemContextHandle<TYPES, I, V>) {
         let network = Arc::clone(&handle.network);
-        let quorum_membership = handle.memberships.quorum_membership.clone();
-        let da_membership = handle.memberships.da_membership.clone();
+        let memberships = Arc::clone(&handle.memberships);
 
-        self.add_network_event_task(
-            handle,
-            Arc::clone(&network),
-            quorum_membership.clone(),
-            da_membership,
-        );
+        self.add_network_event_task(handle, network, memberships);
     }
 
     /// Adds a `NetworkEventTaskState` task. Can be reimplemented to modify its behaviour.
@@ -533,10 +528,9 @@ where
         &self,
         handle: &mut SystemContextHandle<TYPES, I, V>,
         channel: Arc<<I as NodeImplementation<TYPES>>::Network>,
-        quorum_membership: TYPES::Membership,
-        da_membership: TYPES::Membership,
+        membership: Arc<RwLock<TYPES::Membership>>,
     ) {
-        add_network_event_task(handle, channel, quorum_membership, da_membership);
+        add_network_event_task(handle, channel, membership);
     }
 }
 
@@ -569,13 +563,9 @@ pub async fn add_network_message_and_request_receiver_tasks<
 pub fn add_network_event_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &mut SystemContextHandle<TYPES, I, V>,
 ) {
-    let quorum_membership = handle.memberships.quorum_membership.clone();
-    let da_membership = handle.memberships.da_membership.clone();
-
     add_network_event_task(
         handle,
         Arc::clone(&handle.network),
-        quorum_membership,
-        da_membership,
+        Arc::clone(&handle.memberships),
     );
 }

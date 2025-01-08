@@ -23,7 +23,7 @@ use hotshot_testing::{
     script::{Expectations, InputOrder, TaskScript},
 };
 use hotshot_types::{
-    data::{EpochNumber, Leaf, ViewNumber},
+    data::{EpochNumber, Leaf2, ViewNumber},
     traits::node_implementation::ConsensusTime,
 };
 
@@ -44,10 +44,10 @@ async fn test_quorum_vote_task_success() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let membership = Arc::clone(&handle.hotshot.memberships);
+
+    let mut generator = TestViewGenerator::generate(membership);
 
     let mut proposals = Vec::new();
     let mut leaves = Vec::new();
@@ -64,12 +64,10 @@ async fn test_quorum_vote_task_success() {
         vids.push(view.vid_proposal.clone());
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);
@@ -113,10 +111,10 @@ async fn test_quorum_vote_task_miss_dependency() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let membership = Arc::clone(&handle.hotshot.memberships);
+
+    let mut generator = TestViewGenerator::generate(membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -136,12 +134,10 @@ async fn test_quorum_vote_task_miss_dependency() {
 
         consensus_writer
             .update_leaf(
-                Leaf::from_quorum_proposal(&view.quorum_proposal.data),
+                Leaf2::from_quorum_proposal(&view.quorum_proposal.data),
                 Arc::new(TestValidatedState::default()),
                 None,
-                &handle.hotshot.upgrade_lock,
             )
-            .await
             .unwrap();
     }
     drop(consensus_writer);
@@ -199,10 +195,10 @@ async fn test_quorum_vote_task_incorrect_dependency() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
         .0;
-    let quorum_membership = handle.hotshot.memberships.quorum_membership.clone();
-    let da_membership = handle.hotshot.memberships.da_membership.clone();
 
-    let mut generator = TestViewGenerator::generate(quorum_membership.clone(), da_membership);
+    let membership = Arc::clone(&handle.hotshot.memberships);
+
+    let mut generator = TestViewGenerator::generate(membership);
 
     let mut proposals = Vec::new();
     let mut leaves = Vec::new();

@@ -10,9 +10,9 @@ use hotshot_task_impls::{
     events::HotShotEvent, harness::run_harness, view_sync::ViewSyncTaskState,
 };
 use hotshot_testing::helpers::build_system_handle;
-use hotshot_types::data::EpochNumber;
 use hotshot_types::{
-    data::ViewNumber, simple_vote::ViewSyncPreCommitData,
+    data::{EpochNumber, ViewNumber},
+    simple_vote::ViewSyncPreCommitData2,
     traits::node_implementation::ConsensusTime,
 };
 
@@ -26,11 +26,12 @@ async fn test_view_sync_task() {
         .await
         .0;
 
-    let vote_data = ViewSyncPreCommitData {
+    let vote_data = ViewSyncPreCommitData2 {
         relay: 0,
         round: <TestTypes as hotshot_types::traits::node_implementation::NodeType>::View::new(4),
+        epoch: EpochNumber::new(0),
     };
-    let vote = hotshot_types::simple_vote::ViewSyncPreCommitVote::<TestTypes>::create_signed_vote(
+    let vote = hotshot_types::simple_vote::ViewSyncPreCommitVote2::<TestTypes>::create_signed_vote(
         vote_data,
         <TestTypes as hotshot_types::traits::node_implementation::NodeType>::View::new(4),
         hotshot_types::traits::consensus_api::ConsensusApi::public_key(&handle),
@@ -45,8 +46,14 @@ async fn test_view_sync_task() {
     let mut input = Vec::new();
     let mut output = Vec::new();
 
-    input.push(HotShotEvent::Timeout(ViewNumber::new(2)));
-    input.push(HotShotEvent::Timeout(ViewNumber::new(3)));
+    input.push(HotShotEvent::Timeout(
+        ViewNumber::new(2),
+        EpochNumber::new(0),
+    ));
+    input.push(HotShotEvent::Timeout(
+        ViewNumber::new(3),
+        EpochNumber::new(0),
+    ));
 
     input.push(HotShotEvent::Shutdown);
 
@@ -56,7 +63,6 @@ async fn test_view_sync_task() {
     ));
     output.push(HotShotEvent::ViewSyncPreCommitVoteSend(vote.clone()));
 
-    let view_sync_state =
-        ViewSyncTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
+    let view_sync_state = ViewSyncTaskState::<TestTypes, TestVersions>::create_from(&handle).await;
     run_harness(input, output, view_sync_state, false).await;
 }

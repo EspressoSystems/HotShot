@@ -58,8 +58,8 @@ pub use self::{
 };
 use super::{
     behaviours::dht::{
-        bootstrap::{self, DHTBootstrapTask, InputEvent},
-        store::ValidatedStore,
+        bootstrap::{DHTBootstrapTask, InputEvent},
+        store::{file_backed::FileBackedStore, validated::ValidatedStore},
     },
     cbor::Cbor,
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
@@ -81,17 +81,13 @@ pub const ESTABLISHED_LIMIT: NonZeroU32 =
 pub const ESTABLISHED_LIMIT_UNWR: u32 = 10;
 
 /// Network definition
-#[derive(custom_debug::Debug)]
+#[derive(derive_more::Debug)]
 pub struct NetworkNode<T: NodeType> {
-    /// The keypair for the node
-    keypair: Keypair,
     /// peer id of network node
     peer_id: PeerId,
     /// the swarm of networkbehaviours
     #[debug(skip)]
     swarm: Swarm<NetworkDef<T::SignatureKey>>,
-    /// the configuration parameters of the netework
-    config: NetworkNodeConfig<T>,
     /// the listener id we are listening on, if it exists
     listener_id: Option<ListenerId>,
     /// Handler for direct messages
@@ -100,8 +96,6 @@ pub struct NetworkNode<T: NodeType> {
     dht_handler: DHTBehaviour<T::SignatureKey>,
     /// Channel to resend requests, set to Some when we call `spawn_listeners`
     resend_tx: Option<UnboundedSender<ClientRequest>>,
-    /// Send to the bootstrap task to tell it to start a bootstrap
-    bootstrap_tx: Option<mpsc::Sender<bootstrap::InputEvent>>,
 }
 
 impl<T: NodeType> NetworkNode<T> {
@@ -239,7 +233,7 @@ impl<T: NodeType> NetworkNode<T> {
             let identify = IdentifyBehaviour::new(identify_cfg);
 
             // - Build DHT needed for peer discovery
-            let mut kconfig = Config::default();
+            let mut kconfig = Config::new(StreamProtocol::new("/ipfs/kad/1.0.0"));
             // 8 hours by default
             let record_republication_interval = config
                 .republication_interval
@@ -259,9 +253,20 @@ impl<T: NodeType> NetworkNode<T> {
                 panic!("Replication factor not set");
             }
 
+            // Extract the DHT file path from the config, defaulting to `libp2p_dht.json`
+            let dht_file_path = config
+                .dht_file_path
+                .clone()
+                .unwrap_or_else(|| "libp2p_dht.bin".into());
+
+            // Create the DHT behaviour
             let mut kadem = Behaviour::with_config(
                 peer_id,
-                ValidatedStore::new(MemoryStore::new(peer_id)),
+                FileBackedStore::new(
+                    ValidatedStore::new(MemoryStore::new(peer_id)),
+                    dht_file_path,
+                    10,
+                ),
                 kconfig,
             );
             kadem.set_mode(Some(Mode::Server));
@@ -316,10 +321,8 @@ impl<T: NodeType> NetworkNode<T> {
         }
 
         Ok(Self {
-            keypair,
             peer_id,
             swarm,
-            config: config.clone(),
             listener_id: None,
             direct_message_state: DMBehaviour::default(),
             dht_handler: DHTBehaviour::new(
@@ -329,7 +332,6 @@ impl<T: NodeType> NetworkNode<T> {
                     .unwrap_or(NonZeroUsize::new(4).unwrap()),
             ),
             resend_tx: None,
-            bootstrap_tx: None,
         })
     }
 
@@ -364,7 +366,7 @@ impl<T: NodeType> NetworkNode<T> {
     }
 
     /// event handler for client events
-    /// currectly supported actions include
+    /// currently supported actions include
     /// - shutting down the swarm
     /// - gossipping a message to known peers on the `global` topic
     /// - returning the id of the current peer
@@ -601,6 +603,7 @@ impl<T: NodeType> NetworkNode<T> {
                                     agent_version: _,
                                     observed_addr: _,
                                 },
+                            connection_id: _,
                         } = *e
                         {
                             let behaviour = self.swarm.behaviour_mut();
