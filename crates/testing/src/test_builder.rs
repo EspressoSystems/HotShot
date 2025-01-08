@@ -500,7 +500,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             async_delay_config: DelayConfig::default(),
             upgrade_view: None,
             start_solver: true,
-            validate_transactions: Arc::new(|_| Ok(())),
+            validate_transactions: nonempty_block_threshold((40, 50)),
         }
     }
 }
