@@ -19,7 +19,7 @@ use hotshot_testing::block_builder::{
     BuilderTask, RandomBuilderImplementation, TestBuilderImplementation,
 };
 use hotshot_types::{
-    network::RandomBuilderConfig,
+    builder::RandomBuilderConfig,
     traits::{
         block_contents::vid_commitment, node_implementation::NodeType, signature_key::SignatureKey,
         BlockPayload,

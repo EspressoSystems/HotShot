@@ -111,9 +111,6 @@ pub struct ProposalDependencyHandle<TYPES: NodeType, V: Versions> {
     /// Lock for a decided upgrade
     pub upgrade_lock: UpgradeLock<TYPES, V>,
 
-    /// The node's id
-    pub id: u64,
-
     /// The time this view started
     pub view_start_time: Instant,
 
@@ -260,7 +257,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
     /// Publishes a proposal given the [`CommitmentAndMetadata`], [`VidDisperse`]
     /// and high qc [`hotshot_types::simple_certificate::QuorumCertificate`],
     /// with optional [`ViewChangeEvidence`].
-    #[instrument(skip_all, fields(id = self.id, view_number = *self.view_number, latest_proposed_view = *self.latest_proposed_view))]
+    #[instrument(skip_all, fields(view_number = *self.view_number, latest_proposed_view = *self.latest_proposed_view))]
     async fn publish_proposal(
         &self,
         commitment_and_metadata: CommitmentAndMetadata<TYPES>,

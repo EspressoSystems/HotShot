@@ -573,7 +573,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
 /// # Errors
 /// If any validation or state update fails.
 #[allow(clippy::too_many_lines)]
-#[instrument(skip_all, fields(id = validation_info.id, view = *proposal.data.view_number()))]
+#[instrument(skip_all, fields(view = *proposal.data.view_number()))]
 pub async fn validate_proposal_safety_and_liveness<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,

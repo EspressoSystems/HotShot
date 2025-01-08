@@ -4,90 +4,16 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use async_lock::RwLock;
 use hotshot_types::traits::node_implementation::NodeType;
-use libp2p::{identity::Keypair, Multiaddr};
-use libp2p_identity::PeerId;
+use libp2p::Multiaddr;
+use libp2p_identity::Keypair;
+
+use crate::network::behaviours::dht::record::RecordValue;
 
 use super::MAX_GOSSIP_MSG_SIZE;
-
-/// The default Kademlia replication factor
-pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(10);
-
-/// describe the configuration of the network
-#[derive(Default, derive_builder::Builder, derive_more::Debug)]
-pub struct NetworkNodeConfig<T: NodeType> {
-    /// The keypair for the node
-    #[builder(setter(into, strip_option), default)]
-    #[debug(skip)]
-    pub keypair: Option<Keypair>,
-
-    /// The address to bind to
-    #[builder(default)]
-    pub bind_address: Option<Multiaddr>,
-
-    /// Replication factor for entries in the DHT
-    #[builder(setter(into, strip_option), default = "DEFAULT_REPLICATION_FACTOR")]
-    pub replication_factor: Option<NonZeroUsize>,
-
-    #[builder(default)]
-    /// Configuration for `GossipSub`
-    pub gossip_config: GossipConfig,
-
-    #[builder(default)]
-    /// Configuration for `RequestResponse`
-    pub request_response_config: RequestResponseConfig,
-
-    /// list of addresses to connect to at initialization
-    pub to_connect_addrs: HashSet<(PeerId, Multiaddr)>,
-
-    /// republication interval in DHT, must be much less than `ttl`
-    #[builder(default)]
-    pub republication_interval: Option<Duration>,
-
-    /// expiratiry for records in DHT
-    #[builder(default)]
-    pub ttl: Option<Duration>,
-
-    /// The stake table. Used for authenticating other nodes. If not supplied
-    /// we will not check other nodes against the stake table
-    #[builder(default)]
-    pub stake_table: Option<Arc<RwLock<T::Membership>>>,
-
-    /// The path to the file to save the DHT to
-    #[builder(default)]
-    pub dht_file_path: Option<String>,
-
-    /// The signed authentication message sent to the remote peer
-    /// If not supplied we will not send an authentication message during the handshake
-    #[builder(default)]
-    pub auth_message: Option<Vec<u8>>,
-
-    #[builder(default)]
-    /// The timeout for DHT lookups.
-    pub dht_timeout: Option<Duration>,
-}
-
-impl<T: NodeType> Clone for NetworkNodeConfig<T> {
-    fn clone(&self) -> Self {
-        Self {
-            keypair: self.keypair.clone(),
-            bind_address: self.bind_address.clone(),
-            replication_factor: self.replication_factor,
-            gossip_config: self.gossip_config.clone(),
-            request_response_config: self.request_response_config.clone(),
-            to_connect_addrs: self.to_connect_addrs.clone(),
-            republication_interval: self.republication_interval,
-            ttl: self.ttl,
-            stake_table: self.stake_table.as_ref().map(Arc::clone),
-            dht_file_path: self.dht_file_path.clone(),
-            auth_message: self.auth_message.clone(),
-            dht_timeout: self.dht_timeout,
-        }
-    }
-}
 
 /// Configuration for Libp2p's Gossipsub
 #[derive(Clone, Debug)]
@@ -200,4 +126,42 @@ impl Default for RequestResponseConfig {
             response_size_maximum: 20 * 1024 * 1024,
         }
     }
+}
+
+/// Configuration for Libp2p's Kademlia
+#[derive(Clone, Debug)]
+pub struct KademliaConfig<T: NodeType> {
+    /// The replication factor
+    pub replication_factor: usize,
+    /// The record ttl
+    pub record_ttl: Option<Duration>,
+    /// The publication interval
+    pub publication_interval: Option<Duration>,
+    /// The file path for the [file-backed] record store
+    pub file_path: String,
+    /// The lookup record value (a signed peer ID so it can be verified by any node)
+    pub lookup_record_value: RecordValue<T::SignatureKey>,
+}
+
+/// Configuration for Libp2p
+#[derive(Clone)]
+pub struct Libp2pConfig<T: NodeType> {
+    /// The Libp2p keypair
+    pub keypair: Keypair,
+    /// The address to bind Libp2p to
+    pub bind_address: Multiaddr,
+    /// Addresses of known peers to add to Libp2p on startup
+    pub known_peers: Vec<Multiaddr>,
+
+    /// The quorum membership
+    pub quorum_membership: Option<Arc<RwLock<T::Membership>>>,
+    /// The (signed) authentication message
+    pub auth_message: Option<Vec<u8>>,
+
+    /// The gossip config
+    pub gossip_config: GossipConfig,
+    /// The request response config
+    pub request_response_config: RequestResponseConfig,
+    /// The kademlia config
+    pub kademlia_config: KademliaConfig<T>,
 }

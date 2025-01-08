@@ -358,13 +358,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     }
 
     /// Wrapper to get the view number this node is on.
-    #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
+    #[instrument(skip_all, target = "SystemContextHandle")]
     pub async fn cur_view(&self) -> TYPES::View {
         self.hotshot.consensus.read().await.cur_view()
     }
 
     /// Wrapper to get the epoch number this node is on.
-    #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
+    #[instrument(skip_all, target = "SystemContextHandle")]
     pub async fn cur_epoch(&self) -> TYPES::Epoch {
         self.hotshot.consensus.read().await.cur_epoch()
     }

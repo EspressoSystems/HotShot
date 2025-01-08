@@ -39,17 +39,23 @@ use hotshot_types::{
     traits::{
         metrics::{Counter, Metrics, NoMetrics},
         network::{BroadcastDelay, ConnectedNetwork, Topic as HotShotTopic},
-        node_implementation::NodeType,
         signature_key::SignatureKey,
     },
     utils::bincode_opts,
     BoxSyncFuture,
 };
+
+#[cfg(feature = "hotshot-testing")]
+use hotshot_types::traits::node_implementation::NodeType;
+
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use parking_lot::Mutex;
 #[cfg(feature = "hotshot-testing")]
 use rand::{rngs::StdRng, RngCore, SeedableRng};
-use tokio::{spawn, sync::mpsc::error::TrySendError, time::sleep};
+use tokio::sync::mpsc::error::TrySendError;
+#[cfg(feature = "hotshot-testing")]
+use tokio::{spawn, time::sleep};
+#[cfg(feature = "hotshot-testing")]
 use tracing::error;
 
 use super::NetworkError;
@@ -288,8 +294,6 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     #[allow(clippy::too_many_lines)]
     fn generator(
         _expected_node_count: usize,
-        _num_bootstrap: usize,
-        _network_id: usize,
         da_committee_size: usize,
         _reliability_config: Option<Box<dyn NetworkReliability>>,
         _secondary_network_delay: Duration,

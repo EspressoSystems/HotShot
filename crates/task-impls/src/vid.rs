@@ -54,16 +54,13 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
-    /// This state's ID
-    pub id: u64,
-
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "VID Main Task", level = "error", target = "VidTaskState")]
+    #[instrument(skip_all, fields(view = *self.cur_view, epoch = *self.cur_epoch), name = "VID Main Task", level = "error", target = "VidTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,

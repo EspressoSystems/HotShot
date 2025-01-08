@@ -9,7 +9,7 @@ use std::{fs::OpenOptions, io::Write, sync::Arc};
 use async_broadcast::{Receiver, Sender};
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::{traits::node_implementation::NodeType, utils::mnemonic};
 use utils::anytrace::Result;
 
 use crate::events::HotShotEvent;
@@ -20,8 +20,8 @@ pub struct RewindTaskState<TYPES: NodeType> {
     /// All events received by this node since the beginning of time.
     pub events: Vec<Arc<HotShotEvent<TYPES>>>,
 
-    /// The id of this node
-    pub id: u64,
+    /// The public key of this node
+    pub public_key: TYPES::SignatureKey,
 }
 
 impl<TYPES: NodeType> RewindTaskState<TYPES> {
@@ -46,8 +46,8 @@ impl<TYPES: NodeType> TaskState for RewindTaskState<TYPES> {
     }
 
     fn cancel_subtasks(&mut self) {
-        tracing::info!("Node ID {} Recording {} events", self.id, self.events.len());
-        let filename = format!("rewind_{}.log", self.id);
+        tracing::info!("Recording {} events", self.events.len());
+        let filename = format!("rewind_{}.log", mnemonic(&self.public_key));
         let mut file = match OpenOptions::new()
             .write(true)
             .create(true)

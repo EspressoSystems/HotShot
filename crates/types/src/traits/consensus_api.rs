@@ -6,7 +6,7 @@
 
 //! Contains the [`ConsensusApi`] trait.
 
-use std::{num::NonZeroUsize, time::Duration};
+use std::time::Duration;
 
 use async_trait::async_trait;
 
@@ -23,7 +23,7 @@ use crate::{
 #[async_trait]
 pub trait ConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
-    fn total_nodes(&self) -> NonZeroUsize;
+    fn total_nodes(&self) -> usize;
 
     /// The maximum amount of time a leader can wait to get a block from a builder.
     fn builder_timeout(&self) -> Duration;

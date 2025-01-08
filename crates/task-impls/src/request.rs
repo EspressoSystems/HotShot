@@ -75,9 +75,6 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// This nodes private/signing key, used to sign requests.
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
-    /// The node's id
-    pub id: u64,
-
     /// A flag indicating that `HotShotEvent::Shutdown` has been received
     pub shutdown_flag: Arc<AtomicBool>,
 
@@ -102,7 +99,7 @@ type Signature<TYPES> =
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequestState<TYPES, I> {
     type Event = HotShotEvent<TYPES>;
 
-    #[instrument(skip_all, target = "NetworkRequestState", fields(id = self.id))]
+    #[instrument(skip_all, target = "NetworkRequestState")]
     async fn handle_event(
         &mut self,
         event: Arc<Self::Event>,
@@ -223,7 +220,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             view,
             signature,
         };
-        let my_id = self.id;
         let handle: JoinHandle<()> = spawn(async move {
             // Do the delay only if primary is up and then start sending
             if !network.is_primary_down() {
@@ -265,9 +261,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 } else {
                     // This shouldn't be possible `recipients_it.next()` should clone original and start over if `None`
                     tracing::warn!(
-                        "Sent VID request to all available DA members and got no response for view: {:?}, my id: {:?}",
+                        "Sent VID request to all available DA members and got no response for view: {:?}",
                         view,
-                        my_id,
                     );
                     return;
                 }

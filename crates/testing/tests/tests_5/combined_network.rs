@@ -235,7 +235,6 @@ async fn test_stress_combined_network_fuzzy() {
     hotshot::helpers::initialize_logging();
 
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
-        num_bootstrap_nodes: 10,
         num_nodes_with_stake: 20,
         start_nodes: 20,
 

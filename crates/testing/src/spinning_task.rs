@@ -174,11 +174,10 @@ where
                                                 node_id,
                                                 1,
                                                 // For tests, make the node DA based on its index
-                                                node_id < config.da_staked_committee_size as u64,
+                                                node_id < config.known_da_nodes.len() as u64,
                                             );
 
                                         TestRunner::add_node_with_config(
-                                            node_id,
                                             network.clone(),
                                             memberships,
                                             initializer,
@@ -218,8 +217,8 @@ where
                         NodeAction::RestartDown(delay_views) => {
                             let node_id = idx.try_into().unwrap();
                             if let Some(node) = self.handles.write().await.get_mut(idx) {
-                                tracing::error!("Node {} shutting down", idx);
                                 node.handle.shut_down().await;
+
                                 // For restarted nodes generate the network on correct view
                                 let generated_network = (self.channel_generator)(node_id).await;
 
@@ -263,12 +262,12 @@ where
                                     node_id,
                                     1,
                                     // For tests, make the node DA based on its index
-                                    node_id < config.da_staked_committee_size as u64,
+                                    node_id < config.known_da_nodes.len() as u64,
                                 );
                                 let internal_chan = broadcast(EVENT_CHANNEL_SIZE);
+
                                 let context =
                                     TestRunner::<TYPES, I, V, N>::add_node_with_config_and_channels(
-                                        node_id,
                                         generated_network.clone(),
                                         memberships,
                                         initializer,

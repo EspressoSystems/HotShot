@@ -85,7 +85,6 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
         Arc::clone(&handle.memberships),
         handle.public_key().clone(),
         handle.private_key().clone(),
-        handle.hotshot.id,
     );
     handle.network_registry.register(run_response_task::<TYPES>(
         state,
@@ -321,7 +320,6 @@ where
         &'static mut self,
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
@@ -334,7 +332,6 @@ where
         let hotshot = SystemContext::new(
             public_key,
             private_key,
-            nonce,
             config,
             memberships,
             network,

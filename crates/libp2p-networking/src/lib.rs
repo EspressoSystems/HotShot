@@ -9,7 +9,7 @@
 /// Network logic
 pub mod network;
 
-/// symbols needed to implement a networking instance over libp2p-netorking
+/// Re-exports from libp2p
 pub mod reexport {
     pub use libp2p::{request_response::ResponseChannel, Multiaddr};
     pub use libp2p_identity::PeerId;

@@ -41,9 +41,6 @@ pub struct NetworkResponseState<TYPES: NodeType> {
 
     /// This replicas private key
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-
-    /// The node's id
-    id: u64,
 }
 
 impl<TYPES: NodeType> NetworkResponseState<TYPES> {
@@ -53,14 +50,12 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         membership: Arc<RwLock<TYPES::Membership>>,
         pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        id: u64,
     ) -> Self {
         Self {
             consensus,
             membership,
             pub_key,
             private_key,
-            id,
         }
     }
 
@@ -140,7 +135,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     /// Get the VID share from consensus storage, or calculate it from the payload for
     /// the view, if we have the payload.  Stores all the shares calculated from the payload
     /// if the calculation was done
-    #[instrument(skip_all, target = "NetworkResponseState", fields(id = self.id))]
+    #[instrument(skip_all, target = "NetworkResponseState")]
     async fn get_or_calc_vid_share(
         &self,
         view: TYPES::View,

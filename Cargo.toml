@@ -20,7 +20,6 @@ members = [
     "crates/hotshot-stake-table",
     "crates/libp2p-networking",
     "crates/macros",
-    "crates/orchestrator",
     "crates/task",
     "crates/task-impls",
     "crates/testing",
@@ -90,6 +89,7 @@ clap = { version = "4", features = ["derive", "env"] }
 url = { version = "2", features = ["serde"] }
 vec1 = { version = "1", features = ["serde"] }
 reqwest = { version = "0.12", features = ["json"] }
+parking_lot = "0.12"
 
 libp2p = { package = "libp2p", version = "0.54", default-features = false, features = [
     "macros",
@@ -120,7 +120,6 @@ cdn-client = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6
 cdn-broker = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
 cdn-marshal = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
 cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6" }
-
 ### Profiles
 ###
 ### Note: these only apply to example executables or tests built from within this crate. They have

@@ -288,8 +288,6 @@ where
     #[allow(clippy::type_complexity)]
     fn generator(
         expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,

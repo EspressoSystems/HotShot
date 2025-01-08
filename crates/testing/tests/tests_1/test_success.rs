@@ -240,7 +240,6 @@ cross_tests!(
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
         metadata.epoch_height = 0;
-        metadata.num_bootstrap_nodes = 10;
         metadata.num_nodes_with_stake = 12;
         metadata.da_staked_committee_size = 12;
         metadata.start_nodes = 12;
@@ -261,7 +260,6 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
-        metadata.num_bootstrap_nodes = 10;
         metadata.epoch_height = 10;
         metadata.num_nodes_with_stake = 12;
         metadata.da_staked_committee_size = 12;
@@ -290,7 +288,6 @@ cross_tests!(
             ),
             num_nodes_with_stake: 11,
             start_nodes: 11,
-            num_bootstrap_nodes: 11,
             da_staked_committee_size: 11,
             epoch_height: 10,
             ..TestDescription::default()

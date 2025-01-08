@@ -1,114 +1,60 @@
 [package]
-authors = { workspace = true }
-description = "HotShot Examples and binaries"
-edition = { workspace = true }
 name = "hotshot-examples"
-readme = "README.md"
-version = { workspace = true }
-rust-version = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+repository.workspace = true
 
-[features]
-default = ["docs", "doc-images", "hotshot-testing"]
-gpu-vid = ["hotshot-example-types/gpu-vid"]
-
-# Build the extended documentation
-docs = []
-doc-images = []
-hotshot-testing = ["hotshot/hotshot-testing"]
-fixed-leader-election = []
-
-# Common
-[[example]]
-name = "orchestrator"
-path = "orchestrator.rs"
-
-# Libp2p
-[[example]]
-name = "validator-libp2p"
-path = "libp2p/validator.rs"
-
-[[example]]
-name = "multi-validator-libp2p"
-path = "libp2p/multi-validator.rs"
-
-[[example]]
-name = "all-libp2p"
-path = "libp2p/all.rs"
-
-# Combined
-[[example]]
-name = "all-combined"
-path = "combined/all.rs"
-
-[[example]]
-name = "multi-validator-combined"
-path = "combined/multi-validator.rs"
+[dependencies]
+async-lock.workspace = true
+tokio.workspace = true
+clap.workspace = true
+hotshot = { path = "../hotshot" }
+hotshot-types = { path = "../types" }
+hotshot-example-types.path = "../example-types"
+url.workspace = true
+libp2p.workspace = true
+portpicker.workspace = true
+libp2p-networking.workspace = true
+anyhow.workspace = true
+rand.workspace = true
+futures.workspace = true
+tracing.workspace = true
+hotshot-testing.path = "../testing"
+lru.workspace = true
+cdn-broker.workspace = true
+cdn-marshal.workspace = true
+sha2.workspace = true
+warp = { version = "0.3", default-features = false }
+reqwest.workspace = true
+bytes = "1"
+parking_lot.workspace = true
+local-ip-address = "0.6"
+simple_moving_average = "1"
+bytesize = "1"
 
 [[example]]
-name = "validator-combined"
-path = "combined/validator.rs"
-
-[[example]]
-name = "orchestrator-combined"
-path = "combined/orchestrator.rs"
-
-# Push CDN
-[[example]]
-name = "all-push-cdn"
-path = "push-cdn/all.rs"
-
-[[example]]
-name = "validator-push-cdn"
-path = "push-cdn/validator.rs"
-
-[[example]]
-name = "multi-validator-push-cdn"
-path = "push-cdn/multi-validator.rs"
+name = "all"
+path = "all.rs"
 
 [[example]]
 name = "cdn-broker"
-path = "push-cdn/broker.rs"
+path = "cdn/broker.rs"
 
 [[example]]
 name = "cdn-marshal"
-path = "push-cdn/marshal.rs"
+path = "cdn/marshal.rs"
 
 [[example]]
-name = "whitelist-push-cdn"
-path = "push-cdn/whitelist-adapter.rs"
+name = "coordinator"
+path = "coordinator.rs"
 
-[dependencies]
-async-lock = { workspace = true }
-async-trait = { workspace = true }
-
-cdn-broker = { workspace = true, features = ["global-permits"] }
-cdn-marshal = { workspace = true }
-chrono = { workspace = true }
-clap = { workspace = true, optional = true }
-futures = { workspace = true }
-hotshot = { path = "../hotshot" }
-hotshot-example-types = { path = "../example-types" }
-hotshot-orchestrator = { version = "0.5.36", path = "../orchestrator", default-features = false }
-hotshot-testing = { path = "../testing" }
-hotshot-types = { path = "../types" }
-libp2p-networking = { workspace = true }
-local-ip-address = "0.6"
-portpicker = { workspace = true }
-rand = { workspace = true }
-serde = { workspace = true, features = ["rc"] }
-sha2 = { workspace = true }
-surf-disco = { workspace = true }
-time = { workspace = true }
-tokio = { workspace = true }
-
-tracing = { workspace = true }
-url = { workspace = true }
-
-[dev-dependencies]
-anyhow = { workspace = true }
-clap = { workspace = true }
-toml = { workspace = true }
-tracing-subscriber = "0.3"
+[[example]]
+name = "single-validator"
+path = "single-validator.rs"
 
 [lints]
 workspace = true

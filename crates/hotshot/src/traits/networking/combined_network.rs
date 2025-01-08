@@ -255,8 +255,6 @@ pub struct UnderlyingCombinedNetworks<TYPES: NodeType>(
 impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetworks<TYPES> {
     fn generator(
         expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
         da_committee_size: usize,
         reliability_config: Option<Box<dyn NetworkReliability>>,
         secondary_network_delay: Duration,
@@ -264,16 +262,12 @@ impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES> for CombinedNetwor
         let generators = (
             <PushCdnNetwork<TYPES::SignatureKey> as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
-                num_bootstrap,
-                network_id,
                 da_committee_size,
                 None,
                 Duration::default(),
             ),
             <Libp2pNetwork<TYPES> as TestableNetworkingImplementation<TYPES>>::generator(
                 expected_node_count,
-                num_bootstrap,
-                network_id,
                 da_committee_size,
                 reliability_config,
                 Duration::default(),

@@ -54,7 +54,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             membership: Arc::clone(&handle.hotshot.memberships),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.id,
             shutdown_flag: Arc::new(AtomicBool::new(false)),
             spawned_tasks: BTreeMap::new(),
             epoch_height: handle.epoch_height,
@@ -76,7 +75,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             vote_collectors: BTreeMap::default(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.id,
             start_proposing_view: handle.hotshot.config.start_proposing_view,
             stop_proposing_view: handle.hotshot.config.stop_proposing_view,
             start_voting_view: handle.hotshot.config.start_voting_view,
@@ -125,7 +123,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             membership: Arc::clone(&handle.hotshot.memberships),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.id,
             epoch_height: handle.epoch_height,
         }
     }
@@ -146,7 +143,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             vote_collectors: BTreeMap::default(),
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
-            id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         }
@@ -173,7 +169,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             commit_relay_map: HashMap::default().into(),
             finalize_relay_map: HashMap::default().into(),
             view_sync_timeout: handle.hotshot.config.view_sync_timeout,
-            id: handle.hotshot.id,
             last_garbage_collected_view: TYPES::View::new(0),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         }
@@ -195,7 +190,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             public_key: handle.public_key().clone(),
             private_key: handle.private_key().clone(),
             instance_state: handle.hotshot.instance_state(),
-            id: handle.hotshot.id,
             builder_clients: handle
                 .hotshot
                 .config
@@ -239,7 +233,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             membership: Arc::clone(&handle.hotshot.memberships),
             drb_computation: None,
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
-            id: handle.hotshot.id,
             storage: Arc::clone(&handle.storage),
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
             epoch_height: handle.hotshot.config.epoch_height,
@@ -266,7 +259,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             private_key: handle.private_key().clone(),
             storage: Arc::clone(&handle.storage),
             timeout: handle.hotshot.config.next_view_timeout,
-            id: handle.hotshot.id,
             formed_upgrade_certificate: None,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
             epoch_height: handle.hotshot.config.epoch_height,
@@ -293,7 +285,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             output_event_stream: handle.hotshot.external_event_stream.0.clone(),
             storage: Arc::clone(&handle.storage),
             spawned_tasks: BTreeMap::new(),
-            id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
             epoch_height: handle.hotshot.config.epoch_height,
         }
@@ -323,7 +314,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
             timeout_task: spawn(async {}),
             timeout: handle.hotshot.config.next_view_timeout,
             consensus: OuterConsensus::new(consensus),
-            id: handle.hotshot.id,
             upgrade_lock: handle.hotshot.upgrade_lock.clone(),
             epoch_height: handle.hotshot.config.epoch_height,
         }
@@ -337,7 +327,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> CreateTaskState
     async fn create_from(handle: &SystemContextHandle<TYPES, I, V>) -> Self {
         Self {
             events: Vec::new(),
-            id: handle.hotshot.id,
+            public_key: handle.public_key().clone(),
         }
     }
 }

@@ -32,7 +32,6 @@ pub mod helpers;
 
 use std::{
     collections::{BTreeMap, HashMap},
-    num::NonZeroUsize,
     sync::Arc,
     time::Duration,
 };
@@ -141,9 +140,6 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
         InactiveReceiver<Arc<HotShotEvent<TYPES>>>,
     ),
 
-    /// uid for instrumentation
-    pub id: u64,
-
     /// Reference to the internal storage for consensus datum.
     pub storage: Arc<RwLock<I::Storage>>,
 
@@ -173,7 +169,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Clone
             external_event_stream: self.external_event_stream.clone(),
             anchored_leaf: self.anchored_leaf.clone(),
             internal_event_stream: self.internal_event_stream.clone(),
-            id: self.id,
             storage: Arc::clone(&self.storage),
             upgrade_lock: self.upgrade_lock.clone(),
             marketplace_config: self.marketplace_config.clone(),
@@ -197,7 +192,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
@@ -226,7 +220,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         Self::new_from_channels(
             public_key,
             private_key,
-            nonce,
             config,
             memberships,
             network,
@@ -250,7 +243,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     pub fn new_from_channels(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
@@ -356,7 +348,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         external_tx.set_await_active(false);
 
         let inner: Arc<SystemContext<TYPES, I, V>> = Arc::new(SystemContext {
-            id: nonce,
             consensus: OuterConsensus::new(consensus),
             instance_state: Arc::new(instance_state),
             public_key,
@@ -383,7 +374,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     ///
     /// # Panics
     /// Panics if sending genesis fails
-    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
+    #[instrument(skip_all, target = "SystemContext")]
     pub async fn start_consensus(&self) {
         #[cfg(all(feature = "rewind", not(debug_assertions)))]
         compile_error!("Cannot run rewind in production builds!");
@@ -485,7 +476,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// # Errors
     ///
     /// Always returns Ok; does not return an error if the transaction couldn't be published to the network
-    #[instrument(skip(self), err, target = "SystemContext", fields(id = self.id))]
+    #[instrument(skip(self), err, target = "SystemContext")]
     pub async fn publish_transaction_async(
         &self,
         transaction: TYPES::Transaction,
@@ -561,7 +552,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal leaf for consensus is inconsistent
-    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
+    #[instrument(skip_all, target = "SystemContext")]
     pub async fn decided_leaf(&self) -> Leaf2<TYPES> {
         self.consensus.read().await.decided_leaf()
     }
@@ -572,7 +563,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
     #[must_use]
-    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
+    #[instrument(skip_all, target = "SystemContext")]
     pub fn try_decided_leaf(&self) -> Option<Leaf2<TYPES>> {
         self.consensus.try_read().map(|guard| guard.decided_leaf())
     }
@@ -581,7 +572,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     ///
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
+    #[instrument(skip_all, target = "SystemContext")]
     pub async fn decided_state(&self) -> Arc<TYPES::ValidatedState> {
         Arc::clone(&self.consensus.read().await.decided_state())
     }
@@ -593,7 +584,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// return [`None`] if the requested view has already been decided (but see
     /// [`decided_state`](Self::decided_state)) or if there is no path for the requested
     /// view to ever be decided.
-    #[instrument(skip_all, target = "SystemContext", fields(id = self.id))]
+    #[instrument(skip_all, target = "SystemContext")]
     pub async fn state(&self, view: TYPES::View) -> Option<Arc<TYPES::ValidatedState>> {
         self.consensus.read().await.state(view).cloned()
     }
@@ -615,7 +606,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     pub async fn init(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        node_id: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
@@ -634,7 +624,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
         let hotshot = Self::new(
             public_key,
             private_key,
-            node_id,
             config,
             memberships,
             network,
@@ -778,7 +767,6 @@ where
         &'static mut self,
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        nonce: u64,
         config: HotShotConfig<TYPES::SignatureKey>,
         memberships: Arc<RwLock<TYPES::Membership>>,
         network: Arc<I::Network>,
@@ -794,7 +782,6 @@ where
         let left_system_context = SystemContext::new(
             public_key.clone(),
             private_key.clone(),
-            nonce,
             config.clone(),
             Arc::clone(&memberships),
             Arc::clone(&network),
@@ -807,7 +794,6 @@ where
         let right_system_context = SystemContext::new(
             public_key,
             private_key,
-            nonce,
             config,
             memberships,
             network,
@@ -961,8 +947,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TwinsHandlerSta
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> ConsensusApi<TYPES, I>
     for SystemContextHandle<TYPES, I, V>
 {
-    fn total_nodes(&self) -> NonZeroUsize {
-        self.hotshot.config.num_nodes_with_stake
+    fn total_nodes(&self) -> usize {
+        self.hotshot.config.known_nodes.len()
     }
 
     fn builder_timeout(&self) -> Duration {

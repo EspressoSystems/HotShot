@@ -15,7 +15,7 @@ use crate::{traits::signature_key::SignatureKey, PeerConfig};
 
 #[async_trait]
 /// A protocol for determining membership in and participating in a committee.
-pub trait Membership<TYPES: NodeType>: Debug + Send + Sync {
+pub trait Membership<TYPES: NodeType>: Debug + Send + Sync + Clone {
     /// The error type returned by methods like `lookup_leader`.
     type Error: std::fmt::Display;
 

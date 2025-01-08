@@ -82,9 +82,6 @@ pub struct ViewSyncTaskState<TYPES: NodeType, V: Versions> {
     /// Our Private Key
     pub private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
-    /// Our node id; for logging
-    pub id: u64,
-
     /// How many timeouts we've seen in a row; is reset upon a successful view change
     pub num_timeouts_tracked: u64,
 
@@ -157,9 +154,6 @@ pub struct ViewSyncReplicaTaskState<TYPES: NodeType, V: Versions> {
     /// Timeout task handle, when it expires we try the next relay
     pub timeout_task: Option<JoinHandle<()>>,
 
-    /// Our node id; for logging
-    pub id: u64,
-
     /// Membership for the quorum
     pub membership: Arc<RwLock<TYPES::Membership>>,
 
@@ -192,7 +186,7 @@ impl<TYPES: NodeType, V: Versions> TaskState for ViewSyncReplicaTaskState<TYPES,
 }
 
 impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "View Sync Main Task", level = "error")]
+    #[instrument(skip_all, fields(view = *self.cur_view), name = "View Sync Main Task", level = "error")]
     #[allow(clippy::type_complexity)]
     /// Handles incoming events for the main view sync task
     pub async fn send_to_or_create_replica(
@@ -239,7 +233,6 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
             public_key: self.public_key.clone(),
             private_key: self.private_key.clone(),
             view_sync_timeout: self.view_sync_timeout,
-            id: self.id,
             upgrade_lock: self.upgrade_lock.clone(),
         };
 
@@ -255,7 +248,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
         task_map.insert(view, replica_state);
     }
 
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Main Task", level = "error")]
+    #[instrument(skip_all, fields(view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Main Task", level = "error")]
     #[allow(clippy::type_complexity)]
     /// Handles incoming events for the main view sync task
     pub async fn handle(
@@ -323,8 +316,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    id: self.id,
-                    epoch: vote.data.epoch,
+                    epoch: self.cur_epoch,
                 };
                 let vote_collector = create_vote_accumulator(
                     &info,
@@ -372,8 +364,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    id: self.id,
-                    epoch: vote.data.epoch,
+                    epoch: self.cur_epoch,
                 };
 
                 let vote_collector = create_vote_accumulator(
@@ -421,8 +412,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     public_key: self.public_key.clone(),
                     membership: Arc::clone(&self.membership),
                     view: vote_view,
-                    id: self.id,
-                    epoch: vote.data.epoch,
+                    epoch: self.cur_epoch,
                 };
                 let vote_collector = create_vote_accumulator(
                     &info,
@@ -530,7 +520,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
 }
 
 impl<TYPES: NodeType, V: Versions> ViewSyncReplicaTaskState<TYPES, V> {
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Replica Task", level = "error")]
+    #[instrument(skip_all, fields(view = *self.cur_view, epoch = *self.cur_epoch), name = "View Sync Replica Task", level = "error")]
     /// Handle incoming events for the view sync replica task
     pub async fn handle(
         &mut self,
