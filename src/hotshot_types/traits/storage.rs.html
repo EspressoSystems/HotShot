@@ -173,7 +173,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.append_vid2(<span class="kw-2">&amp;</span>convert_proposal(proposal.clone())).<span class="kw">await
+        <span class="self">self</span>.append_vid(<span class="kw-2">&amp;</span>convert_proposal(proposal.clone())).<span class="kw">await
     </span>}
     <span class="doccomment">/// Add a proposal to the stored DA proposals.
     </span><span class="kw">async fn </span>append_da(
