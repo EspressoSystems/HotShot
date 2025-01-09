@@ -258,8 +258,8 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// optionally using precompute data from builder.
     /// If the sender epoch is missing, it means it's the same as the target epoch.
     ///
-    /// # Panics
-    /// Panics if the VID calculation fails, this should not happen.
+    /// # Errors
+    /// Returns an error if the disperse or commitment calculation fails
     #[allow(clippy::panic)]
     pub async fn calculate_vid_disperse(
         txns: Arc<[u8]>,
