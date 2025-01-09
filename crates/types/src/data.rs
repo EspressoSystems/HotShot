@@ -147,8 +147,6 @@ pub struct DaProposal<TYPES: NodeType> {
     pub metadata: <TYPES::BlockPayload as BlockPayload<TYPES>>::Metadata,
     /// View this proposal applies to
     pub view_number: TYPES::View,
-    /// Epoch this proposal applies to
-    pub epoch: TYPES::Epoch,
 }
 
 /// A proposal to start providing data availability for a block.
@@ -182,7 +180,6 @@ impl<TYPES: NodeType> From<DaProposal2<TYPES>> for DaProposal<TYPES> {
             encoded_transactions: da_proposal2.encoded_transactions,
             metadata: da_proposal2.metadata,
             view_number: da_proposal2.view_number,
-            epoch: TYPES::Epoch::new(0),
         }
     }
 }
@@ -198,8 +195,6 @@ where
     pub upgrade_proposal: UpgradeProposalData<TYPES>,
     /// View this proposal applies to
     pub view_number: TYPES::View,
-    /// Epoch this proposal applies to
-    pub epoch: TYPES::Epoch,
 }
 
 /// VID dispersal data
