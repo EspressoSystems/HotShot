@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use delegate::delegate;
 use libp2p::kad::store::{RecordStore, Result};
 use serde::{Deserialize, Serialize};
-use tokio::sync::Semaphore;
+use tokio::{sync::Semaphore, time::timeout};
 use tracing::{debug, warn};
 
 /// A trait that we use to save and load the DHT to a file on disk
@@ -25,23 +25,29 @@ pub trait DhtPersistentStorage: Send + Sync + 'static + Clone {
     ///
     /// # Errors
     /// - If we fail to save the DHT to the persistent storage provider
-    async fn save(&self, _records: Vec<SerializableRecord>) -> anyhow::Result<()> {
-        Ok(())
-    }
+    async fn save(&self, _records: Vec<SerializableRecord>) -> anyhow::Result<()>;
 
     /// Load the DHT (as a list of serializable records) from the persistent storage
     ///
     /// # Errors
     /// - If we fail to load the DHT from the persistent storage provider
-    async fn load(&self) -> anyhow::Result<Vec<SerializableRecord>> {
-        Ok(vec![])
-    }
+    async fn load(&self) -> anyhow::Result<Vec<SerializableRecord>>;
 }
 
 /// A no-op `PersistentStorage` that does not persist the DHT
 #[derive(Clone)]
 pub struct DhtNoPersistence;
-impl DhtPersistentStorage for DhtNoPersistence {}
+
+#[async_trait]
+impl DhtPersistentStorage for DhtNoPersistence {
+    async fn save(&self, _records: Vec<SerializableRecord>) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn load(&self) -> anyhow::Result<Vec<SerializableRecord>> {
+        Ok(vec![])
+    }
+}
 
 /// A `PersistentStorage` that persists the DHT to a file on disk. Used mostly for
 /// testing.
@@ -268,14 +274,18 @@ impl<R: RecordStore, D: DhtPersistentStorage> PersistentStore<R, D> {
             debug!("Saving DHT to persistent storage");
 
             // Save the DHT to the persistent storage
-            if let Err(e) = persistent_storage
-                .save(serializable_records)
-                .await
-                .with_context(|| "Failed to write DHT to persistent storage")
+            match timeout(
+                Duration::from_secs(10),
+                persistent_storage.save(serializable_records),
+            )
+            .await
+            .map_err(|_| anyhow::anyhow!("save operation timed out"))
             {
-                // On failure, warn
-                warn!("Failed to save DHT to persistent storage: {:?}", e);
-            }
+                Ok(Ok(())) => {}
+                Ok(Err(error)) | Err(error) => {
+                    warn!("Failed to save DHT to persistent storage: {error}");
+                }
+            };
 
             // Reset the record delta
             record_delta.store(0, Ordering::Release);
