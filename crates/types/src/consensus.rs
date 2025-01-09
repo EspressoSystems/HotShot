@@ -862,6 +862,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Panics
     /// On inconsistent stored entries
     pub fn collect_garbage(&mut self, old_anchor_view: TYPES::View, new_anchor_view: TYPES::View) {
+        // Nothing to collect
+        if new_anchor_view <= old_anchor_view {
+            return;
+        }
         let gc_view = TYPES::View::new(new_anchor_view.saturating_sub(1));
         // state check
         let anchor_entry = self
