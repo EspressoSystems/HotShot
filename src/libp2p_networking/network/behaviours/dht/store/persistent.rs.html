@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/behaviours/dht/store/file_backed.rs`."><title>file_backed.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../../../../../" data-static-root-path="../../../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../../../src-files.js"></script><script defer src="../../../../../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../../../../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/libp2p-networking/src/network/behaviours/dht/store/persistent.rs`."><title>persistent.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../../../../../" data-static-root-path="../../../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../../../src-files.js"></script><script defer src="../../../../../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../../../../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -424,30 +424,259 @@
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! This file contains the `FileBackedStore` struct, which is a wrapper around a `RecordStore`
-//! that occasionally saves the DHT to a file on disk.
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! This file contains the `PersistentStore` struct, which is a wrapper around a `RecordStore`
+//! that occasionally saves the DHT to a persistent storage.
 
-</span><span class="kw">use </span>std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+</span><span class="kw">use </span>std::{
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
 
 <span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>delegate::delegate;
 <span class="kw">use </span>libp2p::kad::store::{RecordStore, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>tokio::{sync::Semaphore, time::timeout};
 <span class="kw">use </span>tracing::{debug, warn};
 
-<span class="doccomment">/// A `RecordStore` wrapper that occasionally saves the DHT to a file on disk.
-</span><span class="kw">pub struct </span>FileBackedStore&lt;R: RecordStore&gt; {
-    <span class="doccomment">/// The underlying store
-    </span>underlying_store: R,
+<span class="doccomment">/// A trait that we use to save and load the DHT to a file on disk
+/// or other storage medium
+</span><span class="attr">#[async_trait]
+</span><span class="kw">pub trait </span>DhtPersistentStorage: Send + Sync + <span class="lifetime">'static </span>+ Clone {
+    <span class="doccomment">/// Save the DHT (as a list of serializable records) to the persistent storage
+    ///
+    /// # Errors
+    /// - If we fail to save the DHT to the persistent storage provider
+    </span><span class="kw">async fn </span>save(<span class="kw-2">&amp;</span><span class="self">self</span>, _records: Vec&lt;SerializableRecord&gt;) -&gt; anyhow::Result&lt;()&gt;;
 
-    <span class="doccomment">/// The path to the file
+    <span class="doccomment">/// Load the DHT (as a list of serializable records) from the persistent storage
+    ///
+    /// # Errors
+    /// - If we fail to load the DHT from the persistent storage provider
+    </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;SerializableRecord&gt;&gt;;
+}
+
+<span class="doccomment">/// A no-op `PersistentStorage` that does not persist the DHT
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>DhtNoPersistence;
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>DhtPersistentStorage <span class="kw">for </span>DhtNoPersistence {
+    <span class="kw">async fn </span>save(<span class="kw-2">&amp;</span><span class="self">self</span>, _records: Vec&lt;SerializableRecord&gt;) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;SerializableRecord&gt;&gt; {
+        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[])
+    }
+}
+
+<span class="doccomment">/// A `PersistentStorage` that persists the DHT to a file on disk. Used mostly for
+/// testing.
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>DhtFilePersistence {
+    <span class="doccomment">/// The path to the file on disk
     </span>path: String,
+}
 
-    <span class="doccomment">/// The maximum number of records that can be added to the store before the store is saved to a file
+<span class="kw">impl </span>DhtFilePersistence {
+    <span class="doccomment">/// Create a new `DhtFilePersistence` with the given path
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>new(path: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ path }
+    }
+}
+
+<span class="attr">#[async_trait]
+</span><span class="kw">impl </span>DhtPersistentStorage <span class="kw">for </span>DhtFilePersistence {
+    <span class="doccomment">/// Save the DHT to the file on disk
+    ///
+    /// # Errors
+    /// - If we fail to serialize the records
+    /// - If we fail to write the serialized records to the file
+    </span><span class="kw">async fn </span>save(<span class="kw-2">&amp;</span><span class="self">self</span>, records: Vec&lt;SerializableRecord&gt;) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="comment">// Bincode-serialize the records
+        </span><span class="kw">let </span>to_save =
+            bincode::serialize(<span class="kw-2">&amp;</span>records).with_context(|| <span class="string">"Failed to serialize records"</span>)<span class="question-mark">?</span>;
+
+        <span class="comment">// Write the serialized records to the file
+        </span>std::fs::write(<span class="kw-2">&amp;</span><span class="self">self</span>.path, to_save).with_context(|| <span class="string">"Failed to write records to file"</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Load the DHT from the file on disk
+    ///
+    /// # Errors
+    /// - If we fail to read the file
+    /// - If we fail to deserialize the records
+    </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;SerializableRecord&gt;&gt; {
+        <span class="comment">// Read the contents of the file
+        </span><span class="kw">let </span>contents =
+            std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.path).with_context(|| <span class="string">"Failed to read records from file"</span>)<span class="question-mark">?</span>;
+
+        <span class="comment">// Deserialize the contents
+        </span><span class="kw">let </span>records: Vec&lt;SerializableRecord&gt; =
+            bincode::deserialize(<span class="kw-2">&amp;</span>contents).with_context(|| <span class="string">"Failed to deserialize records"</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(records)
+    }
+}
+
+<span class="doccomment">/// A `RecordStore` wrapper that occasionally saves the DHT to a persistent storage.
+</span><span class="kw">pub struct </span>PersistentStore&lt;R: RecordStore, D: DhtPersistentStorage&gt; {
+    <span class="doccomment">/// The underlying record store
+    </span>underlying_record_store: R,
+
+    <span class="doccomment">/// The persistent storage
+    </span>persistent_storage: D,
+
+    <span class="doccomment">/// The semaphore for limiting the number of concurrent operations (to one)
+    </span>semaphore: Arc&lt;Semaphore&gt;,
+
+    <span class="doccomment">/// The maximum number of records that can be added to the store before the store is saved to the persistent storage
     </span>max_record_delta: u64,
 
-    <span class="doccomment">/// The running delta between the records in the file and the records in the underlying store
-    </span>record_delta: u64,
+    <span class="doccomment">/// The running delta between the records in the persistent storage and the records in the underlying store
+    </span>record_delta: Arc&lt;AtomicU64&gt;,
 }
 
 <span class="doccomment">/// A serializable version of a Libp2p `Record`
@@ -543,24 +772,30 @@
     }
 }
 
-<span class="kw">impl</span>&lt;R: RecordStore&gt; FileBackedStore&lt;R&gt; {
-    <span class="doccomment">/// Create a new `FileBackedStore` with the given underlying store and path.
+<span class="kw">impl</span>&lt;R: RecordStore, D: DhtPersistentStorage&gt; PersistentStore&lt;R, D&gt; {
+    <span class="doccomment">/// Create a new `PersistentStore` with the given underlying store and path.
+    /// On creation, the DHT is restored from the persistent storage if possible.
     ///
     /// `max_record_delta` is the maximum number of records that can be added to the store before
-    /// the store is saved to a file.
-    </span><span class="kw">pub fn </span>new(underlying_store: R, path: String, max_record_delta: u64) -&gt; <span class="self">Self </span>{
+    /// the store is saved to the persistent storage.
+    </span><span class="kw">pub async fn </span>new(
+        underlying_record_store: R,
+        persistent_storage: D,
+        max_record_delta: u64,
+    ) -&gt; <span class="self">Self </span>{
         <span class="comment">// Create the new store
-        </span><span class="kw">let </span><span class="kw-2">mut </span>store = FileBackedStore {
-            underlying_store,
-            path: path.clone(),
+        </span><span class="kw">let </span><span class="kw-2">mut </span>store = PersistentStore {
+            underlying_record_store,
+            persistent_storage,
             max_record_delta,
-            record_delta: <span class="number">0</span>,
+            record_delta: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+            semaphore: Arc::new(Semaphore::new(<span class="number">1</span>)),
         };
 
-        <span class="comment">// Try to restore the DHT from a file. If it fails, warn and start with an empty store
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = store.restore_from_file(path) {
+        <span class="comment">// Try to restore the DHT from the persistent store. If it fails, warn and start with an empty store
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = store.restore_from_persistent_storage().<span class="kw">await </span>{
             <span class="macro">warn!</span>(
-                <span class="string">"Failed to restore DHT from file: {:?}. Starting with empty store"</span>,
+                <span class="string">"Failed to restore DHT from persistent storage: {:?}. Starting with empty store"</span>,
                 err
             );
         }
@@ -569,17 +804,19 @@
         </span>store
     }
 
-    <span class="doccomment">/// Attempt to save the DHT to the file at the given path
+    <span class="doccomment">/// Try saving the DHT to persistent storage if a task is not already in progress.
     ///
-    /// # Errors
-    /// - If we fail to serialize the DHT
-    /// - If we fail to write the serialized DHT to the file
-    </span><span class="kw">pub fn </span>save_to_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="macro">debug!</span>(<span class="string">"Saving DHT to file"</span>);
+    /// Returns `true` if the DHT was saved, `false` otherwise.
+    </span><span class="kw">fn </span>try_save_to_persistent_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
+        <span class="comment">// Try to acquire the semaphore, warning if another save operation is already in progress
+        </span><span class="kw">let </span><span class="prelude-val">Ok</span>(permit) = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.semaphore).try_acquire_owned() <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">"Skipping DHT save to persistent storage - another save operation is already in progress"</span>);
+            <span class="kw">return </span><span class="bool-val">false</span>;
+        };
 
         <span class="comment">// Get all records and convert them to their serializable counterparts
         </span><span class="kw">let </span>serializable_records: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
-            </span>.underlying_store
+            </span>.underlying_record_store
             .records()
             .filter_map(|record| {
                 SerializableRecord::try_from(record.into_owned())
@@ -590,33 +827,50 @@
             })
             .collect();
 
-        <span class="comment">// Serialize the records
-        </span><span class="kw">let </span>contents = bincode::serialize(<span class="kw-2">&amp;</span>serializable_records)
-            .with_context(|| <span class="string">"Failed to serialize records"</span>)<span class="question-mark">?</span>;
+        <span class="comment">// Spawn a task to save the DHT to the persistent storage
+        </span><span class="kw">let </span>persistent_storage = <span class="self">self</span>.persistent_storage.clone();
+        <span class="kw">let </span>record_delta = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.record_delta);
+        tokio::spawn(<span class="kw">async move </span>{
+            <span class="macro">debug!</span>(<span class="string">"Saving DHT to persistent storage"</span>);
 
-        <span class="comment">// Write the contents to the file
-        </span>std::fs::write(<span class="self">self</span>.path.clone(), contents)
-            .with_context(|| <span class="string">"Failed to write DHT to file"</span>)<span class="question-mark">?</span>;
+            <span class="comment">// Save the DHT to the persistent storage
+            </span><span class="kw">match </span>timeout(
+                Duration::from_secs(<span class="number">10</span>),
+                persistent_storage.save(serializable_records),
+            )
+            .<span class="kw">await
+            </span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">"save operation timed out"</span>))
+            {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; {}
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(error)) | <span class="prelude-val">Err</span>(error) =&gt; {
+                    <span class="macro">warn!</span>(<span class="string">"Failed to save DHT to persistent storage: {error}"</span>);
+                }
+            };
 
-        <span class="macro">debug!</span>(<span class="string">"Saved DHT to file"</span>);
+            <span class="comment">// Reset the record delta
+            </span>record_delta.store(<span class="number">0</span>, Ordering::Release);
 
-        <span class="prelude-val">Ok</span>(())
-    }
+            drop(permit);
 
-    <span class="doccomment">/// Attempt to restore the DHT to the underlying store from the file at the given path
+            <span class="macro">debug!</span>(<span class="string">"Saved DHT to persistent storage"</span>);
+        });
+
+        <span class="bool-val">true
+    </span>}
+
+    <span class="doccomment">/// Attempt to restore the DHT to the underlying store from the persistent storage
     ///
     /// # Errors
-    /// - If we fail to read the file
-    /// - If we fail to deserialize the file
-    </span><span class="kw">pub fn </span>restore_from_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: String) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="macro">debug!</span>(<span class="string">"Restoring DHT from file"</span>);
+    /// - If we fail to load from the persistent storage
+    </span><span class="kw">pub async fn </span>restore_from_persistent_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="macro">debug!</span>(<span class="string">"Restoring DHT from persistent storage"</span>);
 
-        <span class="comment">// Read the contents of the file as a `HashMap` of `Key` to `Vec&lt;u8&gt;`
-        </span><span class="kw">let </span>contents = std::fs::read(path).with_context(|| <span class="string">"Failed to read DHT file"</span>)<span class="question-mark">?</span>;
-
-        <span class="comment">// Convert the contents to a `HashMap` of `RecordKey` to `Vec&lt;u8&gt;`
-        </span><span class="kw">let </span>serializable_records: Vec&lt;SerializableRecord&gt; =
-            bincode::deserialize(<span class="kw-2">&amp;</span>contents).with_context(|| <span class="string">"Failed to parse DHT file"</span>)<span class="question-mark">?</span>;
+        <span class="comment">// Read the contents of the persistent store
+        </span><span class="kw">let </span>serializable_records = <span class="self">self
+            </span>.persistent_storage
+            .load()
+            .<span class="kw">await
+            </span>.with_context(|| <span class="string">"Failed to read DHT from persistent storage"</span>)<span class="question-mark">?</span>;
 
         <span class="comment">// Put all records into the new store
         </span><span class="kw">for </span>serializable_record <span class="kw">in </span>serializable_records {
@@ -624,36 +878,40 @@
             </span><span class="kw">match </span>libp2p::kad::Record::try_from(serializable_record) {
                 <span class="prelude-val">Ok</span>(record) =&gt; {
                     <span class="comment">// Put the record into the new store
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.underlying_store.put(record) {
-                        <span class="macro">warn!</span>(<span class="string">"Failed to restore record from file: {:?}"</span>, err);
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.underlying_record_store.put(record) {
+                        <span class="macro">warn!</span>(
+                            <span class="string">"Failed to restore record from persistent storage: {:?}"</span>,
+                            err
+                        );
                     }
                 }
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">"Failed to parse record from file: {:?}"</span>, err);
+                    <span class="macro">warn!</span>(<span class="string">"Failed to parse record from persistent storage: {:?}"</span>, err);
                 }
             };
         }
 
-        <span class="macro">debug!</span>(<span class="string">"Restored DHT from file"</span>);
+        <span class="macro">debug!</span>(<span class="string">"Restored DHT from persistent storage"</span>);
 
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// Implement the `RecordStore` trait for `FileBackedStore`
-</span><span class="kw">impl</span>&lt;R: RecordStore&gt; RecordStore <span class="kw">for </span>FileBackedStore&lt;R&gt; {
+<span class="doccomment">/// Implement the `RecordStore` trait for `PersistentStore`
+</span><span class="kw">impl</span>&lt;R: RecordStore, D: DhtPersistentStorage&gt; RecordStore <span class="kw">for </span>PersistentStore&lt;R, D&gt; {
     <span class="kw">type </span>ProvidedIter&lt;<span class="lifetime">'a</span>&gt;
         = R::ProvidedIter&lt;<span class="lifetime">'a</span>&gt;
     <span class="kw">where
-        </span>R: <span class="lifetime">'a</span>;
+        </span>R: <span class="lifetime">'a</span>,
+        D: <span class="lifetime">'a</span>;
     <span class="kw">type </span>RecordsIter&lt;<span class="lifetime">'a</span>&gt;
         = R::RecordsIter&lt;<span class="lifetime">'a</span>&gt;
     <span class="kw">where
-        </span>R: <span class="lifetime">'a</span>;
-
+        </span>R: <span class="lifetime">'a</span>,
+        D: <span class="lifetime">'a</span>;
     <span class="comment">// Delegate all `RecordStore` methods except `put` to the inner store
     </span><span class="macro">delegate!</span> {
-        to <span class="self">self</span>.underlying_store {
+        to <span class="self">self</span>.underlying_record_store {
             <span class="kw">fn </span>add_provider(<span class="kw-2">&amp;mut </span><span class="self">self</span>, record: libp2p::kad::ProviderRecord) -&gt; libp2p::kad::store::Result&lt;()&gt;;
             <span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, k: <span class="kw-2">&amp;</span>libp2p::kad::RecordKey) -&gt; <span class="prelude-ty">Option</span>&lt;std::borrow::Cow&lt;<span class="lifetime">'_</span>, libp2p::kad::Record&gt;&gt;;
             <span class="kw">fn </span>provided(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ProvidedIter&lt;<span class="lifetime">'_</span>&gt;;
@@ -663,39 +921,38 @@
         }
     }
 
-    <span class="doccomment">/// Overwrite the `put` method to potentially save the record to a file
+    <span class="doccomment">/// Overwrite the `put` method to potentially sync the DHT to the persistent store
     </span><span class="kw">fn </span>put(<span class="kw-2">&amp;mut </span><span class="self">self</span>, record: libp2p::kad::Record) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="comment">// Try to write to the underlying store
-        </span><span class="kw">let </span>result = <span class="self">self</span>.underlying_store.put(record);
+        </span><span class="kw">let </span>result = <span class="self">self</span>.underlying_record_store.put(record);
 
-        <span class="comment">// If the record was successfully written, update the record delta
+        <span class="comment">// If the record was successfully written,
         </span><span class="kw">if </span>result.is_ok() {
-            <span class="self">self</span>.record_delta += <span class="number">1</span>;
+            <span class="comment">// Update the record delta
+            </span><span class="self">self</span>.record_delta.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
 
-            <span class="comment">// If the record delta is greater than the maximum record delta, try to save the file
-            </span><span class="kw">if </span><span class="self">self</span>.record_delta &gt; <span class="self">self</span>.max_record_delta {
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.save_to_file() {
-                    <span class="macro">warn!</span>(<span class="string">"Failed to save DHT to file: {:?}"</span>, e);
-                }
+            <span class="comment">// Check if it's above the maximum record delta
+            </span><span class="kw">if </span><span class="self">self</span>.record_delta.load(Ordering::Relaxed) &gt; <span class="self">self</span>.max_record_delta {
+                <span class="comment">// Try to save the DHT to persistent storage
+                </span><span class="self">self</span>.try_save_to_persistent_storage();
             }
         }
 
         result
     }
 
-    <span class="doccomment">/// Overwrite the `remove` method to potentially remove the record from a file
+    <span class="doccomment">/// Overwrite the `remove` method to potentially sync the DHT to the persistent store
     </span><span class="kw">fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, k: <span class="kw-2">&amp;</span>libp2p::kad::RecordKey) {
         <span class="comment">// Remove the record from the underlying store
-        </span><span class="self">self</span>.underlying_store.remove(k);
+        </span><span class="self">self</span>.underlying_record_store.remove(k);
 
         <span class="comment">// Update the record delta
-        </span><span class="self">self</span>.record_delta += <span class="number">1</span>;
+        </span><span class="self">self</span>.record_delta.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
 
-        <span class="comment">// If the record delta is greater than 10, try to save the file
-        </span><span class="kw">if </span><span class="self">self</span>.record_delta &gt; <span class="number">10 </span>{
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.save_to_file() {
-                <span class="macro">warn!</span>(<span class="string">"Failed to save DHT to file: {:?}"</span>, e);
-            }
+        <span class="comment">// Check if it's above the maximum record delta
+        </span><span class="kw">if </span><span class="self">self</span>.record_delta.load(Ordering::Relaxed) &gt; <span class="self">self</span>.max_record_delta {
+            <span class="comment">// Try to save the DHT to persistent storage
+            </span><span class="self">self</span>.try_save_to_persistent_storage();
         }
     }
 }
@@ -710,19 +967,20 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_save_and_restore() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_save_and_restore() {
         <span class="comment">// Try initializing tracing
         </span><span class="kw">let _ </span>= tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
             .try_init();
 
         <span class="comment">// Create a test store
-        </span><span class="kw">let </span><span class="kw-2">mut </span>store = FileBackedStore::new(
+        </span><span class="kw">let </span><span class="kw-2">mut </span>store = PersistentStore::new(
             MemoryStore::new(PeerId::random()),
-            <span class="string">"/tmp/test.dht"</span>.to_string(),
+            DhtFilePersistence::new(<span class="string">"/tmp/test1.dht"</span>.to_string()),
             <span class="number">10</span>,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// The key is a random 16-byte array
         </span><span class="kw">let </span>key = RecordKey::new(<span class="kw-2">&amp;</span>rand::random::&lt;[u8; <span class="number">16</span>]&gt;().to_vec());
@@ -735,15 +993,19 @@
             .put(libp2p::kad::Record::new(key.clone(), random_value.to_vec()))
             .expect(<span class="string">"Failed to put record into store"</span>);
 
-        <span class="comment">// Save the store to a file
-        </span>store.save_to_file().expect(<span class="string">"Failed to save store to file"</span>);
+        <span class="comment">// Try to save the store to a persistent storage
+        </span><span class="macro">assert!</span>(store.try_save_to_persistent_storage());
 
-        <span class="comment">// Create a new store from the file
-        </span><span class="kw">let </span>new_store = FileBackedStore::new(
+        <span class="comment">// Wait a bit for the save to complete
+        </span>tokio::time::sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
+
+        <span class="comment">// Create a new store from the persistent storage
+        </span><span class="kw">let </span>new_store = PersistentStore::new(
             MemoryStore::new(PeerId::random()),
-            <span class="string">"/tmp/test.dht"</span>.to_string(),
+            DhtFilePersistence::new(<span class="string">"/tmp/test1.dht"</span>.to_string()),
             <span class="number">10</span>,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// Check that the new store has the record
         </span><span class="kw">let </span>restored_record = new_store
@@ -754,19 +1016,20 @@
         </span><span class="macro">assert_eq!</span>(restored_record.value, random_value.to_vec());
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_record_delta() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_record_delta() {
         <span class="comment">// Try initializing tracing
         </span><span class="kw">let _ </span>= tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
             .try_init();
 
         <span class="comment">// Create a test store
-        </span><span class="kw">let </span><span class="kw-2">mut </span>store = FileBackedStore::new(
+        </span><span class="kw">let </span><span class="kw-2">mut </span>store = PersistentStore::new(
             MemoryStore::new(PeerId::random()),
-            <span class="string">"/tmp/test.dht"</span>.to_string(),
+            DhtFilePersistence::new(<span class="string">"/tmp/test2.dht"</span>.to_string()),
             <span class="number">10</span>,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>keys = Vec::new();
         <span class="kw">let </span><span class="kw-2">mut </span>values = Vec::new();
@@ -785,12 +1048,13 @@
                 .expect(<span class="string">"Failed to put record into store"</span>);
         }
 
-        <span class="comment">// Create a new store from the allegedly unsaved file
-        </span><span class="kw">let </span>new_store = FileBackedStore::new(
+        <span class="comment">// Create a new store from the allegedly unpersisted DHT
+        </span><span class="kw">let </span>new_store = PersistentStore::new(
             MemoryStore::new(PeerId::random()),
-            <span class="string">"/tmp/test.dht"</span>.to_string(),
+            DhtFilePersistence::new(<span class="string">"/tmp/test2.dht"</span>.to_string()),
             <span class="number">10</span>,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// Check that the new store has none of the records
         </span><span class="kw">for </span>key <span class="kw">in </span><span class="kw-2">&amp;</span>keys {
@@ -805,12 +1069,16 @@
             ))
             .expect(<span class="string">"Failed to put record into store"</span>);
 
-        <span class="comment">// Create a new store from the allegedly saved file
-        </span><span class="kw">let </span>new_store = FileBackedStore::new(
+        <span class="comment">// Wait a bit for the save to complete
+        </span>tokio::time::sleep(Duration::from_millis(<span class="number">100</span>)).<span class="kw">await</span>;
+
+        <span class="comment">// Create a new store from the allegedly saved DHT
+        </span><span class="kw">let </span>new_store = PersistentStore::new(
             MemoryStore::new(PeerId::random()),
-            <span class="string">"/tmp/test.dht"</span>.to_string(),
+            DhtFilePersistence::new(<span class="string">"/tmp/test2.dht"</span>.to_string()),
             <span class="number">10</span>,
-        );
+        )
+        .<span class="kw">await</span>;
 
         <span class="comment">// Check that the new store has all of the records
         </span><span class="kw">for </span>(i, key) <span class="kw">in </span>keys.iter().enumerate() {
@@ -819,7 +1087,7 @@
         }
 
         <span class="comment">// Check that the record delta is 0
-        </span><span class="macro">assert_eq!</span>(new_store.record_delta, <span class="number">0</span>);
+        </span><span class="macro">assert_eq!</span>(store.record_delta.load(Ordering::Relaxed), <span class="number">0</span>);
     }
 
     <span class="attr">#[test]

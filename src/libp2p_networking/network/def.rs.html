@@ -154,6 +154,9 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -174,7 +177,10 @@
 <span class="kw">use </span>tracing::{debug, error};
 
 <span class="kw">use super</span>::{
-    behaviours::dht::store::{file_backed::FileBackedStore, validated::ValidatedStore},
+    behaviours::dht::store::{
+        persistent::{DhtPersistentStorage, PersistentStore},
+        validated::ValidatedStore,
+    },
     cbor, NetworkEventInternal,
 };
 
@@ -185,7 +191,7 @@
 /// - connection management
 </span><span class="attr">#[derive(NetworkBehaviour, derive_more::Debug)]
 #[behaviour(to_swarm = <span class="string">"NetworkEventInternal"</span>)]
-</span><span class="kw">pub struct </span>NetworkDef&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">pub struct </span>NetworkDef&lt;K: SignatureKey + <span class="lifetime">'static</span>, D: DhtPersistentStorage&gt; {
     <span class="doccomment">/// purpose: broadcasting messages to many peers
     /// NOTE gossipsub works ONLY for sharing messages right now
     /// in the future it may be able to do peer discovery and routing
@@ -193,10 +199,10 @@
     </span><span class="attr">#[debug(skip)]
     </span>gossipsub: GossipBehaviour,
 
-    <span class="doccomment">/// The DHT store. We use a `FileBackedStore` to occasionally save the DHT to
-    /// a file on disk and a `ValidatedStore` to validate the records stored.
+    <span class="doccomment">/// The DHT store. We use a `PersistentStore` to occasionally save the DHT to
+    /// some persistent store and a `ValidatedStore` to validate the records stored.
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>dht: libp2p::kad::Behaviour&lt;FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>dht: libp2p::kad::Behaviour&lt;PersistentStore&lt;ValidatedStore&lt;MemoryStore, K&gt;, D&gt;&gt;,
 
     <span class="doccomment">/// purpose: identifying the addresses from an outside POV
     </span><span class="attr">#[debug(skip)]
@@ -212,16 +218,16 @@
     </span><span class="kw">pub </span>autonat: libp2p::autonat::Behaviour,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>, D: DhtPersistentStorage&gt; NetworkDef&lt;K, D&gt; {
     <span class="doccomment">/// Create a new instance of a `NetworkDef`
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
         gossipsub: GossipBehaviour,
-        dht: libp2p::kad::Behaviour&lt;FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;&gt;,
+        dht: libp2p::kad::Behaviour&lt;PersistentStore&lt;ValidatedStore&lt;MemoryStore, K&gt;, D&gt;&gt;,
         identify: IdentifyBehaviour,
         direct_message: <span class="kw">super</span>::cbor::Behaviour&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;,
         autonat: autonat::Behaviour,
-    ) -&gt; NetworkDef&lt;K&gt; {
+    ) -&gt; NetworkDef&lt;K, D&gt; {
         <span class="self">Self </span>{
             gossipsub,
             dht,
@@ -233,7 +239,7 @@
 }
 
 <span class="doccomment">/// Address functions
-</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>, D: DhtPersistentStorage&gt; NetworkDef&lt;K, D&gt; {
     <span class="doccomment">/// Add an address
     </span><span class="kw">pub fn </span>add_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, address: Multiaddr) {
         <span class="comment">// NOTE to get this address to play nice with the other
@@ -247,7 +253,7 @@
 }
 
 <span class="doccomment">/// Gossip functions
-</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>, D: DhtPersistentStorage&gt; NetworkDef&lt;K, D&gt; {
     <span class="doccomment">/// Publish a given gossip
     </span><span class="kw">pub fn </span>publish_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: IdentTopic, contents: Vec&lt;u8&gt;) {
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.gossipsub.publish(topic, contents) {
@@ -270,7 +276,7 @@
 }
 
 <span class="doccomment">/// Request/response functions
-</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; NetworkDef&lt;K&gt; {
+</span><span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>, D: DhtPersistentStorage&gt; NetworkDef&lt;K, D&gt; {
     <span class="doccomment">/// Add a direct request for a given peer
     </span><span class="kw">pub fn </span>add_direct_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, data: Vec&lt;u8&gt;) -&gt; OutboundRequestId {
         <span class="self">self</span>.direct_message.send_request(<span class="kw-2">&amp;</span>peer_id, data)

@@ -464,6 +464,10 @@
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -482,7 +486,10 @@
 <span class="kw">use </span>tracing::{debug, info, instrument};
 
 <span class="kw">use </span><span class="kw">crate</span>::network::{
-    behaviours::dht::record::{Namespace, RecordKey, RecordValue},
+    behaviours::dht::{
+        record::{Namespace, RecordKey, RecordValue},
+        store::persistent::DhtPersistentStorage,
+    },
     gen_multiaddr, ClientRequest, NetworkEvent, NetworkNode, NetworkNodeConfig,
 };
 
@@ -543,11 +550,12 @@
 <span class="doccomment">/// Spawn a network node task task and return the handle and the receiver for it
 /// # Errors
 /// Errors if spawning the task fails
-</span><span class="kw">pub async fn </span>spawn_network_node&lt;T: NodeType&gt;(
+</span><span class="kw">pub async fn </span>spawn_network_node&lt;T: NodeType, D: DhtPersistentStorage&gt;(
     config: NetworkNodeConfig&lt;T&gt;,
+    dht_persistent_storage: D,
     id: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(NetworkNodeReceiver, NetworkNodeHandle&lt;T&gt;), NetworkError&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>network = NetworkNode::new(config.clone())
+    <span class="kw">let </span><span class="kw-2">mut </span>network = NetworkNode::new(config.clone(), dht_persistent_storage)
         .<span class="kw">await
         </span>.map_err(|e| NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"failed to create network node: {e}"</span>)))<span class="question-mark">?</span>;
     <span class="comment">// randomly assigned port
@@ -561,7 +569,7 @@
     })<span class="question-mark">?</span>;
     <span class="comment">// pin here to force the future onto the heap since it can be large
     // in the case of flume
-    </span><span class="kw">let </span>(send_chan, recv_chan) = Box::pin(network.spawn_listeners()).<span class="kw">await</span>.map_err(|err| {
+    </span><span class="kw">let </span>(send_chan, recv_chan) = network.spawn_listeners().map_err(|err| {
         NetworkError::ListenError(<span class="macro">format!</span>(<span class="string">"failed to spawn listeners for Libp2p: {err}"</span>))
     })<span class="question-mark">?</span>;
     <span class="kw">let </span>receiver = NetworkNodeReceiver {

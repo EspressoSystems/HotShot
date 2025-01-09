@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["file_backed","validated"]};
+window.SIDEBAR_ITEMS = {"mod":["persistent","validated"]};

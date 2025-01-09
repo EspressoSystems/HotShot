@@ -1137,6 +1137,9 @@
 <a href="#1137" id="1137">1137</a>
 <a href="#1138" id="1138">1138</a>
 <a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1201,7 +1204,9 @@
     },
     HotShotConfig, PeerConfig, ValidatorConfig,
 };
-<span class="kw">use </span>libp2p_networking::network::{GossipConfig, RequestResponseConfig};
+<span class="kw">use </span>libp2p_networking::network::{
+    behaviours::dht::store::persistent::DhtNoPersistence, GossipConfig, RequestResponseConfig,
+};
 <span class="kw">use </span>rand::{rngs::StdRng, SeedableRng};
 <span class="kw">use </span>surf_disco::Url;
 <span class="kw">use </span>tracing::{debug, error, info, warn};
@@ -1877,6 +1882,7 @@
         <span class="comment">// Create the Libp2p network
         </span><span class="kw">let </span>libp2p_network = Libp2pNetwork::from_config(
             config.clone(),
+            DhtNoPersistence,
             Arc::clone(membership),
             GossipConfig::default(),
             RequestResponseConfig::default(),

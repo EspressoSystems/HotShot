@@ -545,6 +545,9 @@
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -575,7 +578,10 @@
     store::RecordStore, Behaviour <span class="kw">as </span>KademliaBehaviour, BootstrapError, Event <span class="kw">as </span>KademliaEvent,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
-<span class="kw">use </span>store::{file_backed::FileBackedStore, validated::ValidatedStore};
+<span class="kw">use </span>store::{
+    persistent::{DhtPersistentStorage, PersistentStore},
+    validated::ValidatedStore,
+};
 <span class="kw">use </span>tokio::{spawn, sync::mpsc::UnboundedSender, time::sleep};
 <span class="kw">use </span>tracing::{debug, error, warn};
 
@@ -604,7 +610,7 @@
 /// - bootstrapping into the network
 /// - peer discovery
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>DHTBehaviour&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; {
+</span><span class="kw">pub struct </span>DHTBehaviour&lt;K: SignatureKey + <span class="lifetime">'static</span>, D: DhtPersistentStorage&gt; {
     <span class="doccomment">/// in progress queries for nearby peers
     </span><span class="kw">pub </span>in_progress_get_closest_peers: HashMap&lt;QueryId, Sender&lt;()&gt;&gt;,
     <span class="doccomment">/// List of in-progress get requests
@@ -624,8 +630,8 @@
     <span class="doccomment">/// Sender to the bootstrap task
     </span>bootstrap_tx: <span class="prelude-ty">Option</span>&lt;mpsc::Sender&lt;bootstrap::InputEvent&gt;&gt;,
 
-    <span class="doccomment">/// Phantom type for the key
-    </span>phantom: PhantomData&lt;K&gt;,
+    <span class="doccomment">/// Phantom type for the key and persistent storage
+    </span>phantom: PhantomData&lt;(K, D)&gt;,
 }
 
 <span class="doccomment">/// State of bootstrapping
@@ -653,7 +659,7 @@
     </span>IsBootstrapped,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>&gt; DHTBehaviour&lt;K&gt; {
+<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">'static</span>, D: DhtPersistentStorage&gt; DHTBehaviour&lt;K, D&gt; {
     <span class="doccomment">/// Give the handler a way to retry requests.
     </span><span class="kw">pub fn </span>set_retry(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tx: UnboundedSender&lt;ClientRequest&gt;) {
         <span class="self">self</span>.retry_tx = <span class="prelude-val">Some</span>(tx);
@@ -690,7 +696,7 @@
     <span class="doccomment">/// print out the routing table to stderr
     </span><span class="kw">pub fn </span>print_routing_table(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        kadem: <span class="kw-2">&amp;mut </span>KademliaBehaviour&lt;FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;&gt;,
+        kadem: <span class="kw-2">&amp;mut </span>KademliaBehaviour&lt;PersistentStore&lt;ValidatedStore&lt;MemoryStore, K&gt;, D&gt;&gt;,
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>err = <span class="macro">format!</span>(<span class="string">"KBUCKETS: PID: {:?}, "</span>, <span class="self">self</span>.peer_id);
         <span class="kw">let </span>v = kadem.kbuckets().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -726,7 +732,7 @@
         factor: NonZeroUsize,
         backoff: ExponentialBackoff,
         retry_count: u8,
-        kad: <span class="kw-2">&amp;mut </span>KademliaBehaviour&lt;FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;&gt;,
+        kad: <span class="kw-2">&amp;mut </span>KademliaBehaviour&lt;PersistentStore&lt;ValidatedStore&lt;MemoryStore, K&gt;, D&gt;&gt;,
     ) {
         <span class="comment">// noop
         </span><span class="kw">if </span>retry_count == <span class="number">0 </span>{
@@ -794,7 +800,7 @@
     <span class="doccomment">/// update state based on recv-ed get query
     </span><span class="kw">fn </span>handle_get_query(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;,
+        store: <span class="kw-2">&amp;mut </span>PersistentStore&lt;ValidatedStore&lt;MemoryStore, K&gt;, D&gt;,
         record_results: GetRecordResult,
         id: QueryId,
         <span class="kw-2">mut </span>last: bool,
@@ -952,7 +958,7 @@
     </span><span class="kw">pub fn </span>dht_handle_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: KademliaEvent,
-        store: <span class="kw-2">&amp;mut </span>FileBackedStore&lt;ValidatedStore&lt;MemoryStore, K&gt;&gt;,
+        store: <span class="kw-2">&amp;mut </span>PersistentStore&lt;ValidatedStore&lt;MemoryStore, K&gt;, D&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;NetworkEvent&gt; {
         <span class="kw">match </span>event {
             KademliaEvent::OutboundQueryProgressed {

@@ -762,6 +762,15 @@
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
 <a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -823,7 +832,10 @@
 <span class="kw">use super</span>::{
     behaviours::dht::{
         bootstrap::{DHTBootstrapTask, InputEvent},
-        store::{file_backed::FileBackedStore, validated::ValidatedStore},
+        store::{
+            persistent::{DhtPersistentStorage, PersistentStore},
+            validated::ValidatedStore,
+        },
     },
     cbor::Cbor,
     gen_transport, BoxedTransport, ClientRequest, NetworkDef, NetworkError, NetworkEvent,
@@ -846,23 +858,23 @@
 
 <span class="doccomment">/// Network definition
 </span><span class="attr">#[derive(derive_more::Debug)]
-</span><span class="kw">pub struct </span>NetworkNode&lt;T: NodeType&gt; {
+</span><span class="kw">pub struct </span>NetworkNode&lt;T: NodeType, D: DhtPersistentStorage&gt; {
     <span class="doccomment">/// peer id of network node
     </span>peer_id: PeerId,
     <span class="doccomment">/// the swarm of networkbehaviours
     </span><span class="attr">#[debug(skip)]
-    </span>swarm: Swarm&lt;NetworkDef&lt;T::SignatureKey&gt;&gt;,
+    </span>swarm: Swarm&lt;NetworkDef&lt;T::SignatureKey, D&gt;&gt;,
     <span class="doccomment">/// the listener id we are listening on, if it exists
     </span>listener_id: <span class="prelude-ty">Option</span>&lt;ListenerId&gt;,
     <span class="doccomment">/// Handler for direct messages
     </span>direct_message_state: DMBehaviour,
     <span class="doccomment">/// Handler for DHT Events
-    </span>dht_handler: DHTBehaviour&lt;T::SignatureKey&gt;,
+    </span>dht_handler: DHTBehaviour&lt;T::SignatureKey, D&gt;,
     <span class="doccomment">/// Channel to resend requests, set to Some when we call `spawn_listeners`
     </span>resend_tx: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ClientRequest&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: NodeType&gt; NetworkNode&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: NodeType, D: DhtPersistentStorage&gt; NetworkNode&lt;T, D&gt; {
     <span class="doccomment">/// Returns number of peers this node is connected to
     </span><span class="kw">pub fn </span>num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.swarm.connected_peers().count()
@@ -921,8 +933,17 @@
     ///       QUIC v1 (RFC 9000) + DNS
     ///   * Generates a connection to the "broadcast" topic
     ///   * Creates a swarm to manage peers and events
-    </span><span class="attr">#[instrument]
-    </span><span class="kw">pub async fn </span>new(config: NetworkNodeConfig&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkError&gt; {
+    ///
+    /// # Errors
+    /// - If we fail to generate the transport or any of the behaviours
+    ///
+    /// # Panics
+    /// If 5 &lt; 0
+    </span><span class="attr">#[allow(clippy::too_many_lines)]
+    </span><span class="kw">pub async fn </span>new(
+        config: NetworkNodeConfig&lt;T&gt;,
+        dht_persistent_storage: D,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkError&gt; {
         <span class="comment">// Generate a random `KeyPair` if one is not specified
         </span><span class="kw">let </span>keypair = config
             .keypair
@@ -941,7 +962,7 @@
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// Generate the swarm
-        </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&lt;T::SignatureKey&gt;&gt; = {
+        </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&lt;T::SignatureKey, D&gt;&gt; = {
             <span class="comment">// Use the `Blake3` hash of the message's contents as the ID
             </span><span class="kw">let </span>message_id_fn = |message: <span class="kw-2">&amp;</span>GossipsubMessage| {
                 <span class="kw">let </span>hash = blake3::hash(<span class="kw-2">&amp;</span>message.data);
@@ -1017,20 +1038,15 @@
                 <span class="macro">panic!</span>(<span class="string">"Replication factor not set"</span>);
             }
 
-            <span class="comment">// Extract the DHT file path from the config, defaulting to `libp2p_dht.json`
-            </span><span class="kw">let </span>dht_file_path = config
-                .dht_file_path
-                .clone()
-                .unwrap_or_else(|| <span class="string">"libp2p_dht.bin"</span>.into());
-
-            <span class="comment">// Create the DHT behaviour
+            <span class="comment">// Create the DHT behaviour with the given persistent storage
             </span><span class="kw">let </span><span class="kw-2">mut </span>kadem = Behaviour::with_config(
                 peer_id,
-                FileBackedStore::new(
+                PersistentStore::new(
                     ValidatedStore::new(MemoryStore::new(peer_id)),
-                    dht_file_path,
-                    <span class="number">10</span>,
-                ),
+                    dht_persistent_storage,
+                    <span class="number">5</span>,
+                )
+                .<span class="kw">await</span>,
                 kconfig,
             );
             kadem.set_mode(<span class="prelude-val">Some</span>(Mode::Server));
@@ -1476,8 +1492,10 @@
 
     <span class="doccomment">/// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
-    </span><span class="attr">#[instrument]
-    </span><span class="kw">pub async fn </span>spawn_listeners(
+    ///
+    /// # Errors
+    /// - If we fail to create the channels or the bootstrap channel
+    </span><span class="kw">pub fn </span>spawn_listeners(
         <span class="kw-2">mut </span><span class="self">self</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (

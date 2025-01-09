@@ -1090,6 +1090,16 @@
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1144,7 +1154,10 @@
 <span class="kw">pub use </span>libp2p_networking::network::{GossipConfig, RequestResponseConfig};
 <span class="kw">use </span>libp2p_networking::{
     network::{
-        behaviours::dht::record::{Namespace, RecordKey, RecordValue},
+        behaviours::dht::{
+            record::{Namespace, RecordKey, RecordValue},
+            store::persistent::{DhtNoPersistence, DhtPersistentStorage},
+        },
         spawn_network_node,
         transport::construct_auth_message,
         NetworkEvent::{<span class="self">self</span>, DirectRequest, DirectResponse, GossipMsg},
@@ -1365,6 +1378,7 @@
                     Arc::new(
                         <span class="kw">match </span>Libp2pNetwork::new(
                             Libp2pMetricsValue::default(),
+                            DhtNoPersistence,
                             config,
                             pubkey.clone(),
                             lookup_record_value,
@@ -1480,9 +1494,10 @@
     /// # Panics
     /// If we are unable to calculate the replication factor
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    </span><span class="kw">pub async fn </span>from_config(
+    </span><span class="kw">pub async fn </span>from_config&lt;D: DhtPersistentStorage&gt;(
         <span class="kw-2">mut </span>config: NetworkConfig&lt;T::SignatureKey&gt;,
-        membership: Arc&lt;RwLock&lt;T::Membership&gt;&gt;,
+        dht_persistent_storage: D,
+        quorum_membership: Arc&lt;RwLock&lt;T::Membership&gt;&gt;,
         gossip_config: GossipConfig,
         request_response_config: RequestResponseConfig,
         bind_address: Multiaddr,
@@ -1513,7 +1528,7 @@
 
         <span class="comment">// Set the auth message and stake table
         </span>config_builder
-            .stake_table(<span class="prelude-val">Some</span>(membership))
+            .stake_table(<span class="prelude-val">Some</span>(quorum_membership))
             .auth_message(<span class="prelude-val">Some</span>(auth_message));
 
         <span class="comment">// The replication factor is the minimum of [the default and 2/3 the number of nodes]
@@ -1561,6 +1576,7 @@
 
         <span class="prelude-val">Ok</span>(Libp2pNetwork::new(
             metrics,
+            dht_persistent_storage,
             node_config,
             pub_key.clone(),
             lookup_record_value,
@@ -1601,8 +1617,9 @@
     ///
     /// This will panic if there are less than 5 bootstrap nodes
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    </span><span class="kw">pub async fn </span>new(
+    </span><span class="kw">pub async fn </span>new&lt;D: DhtPersistentStorage&gt;(
         metrics: Libp2pMetricsValue,
+        dht_persistent_storage: D,
         config: NetworkNodeConfig&lt;T&gt;,
         pk: T::SignatureKey,
         lookup_record_value: RecordValue&lt;T::SignatureKey&gt;,
@@ -1610,9 +1627,12 @@
         id: usize,
         <span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)] </span>reliability_config: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>NetworkReliability&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;T&gt;, NetworkError&gt; {
-        <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) = spawn_network_node::&lt;T&gt;(config.clone(), id)
-            .<span class="kw">await
-            </span>.map_err(|e| NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"failed to spawn network node: {e}"</span>)))<span class="question-mark">?</span>;
+        <span class="kw">let </span>(<span class="kw-2">mut </span>rx, network_handle) =
+            spawn_network_node::&lt;T, D&gt;(config.clone(), dht_persistent_storage, id)
+                .<span class="kw">await
+                </span>.map_err(|e| {
+                    NetworkError::ConfigError(<span class="macro">format!</span>(<span class="string">"failed to spawn network node: {e}"</span>))
+                })<span class="question-mark">?</span>;
 
         <span class="comment">// Add our own address to the bootstrap addresses
         </span><span class="kw">let </span>addr = network_handle.listen_addr();
