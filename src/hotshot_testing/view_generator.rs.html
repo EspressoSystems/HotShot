@@ -622,7 +622,7 @@
 <span class="kw">use </span>hotshot_types::{
     data::{
         DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
-        ViewChangeEvidence, ViewNumber,
+        ViewChangeEvidence2, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -950,9 +950,9 @@
         </span>};
 
         <span class="kw">let </span>view_change_evidence = <span class="kw">if let </span><span class="prelude-val">Some</span>(tc) = timeout_certificate {
-            <span class="prelude-val">Some</span>(ViewChangeEvidence::Timeout(tc))
+            <span class="prelude-val">Some</span>(ViewChangeEvidence2::Timeout(tc))
         } <span class="kw">else </span>{
-            view_sync_certificate.map(ViewChangeEvidence::ViewSync)
+            view_sync_certificate.map(ViewChangeEvidence2::ViewSync)
         };
 
         <span class="kw">let </span>random = thread_rng().gen_range(<span class="number">0</span>..=u64::MAX);

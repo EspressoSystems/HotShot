@@ -1474,7 +1474,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TimeoutCertificate&lt;TYPES&gt; {
     <span class="doccomment">/// Convert a `DaCertificate` into a `DaCertificate2`
-    </span><span class="kw">pub fn </span>to_vsc2(<span class="self">self</span>) -&gt; TimeoutCertificate2&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>to_tc2(<span class="self">self</span>) -&gt; TimeoutCertificate2&lt;TYPES&gt; {
         <span class="kw">let </span>data = TimeoutData2 {
             view: <span class="self">self</span>.data.view,
             epoch: TYPES::Epoch::new(<span class="number">0</span>),
@@ -1495,7 +1495,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TimeoutCertificate2&lt;TYPES&gt; {
     <span class="doccomment">/// Convert a `DaCertificate` into a `DaCertificate2`
-    </span><span class="kw">pub fn </span>to_vsc(<span class="self">self</span>) -&gt; TimeoutCertificate&lt;TYPES&gt; {
+    </span><span class="kw">pub fn </span>to_tc(<span class="self">self</span>) -&gt; TimeoutCertificate&lt;TYPES&gt; {
         <span class="kw">let </span>data = TimeoutData {
             view: <span class="self">self</span>.data.view,
         };

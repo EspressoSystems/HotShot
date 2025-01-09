@@ -576,7 +576,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence2},
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -817,7 +817,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         commitment_and_metadata: CommitmentAndMetadata&lt;TYPES&gt;,
         vid_share: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
-        view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence&lt;TYPES&gt;&gt;,
+        view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence2&lt;TYPES&gt;&gt;,
         formed_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         decided_upgrade_certificate: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
         parent_qc: QuorumCertificate2&lt;TYPES&gt;,
@@ -1082,9 +1082,9 @@
         }
 
         <span class="kw">let </span>proposal_cert = <span class="kw">if let </span><span class="prelude-val">Some</span>(view_sync_cert) = view_sync_finalize_cert {
-            <span class="prelude-val">Some</span>(ViewChangeEvidence::ViewSync(view_sync_cert))
+            <span class="prelude-val">Some</span>(ViewChangeEvidence2::ViewSync(view_sync_cert))
         } <span class="kw">else </span>{
-            timeout_certificate.map(ViewChangeEvidence::Timeout)
+            timeout_certificate.map(ViewChangeEvidence2::Timeout)
         };
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
