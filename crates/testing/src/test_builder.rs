@@ -385,7 +385,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
     /// by default, just a single round
     #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
-        let num_nodes_with_stake = 7;
+        let num_nodes_with_stake = 6;
         Self {
             epoch_height: 10,
             timing_data: TimingData::default(),
