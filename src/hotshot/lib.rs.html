@@ -1090,9 +1090,6 @@
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1156,7 +1153,6 @@
         signature_key::SignatureKey,
         states::ValidatedState,
         storage::Storage,
-        EncodeBytes,
     },
     utils::epoch_from_block_number,
     HotShotConfig,
@@ -1416,9 +1412,7 @@
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.block_payload() {
-            <span class="kw">let </span>encoded_txns = payload.encode();
-
-            saved_payloads.insert(anchored_leaf.view_number(), Arc::clone(<span class="kw-2">&amp;</span>encoded_txns));
+            saved_payloads.insert(anchored_leaf.view_number(), Arc::new(payload));
         }
 
         <span class="kw">let </span>anchored_epoch = <span class="kw">if </span>config.epoch_height == <span class="number">0 </span>{

@@ -1091,6 +1091,13 @@
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1407,7 +1414,7 @@
     <span class="doccomment">/// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    </span>saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
+    </span>saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;TYPES::BlockPayload&gt;&gt;,
 
     <span class="doccomment">/// the highqc per spec
     </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
@@ -1511,7 +1518,7 @@
         last_actioned_view: TYPES::View,
         last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
         saved_leaves: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
-        saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt;,
+        saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;TYPES::BlockPayload&gt;&gt;,
         high_qc: QuorumCertificate2&lt;TYPES&gt;,
         next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
         metrics: Arc&lt;ConsensusMetricsValue&gt;,
@@ -1578,7 +1585,7 @@
     }
 
     <span class="doccomment">/// Get the saved payloads.
-    </span><span class="kw">pub fn </span>saved_payloads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Arc&lt;[u8]&gt;&gt; {
+    </span><span class="kw">pub fn </span>saved_payloads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Arc&lt;TYPES::BlockPayload&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.saved_payloads
     }
 
@@ -1825,13 +1832,13 @@
     </span><span class="kw">pub fn </span>update_saved_payloads(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
-        encoded_transaction: Arc&lt;[u8]&gt;,
+        payload: Arc&lt;TYPES::BlockPayload&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             !<span class="self">self</span>.saved_payloads.contains_key(<span class="kw-2">&amp;</span>view_number),
             <span class="string">"Payload with the same view already exists."
         </span>);
-        <span class="self">self</span>.saved_payloads.insert(view_number, encoded_transaction);
+        <span class="self">self</span>.saved_payloads.insert(view_number, payload);
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2039,7 +2046,7 @@
         membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-        <span class="kw">let </span>txns = Arc::clone(consensus.read().<span class="kw">await</span>.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>);
+        <span class="kw">let </span>payload = Arc::clone(consensus.read().<span class="kw">await</span>.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>);
         <span class="kw">let </span>epoch = consensus
             .read()
             .<span class="kw">await
@@ -2047,8 +2054,15 @@
             .get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?
             </span>.view_inner
             .epoch()<span class="question-mark">?</span>;
-        <span class="kw">let </span>vid =
-            VidDisperse::calculate_vid_disperse(txns, <span class="kw-2">&amp;</span>membership, view, epoch, epoch, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+        <span class="kw">let </span>vid = VidDisperse::calculate_vid_disperse(
+            payload.as_ref(),
+            <span class="kw-2">&amp;</span>membership,
+            view,
+            epoch,
+            epoch,
+            <span class="prelude-val">None</span>,
+        )
+        .<span class="kw">await</span>;
         <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid);
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
         <span class="kw">for </span>share <span class="kw">in </span>shares {

@@ -839,13 +839,6 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1161,14 +1154,12 @@
         res.leaf_views.push(info.clone());
         <span class="comment">// If the block payload is available for this leaf, include it in
         // the leaf chain that we send to the client.
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(encoded_txns) = consensus_reader
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = consensus_reader
             .saved_payloads()
             .get(<span class="kw-2">&amp;</span>info.leaf.view_number())
         {
-            <span class="kw">let </span>payload =
-                BlockPayload::from_bytes(encoded_txns, info.leaf.block_header().metadata());
-
-            info.leaf.fill_block_payload_unchecked(payload);
+            info.leaf
+                .fill_block_payload_unchecked(payload.as_ref().clone());
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = info.leaf.block_payload() {
@@ -1299,13 +1290,8 @@
                 }
                 <span class="comment">// If the block payload is available for this leaf, include it in
                 // the leaf chain that we send to the client.
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(encoded_txns) =
-                    consensus_reader.saved_payloads().get(<span class="kw-2">&amp;</span>leaf.view_number())
-                {
-                    <span class="kw">let </span>payload =
-                        BlockPayload::from_bytes(encoded_txns, leaf.block_header().metadata());
-
-                    leaf.fill_block_payload_unchecked(payload);
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = consensus_reader.saved_payloads().get(<span class="kw-2">&amp;</span>leaf.view_number()) {
+                    leaf.fill_block_payload_unchecked(payload.as_ref().clone());
                 }
 
                 <span class="comment">// Get the VID share at the leaf's view number, corresponding to our key
