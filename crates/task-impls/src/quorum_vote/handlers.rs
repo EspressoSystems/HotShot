@@ -291,7 +291,7 @@ async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>
                 return Ok(());
             }
             if let Some(result) = decided_leaf.next_drb_result {
-                // We don't need to check value existance and consistency because it should be
+                // We don't need to check value existence and consistency because it should be
                 // impossible to decide on a block with different DRB results.
                 task_state
                     .consensus
