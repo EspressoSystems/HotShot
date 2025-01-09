@@ -140,7 +140,7 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
 
 /// Start the DRB computation task for the next epoch.
 ///
-/// Uses the seed previously stored in `store_drb_seed_and_computed_result`.
+/// Uses the seed previously stored in `store_drb_seed_and_result`.
 async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
@@ -229,11 +229,7 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
 ///
 /// We don't need to handle the special cases explicitly here, because the first leaf with which
 /// we'll start the DRB computation is for epoch 3.
-async fn store_drb_seed_and_computed_result<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    V: Versions,
->(
+async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
     decided_leaf: &Leaf2<TYPES>,
 ) -> Result<()> {
@@ -437,8 +433,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         if version >= V::Epochs::VERSION {
             // `leaf_views.last()` is never none if we've reached a new decide, so this is safe to
             // unwrap.
-            store_drb_seed_and_computed_result(task_state, &leaf_views.last().unwrap().leaf)
-                .await?;
+            store_drb_seed_and_result(task_state, &leaf_views.last().unwrap().leaf).await?;
         }
     }
 
