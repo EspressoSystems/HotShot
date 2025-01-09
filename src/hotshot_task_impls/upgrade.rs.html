@@ -341,7 +341,6 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -635,7 +634,6 @@
                     <span class="kw">let </span>upgrade_proposal = UpgradeProposal {
                         upgrade_proposal: upgrade_proposal_data.clone(),
                         view_number: TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
-                        epoch: <span class="self">self</span>.cur_epoch,
                     };
 
                     <span class="kw">let </span>signature = TYPES::SignatureKey::sign(
