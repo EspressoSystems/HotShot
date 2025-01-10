@@ -329,14 +329,13 @@ pub async fn decide_from_proposal_2<TYPES: NodeType>(
         let epoch_height = consensus_reader.epoch_height;
         drop(consensus_reader);
 
-        // `leaf_views.last()` is never none if we've reached a new decide, so this is safe to
-        // unwrap.
-        decide_epoch_root(
-            &res.leaf_views.last().unwrap().leaf,
-            epoch_height,
-            membership,
-        )
-        .await;
+        if let Some(decided_leaf_info) = res.leaf_views.last() {
+            decide_epoch_root(&decided_leaf_info.leaf, epoch_height, membership).await;
+        } else {
+            tracing::warn!(
+                "No decided leaf while a view has been decided, which should be impossible."
+            );
+        }
     }
 
     res
@@ -490,14 +489,13 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
         let epoch_height = consensus_reader.epoch_height;
         drop(consensus_reader);
 
-        // `leaf_views.last()` is never none if we've reached a new decide, so this is safe to
-        // unwrap.
-        decide_epoch_root(
-            &res.leaf_views.last().unwrap().leaf,
-            epoch_height,
-            membership,
-        )
-        .await;
+        if let Some(decided_leaf_info) = res.leaf_views.last() {
+            decide_epoch_root(&decided_leaf_info.leaf, epoch_height, membership).await;
+        } else {
+            tracing::warn!(
+                "No decided leaf while a view has been decided, which should be impossible."
+            );
+        }
     }
 
     res

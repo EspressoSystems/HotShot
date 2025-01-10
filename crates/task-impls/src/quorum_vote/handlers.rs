@@ -233,76 +233,68 @@ async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
     decided_leaf: &Leaf2<TYPES>,
 ) -> Result<()> {
+    if task_state.epoch_height == 0 {
+        tracing::info!("Epoch height is 0, skipping DRB storage.");
+        return Ok(());
+    }
+
     let decided_block_number = decided_leaf.block_header().block_number();
+    let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+        decided_block_number,
+        task_state.epoch_height,
+    ));
 
-    if task_state.epoch_height != 0 {
-        let current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
-            decided_block_number,
-            task_state.epoch_height,
-        ));
+    // Skip storing the seed and computed result if this is not the epoch root.
+    if is_epoch_root(decided_block_number, task_state.epoch_height) {
+        // Cancel old DRB computation tasks.
+        let mut consensus_writer = task_state.consensus.write().await;
+        consensus_writer
+            .drb_seeds_and_results
+            .garbage_collect(current_epoch_number);
+        drop(consensus_writer);
 
-        // Skip storing the seed and computed result if this is not the epoch root.
-        if is_epoch_root(decided_block_number, task_state.epoch_height) {
-            // Cancel old DRB computation tasks.
-            let mut consensus_writer = task_state.consensus.write().await;
-            consensus_writer
-                .drb_seeds_and_results
-                .garbage_collect(current_epoch_number);
-            drop(consensus_writer);
+        // Store the DRB result for the next epoch, which will be used by the proposal task to
+        // include in the proposal in the last block of this epoch.
+        store_and_get_computed_drb_result(current_epoch_number + 1, task_state).await?;
 
-            // Store the DRB result for the next epoch, which will be used by the proposal task to
-            // include in the proposal in the last block of this epoch.
-            store_and_get_computed_drb_result(current_epoch_number + 1, task_state).await?;
-
-            // Skip storing the seed if we are not in the committee of the next epoch.
-            if task_state
-                .membership
-                .read()
-                .await
-                .has_stake(&task_state.public_key, current_epoch_number + 1)
-            {
-                let Ok(drb_seed_input_vec) =
-                    bincode::serialize(&decided_leaf.justify_qc().signatures)
-                else {
-                    bail!("Failed to serialize the QC signature.");
-                };
-                let Ok(drb_seed_input) = drb_seed_input_vec.try_into() else {
-                    bail!("Failed to convert the serialized QC signature into a DRB seed input.");
-                };
-
-                // Store the DRB seed input for the epoch after the next one.
-                task_state
-                    .consensus
-                    .write()
-                    .await
-                    .drb_seeds_and_results
-                    .store_seed(current_epoch_number + 2, drb_seed_input);
-            }
+        // Store the DRB seed input for the epoch after the next one.
+        let Ok(drb_seed_input_vec) = bincode::serialize(&decided_leaf.justify_qc().signatures)
+        else {
+            bail!("Failed to serialize the QC signature.");
+        };
+        let Ok(drb_seed_input) = drb_seed_input_vec.try_into() else {
+            bail!("Failed to convert the serialized QC signature into a DRB seed input.");
+        };
+        task_state
+            .consensus
+            .write()
+            .await
+            .drb_seeds_and_results
+            .store_seed(current_epoch_number + 2, drb_seed_input);
+    }
+    // Skip storing the received result if this is not the last block.
+    else if is_last_block_in_epoch(decided_block_number, task_state.epoch_height) {
+        // Skip if we are not in the committee of the next epoch.
+        if !task_state
+            .membership
+            .read()
+            .await
+            .has_stake(&task_state.public_key, current_epoch_number + 1)
+        {
+            return Ok(());
         }
-        // Skip storing the received result if this is not the last block.
-        else if is_last_block_in_epoch(decided_block_number, task_state.epoch_height) {
-            // Skip if we are not in the committee of the next epoch.
-            if !task_state
-                .membership
-                .read()
+        if let Some(result) = decided_leaf.next_drb_result {
+            // We don't need to check value existence and consistency because it should be
+            // impossible to decide on a block with different DRB results.
+            task_state
+                .consensus
+                .write()
                 .await
-                .has_stake(&task_state.public_key, current_epoch_number + 1)
-            {
-                return Ok(());
-            }
-            if let Some(result) = decided_leaf.next_drb_result {
-                // We don't need to check value existence and consistency because it should be
-                // impossible to decide on a block with different DRB results.
-                task_state
-                    .consensus
-                    .write()
-                    .await
-                    .drb_seeds_and_results
-                    .results
-                    .insert(current_epoch_number + 1, result);
-            } else {
-                bail!("The last block of the epoch is decided but doesn't contain a DRB result.");
-            }
+                .drb_seeds_and_results
+                .results
+                .insert(current_epoch_number + 1, result);
+        } else {
+            bail!("The last block of the epoch is decided but doesn't contain a DRB result.");
         }
     }
     Ok(())
