@@ -536,9 +536,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
         let parent_vid = self
             .vid_shares()
-            .get(&parent_view_number)?
-            .get(public_key)
-            .cloned()
+            .get(&parent_view_number)
+            .and_then(|inner_map| inner_map.get(public_key).cloned())
             .map(|prop| prop.data);
 
         Some(LeafInfo {
