@@ -56,7 +56,7 @@ test-ci-6:
 #   just test memoryimpl_::test_success --nocapture
 test *ARGS:
   echo Running test {{ARGS}}
-  RUST_LOG=warn,hotshot_task_impls=debug cargo nextest run --profile local {{ARGS}} --lib --bins --tests --benches --workspace
+  cargo nextest run --profile local {{ARGS}} --lib --bins --tests --benches --workspace
 
 check:
   echo Checking
