@@ -1667,12 +1667,11 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
-<span class="kw">use </span>jf_vid::{precomputable::Precomputable, VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
+<span class="kw">use </span>jf_vid::{VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>tokio::task::spawn_blocking;
-<span class="kw">use </span>tracing::error;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vec1::Vec1;
 
@@ -1902,8 +1901,8 @@
     /// optionally using precompute data from builder.
     /// If the sender epoch is missing, it means it's the same as the target epoch.
     ///
-    /// # Panics
-    /// Panics if the VID calculation fails, this should not happen.
+    /// # Errors
+    /// Returns an error if the disperse or commitment calculation fails
     </span><span class="attr">#[allow(clippy::panic)]
     </span><span class="kw">pub async fn </span>calculate_vid_disperse(
         payload: <span class="kw-2">&amp;</span>TYPES::BlockPayload,
@@ -1911,44 +1910,45 @@
         view: TYPES::View,
         target_epoch: TYPES::Epoch,
         data_epoch: TYPES::Epoch,
-        precompute_data: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>num_nodes = membership.read().<span class="kw">await</span>.total_nodes(target_epoch);
 
         <span class="kw">let </span>txns = payload.encode();
         <span class="kw">let </span>txns_clone = Arc::clone(<span class="kw-2">&amp;</span>txns);
-        <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| {
-            precompute_data
-                .map_or_else(
-                    || vid_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns_clone),
-                    |data| vid_scheme(num_nodes).disperse_precompute(<span class="kw-2">&amp;</span>txns_clone, <span class="kw-2">&amp;</span>data)
-                )
-                .unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID disperse failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns_clone.len()))
-        }).<span class="kw">await</span>;
-        <span class="kw">let </span>data_epoch_payload_commitment = <span class="kw">if </span>target_epoch == data_epoch {
+        <span class="kw">let </span>num_txns = txns.len();
+
+        <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| vid_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns_clone))
+            .<span class="kw">await
+            </span>.wrap()
+            .context(<span class="macro">error!</span>(<span class="string">"Join error"</span>))<span class="question-mark">?
+            </span>.wrap()
+            .context(|err| <span class="macro">error!</span>(<span class="string">"Failed to calculate VID disperse. Error: {}"</span>, err))<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>payload_commitment = <span class="kw">if </span>target_epoch == data_epoch {
             <span class="prelude-val">None
         </span>} <span class="kw">else </span>{
-            <span class="kw">let </span>data_epoch_num_nodes = membership.read().<span class="kw">await</span>.total_nodes(data_epoch);
-            <span class="prelude-val">Some</span>(spawn_blocking(<span class="kw">move </span>|| {
-                vid_scheme(data_epoch_num_nodes).commit_only(<span class="kw-2">&amp;</span>txns)
-                    .unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VID commit_only failure:(num_storage nodes,payload_byte_len)=({num_nodes},{}) error: {err}"</span>, txns.len()))
-            }).<span class="kw">await</span>)
-        };
-        <span class="comment">// Unwrap here will just propagate any panic from the spawned task, it's not a new place we can panic.
-        </span><span class="kw">let </span>vid_disperse = vid_disperse.unwrap();
-        <span class="kw">let </span>data_epoch_payload_commitment =
-            data_epoch_payload_commitment.map(|result| result.unwrap());
+            <span class="kw">let </span>num_nodes = membership.read().<span class="kw">await</span>.total_nodes(data_epoch);
 
-        <span class="self">Self</span>::from_membership(
+            <span class="prelude-val">Some</span>(
+              spawn_blocking(<span class="kw">move </span>|| vid_scheme(num_nodes).commit_only(<span class="kw-2">&amp;</span>txns))
+                .<span class="kw">await
+                </span>.wrap()
+                .context(<span class="macro">error!</span>(<span class="string">"Join error"</span>))<span class="question-mark">?
+                </span>.wrap()
+                .context(|err| <span class="macro">error!</span>(<span class="string">"Failed to calculate VID commitment with (num_storage_nodes, payload_byte_len) = ({}, {}). Error: {}"</span>, num_nodes, num_txns, err))<span class="question-mark">?
+            </span>)
+        };
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_membership(
             view,
             vid_disperse,
             membership,
             target_epoch,
             data_epoch,
-            data_epoch_payload_commitment,
+            payload_commitment,
         )
-        .<span class="kw">await
-    </span>}
+        .<span class="kw">await</span>)
+    }
 }
 
 <span class="doccomment">/// Helper type to encapsulate the various ways that proposal certificates can be captured and
@@ -2056,7 +2056,7 @@
         <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
             TYPES::SignatureKey::sign(private_key, <span class="self">self</span>.payload_commitment.as_ref())
         <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"VID: failed to sign dispersal share payload"</span>);
+            <span class="macro">tracing::error!</span>(<span class="string">"VID: failed to sign dispersal share payload"</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         };
         <span class="prelude-val">Some</span>(Proposal {
@@ -2212,7 +2212,7 @@
         <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
             TYPES::SignatureKey::sign(private_key, <span class="self">self</span>.payload_commitment.as_ref())
         <span class="kw">else </span>{
-            <span class="macro">error!</span>(<span class="string">"VID: failed to sign dispersal share payload"</span>);
+            <span class="macro">tracing::error!</span>(<span class="string">"VID: failed to sign dispersal share payload"</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         };
         <span class="prelude-val">Some</span>(Proposal {

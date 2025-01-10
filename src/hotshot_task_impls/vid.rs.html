@@ -261,7 +261,6 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -340,7 +339,6 @@
                     metadata,
                     view_number,
                     sequencing_fees,
-                    vid_precompute,
                     auction_result,
                     ..
                 } = packed_bundle;
@@ -367,9 +365,9 @@
                     <span class="kw-2">*</span>view_number,
                     epoch,
                     epoch,
-                    vid_precompute.clone(),
                 )
-                .<span class="kw">await</span>;
+                .<span class="kw">await
+                </span>.ok()<span class="question-mark">?</span>;
                 <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment;
                 <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
@@ -473,9 +471,9 @@
                     proposal_view_number,
                     target_epoch,
                     sender_epoch,
-                    <span class="prelude-val">None</span>,
                 )
-                .<span class="kw">await</span>;
+                .<span class="kw">await
+                </span>.ok()<span class="question-mark">?</span>;
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(next_epoch_signature) = TYPES::SignatureKey::sign(
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                     next_epoch_vid_disperse.payload_commitment.as_ref(),
