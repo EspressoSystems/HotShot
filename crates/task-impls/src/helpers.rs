@@ -15,7 +15,7 @@ use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal2, ViewChangeEvidence},
+    data::{Leaf2, QuorumProposal2, ViewChangeEvidence2},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     request_response::ProposalRequestPayload,
@@ -313,14 +313,12 @@ pub async fn decide_from_proposal_2<TYPES: NodeType>(
         res.leaf_views.push(info.clone());
         // If the block payload is available for this leaf, include it in
         // the leaf chain that we send to the client.
-        if let Some(encoded_txns) = consensus_reader
+        if let Some(payload) = consensus_reader
             .saved_payloads()
             .get(&info.leaf.view_number())
         {
-            let payload =
-                BlockPayload::from_bytes(encoded_txns, info.leaf.block_header().metadata());
-
-            info.leaf.fill_block_payload_unchecked(payload);
+            info.leaf
+                .fill_block_payload_unchecked(payload.as_ref().clone());
         }
 
         if let Some(ref payload) = info.leaf.block_payload() {
@@ -451,13 +449,8 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
                 }
                 // If the block payload is available for this leaf, include it in
                 // the leaf chain that we send to the client.
-                if let Some(encoded_txns) =
-                    consensus_reader.saved_payloads().get(&leaf.view_number())
-                {
-                    let payload =
-                        BlockPayload::from_bytes(encoded_txns, leaf.block_header().metadata());
-
-                    leaf.fill_block_payload_unchecked(payload);
+                if let Some(payload) = consensus_reader.saved_payloads().get(&leaf.view_number()) {
+                    leaf.fill_block_payload_unchecked(payload.as_ref().clone());
                 }
 
                 // Get the VID share at the leaf's view number, corresponding to our key
@@ -752,7 +745,7 @@ pub(crate) async fn validate_proposal_view_and_certs<
         ))?;
 
         match received_proposal_cert {
-            ViewChangeEvidence::Timeout(timeout_cert) => {
+            ViewChangeEvidence2::Timeout(timeout_cert) => {
                 ensure!(
                     timeout_cert.data().view == view_number - 1,
                     "Timeout certificate for view {} was not for the immediately preceding view",
@@ -778,7 +771,7 @@ pub(crate) async fn validate_proposal_view_and_certs<
                     *view_number
                 );
             }
-            ViewChangeEvidence::ViewSync(view_sync_cert) => {
+            ViewChangeEvidence2::ViewSync(view_sync_cert) => {
                 ensure!(
                     view_sync_cert.view_number == view_number,
                     "View sync cert view number {:?} does not match proposal view number {:?}",
