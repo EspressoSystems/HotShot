@@ -312,9 +312,9 @@
         <span class="kw">let </span>handles = <span class="kw-2">&amp;mut </span><span class="self">self</span>.task_handles;
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(handle) = handles.pop() {
-            <span class="kw">let </span><span class="kw-2">mut </span>task_state = handle.<span class="kw">await</span>.unwrap();
-
-            task_state.cancel_subtasks();
+            <span class="kw">let _ </span>= handle
+                .<span class="kw">await
+                </span>.map(|<span class="kw-2">mut </span>task_state| task_state.cancel_subtasks());
         }
     }
     <span class="doccomment">/// Take a task, run it, and register it
