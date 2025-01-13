@@ -76,7 +76,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     metadata,
                     view_number,
                     sequencing_fees,
-                    vid_precompute,
                     auction_result,
                     ..
                 } = packed_bundle;
@@ -98,14 +97,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     return None;
                 }
                 let vid_disperse = VidDisperse::calculate_vid_disperse(
-                    Arc::clone(encoded_transactions),
+                    &payload,
                     &Arc::clone(&self.membership),
                     *view_number,
                     epoch,
                     epoch,
-                    vid_precompute.clone(),
                 )
-                .await;
+                .await
+                .ok()?;
                 let payload_commitment = vid_disperse.payload_commitment;
                 let shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
                 let mut consensus_writer = self.consensus.write().await;
@@ -192,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 );
 
                 let consensus_reader = self.consensus.read().await;
-                let Some(txns) = consensus_reader.saved_payloads().get(&proposal_view_number)
+                let Some(payload) = consensus_reader.saved_payloads().get(&proposal_view_number)
                 else {
                     tracing::warn!(
                         "We need to calculate VID for the nodes in the next epoch \
@@ -200,18 +199,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     );
                     return None;
                 };
-                let txns = Arc::clone(txns);
+                let payload = Arc::clone(payload);
                 drop(consensus_reader);
 
                 let next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse(
-                    txns,
+                    payload.as_ref(),
                     &Arc::clone(&self.membership),
                     proposal_view_number,
                     target_epoch,
                     sender_epoch,
-                    None,
                 )
-                .await;
+                .await
+                .ok()?;
                 let Ok(next_epoch_signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
                     next_epoch_vid_disperse.payload_commitment.as_ref(),
