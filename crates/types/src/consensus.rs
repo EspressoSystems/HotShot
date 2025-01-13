@@ -958,15 +958,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .get(&view)?
             .view_inner
             .epoch()?;
-        let vid = VidDisperse::calculate_vid_disperse(
-            payload.as_ref(),
-            &membership,
-            view,
-            epoch,
-            epoch,
-            None,
-        )
-        .await;
+
+        let vid =
+            VidDisperse::calculate_vid_disperse(payload.as_ref(), &membership, view, epoch, epoch)
+                .await
+                .ok()?;
+
         let shares = VidDisperseShare2::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
@@ -974,6 +971,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
                 consensus_writer.update_vid_shares(view, prop);
             }
         }
+
         Some(())
     }
 
