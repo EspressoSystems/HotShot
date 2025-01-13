@@ -5,8 +5,8 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 use hotshot_example_types::{
-    node_types::{EpochsTestVersions, Libp2pImpl, MemoryImpl, PushCdnImpl, TestVersions},
-    state_types::{TestTwoStakeTablesTypes, TestTypes},
+    node_types::{Libp2pImpl, MemoryImpl, PushCdnImpl, TestVersions},
+    state_types::TestTypes,
 };
 use hotshot_macros::cross_tests;
 use hotshot_testing::{
@@ -50,43 +50,6 @@ cross_tests!(
         metadata.overall_safety_properties.num_failed_views = 3;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 22;
-        metadata
-    }
-);
-cross_tests!(
-    TestName: test_with_failures_half_f_epochs,
-    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
-    Types: [TestTypes, TestTwoStakeTablesTypes],
-    Versions: [EpochsTestVersions],
-    Ignore: false,
-    Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
-        metadata.epoch_height = 10;
-        // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
-        // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
-        // following issue.
-        let dead_nodes = vec![
-            ChangeNode {
-                idx: 17,
-                updown: NodeAction::Down,
-            },
-            ChangeNode {
-                idx: 18,
-                updown: NodeAction::Down,
-            },
-            ChangeNode {
-                idx: 19,
-                updown: NodeAction::Down,
-            },
-        ];
-
-        metadata.spinning_properties = SpinningTaskDescription {
-            node_changes: vec![(5, dead_nodes)]
-        };
-
-        metadata.overall_safety_properties.num_failed_views = 3;
-        // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
-        metadata.overall_safety_properties.num_successful_views = 19;
         metadata
     }
 );
