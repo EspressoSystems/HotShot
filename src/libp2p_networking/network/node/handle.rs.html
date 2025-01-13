@@ -726,7 +726,7 @@
         <span class="kw">let </span>(s, r) = futures::channel::oneshot::channel();
         <span class="kw">let </span>req = ClientRequest::GetDHT {
             key: serialized_key.clone(),
-            notify: s,
+            notify: <span class="macro">vec!</span>[s],
             retry_count,
         };
         <span class="self">self</span>.send_request(req)<span class="question-mark">?</span>;

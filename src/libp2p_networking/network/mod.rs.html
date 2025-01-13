@@ -280,7 +280,7 @@
         <span class="doccomment">/// Key to search for
         </span>key: Vec&lt;u8&gt;,
         <span class="doccomment">/// Channel to notify caller of value (or failure to find value)
-        </span>notify: Sender&lt;Vec&lt;u8&gt;&gt;,
+        </span>notify: Vec&lt;Sender&lt;Vec&lt;u8&gt;&gt;&gt;,
         <span class="doccomment">/// number of retries to make
         </span>retry_count: u8,
     },
