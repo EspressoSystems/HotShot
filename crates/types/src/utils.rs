@@ -252,6 +252,15 @@ pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
     }
 }
 
+/// Returns the block number of the epoch root for the given epoch number
+pub fn epoch_root_block_number(epoch: u64, epoch_height: u64) -> u64 {
+  if epoch_height == 0 {
+    0
+  } else {
+    (epoch + 1) * epoch_height - 3
+  }
+}
+
 /// A function for generating a cute little user mnemonic from a hash
 #[must_use]
 pub fn mnemonic<H: Hash>(bytes: H) -> String {
@@ -315,5 +324,15 @@ mod test {
 
         let epoch = epoch_from_block_number(21, 10);
         assert_eq!(3, epoch);
+    }
+
+    #[test]
+    fn test_epoch_root_block_number() {
+        // block 0 is always epoch 0
+        let epoch = 3;
+        let epoch_height = 10;
+        let epoch_root_block_number = epoch_root_block_number(3, epoch_height);
+        
+        assert_eq!(epoch, epoch_from_block_number(epoch_root_block_number, epoch_height));
     }
 }
