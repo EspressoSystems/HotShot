@@ -189,42 +189,37 @@ impl<K: SignatureKey + 'static, D: DhtPersistentStorage> DHTBehaviour<K, D> {
             // The key already exists in the cache, send the value to all channels
             for chan in chans {
                 if chan.send(entry.value.clone()).is_err() {
-                    warn!(
-                        "Get DHT: channel closed before get record request result could be sent"
-                    );
+                    warn!("Get DHT: channel closed before get record request result could be sent");
                 }
             }
         } else {
             // Check if the key is already being queried
-            match self.outstanding_dht_query_keys.get(&key) {
+            if let Some(qid) = self.outstanding_dht_query_keys.get(&key) {
                 // The key was already being queried. Add the channel to the existing query
-                Some(qid) => {
-                    // Try to get the query from the query id
-                    let Some(query) = self.in_progress_record_queries.get_mut(qid) else {
-                        warn!("Get DHT: outstanding query not found");
-                        return;
-                    };
+                // Try to get the query from the query id
+                let Some(query) = self.in_progress_record_queries.get_mut(qid) else {
+                    warn!("Get DHT: outstanding query not found");
+                    return;
+                };
 
-                    // Add the channel to the existing query
-                    query.notify.extend(chans);
-                }
-                None => {
-                    // The key was not already being queried and was not in the cache. Start a new query.
-                    let qid = kad.get_record(key.clone().into());
-                    let query = KadGetQuery {
-                        backoff,
-                        progress: DHTProgress::InProgress(qid),
-                        notify: chans,
-                        num_replicas: factor,
-                        key: key.clone(),
-                        retry_count: retry_count - 1,
-                        records: HashMap::default(),
-                    };
+                // Add the channel to the existing query
+                query.notify.extend(chans);
+            } else {
+                // The key was not already being queried and was not in the cache. Start a new query.
+                let qid = kad.get_record(key.clone().into());
+                let query = KadGetQuery {
+                    backoff,
+                    progress: DHTProgress::InProgress(qid),
+                    notify: chans,
+                    num_replicas: factor,
+                    key: key.clone(),
+                    retry_count: retry_count - 1,
+                    records: HashMap::default(),
+                };
 
-                    // Add the key to the outstanding queries and in-progress queries
-                    self.outstanding_dht_query_keys.insert(key, qid);
-                    self.in_progress_record_queries.insert(qid, query);
-                }
+                // Add the key to the outstanding queries and in-progress queries
+                self.outstanding_dht_query_keys.insert(key, qid);
+                self.in_progress_record_queries.insert(qid, query);
             }
         }
     }
