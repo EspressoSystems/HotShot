@@ -274,15 +274,6 @@ async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>
     }
     // Skip storing the received result if this is not the last block.
     else if is_last_block_in_epoch(decided_block_number, task_state.epoch_height) {
-        // Skip if we are not in the committee of the next epoch.
-        if !task_state
-            .membership
-            .read()
-            .await
-            .has_stake(&task_state.public_key, current_epoch_number + 1)
-        {
-            return Ok(());
-        }
         if let Some(result) = decided_leaf.next_drb_result {
             // We don't need to check value existence and consistency because it should be
             // impossible to decide on a block with different DRB results.

@@ -332,9 +332,7 @@ pub async fn decide_from_proposal_2<TYPES: NodeType>(
         if let Some(decided_leaf_info) = res.leaf_views.last() {
             decide_epoch_root(&decided_leaf_info.leaf, epoch_height, membership).await;
         } else {
-            tracing::warn!(
-                "No decided leaf while a view has been decided, which should be impossible."
-            );
+            tracing::info!("No decided leaf while a view has been decided.");
         }
     }
 
@@ -492,9 +490,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
         if let Some(decided_leaf_info) = res.leaf_views.last() {
             decide_epoch_root(&decided_leaf_info.leaf, epoch_height, membership).await;
         } else {
-            tracing::warn!(
-                "No decided leaf while a view has been decided, which should be impossible."
-            );
+            tracing::info!("No decided leaf while a view has been decided.");
         }
     }
 
