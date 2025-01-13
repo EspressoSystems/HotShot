@@ -57,8 +57,6 @@
             targets.x86_64-unknown-linux-musl.stable.rust-std
           ];
 
-        CARGO_TARGET_DIR = "target_dirs/nix_rustc";
-
         pkgs = import nixpkgs {
           inherit system;
         };
@@ -193,20 +191,17 @@
         buildDeps = buildDepsSimple ++ [ fenix.packages.${system}.rust-analyzer ];
       in {
         devShell = pkgs.mkShell {
-          inherit CARGO_TARGET_DIR;
           buildInputs = [ fenixStable ] ++ buildDeps;
         };
 
         devShells = {
           # A simple shell without rust-analyzer
           simpleShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             buildInputs = [ fenixStable ] ++ buildDepsSimple;
           };
 
           # usage: check correctness
           correctnessShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             shellHook = ''
               ulimit -n 1024
             '';
@@ -217,7 +212,6 @@
           };
 
           semverShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             buildInputs = [
               (pkgs.cargo-semver-checks.overrideAttrs (final: prev: {doCheck = false;}))
               fenixStable
@@ -226,7 +220,6 @@
 
           # usage: compile a statically linked musl binary
           staticShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             shellHook = ''
               ulimit -n 1024
               export RUSTFLAGS='-C target-feature=+crt-static'
@@ -237,7 +230,6 @@
 
           # usage: link with mold
           moldShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             LD_LIBRARY_PATH = "${pkgs.zlib.out}/lib";
             buildInputs = with pkgs; [ zlib.out fd fenixStable ] ++ buildDeps;
             shellHook = ''
@@ -248,7 +240,6 @@
           # usage: setup for tokio with console
           #        with support for opentelemetry
           consoleShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             OTEL_BSP_MAX_EXPORT_BATCH_SIZE = 25;
             OTEL_BSP_MAX_QUEUE_SIZE = 32768;
             OTL_ENABLED = "true";
@@ -265,7 +256,6 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             buildInputs = with pkgs;
               [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ]
               ++ buildDeps ++ lib.optionals stdenv.isLinux [
@@ -277,7 +267,6 @@
           # usage: brings in debugging tools including:
           # - lldb: a debugger to be used with vscode
           debugShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             buildInputs = with pkgs; [ fenixStable lldb ] ++ buildDeps;
           };
 
@@ -285,7 +274,6 @@
           cudaShell = 
             let cudatoolkit = pkgsAllowUnfree.cudaPackages_12_3.cudatoolkit;
             in pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
             buildInputs = with pkgs; [ cmake cudatoolkit util-linux gcc11 fenixStable ] ++ buildDeps;
             shellHook = ''
               export PATH="${pkgs.gcc11}/bin:${cudatoolkit}/bin:${cudatoolkit}/nvvm/bin:$PATH"
