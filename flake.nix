@@ -201,7 +201,7 @@
           # A simple shell without rust-analyzer
           simpleShell = pkgs.mkShell {
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
             '';
             buildInputs = [ fenixStable ] ++ buildDepsSimple;
           };
@@ -209,7 +209,7 @@
           # usage: check correctness
           correctnessShell = pkgs.mkShell {
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
               ulimit -n 1024
             '';
             RUST_SRC_PATH = "${fenixNightly}/lib/rustlib/src/rust/library";
@@ -220,7 +220,7 @@
 
           semverShell = pkgs.mkShell {
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
             '';
             buildInputs = [
               (pkgs.cargo-semver-checks.overrideAttrs (final: prev: {doCheck = false;}))
@@ -234,7 +234,7 @@
               ulimit -n 1024
               export RUSTFLAGS='-C target-feature=+crt-static'
               export CARGO_BUILD_TARGET='x86_64-unknown-linux-musl'
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
             '';
             buildInputs = [ fenixMusl ] ++ buildDeps;
           };
@@ -244,7 +244,7 @@
             LD_LIBRARY_PATH = "${pkgs.zlib.out}/lib";
             buildInputs = with pkgs; [ zlib.out fd fenixStable ] ++ buildDeps;
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
               export RUSTFLAGS='-Clinker=${pkgs.clang}/bin/clang -Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold'
             '';
           };
@@ -253,7 +253,7 @@
           #        with support for opentelemetry
           consoleShell = pkgs.mkShell {
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
             '';
             OTEL_BSP_MAX_EXPORT_BATCH_SIZE = 25;
             OTEL_BSP_MAX_QUEUE_SIZE = 32768;
@@ -272,7 +272,7 @@
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
             '';
             buildInputs = with pkgs;
               [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ]
@@ -286,7 +286,7 @@
           # - lldb: a debugger to be used with vscode
           debugShell = pkgs.mkShell {
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
             '';
             buildInputs = with pkgs; [ fenixStable lldb ] ++ buildDeps;
           };
@@ -297,7 +297,7 @@
             in pkgs.mkShell {
             buildInputs = with pkgs; [ cmake cudatoolkit util-linux gcc11 fenixStable ] ++ buildDeps;
             shellHook = ''
-              export CARGO_TARGET_DIR=$PWD/${CARGO_TARGET_DIR};
+              export CARGO_TARGET_DIR="$PWD/${CARGO_TARGET_DIR}";
               export PATH="${pkgs.gcc11}/bin:${cudatoolkit}/bin:${cudatoolkit}/nvvm/bin:$PATH"
               export LD_LIBRARY_PATH=${cudatoolkit}/lib
               export CUDA_PATH=${cudatoolkit}
