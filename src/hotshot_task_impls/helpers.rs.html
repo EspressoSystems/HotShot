@@ -839,6 +839,7 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1007,22 +1008,12 @@
 }
 
 <span class="doccomment">/// Handles calling add_epoch_root and sync_l1 on Membership if necessary.
-</span><span class="kw">async fn </span>decide_from_proposal_add_epoch_root&lt;TYPES: NodeType&gt;(
-    proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
-    leaf_views: <span class="kw-2">&amp;</span>[LeafInfo&lt;TYPES&gt;],
+</span><span class="kw">async fn </span>decide_epoch_root&lt;TYPES: NodeType&gt;(
+    decided_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
     epoch_height: u64,
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
 ) {
-    <span class="kw">if </span>leaf_views.is_empty() {
-        <span class="kw">return</span>;
-    }
-
-    <span class="kw">let </span>decided_block_number = leaf_views
-        .last()
-        .unwrap()
-        .leaf
-        .block_header()
-        .block_number();
+    <span class="kw">let </span>decided_block_number = decided_leaf.block_header().block_number();
 
     <span class="comment">// Skip if this is not the expected block.
     </span><span class="kw">if </span>epoch_height != <span class="number">0 </span>&amp;&amp; is_epoch_root(decided_block_number, epoch_height) {
@@ -1032,7 +1023,7 @@
         <span class="kw">let </span>write_callback = {
             <span class="kw">let </span>membership_reader = membership.read().<span class="kw">await</span>;
             membership_reader
-                .add_epoch_root(next_epoch_number, proposal.block_header.clone())
+                .add_epoch_root(next_epoch_number, decided_leaf.block_header().clone())
                 .<span class="kw">await
         </span>};
 
@@ -1098,7 +1089,8 @@
 <span class="doccomment">/// calculate the new decided leaf chain based on the rules of HotStuff 2
 ///
 /// # Panics
-/// Can't actually panic
+/// If the leaf chain contains no decided leaf while reaching a decided view, which should be
+/// impossible.
 </span><span class="kw">pub async fn </span>decide_from_proposal_2&lt;TYPES: NodeType&gt;(
     proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
@@ -1179,8 +1171,11 @@
         <span class="kw">let </span>epoch_height = consensus_reader.epoch_height;
         drop(consensus_reader);
 
-        decide_from_proposal_add_epoch_root(proposal, <span class="kw-2">&amp;</span>res.leaf_views, epoch_height, membership)
-            .<span class="kw">await</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(decided_leaf_info) = res.leaf_views.last() {
+            decide_epoch_root(<span class="kw-2">&amp;</span>decided_leaf_info.leaf, epoch_height, membership).<span class="kw">await</span>;
+        } <span class="kw">else </span>{
+            <span class="macro">tracing::info!</span>(<span class="string">"No decided leaf while a view has been decided."</span>);
+        }
     }
 
     res
@@ -1213,6 +1208,10 @@
 ///
 /// Upon receipt then of a proposal for view 9, assuming it is valid, this entire process will repeat, and
 /// the anchor view will be set to view 6, with the locked view as view 7.
+///
+/// # Panics
+/// If the leaf chain contains no decided leaf while reaching a decided view, which should be
+/// impossible.
 </span><span class="kw">pub async fn </span>decide_from_proposal&lt;TYPES: NodeType&gt;(
     proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
@@ -1330,8 +1329,11 @@
         <span class="kw">let </span>epoch_height = consensus_reader.epoch_height;
         drop(consensus_reader);
 
-        decide_from_proposal_add_epoch_root(proposal, <span class="kw-2">&amp;</span>res.leaf_views, epoch_height, membership)
-            .<span class="kw">await</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(decided_leaf_info) = res.leaf_views.last() {
+            decide_epoch_root(<span class="kw-2">&amp;</span>decided_leaf_info.leaf, epoch_height, membership).<span class="kw">await</span>;
+        } <span class="kw">else </span>{
+            <span class="macro">tracing::info!</span>(<span class="string">"No decided leaf while a view has been decided."</span>);
+        }
     }
 
     res

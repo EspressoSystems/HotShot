@@ -1645,6 +1645,18 @@
 <a href="#1645" id="1645">1645</a>
 <a href="#1646" id="1646">1646</a>
 <a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2375,6 +2387,7 @@
             upgrade_certificate: leaf.upgrade_certificate,
             block_payload: leaf.block_payload,
             view_change_evidence: <span class="prelude-val">None</span>,
+            next_drb_result: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -2517,6 +2530,13 @@
 
     <span class="doccomment">/// Possible timeout or view sync certificate. If the `justify_qc` is not for a proposal in the immediately preceding view, then either a timeout or view sync certificate must be attached.
     </span><span class="kw">pub </span>view_change_evidence: <span class="prelude-ty">Option</span>&lt;ViewChangeEvidence2&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// The DRB result for the next epoch.
+    ///
+    /// This is required only for the last block of the epoch. Nodes will verify that it's
+    /// consistent with the result from their computations.
+    </span><span class="attr">#[serde(with = <span class="string">"serde_bytes"</span>)]
+    </span><span class="kw">pub </span>next_drb_result: <span class="prelude-ty">Option</span>&lt;DrbResult&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Leaf2&lt;TYPES&gt; {
@@ -2569,6 +2589,7 @@
             block_header: block_header.clone(),
             block_payload: <span class="prelude-val">Some</span>(payload),
             view_change_evidence: <span class="prelude-val">None</span>,
+            next_drb_result: <span class="prelude-val">None</span>,
         }
     }
     <span class="doccomment">/// Time when this leaf was created.
@@ -2750,6 +2771,7 @@
             upgrade_certificate,
             block_payload: <span class="kw">_</span>,
             view_change_evidence,
+            next_drb_result,
         } = <span class="self">self</span>;
 
         <span class="kw-2">*</span>view_number == other.view_number
@@ -2759,6 +2781,7 @@
             &amp;&amp; <span class="kw-2">*</span>block_header == other.block_header
             &amp;&amp; <span class="kw-2">*</span>upgrade_certificate == other.upgrade_certificate
             &amp;&amp; <span class="kw-2">*</span>view_change_evidence == other.view_change_evidence
+            &amp;&amp; <span class="kw-2">*</span>next_drb_result == other.next_drb_result
     }
 }
 
@@ -3122,7 +3145,7 @@
             block_header,
             upgrade_certificate,
             view_change_evidence,
-            next_drb_result: <span class="kw">_</span>,
+            next_drb_result,
         } = quorum_proposal;
 
         <span class="self">Self </span>{
@@ -3134,6 +3157,7 @@
             upgrade_certificate: upgrade_certificate.clone(),
             block_payload: <span class="prelude-val">None</span>,
             view_change_evidence: view_change_evidence.clone(),
+            next_drb_result: <span class="kw-2">*</span>next_drb_result,
         }
     }
 }
