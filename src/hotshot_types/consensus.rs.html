@@ -1096,6 +1096,10 @@
 <a href="#1096" id="1096">1096</a>
 <a href="#1097" id="1097">1097</a>
 <a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1509,6 +1513,7 @@
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>new(
         validated_state_map: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
+        vid_shares: <span class="prelude-ty">Option</span>&lt;VidShares&lt;TYPES&gt;&gt;,
         cur_view: TYPES::View,
         cur_epoch: TYPES::Epoch,
         locked_view: TYPES::View,
@@ -1524,7 +1529,7 @@
     ) -&gt; <span class="self">Self </span>{
         Consensus {
             validated_state_map,
-            vid_shares: BTreeMap::new(),
+            vid_shares: vid_shares.unwrap_or_default(),
             saved_da_certs: HashMap::new(),
             cur_view,
             cur_epoch,
@@ -1633,9 +1638,8 @@
         };
         <span class="kw">let </span>parent_vid = <span class="self">self
             </span>.vid_shares()
-            .get(<span class="kw-2">&amp;</span>parent_view_number)<span class="question-mark">?
-            </span>.get(public_key)
-            .cloned()
+            .get(<span class="kw-2">&amp;</span>parent_view_number)
+            .and_then(|inner_map| inner_map.get(public_key).cloned())
             .map(|prop| prop.data);
 
         <span class="prelude-val">Some</span>(LeafInfo {
@@ -1959,6 +1963,10 @@
     /// # Panics
     /// On inconsistent stored entries
     </span><span class="kw">pub fn </span>collect_garbage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, old_anchor_view: TYPES::View, new_anchor_view: TYPES::View) {
+        <span class="comment">// Nothing to collect
+        </span><span class="kw">if </span>new_anchor_view &lt;= old_anchor_view {
+            <span class="kw">return</span>;
+        }
         <span class="kw">let </span>gc_view = TYPES::View::new(new_anchor_view.saturating_sub(<span class="number">1</span>));
         <span class="comment">// state check
         </span><span class="kw">let </span>anchor_entry = <span class="self">self

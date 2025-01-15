@@ -343,6 +343,9 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -378,11 +381,11 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, TestableDelay};
 
-<span class="kw">type </span>VidShares&lt;TYPES&gt; = HashMap&lt;
+<span class="kw">type </span>VidShares&lt;TYPES&gt; = BTreeMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
-<span class="kw">type </span>VidShares2&lt;TYPES&gt; = HashMap&lt;
+<span class="kw">type </span>VidShares2&lt;TYPES&gt; = BTreeMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
     HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;&gt;,
 &gt;;
@@ -406,8 +409,8 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Default <span class="kw">for </span>TestStorageState&lt;TYPES&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            vids: HashMap::new(),
-            vid2: HashMap::new(),
+            vids: BTreeMap::new(),
+            vid2: BTreeMap::new(),
             das: HashMap::new(),
             da2s: HashMap::new(),
             proposals: BTreeMap::new(),
@@ -471,6 +474,9 @@
     }
     <span class="kw">pub async fn </span>last_actioned_epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch {
         <span class="self">self</span>.inner.read().<span class="kw">await</span>.epoch
+    }
+    <span class="kw">pub async fn </span>vids_cloned(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidShares2&lt;TYPES&gt; {
+        <span class="self">self</span>.inner.read().<span class="kw">await</span>.vid2.clone()
     }
 }
 

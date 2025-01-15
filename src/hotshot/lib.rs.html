@@ -1090,6 +1090,11 @@
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
 <a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1139,7 +1144,7 @@
 </span><span class="doccomment">/// Reexport error type
 </span><span class="kw">pub use </span>hotshot_types::error::HotShotError;
 <span class="kw">use </span>hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
+    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, VidShares, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
@@ -1161,7 +1166,6 @@
 </span><span class="kw">pub use </span>rand;
 <span class="kw">use </span>tokio::{spawn, time::sleep};
 <span class="kw">use </span>tracing::{debug, instrument, trace};
-
 <span class="comment">// -- Rexports
 // External
 </span><span class="kw">use crate</span>::{
@@ -1424,6 +1428,7 @@
         };
         <span class="kw">let </span>consensus = Consensus::new(
             validated_state_map,
+            initializer.saved_vid_shares,
             anchored_leaf.view_number(),
             anchored_epoch,
             anchored_leaf.view_number(),
@@ -2114,6 +2119,8 @@
     </span>undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
     </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
+    <span class="doccomment">/// Saved VID shares
+    </span>saved_vid_shares: <span class="prelude-ty">Option</span>&lt;VidShares&lt;TYPES&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotInitializer&lt;TYPES&gt; {
@@ -2140,6 +2147,7 @@
             undecided_leaves: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,
+            saved_vid_shares: <span class="prelude-val">None</span>,
         })
     }
 
@@ -2164,6 +2172,7 @@
         decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
         undecided_leaves: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
         undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
+        saved_vid_shares: <span class="prelude-ty">Option</span>&lt;VidShares&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             inner: anchor_leaf,
@@ -2179,6 +2188,7 @@
             decided_upgrade_certificate,
             undecided_leaves,
             undecided_state,
+            saved_vid_shares,
         }
     }
 }
