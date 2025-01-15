@@ -620,6 +620,11 @@
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1177,6 +1182,11 @@
             }
             <span class="prelude-val">None </span>=&gt; V::Base::VERSION,
         }
+    }
+
+    <span class="doccomment">/// Return whether epochs are enabled in the given view
+    </span><span class="kw">pub async fn </span>epochs_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View) -&gt; bool {
+        <span class="self">self</span>.version_infallible(view).<span class="kw">await </span>&gt;= V::Epochs::VERSION
     }
 
     <span class="doccomment">/// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.
