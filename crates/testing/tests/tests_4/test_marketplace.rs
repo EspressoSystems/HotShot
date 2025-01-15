@@ -15,7 +15,7 @@ use hotshot_testing::{
     block_builder::SimpleBuilderImplementation,
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     test_builder::{
-        nonempty_block_limit, nonempty_block_threshold, BuilderChange, BuilderDescription,
+        nonempty_block_limit, nonempty_block_ratio, BuilderChange, BuilderDescription,
         TestDescription,
     },
 };
@@ -70,7 +70,7 @@ cross_tests!(
                                              },
                                          ),
             upgrade_view: Some(5),
-            validate_transactions: nonempty_block_threshold((40,50)),
+            validate_transactions: nonempty_block_ratio((40,50)),
             ..TestDescription::default()
         };
 
@@ -104,7 +104,7 @@ cross_tests!(
                 changes: HashMap::from([(0, BuilderChange::Down)])
               }
             ],
-            validate_transactions: nonempty_block_threshold((35,50)),
+            validate_transactions: nonempty_block_ratio((35,50)),
             ..TestDescription::default()
         };
 
@@ -140,7 +140,7 @@ cross_tests!(
               BuilderDescription {
                 changes: HashMap::from([(0, BuilderChange::Down)])
               },
-            validate_transactions: nonempty_block_threshold((40,50)),
+            validate_transactions: nonempty_block_ratio((40,50)),
             ..TestDescription::default()
         };
 
