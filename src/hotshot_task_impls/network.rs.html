@@ -1076,22 +1076,6 @@
 <a href="#1076" id="1076">1076</a>
 <a href="#1077" id="1077">1077</a>
 <a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1111,7 +1095,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     data::{VidDisperse, VidDisperseShare, VidDisperseShare2},
-    event::{Event, EventType, HotShotAction},
+    event::{Event, HotShotAction},
     message::{
         convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
         MessageKind, Proposal, SequencingMessage, UpgradeLock,
@@ -1320,22 +1304,6 @@
                     }
                 }
             },
-
-            <span class="comment">// Handle external messages
-            </span>MessageKind::External(data) =&gt; {
-                <span class="kw">if </span>sender == <span class="self">self</span>.public_key {
-                    <span class="kw">return</span>;
-                }
-                <span class="comment">// Send the external message to the external event stream so it can be processed
-                </span>broadcast_event(
-                    Event {
-                        view_number: TYPES::View::new(<span class="number">1</span>),
-                        event: EventType::ExternalMessageReceived { sender, data },
-                    },
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.external_event_stream,
-                )
-                .<span class="kw">await</span>;
-            }
         }
     }
 }
