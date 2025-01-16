@@ -42,7 +42,7 @@ async fn libp2p_network() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -90,7 +90,7 @@ async fn libp2p_network_failures_2() {
     metadata.overall_safety_properties.num_successful_views = 15;
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -107,7 +107,7 @@ async fn test_stress_libp2p_network() {
     let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> =
         TestDescription::default_stress();
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;

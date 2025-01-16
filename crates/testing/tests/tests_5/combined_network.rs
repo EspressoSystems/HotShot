@@ -47,7 +47,7 @@ async fn test_combined_network() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -93,7 +93,7 @@ async fn test_combined_network_cdn_crash() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -146,7 +146,7 @@ async fn test_combined_network_reup() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -193,7 +193,7 @@ async fn test_combined_network_half_dc() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -261,7 +261,7 @@ async fn test_stress_combined_network_fuzzy() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;

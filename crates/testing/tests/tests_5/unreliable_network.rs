@@ -42,7 +42,7 @@ async fn libp2p_network_sync() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -76,7 +76,7 @@ async fn test_memory_network_sync() {
         ..TestDescription::default()
     };
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -115,7 +115,7 @@ async fn libp2p_network_async() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -162,7 +162,7 @@ async fn test_memory_network_async() {
         ..TestDescription::default()
     };
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -214,7 +214,7 @@ async fn test_memory_network_partially_sync() {
         ..TestDescription::default()
     };
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -254,7 +254,7 @@ async fn libp2p_network_partially_sync() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -293,7 +293,7 @@ async fn test_memory_network_chaos() {
         ..TestDescription::default()
     };
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -328,7 +328,7 @@ async fn libp2p_network_chaos() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;

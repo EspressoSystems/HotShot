@@ -192,7 +192,7 @@ where
             next_epoch_high_qc: None,
             async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
-            channel_generator: launcher.resource_generator.channel_generator,
+            channel_generator: launcher.resource_generators.channel_generator,
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, N, I, V>>::new(
             spinning_task_state,
@@ -327,7 +327,7 @@ where
         &self,
         num_nodes: usize,
     ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>, Url) {
-        let config = self.launcher.resource_generator.config.clone();
+        let config = self.launcher.metadata.test_config.clone();
         let mut builder_tasks = Vec::new();
         let mut builder_urls = Vec::new();
         for metadata in &self.launcher.metadata.builders {
@@ -398,7 +398,7 @@ where
         restart: &HashSet<u64>,
     ) -> Vec<u64> {
         let mut results = vec![];
-        let config = self.launcher.resource_generator.config.clone();
+        let config = self.launcher.metadata.test_config.clone();
 
         // TODO This is only a workaround. Number of nodes changes from epoch to epoch. Builder should be made epoch-aware.
         let temp_memberships = <TYPES as NodeType>::Membership::new(
@@ -436,10 +436,10 @@ where
                 .try_into()
                 .expect("Non-empty by construction");
 
-            let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
-            let storage = (self.launcher.resource_generator.storage)(node_id);
+            let network = (self.launcher.resource_generators.channel_generator)(node_id).await;
+            let storage = (self.launcher.resource_generators.storage)(node_id);
             let mut marketplace_config =
-                (self.launcher.resource_generator.marketplace_config)(node_id);
+                (self.launcher.resource_generators.marketplace_config)(node_id);
             if let Some(solver_server) = &self.solver_server {
                 let mut new_auction_results_provider =
                     marketplace_config.auction_results_provider.as_ref().clone();

@@ -41,7 +41,7 @@ async fn push_cdn_network() {
         ..TestDescription::default()
     };
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;

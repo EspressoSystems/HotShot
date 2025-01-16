@@ -72,7 +72,7 @@ async fn test_catchup() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -126,7 +126,7 @@ async fn test_catchup_cdn() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -182,7 +182,7 @@ async fn test_catchup_one_node() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -244,7 +244,7 @@ async fn test_catchup_in_view_sync() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -306,7 +306,7 @@ async fn test_catchup_reload() {
     };
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;

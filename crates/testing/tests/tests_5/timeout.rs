@@ -55,7 +55,7 @@ async fn test_timeout() {
         );
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
@@ -114,7 +114,7 @@ async fn test_timeout_libp2p() {
         );
 
     metadata
-        .gen_launcher(0)
+        .gen_launcher()
         .launch()
         .run_test::<SimpleBuilderImplementation>()
         .await;
