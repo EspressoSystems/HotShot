@@ -178,7 +178,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
 
             HotShotEvent::QuorumProposalSend(proposal, _) => {
                 let proposed_block_number = proposal.data.block_header().block_number();
-                if proposed_block_number % self.epoch_height != 0 || !proposal.data.with_epoch {
+                if !proposal.data.with_epoch || proposed_block_number % self.epoch_height != 0 {
                     // This is not the last block in the epoch, do nothing.
                     return None;
                 }
