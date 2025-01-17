@@ -67,7 +67,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestLau
     }
     /// Modifies the config used when generating nodes with `f`
     #[must_use]
-    pub fn map_hotshot_config<'a>(
+    pub fn map_hotshot_config(
         mut self,
         f: impl Fn(&mut HotShotConfig<TYPES::SignatureKey>) + 'static,
     ) -> Self {

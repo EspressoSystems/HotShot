@@ -87,6 +87,7 @@ pub fn default_hotshot_config<TYPES: NodeType>(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn gen_node_lists<TYPES: NodeType>(
     num_staked_nodes: u64,
     num_da_nodes: u64,
@@ -99,7 +100,7 @@ pub fn gen_node_lists<TYPES: NodeType>(
 
     for n in 0..num_staked_nodes {
         let validator_config: ValidatorConfig<TYPES::SignatureKey> =
-            ValidatorConfig::generated_from_seed_indexed([0u8; 32], n as u64, 1, n < num_da_nodes);
+            ValidatorConfig::generated_from_seed_indexed([0u8; 32], n, 1, n < num_da_nodes);
 
         let peer_config = validator_config.public_config();
         staked_nodes.push(peer_config.clone());
