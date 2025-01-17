@@ -26,7 +26,7 @@ async fn test_combined_network() {
 
     hotshot::helpers::initialize_logging();
 
-    let metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             next_view_timeout: 10_000,
 
@@ -42,10 +42,10 @@ async fn test_combined_network() {
                 duration: Duration::from_secs(120),
             },
         ),
-        epoch_height: 0,
         ..TestDescription::default_multiple_rounds()
     };
 
+    metadata.test_config.epoch_height = 0;
     metadata
         .gen_launcher()
         .launch()
@@ -76,7 +76,6 @@ async fn test_combined_network_cdn_crash() {
                 duration: Duration::from_secs(220),
             },
         ),
-        epoch_height: 0,
         ..TestDescription::default_multiple_rounds()
     };
 
@@ -88,6 +87,7 @@ async fn test_combined_network_cdn_crash() {
         });
     }
 
+    metadata.test_config.epoch_height = 0;
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(5, all_nodes)],
     };
@@ -124,7 +124,6 @@ async fn test_combined_network_reup() {
                 duration: Duration::from_secs(220),
             },
         ),
-        epoch_height: 0,
         ..TestDescription::default_multiple_rounds()
     };
 
@@ -141,6 +140,7 @@ async fn test_combined_network_reup() {
         });
     }
 
+    metadata.test_config.epoch_height = 0;
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(13, all_up), (5, all_down)],
     };
@@ -176,7 +176,6 @@ async fn test_combined_network_half_dc() {
                 duration: Duration::from_secs(220),
             },
         ),
-        epoch_height: 0,
         ..TestDescription::default_multiple_rounds()
     };
 
@@ -188,6 +187,7 @@ async fn test_combined_network_half_dc() {
         });
     }
 
+    metadata.test_config.epoch_height = 0;
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(5, half)],
     };
@@ -249,10 +249,10 @@ async fn test_stress_combined_network_fuzzy() {
                 duration: Duration::from_secs(120),
             },
         ),
-        epoch_height: 0,
         ..TestDescription::default_stress()
     };
 
+    metadata.test_config.epoch_height = 0;
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: generate_random_node_changes(
             metadata.num_nodes_with_stake,

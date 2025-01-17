@@ -45,7 +45,7 @@ async fn test_catchup() {
         updown: NodeAction::Up,
     }];
 
-    metadata.epoch_height = 0;
+    metadata.test_config.epoch_height = 0;
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
     metadata.num_nodes_with_stake = 20;
@@ -104,7 +104,7 @@ async fn test_catchup_cdn() {
         idx: 18,
         updown: NodeAction::Up,
     }];
-    metadata.epoch_height = 0;
+    metadata.test_config.epoch_height = 0;
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
     metadata.num_nodes_with_stake = 20;
@@ -158,7 +158,7 @@ async fn test_catchup_one_node() {
         idx: 18,
         updown: NodeAction::Up,
     }];
-    metadata.epoch_height = 0;
+    metadata.test_config.epoch_height = 0;
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
     metadata.num_nodes_with_stake = 20;
@@ -221,7 +221,7 @@ async fn test_catchup_in_view_sync() {
         },
     ];
 
-    metadata.epoch_height = 0;
+    metadata.test_config.epoch_height = 0;
     metadata.timing_data = timing_data;
     metadata.start_nodes = 18;
     metadata.num_nodes_with_stake = 20;
@@ -279,7 +279,7 @@ async fn test_catchup_reload() {
         updown: NodeAction::Up,
     }];
 
-    metadata.epoch_height = 0;
+    metadata.test_config.epoch_height = 0;
     metadata.timing_data = timing_data;
     metadata.start_nodes = 19;
     metadata.skip_late = true;
@@ -334,7 +334,7 @@ cross_tests!(
       }
 
       metadata.timing_data = timing_data;
-      metadata.epoch_height = 0;
+      metadata.test_config.epoch_height = 0;
       metadata.start_nodes = 20;
       metadata.num_nodes_with_stake = 20;
 
@@ -391,7 +391,7 @@ cross_tests!(
       metadata.timing_data = timing_data;
       metadata.start_nodes = 20;
       metadata.num_nodes_with_stake = 20;
-      metadata.epoch_height = 0;
+      metadata.test_config.epoch_height = 0;
 
       // Explicitly make the DA tiny to exaggerate a missing proposal.
       metadata.da_staked_committee_size = 1;
@@ -453,7 +453,7 @@ cross_tests!(
 
       metadata.start_nodes = 10;
       metadata.num_nodes_with_stake = 10;
-      metadata.epoch_height = 0;
+      metadata.test_config.epoch_height = 0;
 
       // Explicitly make the DA small to simulate real network.
       metadata.da_staked_committee_size = 4;

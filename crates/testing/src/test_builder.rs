@@ -64,7 +64,6 @@ pub fn default_hotshot_config<TYPES: NodeType>(
     HotShotConfig {
         start_threshold: (1, 1),
         num_nodes_with_stake: NonZeroUsize::new(known_nodes_with_stake.len()).unwrap(),
-        // Currently making this zero for simplicity
         known_da_nodes: known_da_nodes.clone(),
         num_bootstrap: num_bootstrap_nodes,
         known_nodes_with_stake: known_nodes_with_stake.clone(),
@@ -162,8 +161,6 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     pub start_solver: bool,
     /// boxed closure used to validate the resulting transactions
     pub validate_transactions: TransactionValidator,
-    /// Number of blocks in an epoch, zero means there are no epochs
-    pub epoch_height: u64,
 }
 
 pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
@@ -461,7 +458,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
                 num_nodes_with_stake.try_into().unwrap(),
                 epoch_height,
             ),
-            epoch_height,
             timing_data: TimingData::default(),
             num_nodes_with_stake: num_nodes_with_stake.try_into().unwrap(),
             start_nodes: num_nodes_with_stake.try_into().unwrap(),
@@ -557,7 +553,7 @@ where
             })
             .collect();
         // But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.
-        let validator_config = Box::new(move |node_id| {
+        let validator_config = Rc::new(move |node_id| {
             ValidatorConfig::<TYPES::SignatureKey>::generated_from_seed_indexed(
                 [0u8; 32],
                 node_id,
@@ -566,12 +562,12 @@ where
                 0 < da_staked_committee_size,
             )
         });
-        let hotshot_config = Box::new(move |_| {
+        let hotshot_config = Rc::new(move |_| {
             default_hotshot_config::<TYPES>(
                 known_nodes_with_stake.clone(),
                 known_da_nodes.clone(),
                 num_bootstrap_nodes,
-                self.epoch_height,
+                self.test_config.epoch_height,
             )
         });
         let TimingData {
@@ -582,15 +578,11 @@ where
             view_sync_timeout,
         } = timing_data;
         // TODO this should really be using the timing config struct
-        let mod_hotshot_config = move |hotshot_config: HotShotConfig<TYPES::SignatureKey>| {
-            let mut result = hotshot_config;
-
-            result.next_view_timeout = next_view_timeout;
-            result.builder_timeout = builder_timeout;
-            result.data_request_delay = data_request_delay;
-            result.view_sync_timeout = view_sync_timeout;
-
-            result
+        let mod_hotshot_config = move |hotshot_config: &mut HotShotConfig<TYPES::SignatureKey>| {
+            hotshot_config.next_view_timeout = next_view_timeout;
+            hotshot_config.builder_timeout = builder_timeout;
+            hotshot_config.data_request_delay = data_request_delay;
+            hotshot_config.view_sync_timeout = view_sync_timeout;
         };
 
         let metadata = self.clone();
@@ -603,7 +595,7 @@ where
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(move |_| {
+                storage: Rc::new(move |_| {
                     let mut storage = TestStorage::<TYPES>::default();
                     // update storage impl to use settings delay option
                     storage.delay_config = metadata.async_delay_config.clone();
@@ -611,7 +603,7 @@ where
                 }),
                 hotshot_config,
                 validator_config,
-                marketplace_config: Box::new(|_| MarketplaceConfig::<TYPES, I> {
+                marketplace_config: Rc::new(|_| MarketplaceConfig::<TYPES, I> {
                     auction_results_provider: TestAuctionResultsProvider::<TYPES>::default().into(),
                     fallback_builder_url: Url::parse("http://localhost:9999").unwrap(),
                 }),

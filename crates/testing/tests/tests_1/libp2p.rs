@@ -23,7 +23,7 @@ use tracing::instrument;
 async fn libp2p_network() {
     hotshot::helpers::initialize_logging();
 
-    let metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, Libp2pImpl, TestVersions> = TestDescription {
         overall_safety_properties: OverallSafetyPropertiesDescription {
             check_leaf: true,
             ..Default::default()
@@ -37,9 +37,9 @@ async fn libp2p_network() {
             next_view_timeout: 4000,
             ..Default::default()
         },
-        epoch_height: 0,
         ..TestDescription::default_multiple_rounds()
     };
+    metadata.test_config.epoch_height = 0;
 
     metadata
         .gen_launcher()
@@ -69,9 +69,9 @@ async fn libp2p_network_failures_2() {
             next_view_timeout: 4000,
             ..Default::default()
         },
-        epoch_height: 0,
         ..TestDescription::default_multiple_rounds()
     };
+    metadata.test_config.epoch_height = 0;
 
     let dead_nodes = vec![ChangeNode {
         idx: 11,

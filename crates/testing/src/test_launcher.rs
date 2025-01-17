@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, rc::Rc, sync::Arc};
 
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
@@ -26,7 +26,7 @@ use crate::test_task::TestTaskStateSeed;
 pub type Network<TYPES, I> = Arc<<I as NodeImplementation<TYPES>>::Network>;
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
-pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
+pub type Generator<T> = Rc<dyn Fn(u64) -> T>;
 
 /// generators for resources used by each node
 pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
@@ -67,13 +67,24 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestLau
     }
     /// Modifies the config used when generating nodes with `f`
     #[must_use]
-    pub fn map_hotshot_config(
+    pub fn map_hotshot_config<'a>(
         mut self,
-        f: impl Fn(HotShotConfig<TYPES::SignatureKey>) -> HotShotConfig<TYPES::SignatureKey> + 'static,
+        f: impl Fn(&mut HotShotConfig<TYPES::SignatureKey>) + 'static,
     ) -> Self {
-        let hotshot_config =
-            Box::new(move |node_id| f((self.resource_generators.hotshot_config)(node_id)));
+        let mut test_config = self.metadata.test_config.clone();
+        f(&mut test_config);
+
+        let hotshot_config_generator = self.resource_generators.hotshot_config.clone();
+        let hotshot_config: Generator<_> = Rc::new(move |node_id| {
+            let mut result = (hotshot_config_generator)(node_id);
+            f(&mut result);
+
+            result
+        });
+
+        self.metadata.test_config = test_config;
         self.resource_generators.hotshot_config = hotshot_config;
+
         self
     }
 }

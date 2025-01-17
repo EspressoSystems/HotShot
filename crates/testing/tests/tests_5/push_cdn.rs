@@ -22,7 +22,7 @@ use tracing::instrument;
 async fn push_cdn_network() {
     hotshot::helpers::initialize_logging();
 
-    let metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> = TestDescription {
+    let mut metadata: TestDescription<TestTypes, PushCdnImpl, TestVersions> = TestDescription {
         timing_data: TimingData {
             next_view_timeout: 10_000,
             ..Default::default()
@@ -37,9 +37,11 @@ async fn push_cdn_network() {
                 duration: Duration::from_secs(60),
             },
         ),
-        epoch_height: 0,
         ..TestDescription::default()
     };
+
+    metadata.test_config.epoch_height = 0;
+
     metadata
         .gen_launcher()
         .launch()

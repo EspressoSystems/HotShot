@@ -43,7 +43,7 @@ cross_tests!(
           _ => Behaviour::Standard,
           } });
 
-        TestDescription {
+        let mut metadata = TestDescription {
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {
@@ -51,9 +51,11 @@ cross_tests!(
                                              },
                                          ),
             behaviour,
-            epoch_height: 0,
             ..TestDescription::default()
-        }
+        };
+        metadata.test_config.epoch_height = 0;
+
+        metadata
     },
 );
 
@@ -79,10 +81,10 @@ cross_tests!(
                                          ),
             behaviour,
             num_nodes_with_stake: 12,
-            epoch_height: 0,
             ..TestDescription::default()
         };
 
+        metadata.test_config.epoch_height = 0;
         metadata.overall_safety_properties.num_failed_views = 15;
         metadata
     },
@@ -117,10 +119,10 @@ cross_tests!(
                                              },
                                          ),
             behaviour,
-            epoch_height: 0,
             ..TestDescription::default()
         };
 
+        metadata.test_config.epoch_height = 0;
         metadata.overall_safety_properties.num_failed_views = 2;
         metadata.num_nodes_with_stake = 5;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
@@ -158,10 +160,10 @@ cross_tests!(
                                              },
                                          ),
             behaviour,
-            epoch_height: 0,
             ..TestDescription::default()
         };
 
+        metadata.test_config.epoch_height = 0;
         metadata.num_nodes_with_stake = 10;
         metadata
     },
@@ -200,10 +202,10 @@ cross_tests!(
                                              },
                                          ),
             behaviour,
-            epoch_height: 0,
             ..TestDescription::default()
         };
 
+        metadata.test_config.epoch_height = 0;
         metadata.num_nodes_with_stake = nodes_count;
         metadata
     },
@@ -242,11 +244,11 @@ cross_tests!(
                     duration: Duration::from_secs(60),
                 },
             ),
-            epoch_height: 0,
             behaviour,
             ..TestDescription::default()
         };
 
+        metadata.test_config.epoch_height = 0;
         metadata.overall_safety_properties.num_failed_views = 1;
         metadata.num_nodes_with_stake = 10;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([

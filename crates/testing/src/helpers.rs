@@ -64,10 +64,11 @@ pub async fn build_system_handle<
     Sender<Arc<HotShotEvent<TYPES>>>,
     Receiver<Arc<HotShotEvent<TYPES>>>,
 ) {
-    let mut builder: TestDescription<TYPES, I, V> = TestDescription::default_multiple_rounds();
-    builder.epoch_height = 0;
+    let builder: TestDescription<TYPES, I, V> = TestDescription::default_multiple_rounds();
 
-    let launcher = builder.gen_launcher();
+    let launcher = builder.gen_launcher().map_hotshot_config(|hotshot_config| {
+        hotshot_config.epoch_height = 0;
+    });
     build_system_handle_from_launcher(node_id, &launcher).await
 }
 

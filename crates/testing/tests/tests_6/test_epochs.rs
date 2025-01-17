@@ -32,16 +32,19 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        TestDescription {
+        let mut metadata = TestDescription {
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            epoch_height: 10,
             ..TestDescription::default()
-        }
+        };
+
+        metadata.test_config.epoch_height = 10;
+
+        metadata
     },
 );
 
@@ -79,10 +82,10 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            epoch_height: 10,
             ..TestDescription::default()
         };
 
+        metadata.test_config.epoch_height = 10;
         metadata.overall_safety_properties.num_failed_views = 0;
         metadata.overall_safety_properties.num_successful_views = 0;
         let mut config = DelayConfig::default();
@@ -112,10 +115,10 @@ cross_tests!(
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            epoch_height: 10,
             ..TestDescription::default()
         };
 
+        metadata.test_config.epoch_height = 10;
         metadata.overall_safety_properties.num_failed_views = 0;
         metadata.overall_safety_properties.num_successful_views = 30;
         let mut config = DelayConfig::default();
@@ -148,7 +151,7 @@ cross_tests!(
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
         metadata.num_bootstrap_nodes = 10;
-        metadata.epoch_height = 10;
+        metadata.test_config.epoch_height = 10;
         metadata.num_nodes_with_stake = 12;
         metadata.da_staked_committee_size = 12;
         metadata.start_nodes = 12;
@@ -168,7 +171,7 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        TestDescription {
+        let mut metadata = TestDescription {
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     duration: Duration::from_millis(100000),
@@ -178,9 +181,12 @@ cross_tests!(
             start_nodes: 11,
             num_bootstrap_nodes: 11,
             da_staked_committee_size: 11,
-            epoch_height: 10,
             ..TestDescription::default()
-        }
+        };
+
+        metadata.test_config.epoch_height = 10;
+
+        metadata
     },
 );
 
@@ -199,7 +205,6 @@ cross_tests!(
                     duration: Duration::from_millis(100000),
                 },
             ),
-            epoch_height: 10,
             ..TestDescription::default()
         };
         // after the first 3 leaders the next leader is down. It's a hack to make sure we decide in
@@ -211,6 +216,7 @@ cross_tests!(
             },
 
         ];
+        metadata.test_config.epoch_height = 10;
         metadata.spinning_properties = SpinningTaskDescription {
             node_changes: vec![(1, dead_nodes)]
         };
@@ -227,17 +233,20 @@ cross_tests!(
     Versions: [EpochUpgradeTestVersions],
     Ignore: true,
     Metadata: {
-        TestDescription {
+        let mut metadata = TestDescription {
             // allow more time to pass in CI
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                                              TimeBasedCompletionTaskDescription {
                                                  duration: Duration::from_secs(60),
                                              },
                                          ),
-            epoch_height: 50,
             upgrade_view: Some(5),
             ..TestDescription::default()
-        }
+        };
+
+        metadata.test_config.epoch_height = 50;
+
+        metadata
     },
 );
 
@@ -252,7 +261,7 @@ cross_tests!(
         metadata.num_nodes_with_stake = 12;
         metadata.da_staked_committee_size = 12;
         metadata.start_nodes = 12;
-        metadata.epoch_height = 10;
+        metadata.test_config.epoch_height = 10;
         let dead_nodes = vec![
             ChangeNode {
                 idx: 10,
@@ -337,7 +346,7 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
-        metadata.epoch_height = 10;
+        metadata.test_config.epoch_height = 10;
         // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
         // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
         // following issue.
