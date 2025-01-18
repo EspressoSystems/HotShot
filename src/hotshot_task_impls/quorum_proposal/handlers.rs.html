@@ -550,6 +550,13 @@
 <a href="#550" id="550">550</a>
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -576,16 +583,14 @@
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence2},
+    data::{Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse, ViewChangeEvidence2},
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader,
-        election::Membership,
-        node_implementation::{ConsensusTime, NodeType},
+        block_contents::BlockHeader, election::Membership, node_implementation::NodeType,
         signature_key::SignatureKey,
     },
-    utils::{epoch_from_block_number, is_last_block_in_epoch},
+    utils::{is_last_block_in_epoch, option_epoch_from_block_number},
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tracing::instrument;
@@ -922,10 +927,12 @@
             .context(<span class="macro">warn!</span>(<span class="string">"Failed to construct marketplace block header"</span>))<span class="question-mark">?
         </span>};
 
-        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
+        <span class="kw">let </span>epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+            version &gt;= V::Epochs::VERSION,
             block_header.block_number(),
             <span class="self">self</span>.epoch_height,
-        ));
+        );
+
         <span class="comment">// Make sure we are the leader for the view and epoch.
         // We might have ended up here because we were in the epoch transition.
         </span><span class="kw">if </span><span class="self">self
@@ -952,24 +959,31 @@
         </span>};
         <span class="kw">let </span>next_drb_result =
             <span class="kw">if </span>is_last_block_in_epoch(block_header.block_number(), <span class="self">self</span>.epoch_height) {
-                <span class="self">self</span>.consensus
-                    .read()
-                    .<span class="kw">await
-                    </span>.drb_seeds_and_results
-                    .results
-                    .get(<span class="kw-2">&amp;</span>epoch)
-                    .copied()
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(epoch_val) = <span class="kw-2">&amp;</span>epoch {
+                    <span class="self">self</span>.consensus
+                        .read()
+                        .<span class="kw">await
+                        </span>.drb_seeds_and_results
+                        .results
+                        .get(epoch_val)
+                        .copied()
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">None
+                </span>}
             } <span class="kw">else </span>{
                 <span class="prelude-val">None
             </span>};
-        <span class="kw">let </span>proposal = QuorumProposal2 {
-            block_header,
-            view_number: <span class="self">self</span>.view_number,
-            justify_qc: parent_qc,
-            next_epoch_justify_qc: next_epoch_qc,
-            upgrade_certificate,
-            view_change_evidence: proposal_certificate,
-            next_drb_result,
+        <span class="kw">let </span>proposal = QuorumProposalWrapper {
+            proposal: QuorumProposal2 {
+                block_header,
+                view_number: <span class="self">self</span>.view_number,
+                justify_qc: parent_qc,
+                next_epoch_justify_qc: next_epoch_qc,
+                upgrade_certificate,
+                view_change_evidence: proposal_certificate,
+                next_drb_result,
+            },
+            with_epoch: version &gt;= V::Epochs::VERSION,
         };
 
         <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);

@@ -451,7 +451,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, OuterConsensus},
-    data::QuorumProposal2,
+    data::QuorumProposalWrapper,
     message::{Proposal, UpgradeLock},
     simple_vote::QuorumVote2,
     traits::node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
@@ -489,7 +489,7 @@
                 <span class="kw">for </span>n <span class="kw">in </span><span class="number">1</span>..<span class="self">self</span>.multiplier {
                     <span class="kw">let </span><span class="kw-2">mut </span>modified_proposal = proposal.clone();
 
-                    modified_proposal.data.view_number += n * <span class="self">self</span>.increment;
+                    modified_proposal.data.proposal.view_number += n * <span class="self">self</span>.increment;
 
                     result.push(HotShotEvent::QuorumProposalSend(
                         modified_proposal,
@@ -538,7 +538,7 @@
 </span><span class="doccomment">/// An `EventHandlerState` that modifies justify_qc on `QuorumProposalSend` to that of a previous view to mock dishonest leader
 </span><span class="kw">pub struct </span>DishonestLeader&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Store events from previous views
-    </span><span class="kw">pub </span>validated_proposals: Vec&lt;QuorumProposal2&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>validated_proposals: Vec&lt;QuorumProposalWrapper&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// How many times current node has been elected leader and sent proposal
     </span><span class="kw">pub </span>total_proposals_from_node: u64,
     <span class="doccomment">/// Which proposals to be dishonest at
@@ -558,7 +558,7 @@
     </span><span class="kw">async fn </span>handle_proposal_send_event(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         event: <span class="kw-2">&amp;</span>HotShotEvent&lt;TYPES&gt;,
-        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; HotShotEvent&lt;TYPES&gt; {
         <span class="kw">let </span>length = <span class="self">self</span>.validated_proposals.len();
@@ -581,11 +581,11 @@
 
         <span class="comment">// Create a dishonest proposal by using the old proposals qc
         </span><span class="kw">let </span><span class="kw-2">mut </span>dishonest_proposal = proposal.clone();
-        dishonest_proposal.data.justify_qc = proposal_from_look_back.justify_qc;
+        dishonest_proposal.data.proposal.justify_qc = proposal_from_look_back.proposal.justify_qc;
 
         <span class="comment">// Save the view we sent the dishonest proposal on (used for coordination attacks with other byzantine replicas)
         </span><span class="kw">let </span><span class="kw-2">mut </span>dishonest_proposal_sent = <span class="self">self</span>.dishonest_proposal_view_numbers.write().<span class="kw">await</span>;
-        dishonest_proposal_sent.insert(proposal.data.view_number);
+        dishonest_proposal_sent.insert(proposal.data.view_number());
 
         HotShotEvent::QuorumProposalSend(dishonest_proposal, sender.clone())
     }
@@ -776,7 +776,7 @@
         <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, V, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
             network,
             view: TYPES::View::genesis(),
-            epoch: TYPES::Epoch::genesis(),
+            epoch: <span class="prelude-val">None</span>,
             membership,
             storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
             consensus: OuterConsensus::new(handle.consensus()),
@@ -828,7 +828,7 @@
             HotShotEvent::QuorumProposalRecv(proposal, _sender) =&gt; {
                 <span class="comment">// Check if view is a dishonest proposal, if true send a vote
                 </span><span class="kw">let </span>dishonest_proposals = <span class="self">self</span>.dishonest_proposal_view_numbers.read().<span class="kw">await</span>;
-                <span class="kw">if </span>dishonest_proposals.contains(<span class="kw-2">&amp;</span>proposal.data.view_number) {
+                <span class="kw">if </span>dishonest_proposals.contains(<span class="kw-2">&amp;</span>proposal.data.view_number()) {
                     <span class="comment">// Create a vote using data from most recent vote and the current event number
                     // We wont update internal consensus state for this Byzantine replica but we are at least
                     // Going to send a vote to the next honest leader

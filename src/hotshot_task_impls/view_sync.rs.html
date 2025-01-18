@@ -980,7 +980,7 @@
     </span><span class="kw">pub </span>next_view: TYPES::View,
 
     <span class="doccomment">/// Epoch HotShot is currently in
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Membership for the quorum
     </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
@@ -1052,7 +1052,7 @@
     </span><span class="kw">pub </span>next_view: TYPES::View,
 
     <span class="doccomment">/// Current epoch HotShot is in
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// The relay index we are currently on
     </span><span class="kw">pub </span>relay: u64,
@@ -1164,7 +1164,7 @@
         task_map.insert(view, replica_state);
     }
 
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"View Sync Main Task"</span>, level = <span class="string">"error"</span>)]
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"View Sync Main Task"</span>, level = <span class="string">"error"</span>)]
     #[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Handles incoming events for the main view sync task
     </span><span class="kw">pub async fn </span>handle(
@@ -1439,7 +1439,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; ViewSyncReplicaTaskState&lt;TYPES, V&gt; {
-    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"View Sync Replica Task"</span>, level = <span class="string">"error"</span>)]
+    <span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"View Sync Replica Task"</span>, level = <span class="string">"error"</span>)]
     </span><span class="doccomment">/// Handle incoming events for the view sync replica task
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,

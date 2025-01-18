@@ -147,6 +147,12 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -179,34 +185,34 @@
     <span class="doccomment">/// Get all participants in the committee (including their stake) for a specific epoch
     </span><span class="kw">fn </span>stake_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// Get all participants in the committee (including their stake) for a specific epoch
     </span><span class="kw">fn </span>da_stake_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// Get all participants in the committee for a specific view for a specific epoch
     </span><span class="kw">fn </span>committee_members(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Get all participants in the committee for a specific view for a specific epoch
     </span><span class="kw">fn </span>da_committee_members(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Get all leaders in the committee for a specific view for a specific epoch
     </span><span class="kw">fn </span>committee_leaders(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Get the stake table entry for a public key, returns `None` if the
@@ -214,7 +220,7 @@
     </span><span class="kw">fn </span>stake(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// Get the DA stake table entry for a public key, returns `None` if the
@@ -222,14 +228,14 @@
     </span><span class="kw">fn </span>da_stake(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// See if a node has stake in the committee in a specific epoch
-    </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: TYPES::Epoch) -&gt; bool;
+    </span><span class="kw">fn </span>has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; bool;
 
     <span class="doccomment">/// See if a node has stake in the committee in a specific epoch
-    </span><span class="kw">fn </span>has_da_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: TYPES::Epoch) -&gt; bool;
+    </span><span class="kw">fn </span>has_da_stake(<span class="kw-2">&amp;</span><span class="self">self</span>, pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; bool;
 
     <span class="doccomment">/// The leader of the committee for view `view_number` in `epoch`.
     ///
@@ -238,7 +244,11 @@
     ///
     /// # Errors
     /// Returns an error if the leader cannot be calculated.
-    </span><span class="kw">fn </span>leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View, epoch: TYPES::Epoch) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
+    </span><span class="kw">fn </span>leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view: TYPES::View,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
         <span class="self">self</span>.lookup_leader(view, epoch).wrap().context(<span class="macro">info!</span>(
@@ -256,31 +266,33 @@
     </span><span class="kw">fn </span>lookup_leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; std::result::Result&lt;TYPES::SignatureKey, <span class="self">Self</span>::Error&gt;;
 
     <span class="doccomment">/// Returns the number of total nodes in the committee in an epoch `epoch`
-    </span><span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; usize;
+    </span><span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; usize;
 
     <span class="doccomment">/// Returns the number of total DA nodes in the committee in an epoch `epoch`
-    </span><span class="kw">fn </span>da_total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; usize;
+    </span><span class="kw">fn </span>da_total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; usize;
 
     <span class="doccomment">/// Returns the threshold for a specific `Membership` implementation
-    </span><span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; NonZeroU64;
 
     <span class="doccomment">/// Returns the DA threshold for a specific `Membership` implementation
-    </span><span class="kw">fn </span>da_success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>da_success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; NonZeroU64;
 
     <span class="doccomment">/// Returns the threshold for a specific `Membership` implementation
-    </span><span class="kw">fn </span>failure_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>failure_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; NonZeroU64;
 
     <span class="doccomment">/// Returns the threshold required to upgrade the network protocol
-    </span><span class="kw">fn </span>upgrade_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: TYPES::Epoch) -&gt; NonZeroU64;
+    </span><span class="kw">fn </span>upgrade_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>, epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;) -&gt; NonZeroU64;
 
     <span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="doccomment">/// Handles notifications that a new epoch root has been created
     /// Is called under a read lock to the Membership. Return a callback
     /// with Some to have that callback invoked under a write lock.
+    ///
+    /// #3967 REVIEW NOTE: this is only called if epoch is Some. Is there any reason to do otherwise?
     </span><span class="kw">async fn </span>add_epoch_root(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _epoch: TYPES::Epoch,

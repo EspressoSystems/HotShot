@@ -482,9 +482,9 @@
     traits::{
         block_contents::vid_commitment,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeType, Versions},
+        node_implementation::{NodeType, Versions},
     },
-    utils::{epoch_from_block_number, View, ViewInner},
+    utils::{option_epoch_from_block_number, View, ViewInner},
     vid::{vid_scheme, VidCommitment, VidProposal, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
     ValidatorConfig,
@@ -593,7 +593,7 @@
     data: DATAType,
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     view: TYPES::View,
-    epoch: TYPES::Epoch,
+    epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
@@ -659,7 +659,7 @@
     data: <span class="kw-2">&amp;</span>DATAType,
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     view: TYPES::View,
-    epoch: TYPES::Epoch,
+    epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
 ) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::QcType {
     <span class="kw">let </span>membership_reader = membership.read().<span class="kw">await</span>;
@@ -721,7 +721,7 @@
 </span><span class="kw">pub async fn </span>vid_scheme_from_view_number&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
+    epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 ) -&gt; VidSchemeType {
     <span class="kw">let </span>num_storage_nodes = membership
         .read()
@@ -734,7 +734,7 @@
 <span class="kw">pub async fn </span>vid_payload_commitment&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
+    epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     transactions: Vec&lt;TestTransaction&gt;,
 ) -&gt; VidCommitment {
     <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(membership, view_number, epoch_number).<span class="kw">await</span>;
@@ -747,7 +747,7 @@
 <span class="kw">pub async fn </span>da_payload_commitment&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     transactions: Vec&lt;TestTransaction&gt;,
-    epoch_number: TYPES::Epoch,
+    epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 ) -&gt; VidCommitment {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
@@ -760,7 +760,7 @@
 <span class="kw">pub async fn </span>build_payload_commitment&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     view: TYPES::View,
-    epoch: TYPES::Epoch,
+    epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 ) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
     <span class="comment">// Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
@@ -773,7 +773,7 @@
 </span><span class="kw">pub async fn </span>build_vid_proposal&lt;TYPES: NodeType&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
+    epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     transactions: Vec&lt;TestTransaction&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 ) -&gt; VidProposal&lt;TYPES&gt; {
@@ -816,7 +816,7 @@
 </span><span class="kw">pub async fn </span>build_da_certificate&lt;TYPES: NodeType, V: Versions&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
+    epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     transactions: Vec&lt;TestTransaction&gt;,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -886,7 +886,7 @@
     epoch_height: u64,
 ) -&gt; View&lt;TestTypes&gt; {
     <span class="kw">let </span>epoch =
-        &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Epoch::new(epoch_from_block_number(leaf.height(), epoch_height));
+        option_epoch_from_block_number::&lt;TestTypes&gt;(leaf.with_epoch, leaf.height(), epoch_height);
     View {
         view_inner: ViewInner::Leaf {
             leaf: leaf.commit(),

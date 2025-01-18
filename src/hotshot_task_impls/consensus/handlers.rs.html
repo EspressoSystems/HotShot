@@ -471,26 +471,28 @@
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="comment">// If the vote sender belongs to the next epoch, collect it separately to form the second QC
-    </span><span class="kw">let </span>has_stake = task_state
-        .membership
-        .read()
-        .<span class="kw">await
-        </span>.has_stake(<span class="kw-2">&amp;</span>vote.signing_key(), vote.epoch() + <span class="number">1</span>);
-    <span class="kw">if </span>has_stake {
-        handle_vote(
-            <span class="kw-2">&amp;mut </span>task_state.next_epoch_vote_collectors,
-            <span class="kw-2">&amp;</span>vote.clone().into(),
-            task_state.public_key.clone(),
-            <span class="kw-2">&amp;</span>task_state.membership,
-            vote.data.epoch,
-            task_state.id,
-            <span class="kw-2">&amp;</span>event,
-            sender,
-            <span class="kw-2">&amp;</span>task_state.upgrade_lock,
-            transition_indicator,
-        )
-        .<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(vote_epoch) = vote.epoch() {
+        <span class="comment">// If the vote sender belongs to the next epoch, collect it separately to form the second QC
+        </span><span class="kw">let </span>has_stake = task_state
+            .membership
+            .read()
+            .<span class="kw">await
+            </span>.has_stake(<span class="kw-2">&amp;</span>vote.signing_key(), <span class="prelude-val">Some</span>(vote_epoch + <span class="number">1</span>));
+        <span class="kw">if </span>has_stake {
+            handle_vote(
+                <span class="kw-2">&amp;mut </span>task_state.next_epoch_vote_collectors,
+                <span class="kw-2">&amp;</span>vote.clone().into(),
+                task_state.public_key.clone(),
+                <span class="kw-2">&amp;</span>task_state.membership,
+                vote.data.epoch,
+                task_state.id,
+                <span class="kw-2">&amp;</span>event,
+                sender,
+                <span class="kw-2">&amp;</span>task_state.upgrade_lock,
+                transition_indicator,
+            )
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        }
     }
 
     <span class="prelude-val">Ok</span>(())
@@ -559,7 +561,7 @@
         .membership
         .read()
         .<span class="kw">await
-        </span>.leader(new_view_number, TYPES::Epoch::new(<span class="number">0</span>))<span class="question-mark">?</span>;
+        </span>.leader(new_view_number, task_state.cur_epoch)<span class="question-mark">?</span>;
     broadcast_event(
         Arc::new(HotShotEvent::HighQcSend(
             high_qc,
@@ -580,18 +582,16 @@
     V: Versions,
 &gt;(
     new_view_number: TYPES::View,
-    epoch_number: TYPES::Epoch,
+    epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">if </span>epoch_number &gt; task_state.cur_epoch {
         task_state.cur_epoch = epoch_number;
-        <span class="kw">let _ </span>= task_state
-            .consensus
-            .write()
-            .<span class="kw">await
-            </span>.update_epoch(epoch_number);
-        <span class="macro">tracing::info!</span>(<span class="string">"Progress: entered epoch {:&gt;6}"</span>, <span class="kw-2">*</span>epoch_number);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(new_epoch) = epoch_number {
+            <span class="kw">let _ </span>= task_state.consensus.write().<span class="kw">await</span>.update_epoch(new_epoch);
+            <span class="macro">tracing::info!</span>(<span class="string">"Progress: entered epoch {:&gt;6}"</span>, <span class="kw-2">*</span>new_epoch);
+        }
     }
 
     <span class="macro">ensure!</span>(
@@ -711,7 +711,7 @@
 </span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_timeout&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
     view_number: TYPES::View,
-    epoch: TYPES::Epoch,
+    epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     task_state: <span class="kw-2">&amp;mut </span>ConsensusTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {

@@ -2093,13 +2093,13 @@
     </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         view: u64,
-        epoch: u64,
+        epoch: <span class="prelude-ty">Option</span>&lt;u64&gt;,
         membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     ) <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = T::SignatureKey&gt; + <span class="lifetime">'a</span>,
     {
         <span class="kw">let </span>future_view = &lt;TYPES <span class="kw">as </span>NodeType&gt;::View::new(view) + LOOK_AHEAD;
-        <span class="kw">let </span>epoch = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch::new(epoch);
+        <span class="kw">let </span>epoch = epoch.map(&lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch::new);
 
         <span class="kw">let </span>future_leader = <span class="kw">match </span>membership.read().<span class="kw">await</span>.leader(future_view, epoch) {
             <span class="prelude-val">Ok</span>(l) =&gt; l,

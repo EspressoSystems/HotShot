@@ -211,6 +211,10 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -398,7 +402,11 @@
     }
 
     <span class="doccomment">/// Makes sure the sender is allowed to send a request in the given epoch.
-    </span><span class="kw">async fn </span>valid_sender(<span class="kw-2">&amp;</span><span class="self">self</span>, sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey, epoch: TYPES::Epoch) -&gt; bool {
+    </span><span class="kw">async fn </span>valid_sender(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        sender: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+    ) -&gt; bool {
         <span class="self">self</span>.membership.read().<span class="kw">await</span>.has_stake(sender, epoch)
     }
 }

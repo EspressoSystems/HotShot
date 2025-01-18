@@ -831,6 +831,10 @@
 <a href="#831" id="831">831</a>
 <a href="#832" id="832">832</a>
 <a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -922,7 +926,7 @@
     </span><span class="kw">pub </span>cur_view: TYPES::View,
 
     <span class="doccomment">/// Epoch number this node is executing in.
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
@@ -964,7 +968,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
-        block_epoch: TYPES::Epoch,
+        block_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(v) =&gt; v,
@@ -989,7 +993,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
-        block_epoch: TYPES::Epoch,
+        block_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>version = <span class="kw">match </span><span class="self">self</span>.upgrade_lock.version(block_view).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(v) =&gt; v,
@@ -1090,7 +1094,7 @@
     </span><span class="kw">async fn </span>produce_block_marketplace(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         block_view: TYPES::View,
-        block_epoch: TYPES::Epoch,
+        block_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         task_start_time: Instant,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
         <span class="macro">ensure!</span>(
@@ -1194,7 +1198,7 @@
     </span><span class="kw">pub async fn </span>null_block(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_view: TYPES::View,
-        block_epoch: TYPES::Epoch,
+        block_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         version: Version,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;PackedBundle&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>membership_total_nodes = <span class="self">self</span>.membership.read().<span class="kw">await</span>.total_nodes(<span class="self">self</span>.cur_epoch);
@@ -1227,7 +1231,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
-        block_epoch: TYPES::Epoch,
+        block_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>task_start_time = Instant::now();
 
@@ -1280,7 +1284,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         block_view: TYPES::View,
-        block_epoch: TYPES::Epoch,
+        block_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">if </span><span class="self">self</span>.consensus.read().<span class="kw">await</span>.is_high_qc_forming_eqc() {
             <span class="macro">tracing::info!</span>(<span class="string">"Reached end of epoch. Not getting a new block until we form an eQC."</span>);
@@ -1292,7 +1296,7 @@
     }
 
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"TransactionTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"Transaction task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"TransactionTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -1313,13 +1317,17 @@
             }
             HotShotEvent::ViewChange(view, epoch) =&gt; {
                 <span class="kw">let </span>view = TYPES::View::new(std::cmp::max(<span class="number">1</span>, <span class="kw-2">**</span>view));
-                <span class="kw">let </span>epoch = <span class="kw">if </span><span class="self">self</span>.epoch_height != <span class="number">0 </span>{
-                    TYPES::Epoch::new(std::cmp::max(<span class="number">1</span>, <span class="kw-2">**</span>epoch))
+                <span class="kw">let </span>epoch = <span class="kw">if </span><span class="self">self</span>.upgrade_lock.epochs_enabled(view).<span class="kw">await </span>{
+                    <span class="comment">// #3967 REVIEW NOTE: Double check this logic
+                    </span><span class="prelude-val">Some</span>(TYPES::Epoch::new(std::cmp::max(
+                        <span class="number">1</span>,
+                        epoch.map(|x| <span class="kw-2">*</span>x).unwrap_or(<span class="number">0</span>),
+                    )))
                 } <span class="kw">else </span>{
                     <span class="kw-2">*</span>epoch
                 };
                 <span class="macro">ensure!</span>(
-                    <span class="kw-2">*</span>view &gt; <span class="kw-2">*</span><span class="self">self</span>.cur_view &amp;&amp; <span class="kw-2">*</span>epoch &gt;= <span class="kw-2">*</span><span class="self">self</span>.cur_epoch,
+                    <span class="kw-2">*</span>view &gt; <span class="kw-2">*</span><span class="self">self</span>.cur_view &amp;&amp; epoch &gt;= <span class="self">self</span>.cur_epoch,
                     <span class="macro">debug!</span>(
                       <span class="string">"Received a view change to an older view and epoch: tried to change view to {:?}\
                       and epoch {:?} though we are at view {:?} and epoch {:?}"</span>,

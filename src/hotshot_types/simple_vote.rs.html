@@ -862,6 +862,10 @@
 <a href="#862" id="862">862</a>
 <a href="#863" id="863">863</a>
 <a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -886,7 +890,7 @@
     data::{Leaf, Leaf2},
     message::UpgradeLock,
     traits::{
-        node_implementation::{ConsensusTime, NodeType, Versions},
+        node_implementation::{NodeType, Versions},
         signature_key::SignatureKey,
     },
     vid::VidCommitment,
@@ -910,7 +914,7 @@
     <span class="doccomment">/// Commitment to the leaf
     </span><span class="kw">pub </span>leaf_commit: Commitment&lt;Leaf2&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// An epoch to which the data belongs to. Relevant for validating against the correct stake table
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 }
 <span class="doccomment">/// Data used for a yes vote. Used to distinguish votes sent by the next epoch nodes.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
@@ -928,7 +932,7 @@
     <span class="doccomment">/// Commitment to a block payload
     </span><span class="kw">pub </span>payload_commit: VidCommitment,
     <span class="doccomment">/// Epoch number
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a timeout vote.
@@ -942,7 +946,7 @@
     <span class="doccomment">/// View the timeout is for
     </span><span class="kw">pub </span>view: TYPES::View,
     <span class="doccomment">/// Epoch number
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Pre Commit vote.
@@ -960,7 +964,7 @@
     <span class="doccomment">/// The view number we are trying to sync on
     </span><span class="kw">pub </span>round: TYPES::View,
     <span class="doccomment">/// Epoch number
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Commit vote.
@@ -978,7 +982,7 @@
     <span class="doccomment">/// The view number we are trying to sync on
     </span><span class="kw">pub </span>round: TYPES::View,
     <span class="doccomment">/// Epoch number
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Finalize vote.
@@ -996,7 +1000,7 @@
     <span class="doccomment">/// The view number we are trying to sync on
     </span><span class="kw">pub </span>round: TYPES::View,
     <span class="doccomment">/// Epoch number
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 }
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash, Eq)]
 </span><span class="doccomment">/// Data used for a Upgrade vote.
@@ -1025,7 +1029,7 @@
     <span class="doccomment">/// A unique identifier for the specific protocol being voted on
     </span><span class="kw">pub </span>hash: Vec&lt;u8&gt;,
     <span class="doccomment">/// The first epoch in which the upgrade will be in effect
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 }
 
 <span class="doccomment">/// Marker trait for data or commitments that can be voted on.
@@ -1302,14 +1306,18 @@
             epoch,
         } = <span class="self">self</span>;
 
-        committable::RawCommitmentBuilder::new(<span class="string">"Upgrade data"</span>)
+        <span class="kw">let </span><span class="kw-2">mut </span>cb = committable::RawCommitmentBuilder::new(<span class="string">"Upgrade data"</span>)
             .u16(old_version.minor)
             .u16(old_version.major)
             .u16(new_version.minor)
             .u16(new_version.major)
-            .var_size_bytes(hash.as_slice())
-            .u64(<span class="kw-2">**</span>epoch)
-            .finalize()
+            .var_size_bytes(hash.as_slice());
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>epoch) = <span class="kw-2">*</span>epoch {
+            cb = cb.u64(<span class="kw-2">**</span>epoch);
+        }
+
+        cb.finalize()
     }
 }
 
@@ -1380,7 +1388,7 @@
 <span class="doccomment">/// A trait for types belonging for specific epoch
 </span><span class="kw">pub trait </span>HasEpoch&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Returns `Epoch`
-    </span><span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch;
+    </span><span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;;
 }
 
 <span class="doccomment">/// Helper macro for trivial implementation of the `HasEpoch` trait
@@ -1389,7 +1397,7 @@
     ($(<span class="macro-nonterminal">$t</span>:ty),<span class="kw-2">*</span>) =&gt; {
         $(
             <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasEpoch&lt;TYPES&gt; <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
-                <span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch {
+                <span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt; {
                     <span class="self">self</span>.epoch
                 }
             }
@@ -1410,7 +1418,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, DATA: Voteable&lt;TYPES&gt; + HasEpoch&lt;TYPES&gt;&gt; HasEpoch&lt;TYPES&gt;
     <span class="kw">for </span>SimpleVote&lt;TYPES, DATA&gt;
 {
-    <span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch {
+    <span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt; {
         <span class="self">self</span>.data.epoch()
     }
 }
@@ -1449,7 +1457,7 @@
         <span class="kw">let </span>signature = <span class="self">self</span>.signature;
         <span class="kw">let </span>data = QuorumData2 {
             leaf_commit: Commitment::from_raw(bytes),
-            epoch: TYPES::Epoch::genesis(),
+            epoch: <span class="prelude-val">None</span>,
         };
         <span class="kw">let </span>view_number = <span class="self">self</span>.view_number;
 
@@ -1486,7 +1494,7 @@
         <span class="kw">let </span>signature = <span class="self">self</span>.signature;
         <span class="kw">let </span>data = DaData2 {
             payload_commit: <span class="self">self</span>.data.payload_commit,
-            epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            epoch: <span class="prelude-val">None</span>,
         };
         <span class="kw">let </span>view_number = <span class="self">self</span>.view_number;
 
@@ -1521,7 +1529,7 @@
         <span class="kw">let </span>signature = <span class="self">self</span>.signature;
         <span class="kw">let </span>data = TimeoutData2 {
             view: <span class="self">self</span>.data.view,
-            epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            epoch: <span class="prelude-val">None</span>,
         };
         <span class="kw">let </span>view_number = <span class="self">self</span>.view_number;
 
@@ -1557,7 +1565,7 @@
         <span class="kw">let </span>data = ViewSyncPreCommitData2 {
             relay: <span class="self">self</span>.data.relay,
             round: <span class="self">self</span>.data.round,
-            epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            epoch: <span class="prelude-val">None</span>,
         };
         <span class="kw">let </span>view_number = <span class="self">self</span>.view_number;
 
@@ -1594,7 +1602,7 @@
         <span class="kw">let </span>data = ViewSyncCommitData2 {
             relay: <span class="self">self</span>.data.relay,
             round: <span class="self">self</span>.data.round,
-            epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            epoch: <span class="prelude-val">None</span>,
         };
         <span class="kw">let </span>view_number = <span class="self">self</span>.view_number;
 
@@ -1631,7 +1639,7 @@
         <span class="kw">let </span>data = ViewSyncFinalizeData2 {
             relay: <span class="self">self</span>.data.relay,
             round: <span class="self">self</span>.data.round,
-            epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            epoch: <span class="prelude-val">None</span>,
         };
         <span class="kw">let </span>view_number = <span class="self">self</span>.view_number;
 

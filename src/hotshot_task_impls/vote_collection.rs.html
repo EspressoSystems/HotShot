@@ -695,6 +695,11 @@
 <a href="#695" id="695">695</a>
 <a href="#696" id="696">696</a>
 <a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -758,7 +763,7 @@
     </span><span class="kw">pub </span>view: TYPES::View,
 
     <span class="doccomment">/// The epoch which we are collecting votes for
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Node id
     </span><span class="kw">pub </span>id: u64,
@@ -781,7 +786,7 @@
     </span><span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// return the Hotshot event for the completion of this CERT
@@ -804,7 +809,7 @@
     </span><span class="kw">pub async fn </span>accumulate_vote(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vote: <span class="kw-2">&amp;</span>VOTE,
-        sender_epoch: TYPES::Epoch,
+        sender_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;CERT&gt;&gt; {
         <span class="macro">ensure!</span>(
@@ -883,7 +888,7 @@
     </span><span class="kw">pub </span>view: TYPES::View,
 
     <span class="doccomment">/// Epoch of the votes we are collecting
-    </span><span class="kw">pub </span>epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// This nodes id
     </span><span class="kw">pub </span>id: u64,
@@ -959,7 +964,7 @@
     vote: <span class="kw-2">&amp;</span>VOTE,
     public_key: TYPES::SignatureKey,
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
-    epoch: TYPES::Epoch,
+    epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     id: u64,
     event: <span class="kw-2">&amp;</span>Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
     event_stream: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1056,7 +1061,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>, epoch)
     }
@@ -1074,7 +1079,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>, epoch)
     }
@@ -1093,7 +1098,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>, epoch)
     }
@@ -1111,7 +1116,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number(), epoch)
     }
@@ -1129,7 +1134,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number(), epoch)
     }
@@ -1147,7 +1152,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.view_number() + <span class="number">1</span>, epoch)
     }
@@ -1166,7 +1171,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay, epoch)
     }
@@ -1185,7 +1190,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay, epoch)
     }
@@ -1204,7 +1209,7 @@
     <span class="kw">fn </span>leader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: <span class="kw-2">&amp;</span>TYPES::Membership,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey&gt; {
         membership.leader(<span class="self">self</span>.date().round + <span class="self">self</span>.date().relay, epoch)
     }
@@ -1252,7 +1257,12 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumVoteRecv(vote) =&gt; {
-                <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote.clone().into(), <span class="self">self</span>.epoch + <span class="number">1</span>, sender)
+                <span class="comment">// #3967 REVIEW NOTE: Should we error if self.epoch is None?
+                </span><span class="kw">let </span>next_epoch = <span class="self">self
+                    </span>.epoch
+                    .map(|x| x + <span class="number">1</span>)
+                    .ok_or_else(|| <span class="macro">error!</span>(<span class="string">"epoch should not be none in handle_vote_event"</span>))<span class="question-mark">?</span>;
+                <span class="self">self</span>.accumulate_vote(<span class="kw-2">&amp;</span>vote.clone().into(), <span class="prelude-val">Some</span>(next_epoch), sender)
                     .<span class="kw">await
             </span>}
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),

@@ -840,6 +840,10 @@
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -857,7 +861,7 @@
 <span class="kw">use </span>hotshot_task::dependency::{Dependency, EventDependency};
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal2, ViewChangeEvidence2},
+    data::{Leaf2, QuorumProposalWrapper, ViewChangeEvidence2},
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     request_response::ProposalRequestPayload,
@@ -871,7 +875,8 @@
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, is_epoch_root, is_last_block_in_epoch, Terminator, View, ViewInner,
+        epoch_from_block_number, is_epoch_root, is_last_block_in_epoch,
+        option_epoch_from_block_number, Terminator, View, ViewInner,
     },
     vote::{Certificate, HasViewNumber},
 };
@@ -968,7 +973,7 @@
     };
 
     <span class="kw">let </span>view_number = proposal.data.view_number();
-    <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
+    <span class="kw">let </span>justify_qc = proposal.data.justify_qc().clone();
 
     <span class="kw">let </span>justify_qc_epoch = justify_qc.data.epoch();
 
@@ -990,7 +995,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
     <span class="kw">let </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
     <span class="kw">let </span>state = Arc::new(
-        &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header),
+        &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(proposal.data.block_header()),
     );
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_leaf(leaf.clone(), Arc::clone(<span class="kw-2">&amp;</span>state), <span class="prelude-val">None</span>) {
@@ -1092,7 +1097,7 @@
 /// If the leaf chain contains no decided leaf while reaching a decided view, which should be
 /// impossible.
 </span><span class="kw">pub async fn </span>decide_from_proposal_2&lt;TYPES: NodeType&gt;(
-    proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
+    proposal: <span class="kw-2">&amp;</span>QuorumProposalWrapper&lt;TYPES&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
     existing_upgrade_cert: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
@@ -1213,7 +1218,7 @@
 /// If the leaf chain contains no decided leaf while reaching a decided view, which should be
 /// impossible.
 </span><span class="kw">pub async fn </span>decide_from_proposal&lt;TYPES: NodeType&gt;(
-    proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
+    proposal: <span class="kw-2">&amp;</span>QuorumProposalWrapper&lt;TYPES&gt;,
     consensus: OuterConsensus&lt;TYPES&gt;,
     existing_upgrade_cert: Arc&lt;RwLock&lt;<span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;&gt;&gt;,
     public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
@@ -1223,7 +1228,7 @@
     <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
     <span class="kw">let </span>existing_upgrade_cert_reader = existing_upgrade_cert.read().<span class="kw">await</span>;
     <span class="kw">let </span>view_number = proposal.view_number();
-    <span class="kw">let </span>parent_view_number = proposal.justify_qc.view_number();
+    <span class="kw">let </span>parent_view_number = proposal.justify_qc().view_number();
     <span class="kw">let </span>old_anchor_view = consensus_reader.last_decided_view();
 
     <span class="kw">let </span><span class="kw-2">mut </span>last_view_number_visited = view_number;
@@ -1415,7 +1420,7 @@
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    proposal: Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+    proposal: Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;,
     parent_leaf: Leaf2&lt;TYPES&gt;,
     validation_info: <span class="kw-2">&amp;</span>ValidationInfo&lt;TYPES, I, V&gt;,
     event_stream: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -1432,7 +1437,7 @@
         epoch_from_block_number(proposed_leaf.height(), validation_info.epoch_height);
 
     <span class="kw">let </span>state = Arc::new(
-        &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header),
+        &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(proposal.data.block_header()),
     );
 
     {
@@ -1449,10 +1454,12 @@
     }
 
     UpgradeCertificate::validate(
-        <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
+        proposal.data.upgrade_certificate(),
         <span class="kw-2">&amp;</span>validation_info.membership,
-        TYPES::Epoch::new(proposal_epoch),
-        <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
+        proposed_leaf
+            .with_epoch
+            .then(|| TYPES::Epoch::new(proposal_epoch)), <span class="comment">// #3967 how do we know if proposal_epoch should be Some() or None?
+        </span><span class="kw-2">&amp;</span>validation_info.upgrade_lock,
     )
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1464,7 +1471,7 @@
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
+    <span class="kw">let </span>justify_qc = proposal.data.justify_qc().clone();
     <span class="comment">// Create a positive vote if either liveness or safety check
     // passes.
 
@@ -1490,7 +1497,7 @@
 
         <span class="comment">// Make sure that the epoch transition proposal includes the next epoch QC
         </span><span class="kw">if </span>is_last_block_in_epoch(parent_leaf.height(), validation_info.epoch_height) {
-            <span class="macro">ensure!</span>(proposal.data.next_epoch_justify_qc.is_some(),
+            <span class="macro">ensure!</span>(proposal.data.next_epoch_justify_qc().is_some(),
             <span class="string">"Epoch transition proposal does not include the next epoch justify QC. Do not vote!"</span>);
         }
 
@@ -1564,7 +1571,7 @@
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;,
     validation_info: <span class="kw-2">&amp;</span>ValidationInfo&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>view_number = proposal.data.view_number();
@@ -1580,9 +1587,9 @@
     drop(membership_reader);
 
     <span class="comment">// Verify a timeout certificate OR a view sync certificate exists and is valid.
-    </span><span class="kw">if </span>proposal.data.justify_qc.view_number() != view_number - <span class="number">1 </span>{
+    </span><span class="kw">if </span>proposal.data.justify_qc().view_number() != view_number - <span class="number">1 </span>{
         <span class="kw">let </span>received_proposal_cert =
-            proposal.data.view_change_evidence.clone().context(<span class="macro">debug!</span>(
+            proposal.data.view_change_evidence().clone().context(<span class="macro">debug!</span>(
                 <span class="string">"Quorum proposal for view {} needed a timeout or view sync certificate, but did not have one"</span>,
                 <span class="kw-2">*</span>view_number
         ))<span class="question-mark">?</span>;
@@ -1648,12 +1655,13 @@
     <span class="comment">// Validate the upgrade certificate -- this is just a signature validation.
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
     </span>{
-        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
-            proposal.data.block_header.block_number(),
+        <span class="kw">let </span>epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+            proposal.data.with_epoch,
+            proposal.data.block_header().block_number(),
             validation_info.epoch_height,
-        ));
+        );
         UpgradeCertificate::validate(
-            <span class="kw-2">&amp;</span>proposal.data.upgrade_certificate,
+            proposal.data.upgrade_certificate(),
             <span class="kw-2">&amp;</span>validation_info.membership,
             epoch,
             <span class="kw-2">&amp;</span>validation_info.upgrade_lock,

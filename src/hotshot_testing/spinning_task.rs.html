@@ -416,6 +416,7 @@
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -451,6 +452,7 @@
         network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
+    utils::genesis_epoch_from_version,
     vote::HasViewNumber,
     ValidatorConfig,
 };
@@ -533,8 +535,8 @@
             sender: <span class="kw">_</span>,
         } = event
         {
-            <span class="kw">if </span>proposal.data.justify_qc.view_number() &gt; <span class="self">self</span>.high_qc.view_number() {
-                <span class="self">self</span>.high_qc = proposal.data.justify_qc.clone();
+            <span class="kw">if </span>proposal.data.justify_qc().view_number() &gt; <span class="self">self</span>.high_qc.view_number() {
+                <span class="self">self</span>.high_qc = proposal.data.justify_qc().clone();
             }
         }
 
@@ -576,8 +578,8 @@
                                             TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
                                             <span class="prelude-val">None</span>,
                                             TYPES::View::genesis(),
-                                            TYPES::Epoch::genesis(),
-                                            TYPES::View::genesis(),
+                                            genesis_epoch_from_version::&lt;V, TYPES&gt;(), <span class="comment">// #3967 is this right now after our earlier discussion? or should i be doing (epoch_height &gt; 0).then(TYPES::Epoch::genesis)
+                                            </span>TYPES::View::genesis(),
                                             BTreeMap::new(),
                                             <span class="self">self</span>.high_qc.clone(),
                                             <span class="self">self</span>.next_epoch_high_qc.clone(),

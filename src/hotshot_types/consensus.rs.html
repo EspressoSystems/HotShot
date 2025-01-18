@@ -1100,6 +1100,14 @@
 <a href="#1100" id="1100">1100</a>
 <a href="#1101" id="1101">1101</a>
 <a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1123,7 +1131,7 @@
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, QuorumProposalWrapper, VidDisperse, VidDisperseShare2},
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
@@ -1137,8 +1145,8 @@
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, is_last_block_in_epoch, BuilderCommitment, LeafCommitment,
-        StateAndDelta, Terminator,
+        epoch_from_block_number, is_last_block_in_epoch, option_epoch_from_block_number,
+        BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
     },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
@@ -1391,11 +1399,11 @@
     </span>cur_view: TYPES::View,
 
     <span class="doccomment">/// Epoch number that is currently on.
-    </span>cur_epoch: TYPES::Epoch,
+    </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
-    </span>last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
+    </span>last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// last view had a successful decide event
     </span>last_decided_view: TYPES::View,
@@ -1515,11 +1523,11 @@
         validated_state_map: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
         vid_shares: <span class="prelude-ty">Option</span>&lt;VidShares&lt;TYPES&gt;&gt;,
         cur_view: TYPES::View,
-        cur_epoch: TYPES::Epoch,
+        cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         locked_view: TYPES::View,
         last_decided_view: TYPES::View,
         last_actioned_view: TYPES::View,
-        last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
+        last_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
         saved_leaves: CommitmentMap&lt;Leaf2&lt;TYPES&gt;&gt;,
         saved_payloads: BTreeMap&lt;TYPES::View, Arc&lt;TYPES::BlockPayload&gt;&gt;,
         high_qc: QuorumCertificate2&lt;TYPES&gt;,
@@ -1553,7 +1561,7 @@
     }
 
     <span class="doccomment">/// Get the current epoch.
-    </span><span class="kw">pub fn </span>cur_epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Epoch {
+    </span><span class="kw">pub fn </span>cur_epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt; {
         <span class="self">self</span>.cur_epoch
     }
 
@@ -1605,7 +1613,7 @@
     <span class="doccomment">/// Get the map of our recent proposals
     </span><span class="kw">pub fn </span>last_proposals(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt; {
+    ) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.last_proposals
     }
 
@@ -1655,11 +1663,15 @@
     /// Can return an error when the new epoch_number is not higher than the existing epoch number.
     </span><span class="kw">pub fn </span>update_epoch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, epoch_number: TYPES::Epoch) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
-            epoch_number &gt; <span class="self">self</span>.cur_epoch,
+            <span class="self">self</span>.cur_epoch.is_none() || <span class="prelude-val">Some</span>(epoch_number) &gt; <span class="self">self</span>.cur_epoch,
             <span class="macro">debug!</span>(<span class="string">"New epoch isn't newer than the current epoch."</span>)
         );
-        <span class="macro">tracing::trace!</span>(<span class="string">"Updating epoch from {} to {}"</span>, <span class="self">self</span>.cur_epoch, epoch_number);
-        <span class="self">self</span>.cur_epoch = epoch_number;
+        <span class="macro">tracing::trace!</span>(
+            <span class="string">"Updating epoch from {:?} to {}"</span>,
+            <span class="self">self</span>.cur_epoch,
+            epoch_number
+        );
+        <span class="self">self</span>.cur_epoch = <span class="prelude-val">Some</span>(epoch_number);
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -1701,7 +1713,7 @@
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
     </span><span class="kw">pub fn </span>update_proposed_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        proposal: Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+        proposal: Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">ensure!</span>(
             proposal.data.view_number()
@@ -1750,7 +1762,7 @@
     </span><span class="kw">pub fn </span>update_da_view(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         payload_commitment: VidCommitment,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view = View {
@@ -1774,7 +1786,11 @@
         delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>view_number = leaf.view_number();
-        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(leaf.height(), <span class="self">self</span>.epoch_height));
+        <span class="kw">let </span>epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+            leaf.with_epoch,
+            leaf.height(),
+            <span class="self">self</span>.epoch_height,
+        );
         <span class="kw">let </span>view = View {
             view_inner: ViewInner::Leaf {
                 leaf: leaf.commit(),

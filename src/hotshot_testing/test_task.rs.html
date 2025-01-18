@@ -200,6 +200,7 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -366,11 +367,12 @@
     public_key: TYPES::SignatureKey,
 ) -&gt; JoinHandle&lt;()&gt; {
     <span class="kw">let </span>net = Arc::clone(<span class="kw-2">&amp;</span>channel);
-    <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>&gt; = NetworkMessageTaskState {
+    <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkMessageTaskState {
         internal_event_stream: internal_event_stream.clone(),
         external_event_stream: external_event_stream.clone(),
         public_key,
         transactions_cache: lru::LruCache::new(NonZeroUsize::new(<span class="number">100_000</span>).unwrap()),
+        upgrade_lock: upgrade_lock.clone(),
     };
 
     <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span>net);

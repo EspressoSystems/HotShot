@@ -730,6 +730,9 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -769,6 +772,7 @@
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
+    utils::genesis_epoch_from_version,
     HotShotConfig, ValidatorConfig,
 };
 <span class="kw">use </span>tide_disco::Url;
@@ -911,7 +915,7 @@
             late_start,
             latest_view: <span class="prelude-val">None</span>,
             changes,
-            last_decided_leaf: Leaf2::genesis(
+            last_decided_leaf: Leaf2::genesis::&lt;V&gt;(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
@@ -1137,7 +1141,8 @@
             config.known_nodes_with_stake.clone(),
             config.known_da_nodes.clone(),
         );
-        <span class="kw">let </span>num_nodes = temp_memberships.total_nodes(TYPES::Epoch::new(<span class="number">0</span>));
+        <span class="comment">// #3967 is it enough to check versions now? Or should we also be checking epoch_height?
+        </span><span class="kw">let </span>num_nodes = temp_memberships.total_nodes(genesis_epoch_from_version::&lt;V, TYPES&gt;());
         <span class="kw">let </span>(<span class="kw-2">mut </span>builder_tasks, builder_urls, fallback_builder_url) =
             <span class="self">self</span>.init_builders::&lt;B&gt;(num_nodes).<span class="kw">await</span>;
 
@@ -1389,7 +1394,8 @@
             internal_channel,
             external_channel,
         )
-    }
+        .<span class="kw">await
+    </span>}
 }
 
 <span class="doccomment">/// a node participating in a test

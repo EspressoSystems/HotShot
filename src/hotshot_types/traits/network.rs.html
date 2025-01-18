@@ -862,7 +862,7 @@
     </span><span class="kw">async fn </span>update_view&lt;<span class="lifetime">'a</span>, TYPES&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         _view: u64,
-        _epoch: u64,
+        _epoch: <span class="prelude-ty">Option</span>&lt;u64&gt;,
         _membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     ) <span class="kw">where
         </span>TYPES: NodeType&lt;SignatureKey = K&gt; + <span class="lifetime">'a</span>,

@@ -337,6 +337,8 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -352,7 +354,7 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal, QuorumProposal2},
+    data::{Leaf2, QuorumProposal, QuorumProposalWrapper},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
@@ -363,7 +365,7 @@
         storage::Storage,
         ValidatedState,
     },
-    utils::{epoch_from_block_number, View, ViewInner},
+    utils::{option_epoch_from_block_number, View, ViewInner},
     vote::{Certificate, HasViewNumber},
 };
 <span class="kw">use </span>tokio::spawn;
@@ -383,7 +385,7 @@
 <span class="doccomment">/// Update states in the event that the parent state is not found for a given `proposal`.
 </span><span class="attr">#[instrument(skip_all)]
 </span><span class="kw">async fn </span>validate_proposal_liveness&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
-    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;,
     validation_info: <span class="kw-2">&amp;</span>ValidationInfo&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = validation_info.consensus.write().<span class="kw">await</span>;
@@ -391,7 +393,7 @@
     <span class="kw">let </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
 
     <span class="kw">let </span>state = Arc::new(
-        &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(<span class="kw-2">&amp;</span>proposal.data.block_header),
+        &lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::from_header(proposal.data.block_header()),
     );
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = consensus_writer.update_leaf(leaf.clone(), state, <span class="prelude-val">None</span>) {
@@ -411,8 +413,8 @@
         <span class="macro">tracing::warn!</span>(<span class="string">"Couldn't store undecided state.  Error: {:?}"</span>, e);
     }
 
-    <span class="kw">let </span>liveness_check =
-        proposal.data.justify_qc.clone().view_number() &gt; consensus_writer.locked_view();
+    <span class="comment">// #3967 REVIEW NOTE: Why are we cloning justify_qc here just to get the view_number out?
+    </span><span class="kw">let </span>liveness_check = proposal.data.justify_qc().view_number() &gt; consensus_writer.locked_view();
     <span class="comment">// if we are using HS2 we update our locked view for any QC from a leader greater than our current lock
     </span><span class="kw">if </span>liveness_check
         &amp;&amp; validation_info
@@ -421,7 +423,7 @@
             .<span class="kw">await
             </span>.is_ok_and(|v| v &gt;= V::Epochs::VERSION)
     {
-        consensus_writer.update_locked_view(proposal.data.justify_qc.clone().view_number())<span class="question-mark">?</span>;
+        consensus_writer.update_locked_view(proposal.data.justify_qc().view_number())<span class="question-mark">?</span>;
     }
 
     drop(consensus_writer);
@@ -478,7 +480,7 @@
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+    proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;,
     quorum_proposal_sender_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     event_sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
@@ -492,14 +494,15 @@
 
     <span class="kw">let </span>view_number = proposal.data.view_number();
 
-    <span class="kw">let </span>justify_qc = proposal.data.justify_qc.clone();
-    <span class="kw">let </span>maybe_next_epoch_justify_qc = proposal.data.next_epoch_justify_qc.clone();
+    <span class="kw">let </span>justify_qc = proposal.data.justify_qc().clone();
+    <span class="kw">let </span>maybe_next_epoch_justify_qc = proposal.data.next_epoch_justify_qc().clone();
 
-    <span class="kw">let </span>proposal_block_number = proposal.data.block_header.block_number();
-    <span class="kw">let </span>proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+    <span class="kw">let </span>proposal_block_number = proposal.data.block_header().block_number();
+    <span class="kw">let </span>proposal_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+        proposal.data.with_epoch,
         proposal_block_number,
         validation_info.epoch_height,
-    ));
+    );
 
     <span class="kw">let </span>membership_reader = validation_info.membership.read().<span class="kw">await</span>;
     <span class="kw">let </span>membership_stake_table = membership_reader.stake_table(justify_qc.data.epoch);
@@ -529,9 +532,10 @@
         }
 
         <span class="kw">let </span>membership_reader = validation_info.membership.read().<span class="kw">await</span>;
-        <span class="kw">let </span>membership_next_stake_table = membership_reader.stake_table(justify_qc.data.epoch + <span class="number">1</span>);
+        <span class="kw">let </span>membership_next_stake_table =
+            membership_reader.stake_table(justify_qc.data.epoch.map(|x| x + <span class="number">1</span>));
         <span class="kw">let </span>membership_next_success_threshold =
-            membership_reader.success_threshold(justify_qc.data.epoch + <span class="number">1</span>);
+            membership_reader.success_threshold(justify_qc.data.epoch.map(|x| x + <span class="number">1</span>));
         drop(membership_reader);
 
         <span class="comment">// Validate the next epoch justify qc as well
@@ -641,9 +645,9 @@
         );
         validate_proposal_liveness(proposal, <span class="kw-2">&amp;</span>validation_info).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="macro">tracing::trace!</span>(
-            <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
+            <span class="string">"Sending ViewChange for view {} and epoch {:?}"</span>,
             view_number,
-            <span class="kw-2">*</span>proposal_epoch
+            proposal_epoch
         );
         broadcast_event(
             Arc::new(HotShotEvent::ViewChange(view_number, proposal_epoch)),
@@ -664,9 +668,9 @@
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="macro">tracing::trace!</span>(
-        <span class="string">"Sending ViewChange for view {} and epoch {}"</span>,
+        <span class="string">"Sending ViewChange for view {} and epoch {:?}"</span>,
         view_number,
-        <span class="kw-2">*</span>proposal_epoch
+        proposal_epoch
     );
     broadcast_event(
         Arc::new(HotShotEvent::ViewChange(view_number, proposal_epoch)),

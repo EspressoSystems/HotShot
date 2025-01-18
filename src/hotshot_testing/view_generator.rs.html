@@ -596,6 +596,19 @@
 <a href="#596" id="596">596</a>
 <a href="#597" id="597">597</a>
 <a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -621,8 +634,8 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::{
-        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
-        ViewChangeEvidence2, ViewNumber,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse,
+        VidDisperseShare2, ViewChangeEvidence2, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -635,12 +648,13 @@
     },
     traits::{
         consensus_api::ConsensusApi,
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         BlockPayload,
     },
 };
 <span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use </span><span class="kw">crate</span>::helpers::{
     build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
@@ -649,10 +663,10 @@
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestView {
     <span class="kw">pub </span>da_proposal: Proposal&lt;TestTypes, DaProposal2&lt;TestTypes&gt;&gt;,
-    <span class="kw">pub </span>quorum_proposal: Proposal&lt;TestTypes, QuorumProposal2&lt;TestTypes&gt;&gt;,
+    <span class="kw">pub </span>quorum_proposal: Proposal&lt;TestTypes, QuorumProposalWrapper&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>leaf: Leaf2&lt;TestTypes&gt;,
     <span class="kw">pub </span>view_number: ViewNumber,
-    <span class="kw">pub </span>epoch_number: EpochNumber,
+    <span class="kw">pub </span>epoch_number: <span class="prelude-ty">Option</span>&lt;EpochNumber&gt;,
     <span class="kw">pub </span>membership: Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     <span class="kw">pub </span>vid_disperse: Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>vid_proposal: (
@@ -670,9 +684,11 @@
 }
 
 <span class="kw">impl </span>TestView {
-    <span class="kw">pub async fn </span>genesis(membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub async fn </span>genesis&lt;V: Versions&gt;(
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>genesis_view = ViewNumber::new(<span class="number">1</span>);
-        <span class="kw">let </span>genesis_epoch = EpochNumber::new(<span class="number">0</span>);
+        <span class="kw">let </span>genesis_epoch = <span class="prelude-val">None</span>;
         <span class="kw">let </span>upgrade_lock = UpgradeLock::new();
 
         <span class="kw">let </span>transactions = Vec::new();
@@ -720,7 +736,7 @@
         .<span class="kw">await</span>;
 
         <span class="kw">let </span>block_header = TestBlockHeader::new(
-            <span class="kw-2">&amp;</span>Leaf2::&lt;TestTypes&gt;::genesis(
+            <span class="kw-2">&amp;</span>Leaf2::&lt;TestTypes&gt;::genesis::&lt;V&gt;(
                 <span class="kw-2">&amp;</span>TestValidatedState::default(),
                 <span class="kw-2">&amp;</span>TestInstanceState::default(),
             )
@@ -730,18 +746,22 @@
             metadata,
         );
 
-        <span class="kw">let </span>quorum_proposal_inner = QuorumProposal2::&lt;TestTypes&gt; {
-            block_header: block_header.clone(),
-            view_number: genesis_view,
-            justify_qc: QuorumCertificate2::genesis::&lt;TestVersions&gt;(
-                <span class="kw-2">&amp;</span>TestValidatedState::default(),
-                <span class="kw-2">&amp;</span>TestInstanceState::default(),
-            )
-            .<span class="kw">await</span>,
-            next_epoch_justify_qc: <span class="prelude-val">None</span>,
-            upgrade_certificate: <span class="prelude-val">None</span>,
-            view_change_evidence: <span class="prelude-val">None</span>,
-            next_drb_result: <span class="prelude-val">None</span>,
+        <span class="kw">let </span>quorum_proposal_inner = QuorumProposalWrapper::&lt;TestTypes&gt; {
+            proposal: QuorumProposal2::&lt;TestTypes&gt; {
+                block_header: block_header.clone(),
+                view_number: genesis_view,
+                justify_qc: QuorumCertificate2::genesis::&lt;TestVersions&gt;(
+                    <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                    <span class="kw-2">&amp;</span>TestInstanceState::default(),
+                )
+                .<span class="kw">await</span>,
+                next_epoch_justify_qc: <span class="prelude-val">None</span>,
+                upgrade_certificate: <span class="prelude-val">None</span>,
+                view_change_evidence: <span class="prelude-val">None</span>,
+                next_drb_result: <span class="prelude-val">None</span>,
+            },
+            <span class="comment">// #3967 REVIEW NOTE: Is this right?
+            </span>with_epoch: V::Base::VERSION &gt;= V::Epochs::VERSION,
         };
 
         <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(<span class="kw-2">&amp;</span>transactions));
@@ -966,14 +986,18 @@
             random,
         };
 
-        <span class="kw">let </span>proposal = QuorumProposal2::&lt;TestTypes&gt; {
-            block_header: block_header.clone(),
-            view_number: next_view,
-            justify_qc: quorum_certificate.clone(),
-            next_epoch_justify_qc: <span class="prelude-val">None</span>,
-            upgrade_certificate: upgrade_certificate.clone(),
-            view_change_evidence,
-            next_drb_result: <span class="prelude-val">None</span>,
+        <span class="kw">let </span>proposal = QuorumProposalWrapper::&lt;TestTypes&gt; {
+            proposal: QuorumProposal2::&lt;TestTypes&gt; {
+                block_header: block_header.clone(),
+                view_number: next_view,
+                justify_qc: quorum_certificate.clone(),
+                next_epoch_justify_qc: <span class="prelude-val">None</span>,
+                upgrade_certificate: upgrade_certificate.clone(),
+                view_change_evidence,
+                next_drb_result: <span class="prelude-val">None</span>,
+            },
+            <span class="comment">// #3967 REVIEW NOTE: Is this right?
+            </span>with_epoch: <span class="self">self</span>.upgrade_lock.epochs_enabled(next_view).<span class="kw">await</span>,
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);
@@ -1090,16 +1114,18 @@
     }
 }
 
-<span class="kw">pub struct </span>TestViewGenerator {
+<span class="kw">pub struct </span>TestViewGenerator&lt;V: Versions&gt; {
     <span class="kw">pub </span>current_view: <span class="prelude-ty">Option</span>&lt;TestView&gt;,
     <span class="kw">pub </span>membership: Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
+    <span class="kw">pub </span>_pd: PhantomData&lt;<span class="kw">fn</span>(V)&gt;,
 }
 
-<span class="kw">impl </span>TestViewGenerator {
+<span class="kw">impl</span>&lt;V: Versions&gt; TestViewGenerator&lt;V&gt; {
     <span class="kw">pub fn </span>generate(membership: Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;) -&gt; <span class="self">Self </span>{
         TestViewGenerator {
             current_view: <span class="prelude-val">None</span>,
             membership,
+            _pd: PhantomData,
         }
     }
 
@@ -1172,7 +1198,7 @@
     }
 }
 
-<span class="kw">impl </span>Stream <span class="kw">for </span>TestViewGenerator {
+<span class="kw">impl</span>&lt;V: Versions&gt; Stream <span class="kw">for </span>TestViewGenerator&lt;V&gt; {
     <span class="kw">type </span>Item = TestView;
 
     <span class="kw">fn </span>poll_next(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
@@ -1182,7 +1208,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>fut = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>view) = curr_view {
             <span class="kw">async move </span>{ TestView::next_view(view).<span class="kw">await </span>}.boxed()
         } <span class="kw">else </span>{
-            <span class="kw">async move </span>{ TestView::genesis(<span class="kw-2">&amp;</span>mem).<span class="kw">await </span>}.boxed()
+            <span class="kw">async move </span>{ TestView::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>mem).<span class="kw">await </span>}.boxed()
         };
 
         <span class="kw">match </span>fut.as_mut().poll(cx) {

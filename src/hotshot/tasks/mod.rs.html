@@ -569,6 +569,7 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -615,8 +616,8 @@
 <span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use crate</span>::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    genesis_epoch_from_version, tasks::task_state::CreateTaskState, types::SystemContextHandle,
+    ConsensusApi, ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
     MarketplaceConfig, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
 };
 
@@ -699,14 +700,15 @@
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
     channel: <span class="kw-2">&amp;</span>Arc&lt;NET&gt;,
 ) {
-    <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;<span class="kw">_</span>&gt; = NetworkMessageTaskState {
+    <span class="kw">let </span>upgrade_lock = handle.hotshot.upgrade_lock.clone();
+
+    <span class="kw">let </span>network_state: NetworkMessageTaskState&lt;TYPES, V&gt; = NetworkMessageTaskState {
         internal_event_stream: handle.internal_event_stream.<span class="number">0</span>.clone(),
         external_event_stream: handle.output_event_stream.<span class="number">0</span>.clone(),
         public_key: handle.public_key().clone(),
         transactions_cache: lru::LruCache::new(NonZeroUsize::new(<span class="number">100_000</span>).unwrap()),
+        upgrade_lock: upgrade_lock.clone(),
     };
-
-    <span class="kw">let </span>upgrade_lock = handle.hotshot.upgrade_lock.clone();
 
     <span class="kw">let </span>network = Arc::clone(channel);
     <span class="kw">let </span><span class="kw-2">mut </span>state = network_state.clone();
@@ -768,7 +770,7 @@
     <span class="kw">let </span>network_state: NetworkEventTaskState&lt;<span class="kw">_</span>, V, <span class="kw">_</span>, <span class="kw">_</span>&gt; = NetworkEventTaskState {
         network,
         view: TYPES::View::genesis(),
-        epoch: TYPES::Epoch::genesis(),
+        epoch: genesis_epoch_from_version::&lt;V, TYPES&gt;(),
         membership,
         storage: Arc::clone(<span class="kw-2">&amp;</span>handle.storage()),
         consensus: OuterConsensus::new(handle.consensus()),
@@ -788,7 +790,7 @@
     handle: <span class="kw-2">&amp;mut </span>SystemContextHandle&lt;TYPES, I, V&gt;,
 ) {
     handle.add_task(ViewSyncTaskState::&lt;TYPES, V&gt;::create_from(handle).<span class="kw">await</span>);
-    handle.add_task(VidTaskState::&lt;TYPES, I&gt;::create_from(handle).<span class="kw">await</span>);
+    handle.add_task(VidTaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
     handle.add_task(DaTaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
     handle.add_task(TransactionTaskState::&lt;TYPES, I, V&gt;::create_from(handle).<span class="kw">await</span>);
 

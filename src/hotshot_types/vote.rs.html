@@ -346,26 +346,26 @@ The votes all must be over the `Commitment` associated type.
     </span><span class="comment">// TODO: Make this a static ratio of the total stake of `Membership`
     </span><span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; u64;
 
     <span class="doccomment">/// Get  Stake Table from Membership implementation.
     </span><span class="kw">fn </span>stake_table&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// Get Total Nodes from Membership implementation.
     </span><span class="kw">fn </span>total_nodes&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; usize;
 
     <span class="doccomment">/// Get  `StakeTableEntry` from Membership implementation.
     </span><span class="kw">fn </span>stake_table_entry&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
         pub_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;;
 
     <span class="doccomment">/// Get the commitment which was voted on
@@ -426,7 +426,7 @@ The votes all must be over the `Commitment` associated type.
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         vote: <span class="kw-2">&amp;</span>VOTE,
         membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; Either&lt;(), CERT&gt; {
         <span class="kw">let </span>key = vote.signing_key();
 

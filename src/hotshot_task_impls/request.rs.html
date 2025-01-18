@@ -402,6 +402,7 @@
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -430,10 +431,10 @@
         block_contents::BlockHeader,
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
-    utils::epoch_from_block_number,
+    utils::option_epoch_from_block_number,
     vote::HasViewNumber,
 };
 <span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
@@ -516,10 +517,11 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>prop_view = proposal.data.view_number();
-                <span class="kw">let </span>prop_epoch = TYPES::Epoch::new(epoch_from_block_number(
-                    proposal.data.block_header.block_number(),
+                <span class="kw">let </span>prop_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+                    proposal.data.with_epoch,
+                    proposal.data.block_header().block_number(),
                     <span class="self">self</span>.epoch_height,
-                ));
+                );
 
                 <span class="comment">// If we already have the VID shares for the next view, do nothing.
                 </span><span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view
@@ -566,7 +568,7 @@
     </span><span class="kw">async fn </span>spawn_requests(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         sender: <span class="kw-2">&amp;</span>Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     ) {
@@ -595,7 +597,7 @@
         sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         view: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) {
         <span class="kw">let </span>consensus = OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus.inner_consensus));
         <span class="kw">let </span>network = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.network);

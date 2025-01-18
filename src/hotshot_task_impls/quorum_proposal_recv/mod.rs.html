@@ -274,7 +274,7 @@
     </span><span class="kw">pub </span>cur_view: TYPES::View,
 
     <span class="doccomment">/// Epoch number this node is executing in.
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Membership for Quorum Certs/votes
     </span><span class="kw">pub </span>membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
@@ -348,7 +348,7 @@
     }
 
     <span class="doccomment">/// Handles all consensus events relating to propose and vote-enabling events.
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>)]
     #[allow(unused_variables)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,

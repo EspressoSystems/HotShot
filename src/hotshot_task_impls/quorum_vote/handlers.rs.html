@@ -632,6 +632,29 @@
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -646,7 +669,7 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal2, VidDisperseShare2},
+    data::{Leaf2, QuorumProposalWrapper, VidDisperseShare2},
     drb::{compute_drb_result, DrbResult},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
@@ -659,7 +682,10 @@
         storage::Storage,
         ValidatedState,
     },
-    utils::{epoch_from_block_number, is_epoch_root, is_last_block_in_epoch},
+    utils::{
+        epoch_from_block_number, is_epoch_root, is_last_block_in_epoch,
+        option_epoch_from_block_number,
+    },
     vote::HasViewNumber,
 };
 <span class="kw">use </span>tokio::spawn;
@@ -734,13 +760,13 @@
 ///
 /// Returns an error if we should not vote.
 </span><span class="kw">async fn </span>verify_drb_result&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
-    proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
+    proposal: <span class="kw-2">&amp;</span>QuorumProposalWrapper&lt;TYPES&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="comment">// Skip if this is not the expected block.
     </span><span class="kw">if </span>task_state.epoch_height == <span class="number">0
         </span>|| !is_last_block_in_epoch(
-            proposal.block_header.block_number(),
+            proposal.block_header().block_number(),
             task_state.epoch_height,
         )
     {
@@ -748,39 +774,57 @@
         <span class="kw">return </span><span class="prelude-val">Ok</span>(());
     }
 
-    <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
-        proposal.block_header.block_number(),
+    <span class="comment">// #3967 REVIEW NOTE: Check if this is the right way to decide if we're doing epochs
+    // Alternatively, should we just return Err() if epochs aren't happening here? Or can we assume
+    // that epochs are definitely happening by virtue of getting here?
+    </span><span class="kw">let </span>epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+        task_state
+            .upgrade_lock
+            .epochs_enabled(proposal.view_number())
+            .<span class="kw">await</span>,
+        proposal.block_header().block_number(),
         task_state.epoch_height,
-    ));
+    );
 
     <span class="kw">let </span>proposal_result = proposal
-        .next_drb_result
+        .next_drb_result()
         .context(<span class="macro">info!</span>(<span class="string">"Proposal is missing the DRB result."</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>membership_reader = task_state.membership.read().<span class="kw">await</span>;
 
-    <span class="kw">let </span>has_stake_current_epoch = membership_reader.has_stake(<span class="kw-2">&amp;</span>task_state.public_key, epoch);
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(epoch_val) = epoch {
+        <span class="kw">let </span>has_stake_current_epoch =
+            membership_reader.has_stake(<span class="kw-2">&amp;</span>task_state.public_key, <span class="prelude-val">Some</span>(epoch_val));
 
-    drop(membership_reader);
+        drop(membership_reader);
 
-    <span class="kw">if </span>has_stake_current_epoch {
-        <span class="kw">let </span>computed_result = store_and_get_computed_drb_result(epoch + <span class="number">1</span>, task_state).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">if </span>has_stake_current_epoch {
+            <span class="kw">let </span>computed_result =
+                store_and_get_computed_drb_result(epoch_val + <span class="number">1</span>, task_state).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="macro">ensure!</span>(proposal_result == computed_result, <span class="macro">warn!</span>(<span class="string">"Our calculated DRB result is {:?}, which does not match the proposed DRB result of {:?}"</span>, computed_result, proposal_result));
+            <span class="macro">ensure!</span>(proposal_result == computed_result, <span class="macro">warn!</span>(<span class="string">"Our calculated DRB result is {:?}, which does not match the proposed DRB result of {:?}"</span>, computed_result, proposal_result));
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Err</span>(<span class="macro">error!</span>(<span class="string">"Epochs are not available"</span>))
     }
-
-    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Start the DRB computation task for the next epoch.
 ///
 /// Uses the seed previously stored in `store_drb_seed_and_result`.
 </span><span class="kw">async fn </span>start_drb_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt;(
-    proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
+    proposal: <span class="kw-2">&amp;</span>QuorumProposalWrapper&lt;TYPES&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I, V&gt;,
 ) {
+    <span class="comment">// #3967 REVIEW NOTE: Should we just exit early if we aren't doing epochs?
+    </span><span class="kw">if </span>!proposal.with_epoch {
+        <span class="kw">return</span>;
+    }
+
     <span class="kw">let </span>current_epoch_number = TYPES::Epoch::new(epoch_from_block_number(
-        proposal.block_header.block_number(),
+        proposal.block_header().block_number(),
         task_state.epoch_height,
     ));
 
@@ -789,7 +833,7 @@
         .membership
         .read()
         .<span class="kw">await
-        </span>.has_stake(<span class="kw-2">&amp;</span>task_state.public_key, current_epoch_number)
+        </span>.has_stake(<span class="kw-2">&amp;</span>task_state.public_key, <span class="prelude-val">Some</span>(current_epoch_number))
     {
         <span class="kw">let </span>new_epoch_number = current_epoch_number + <span class="number">1</span>;
 
@@ -926,13 +970,13 @@
 }
 
 <span class="doccomment">/// Handles the `QuorumProposalValidated` event.
-</span><span class="attr">#[instrument(skip_all, fields(id = task_state.id, view = <span class="kw-2">*</span>proposal.view_number))]
+</span><span class="attr">#[instrument(skip_all, fields(id = task_state.id, view = <span class="kw-2">*</span>proposal.view_number()))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_quorum_proposal_validated&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt;(
-    proposal: <span class="kw-2">&amp;</span>QuorumProposal2&lt;TYPES&gt;,
+    proposal: <span class="kw-2">&amp;</span>QuorumProposalWrapper&lt;TYPES&gt;,
     task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>version = task_state
@@ -1205,17 +1249,19 @@
     extended_vote: bool,
     epoch_height: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-    <span class="kw">let </span>epoch_number = TYPES::Epoch::new(epoch_from_block_number(
+    <span class="kw">let </span>epoch_number = option_epoch_from_block_number::&lt;TYPES&gt;(
+        leaf.with_epoch,
         leaf.block_header().block_number(),
         epoch_height,
-    ));
+    );
 
     <span class="kw">let </span>membership_reader = membership.read().<span class="kw">await</span>;
     <span class="kw">let </span>committee_member_in_current_epoch = membership_reader.has_stake(<span class="kw-2">&amp;</span>public_key, epoch_number);
     <span class="comment">// If the proposed leaf is for the last block in the epoch and the node is part of the quorum committee
     // in the next epoch, the node should vote to achieve the double quorum.
-    </span><span class="kw">let </span>committee_member_in_next_epoch = is_last_block_in_epoch(leaf.height(), epoch_height)
-        &amp;&amp; membership_reader.has_stake(<span class="kw-2">&amp;</span>public_key, epoch_number + <span class="number">1</span>);
+    </span><span class="kw">let </span>committee_member_in_next_epoch = leaf.with_epoch
+        &amp;&amp; is_last_block_in_epoch(leaf.height(), epoch_height)
+        &amp;&amp; membership_reader.has_stake(<span class="kw-2">&amp;</span>public_key, epoch_number.map(|x| x + <span class="number">1</span>));
     drop(membership_reader);
 
     <span class="macro">ensure!</span>(

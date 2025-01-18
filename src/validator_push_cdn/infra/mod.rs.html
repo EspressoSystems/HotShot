@@ -1140,6 +1140,11 @@
 <a href="#1140" id="1140">1140</a>
 <a href="#1141" id="1141">1141</a>
 <a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1202,6 +1207,7 @@
         node_implementation::{ConsensusTime, NodeType, Versions},
         states::TestableState,
     },
+    utils::genesis_epoch_from_version,
     HotShotConfig, PeerConfig, ValidatorConfig,
 };
 <span class="kw">use </span>libp2p_networking::network::{
@@ -1666,11 +1672,15 @@
             .memberships
             .read()
             .<span class="kw">await
-            </span>.committee_leaders(TYPES::View::genesis(), TYPES::Epoch::genesis())
+            </span>.committee_leaders(
+                TYPES::View::genesis(),
+                genesis_epoch_from_version::&lt;V, TYPES&gt;(),
+            )
             .len();
         <span class="kw">let </span>consensus_lock = context.hotshot.consensus();
-        <span class="kw">let </span>consensus = consensus_lock.read().<span class="kw">await</span>;
-        <span class="kw">let </span>total_num_views = usize::try_from(consensus.locked_view().u64()).unwrap();
+        <span class="kw">let </span>consensus_reader = consensus_lock.read().<span class="kw">await</span>;
+        <span class="kw">let </span>total_num_views = usize::try_from(consensus_reader.locked_view().u64()).unwrap();
+        drop(consensus_reader);
         <span class="comment">// `failed_num_views` could include uncommitted views
         </span><span class="kw">let </span>failed_num_views = total_num_views - num_successful_commits;
         <span class="comment">// When posting to the orchestrator, note that the total number of views also include un-finalized views.

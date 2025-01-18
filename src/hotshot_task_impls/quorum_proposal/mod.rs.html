@@ -631,6 +631,9 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -676,7 +679,7 @@
     </span><span class="kw">pub </span>latest_proposed_view: TYPES::View,
 
     <span class="doccomment">/// Current epoch
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Table for the in-progress proposal dependency tasks.
     </span><span class="kw">pub </span>proposal_dependencies: BTreeMap&lt;TYPES::View, JoinHandle&lt;()&gt;&gt;,
@@ -907,7 +910,7 @@
     </span><span class="kw">async fn </span>create_dependency_task_if_new(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
-        epoch_number: TYPES::Epoch,
+        epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         event_receiver: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event_sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -918,11 +921,14 @@
             membership_reader.leader(view_number, epoch_number)<span class="question-mark">? </span>== <span class="self">self</span>.public_key;
         <span class="comment">// If we are in the epoch transition and we are the leader in the next epoch,
         // we might want to start collecting dependencies for our next epoch proposal.
-        </span><span class="kw">let </span>leader_in_next_epoch = <span class="macro">matches!</span>(
-            epoch_transition_indicator,
-            EpochTransitionIndicator::InTransition
-        ) &amp;&amp; membership_reader.leader(view_number, epoch_number + <span class="number">1</span>)<span class="question-mark">?
-            </span>== <span class="self">self</span>.public_key;
+
+        </span><span class="kw">let </span>leader_in_next_epoch = epoch_number.is_some()
+            &amp;&amp; <span class="macro">matches!</span>(
+                epoch_transition_indicator,
+                EpochTransitionIndicator::InTransition
+            )
+            &amp;&amp; membership_reader.leader(view_number, epoch_number.map(|x| x + <span class="number">1</span>))<span class="question-mark">?
+                </span>== <span class="self">self</span>.public_key;
         drop(membership_reader);
 
         <span class="comment">// Don't even bother making the task if we are not entitled to propose anyway.
@@ -1002,7 +1008,7 @@
     </span>}
 
     <span class="doccomment">/// Handles a consensus event received on the event stream
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"handle method"</span>, level = <span class="string">"error"</span>, target = <span class="string">"QuorumProposalTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, latest_proposed_view = <span class="kw-2">*</span><span class="self">self</span>.latest_proposed_view, epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"handle method"</span>, level = <span class="string">"error"</span>, target = <span class="string">"QuorumProposalTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,

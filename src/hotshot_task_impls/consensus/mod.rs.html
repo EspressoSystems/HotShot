@@ -195,6 +195,13 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -215,10 +222,10 @@
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, TimeoutCertificate2},
     simple_vote::{NextEpochQuorumVote2, QuorumVote2, TimeoutVote2},
     traits::{
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
     },
-    utils::epoch_from_block_number,
+    utils::option_epoch_from_block_number,
     vote::HasViewNumber,
 };
 <span class="kw">use </span>tokio::task::JoinHandle;
@@ -272,7 +279,7 @@
     </span><span class="kw">pub </span>cur_view_time: i64,
 
     <span class="doccomment">/// The epoch number that this node is currently executing in.
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Output events to application
     </span><span class="kw">pub </span>output_event_stream: async_broadcast::Sender&lt;Event&lt;TYPES&gt;&gt;,
@@ -298,7 +305,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; ConsensusTaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// Handles a consensus event received on the event stream
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, cur_epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"ConsensusTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, cur_view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, cur_epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"Consensus replica task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"ConsensusTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -332,6 +339,11 @@
                 }
             }
             HotShotEvent::Qc2Formed(Either::Left(quorum_cert)) =&gt; {
+                <span class="kw">let </span>cert_view = quorum_cert.view_number();
+                <span class="kw">if </span>!<span class="self">self</span>.upgrade_lock.epochs_enabled(cert_view).<span class="kw">await </span>{
+                    <span class="macro">tracing::debug!</span>(<span class="string">"QC2 formed but epochs not enabled. Do nothing"</span>);
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
                 <span class="kw">if </span>!<span class="self">self
                     </span>.consensus
                     .read()
@@ -341,7 +353,6 @@
                     <span class="macro">tracing::debug!</span>(<span class="string">"We formed QC but not eQC. Do nothing"</span>);
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
-                <span class="kw">let </span>cert_view = quorum_cert.view_number();
                 <span class="kw">let </span>cert_block_number = <span class="self">self
                     </span>.consensus
                     .read()
@@ -352,14 +363,17 @@
                         <span class="string">"Could not find the leaf for the eQC. It shouldn't happen."
                     </span>))<span class="question-mark">?
                     </span>.height();
-                <span class="kw">let </span>cert_epoch = TYPES::Epoch::new(epoch_from_block_number(
+
+                <span class="kw">let </span>cert_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+                    <span class="bool-val">true</span>,
                     cert_block_number,
                     <span class="self">self</span>.epoch_height,
-                ));
+                );
                 <span class="comment">// Transition to the new epoch by sending ViewChange
-                </span><span class="macro">tracing::info!</span>(<span class="string">"Entering new epoch: {:?}"</span>, cert_epoch + <span class="number">1</span>);
+                </span><span class="kw">let </span>next_epoch = cert_epoch.map(|x| x + <span class="number">1</span>);
+                <span class="macro">tracing::info!</span>(<span class="string">"Entering new epoch: {:?}"</span>, next_epoch);
                 broadcast_event(
-                    Arc::new(HotShotEvent::ViewChange(cert_view + <span class="number">1</span>, cert_epoch + <span class="number">1</span>)),
+                    Arc::new(HotShotEvent::ViewChange(cert_view + <span class="number">1</span>, next_epoch)),
                     <span class="kw-2">&amp;</span>sender,
                 )
                 .<span class="kw">await</span>;

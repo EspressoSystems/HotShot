@@ -443,7 +443,7 @@
     </span><span class="kw">pub </span>cur_view: TYPES::View,
 
     <span class="doccomment">/// Epoch number this node is executing in.
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
@@ -477,7 +477,7 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; DaTaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"DA Main Task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"DaTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"DA Main Task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"DaTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,

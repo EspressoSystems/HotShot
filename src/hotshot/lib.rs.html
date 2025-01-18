@@ -1095,6 +1095,19 @@
 <a href="#1095" id="1095">1095</a>
 <a href="#1096" id="1096">1096</a>
 <a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1123,6 +1136,7 @@
 </span><span class="kw">pub mod </span>types;
 
 <span class="kw">pub mod </span>tasks;
+<span class="kw">use </span>hotshot_types::data::QuorumProposalWrapper;
 
 <span class="doccomment">/// Contains helper functions for the crate
 </span><span class="kw">pub mod </span>helpers;
@@ -1159,13 +1173,14 @@
         states::ValidatedState,
         storage::Storage,
     },
-    utils::epoch_from_block_number,
+    utils::{genesis_epoch_from_version, option_epoch_from_block_number},
     HotShotConfig,
 };
 <span class="doccomment">/// Reexport rand crate
 </span><span class="kw">pub use </span>rand;
 <span class="kw">use </span>tokio::{spawn, time::sleep};
 <span class="kw">use </span>tracing::{debug, instrument, trace};
+
 <span class="comment">// -- Rexports
 // External
 </span><span class="kw">use crate</span>::{
@@ -1218,7 +1233,7 @@
     </span>start_view: TYPES::View,
 
     <span class="doccomment">/// The epoch to enter when first starting consensus
-    </span>start_epoch: TYPES::Epoch,
+    </span>start_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Access to the output event stream.
     </span>output_event_stream: (Sender&lt;Event&lt;TYPES&gt;&gt;, InactiveReceiver&lt;Event&lt;TYPES&gt;&gt;),
@@ -1332,7 +1347,8 @@
             internal_chan,
             external_chan,
         )
-    }
+        .<span class="kw">await
+    </span>}
 
     <span class="doccomment">/// Creates a new [`Arc&lt;SystemContext&gt;`] with the given configuration options.
     ///
@@ -1342,7 +1358,7 @@
     /// Use this function if you want to use some preexisting channels and to spin up the tasks
     /// and start consensus manually.  Mostly useful for tests
     </span><span class="attr">#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-    </span><span class="kw">pub fn </span>new_from_channels(
+    </span><span class="kw">pub async fn </span>new_from_channels(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
@@ -1387,10 +1403,15 @@
             )),
         };
 
-        <span class="kw">let </span>epoch = TYPES::Epoch::new(epoch_from_block_number(
+        <span class="comment">// #3967 REVIEW NOTE: Should this actually be Some()? How do we know?
+        </span><span class="kw">let </span>epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+            upgrade_lock
+                .epochs_enabled(anchored_leaf.view_number())
+                .<span class="kw">await</span>,
             anchored_leaf.height(),
             config.epoch_height,
-        ));
+        );
+
         <span class="comment">// Insert the validated state to state map.
         </span><span class="kw">let </span><span class="kw-2">mut </span>validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -1419,18 +1440,11 @@
             saved_payloads.insert(anchored_leaf.view_number(), Arc::new(payload));
         }
 
-        <span class="kw">let </span>anchored_epoch = <span class="kw">if </span>config.epoch_height == <span class="number">0 </span>{
-            TYPES::Epoch::new(<span class="number">0</span>)
-        } <span class="kw">else if </span>anchored_leaf.height() % config.epoch_height == <span class="number">0 </span>{
-            TYPES::Epoch::new(anchored_leaf.height() / config.epoch_height)
-        } <span class="kw">else </span>{
-            TYPES::Epoch::new(anchored_leaf.height() / config.epoch_height + <span class="number">1</span>)
-        };
         <span class="kw">let </span>consensus = Consensus::new(
             validated_state_map,
             initializer.saved_vid_shares,
             anchored_leaf.view_number(),
-            anchored_epoch,
+            epoch,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
             initializer.actioned_view,
@@ -1512,7 +1526,10 @@
             <span class="kw">async move </span>{
                 sleep(Duration::from_millis(next_view_timeout)).<span class="kw">await</span>;
                 broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(start_view + <span class="number">1</span>, start_epoch + <span class="number">1</span>)),
+                    Arc::new(HotShotEvent::Timeout(
+                        start_view + <span class="number">1</span>,
+                        start_epoch.map(|x| x + <span class="number">1</span>),
+                    )),
                     <span class="kw-2">&amp;</span>event_stream,
                 )
                 .<span class="kw">await</span>;
@@ -2099,26 +2116,35 @@
 
     <span class="doccomment">/// Starting view number that should be equivalent to the view the node shut down with last.
     </span>start_view: TYPES::View,
+
     <span class="doccomment">/// Starting epoch number that should be equivalent to the epoch the node shut down with last.
-    </span>start_epoch: TYPES::Epoch,
+    </span>start_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+
     <span class="doccomment">/// The view we last performed an action in.  An action is Proposing or voting for
     /// Either the quorum or DA.
     </span>actioned_view: TYPES::View,
+
     <span class="doccomment">/// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
+
     <span class="doccomment">/// Next epoch highest QC that was seen. This is needed to propose during epoch transition after restart.
     </span>next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// Undecided leaves that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
     </span>undecided_leaves: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// Not yet decided state
     </span>undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
+
     <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
-    </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
+    </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
+
     <span class="doccomment">/// Saved VID shares
     </span>saved_vid_shares: <span class="prelude-ty">Option</span>&lt;VidShares&lt;TYPES&gt;&gt;,
 }
@@ -2134,11 +2160,11 @@
         <span class="kw">let </span>high_qc = QuorumCertificate2::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>;
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            inner: Leaf2::genesis(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
+            inner: Leaf2::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
             validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
             state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::View::new(<span class="number">0</span>),
-            start_epoch: TYPES::Epoch::new(<span class="number">0</span>),
+            start_epoch: genesis_epoch_from_version::&lt;V, TYPES&gt;(),
             actioned_view: TYPES::View::new(<span class="number">0</span>),
             saved_proposals: BTreeMap::new(),
             high_qc,
@@ -2164,9 +2190,9 @@
         instance_state: TYPES::InstanceState,
         validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
         start_view: TYPES::View,
-        start_epoch: TYPES::Epoch,
+        start_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         actioned_view: TYPES::View,
-        saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;&gt;,
+        saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
         high_qc: QuorumCertificate2&lt;TYPES&gt;,
         next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
         decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,

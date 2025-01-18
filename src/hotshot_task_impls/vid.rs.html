@@ -261,6 +261,10 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -276,15 +280,15 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare2},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload,
     },
-    utils::epoch_from_block_number,
+    utils::option_epoch_from_block_number,
 };
 <span class="kw">use </span>tracing::{debug, error, info, instrument};
 <span class="kw">use </span>utils::anytrace::Result;
@@ -295,12 +299,12 @@
 };
 
 <span class="doccomment">/// Tracks state of a VID task
-</span><span class="kw">pub struct </span>VidTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>VidTaskState&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::View,
 
     <span class="doccomment">/// Epoch number this node is executing in.
-    </span><span class="kw">pub </span>cur_epoch: TYPES::Epoch,
+    </span><span class="kw">pub </span>cur_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: OuterConsensus&lt;TYPES&gt;,
@@ -320,13 +324,16 @@
     <span class="doccomment">/// This state's ID
     </span><span class="kw">pub </span>id: u64,
 
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span><span class="kw">pub </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
+
     <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
     </span><span class="kw">pub </span>epoch_height: u64,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; VidTaskState&lt;TYPES, I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; VidTaskState&lt;TYPES, I, V&gt; {
     <span class="doccomment">/// main task event handler
-    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="kw-2">*</span><span class="self">self</span>.cur_epoch), name = <span class="string">"VID Main Task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"VidTaskState"</span>)]
+    </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view, epoch = <span class="self">self</span>.cur_epoch.map(|x| <span class="kw-2">*</span>x)), name = <span class="string">"VID Main Task"</span>, level = <span class="string">"error"</span>, target = <span class="string">"VidTaskState"</span>)]
     </span><span class="kw">pub async fn </span>handle(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;,
@@ -401,8 +408,8 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 <span class="macro">debug!</span>(
-                    <span class="string">"publishing VID disperse for view {} and epoch {}"</span>,
-                    <span class="kw-2">*</span>view_number, <span class="kw-2">*</span>epoch
+                    <span class="string">"publishing VID disperse for view {} and epoch {:?}"</span>,
+                    <span class="kw-2">*</span>view_number, epoch
                 );
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
@@ -437,21 +444,20 @@
             }
 
             HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>proposed_block_number = proposal.data.block_header.block_number();
-                <span class="kw">if </span><span class="self">self</span>.epoch_height == <span class="number">0 </span>|| proposed_block_number % <span class="self">self</span>.epoch_height != <span class="number">0 </span>{
+                <span class="kw">let </span>proposed_block_number = proposal.data.block_header().block_number();
+                <span class="kw">if </span>!proposal.data.with_epoch || proposed_block_number % <span class="self">self</span>.epoch_height != <span class="number">0 </span>{
                     <span class="comment">// This is not the last block in the epoch, do nothing.
                     </span><span class="kw">return </span><span class="prelude-val">None</span>;
                 }
                 <span class="comment">// We just sent a proposal for the last block in the epoch. We need to calculate
                 // and send VID for the nodes in the next epoch so that they can vote.
-                </span><span class="kw">let </span>proposal_view_number = proposal.data.view_number;
-                <span class="kw">let </span>sender_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                </span><span class="kw">let </span>proposal_view_number = proposal.data.view_number();
+                <span class="kw">let </span>sender_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+                    <span class="bool-val">true</span>,
                     proposed_block_number,
                     <span class="self">self</span>.epoch_height,
-                ));
-                <span class="kw">let </span>target_epoch = TYPES::Epoch::new(
-                    epoch_from_block_number(proposed_block_number, <span class="self">self</span>.epoch_height) + <span class="number">1</span>,
                 );
+                <span class="kw">let </span>target_epoch = sender_epoch.map(|x| x + <span class="number">1</span>);
 
                 <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
                 <span class="kw">let </span><span class="prelude-val">Some</span>(payload) = consensus_reader.saved_payloads().get(<span class="kw-2">&amp;</span>proposal_view_number)
@@ -482,8 +488,8 @@
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 <span class="macro">debug!</span>(
-                    <span class="string">"publishing VID disperse for view {} and epoch {}"</span>,
-                    <span class="kw-2">*</span>proposal_view_number, <span class="kw-2">*</span>target_epoch
+                    <span class="string">"publishing VID disperse for view {} and epoch {:?}"</span>,
+                    <span class="kw-2">*</span>proposal_view_number, target_epoch
                 );
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
@@ -509,7 +515,9 @@
 
 <span class="attr">#[async_trait]
 </span><span class="doccomment">/// task state implementation for VID Task
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TaskState <span class="kw">for </span>VidTaskState&lt;TYPES, I&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; TaskState
+    <span class="kw">for </span>VidTaskState&lt;TYPES, I, V&gt;
+{
     <span class="kw">type </span>Event = HotShotEvent&lt;TYPES&gt;;
 
     <span class="kw">async fn </span>handle_event(

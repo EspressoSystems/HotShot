@@ -130,6 +130,14 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -152,8 +160,8 @@
 <span class="kw">use crate</span>::{
     consensus::{CommitmentMap, View},
     data::{
-        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
-        VidDisperseShare2,
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
+        QuorumProposalWrapper, VidDisperseShare, VidDisperseShare2,
     },
     event::HotShotAction,
     message::{convert_proposal, Proposal},
@@ -199,6 +207,14 @@
     </span><span class="kw">async fn </span>append_proposal2(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.append_proposal(<span class="kw-2">&amp;</span>convert_proposal(proposal.clone()))
+            .<span class="kw">await
+    </span>}
+    <span class="doccomment">/// Add a proposal we sent to the store
+    </span><span class="kw">async fn </span>append_proposal_wrapper(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.append_proposal(<span class="kw-2">&amp;</span>convert_proposal(proposal.clone()))
             .<span class="kw">await
