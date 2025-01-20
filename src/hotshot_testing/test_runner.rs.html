@@ -733,6 +733,10 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -847,7 +851,11 @@
         }
 
         <span class="self">self</span>.add_nodes::&lt;B&gt;(
-            <span class="self">self</span>.launcher.metadata.num_nodes_with_stake,
+            <span class="self">self</span>.launcher
+                .metadata
+                .test_config
+                .num_nodes_with_stake
+                .into(),
             <span class="kw-2">&amp;</span>late_start_nodes,
             <span class="kw-2">&amp;</span>restart_nodes,
         )
@@ -928,7 +936,7 @@
             next_epoch_high_qc: <span class="prelude-val">None</span>,
             async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
-            channel_generator: launcher.resource_generator.channel_generator,
+            channel_generator: launcher.resource_generators.channel_generator,
         };
         <span class="kw">let </span>spinning_task = TestTask::&lt;SpinningTask&lt;TYPES, N, I, V&gt;&gt;::new(
             spinning_task_state,
@@ -938,7 +946,7 @@
         <span class="comment">// add safety task
         </span><span class="kw">let </span>overall_safety_task_state = OverallSafetyTask {
             handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
-            epoch_height: launcher.metadata.epoch_height,
+            epoch_height: launcher.metadata.test_config.epoch_height,
             ctx: RoundCtx::default(),
             properties: launcher.metadata.overall_safety_properties.clone(),
             error: <span class="prelude-val">None</span>,
@@ -1063,7 +1071,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         num_nodes: usize,
     ) -&gt; (Vec&lt;Box&lt;<span class="kw">dyn </span>BuilderTask&lt;TYPES&gt;&gt;&gt;, Vec&lt;Url&gt;, Url) {
-        <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
+        <span class="kw">let </span>config = <span class="self">self</span>.launcher.metadata.test_config.clone();
         <span class="kw">let </span><span class="kw-2">mut </span>builder_tasks = Vec::new();
         <span class="kw">let </span><span class="kw-2">mut </span>builder_urls = Vec::new();
         <span class="kw">for </span>metadata <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.launcher.metadata.builders {
@@ -1134,7 +1142,7 @@
         restart: <span class="kw-2">&amp;</span>HashSet&lt;u64&gt;,
     ) -&gt; Vec&lt;u64&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
-        <span class="kw">let </span>config = <span class="self">self</span>.launcher.resource_generator.config.clone();
+        <span class="kw">let </span>config = <span class="self">self</span>.launcher.metadata.test_config.clone();
 
         <span class="comment">// TODO This is only a workaround. Number of nodes changes from epoch to epoch. Builder should be made epoch-aware.
         </span><span class="kw">let </span>temp_memberships = &lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership::new(
@@ -1173,10 +1181,10 @@
                 .try_into()
                 .expect(<span class="string">"Non-empty by construction"</span>);
 
-            <span class="kw">let </span>network = (<span class="self">self</span>.launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
-            <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generator.storage)(node_id);
+            <span class="kw">let </span>network = (<span class="self">self</span>.launcher.resource_generators.channel_generator)(node_id).<span class="kw">await</span>;
+            <span class="kw">let </span>storage = (<span class="self">self</span>.launcher.resource_generators.storage)(node_id);
             <span class="kw">let </span><span class="kw-2">mut </span>marketplace_config =
-                (<span class="self">self</span>.launcher.resource_generator.marketplace_config)(node_id);
+                (<span class="self">self</span>.launcher.resource_generators.marketplace_config)(node_id);
             <span class="kw">if let </span><span class="prelude-val">Some</span>(solver_server) = <span class="kw-2">&amp;</span><span class="self">self</span>.solver_server {
                 <span class="kw">let </span><span class="kw-2">mut </span>new_auction_results_provider =
                     marketplace_config.auction_results_provider.as_ref().clone();

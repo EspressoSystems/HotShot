@@ -867,7 +867,7 @@
             </span><span class="kw">async fn </span>#test_name() {
                 hotshot::helpers::initialize_logging();
 
-                hotshot_testing::test_builder::TestDescription::&lt;#ty, #imply, #version&gt;::gen_launcher((#metadata), <span class="number">0</span>).launch().run_test::&lt;#builder_impl&gt;().<span class="kw">await</span>;
+                hotshot_testing::test_builder::TestDescription::&lt;#ty, #imply, #version&gt;::gen_launcher((#metadata)).launch().run_test::&lt;#builder_impl&gt;().<span class="kw">await</span>;
             }
         }
     }

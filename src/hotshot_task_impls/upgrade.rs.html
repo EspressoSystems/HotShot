@@ -341,6 +341,10 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -355,10 +359,6 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
-    constants::{
-        UPGRADE_BEGIN_OFFSET, UPGRADE_DECIDE_BY_OFFSET, UPGRADE_FINISH_OFFSET,
-        UPGRADE_PROPOSE_OFFSET,
-    },
     data::UpgradeProposal,
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
@@ -610,7 +610,7 @@
                     </span>.as_secs();
 
                 <span class="kw">let </span>leader = <span class="self">self</span>.membership.read().<span class="kw">await</span>.leader(
-                    TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
+                    TYPES::View::new(view + TYPES::UPGRADE_CONSTANTS.propose_offset),
                     <span class="self">self</span>.cur_epoch,
                 )<span class="question-mark">?</span>;
 
@@ -626,14 +626,22 @@
                         old_version: V::Base::VERSION,
                         new_version: V::Upgrade::VERSION,
                         new_version_hash: V::UPGRADE_HASH.to_vec(),
-                        old_version_last_view: TYPES::View::new(view + UPGRADE_BEGIN_OFFSET),
-                        new_version_first_view: TYPES::View::new(view + UPGRADE_FINISH_OFFSET),
-                        decide_by: TYPES::View::new(view + UPGRADE_DECIDE_BY_OFFSET),
+                        old_version_last_view: TYPES::View::new(
+                            view + TYPES::UPGRADE_CONSTANTS.begin_offset,
+                        ),
+                        new_version_first_view: TYPES::View::new(
+                            view + TYPES::UPGRADE_CONSTANTS.finish_offset,
+                        ),
+                        decide_by: TYPES::View::new(
+                            view + TYPES::UPGRADE_CONSTANTS.decide_by_offset,
+                        ),
                     };
 
                     <span class="kw">let </span>upgrade_proposal = UpgradeProposal {
                         upgrade_proposal: upgrade_proposal_data.clone(),
-                        view_number: TYPES::View::new(view + UPGRADE_PROPOSE_OFFSET),
+                        view_number: TYPES::View::new(
+                            view + TYPES::UPGRADE_CONSTANTS.propose_offset,
+                        ),
                     };
 
                     <span class="kw">let </span>signature = TYPES::SignatureKey::sign(

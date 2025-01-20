@@ -382,6 +382,18 @@
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -405,9 +417,11 @@
     NodeImplementation,
 };
 <span class="kw">use </span>hotshot_types::{
+    constants::TEST_UPGRADE_CONSTANTS,
     data::{EpochNumber, ViewNumber},
     signature_key::{BLSPubKey, BuilderKey},
     traits::node_implementation::{NodeType, Versions},
+    upgrade_config::UpgradeConstants,
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>vbs::version::StaticVersion;
@@ -436,6 +450,8 @@
 /// to select our traits
 </span><span class="kw">pub struct </span>TestTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTypes {
+    <span class="kw">const </span>UPGRADE_CONSTANTS: UpgradeConstants = TEST_UPGRADE_CONSTANTS;
+
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
     <span class="kw">type </span>View = ViewNumber;
     <span class="kw">type </span>Epoch = EpochNumber;
@@ -466,6 +482,8 @@
 /// to select our traits
 </span><span class="kw">pub struct </span>TestTypesRandomizedLeader;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTypesRandomizedLeader {
+    <span class="kw">const </span>UPGRADE_CONSTANTS: UpgradeConstants = TEST_UPGRADE_CONSTANTS;
+
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
     <span class="kw">type </span>View = ViewNumber;
     <span class="kw">type </span>Epoch = EpochNumber;
@@ -499,6 +517,8 @@
 }
 
 <span class="kw">impl</span>&lt;CONFIG: QuorumFilterConfig&gt; NodeType <span class="kw">for </span>TestTypesRandomizedCommitteeMembers&lt;CONFIG&gt; {
+    <span class="kw">const </span>UPGRADE_CONSTANTS: UpgradeConstants = TEST_UPGRADE_CONSTANTS;
+
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
     <span class="kw">type </span>View = ViewNumber;
     <span class="kw">type </span>Epoch = EpochNumber;
@@ -530,6 +550,8 @@
 /// to select our traits
 </span><span class="kw">pub struct </span>TestConsecutiveLeaderTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestConsecutiveLeaderTypes {
+    <span class="kw">const </span>UPGRADE_CONSTANTS: UpgradeConstants = TEST_UPGRADE_CONSTANTS;
+
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
     <span class="kw">type </span>View = ViewNumber;
     <span class="kw">type </span>Epoch = EpochNumber;
@@ -560,6 +582,8 @@
 /// to select our traits
 </span><span class="kw">pub struct </span>TestTwoStakeTablesTypes;
 <span class="kw">impl </span>NodeType <span class="kw">for </span>TestTwoStakeTablesTypes {
+    <span class="kw">const </span>UPGRADE_CONSTANTS: UpgradeConstants = TEST_UPGRADE_CONSTANTS;
+
     <span class="kw">type </span>AuctionResult = TestAuctionResult;
     <span class="kw">type </span>View = ViewNumber;
     <span class="kw">type </span>Epoch = EpochNumber;

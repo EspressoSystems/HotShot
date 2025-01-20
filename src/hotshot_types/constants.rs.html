@@ -76,6 +76,8 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -85,6 +87,8 @@
 </span><span class="doccomment">//! configurable constants for hotshot
 
 </span><span class="kw">use </span>std::time::Duration;
+
+<span class="kw">use </span><span class="kw">crate</span>::upgrade_config::UpgradeConstants;
 
 <span class="doccomment">/// timeout for fetching auction results from the solver
 </span><span class="kw">pub const </span>AUCTION_RESULTS_FETCH_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);
@@ -119,21 +123,21 @@
 <span class="doccomment">/// Default channel size for HotShot -&gt; application communication
 </span><span class="kw">pub const </span>EXTERNAL_EVENT_CHANNEL_SIZE: usize = <span class="number">100_000</span>;
 
-<span class="doccomment">/// The offset for how far in the future we will send out a `QuorumProposal` with an `UpgradeCertificate` we form. This is also how far in advance of sending a `QuorumProposal` we begin collecting votes on an `UpgradeProposal`.
-</span><span class="kw">pub const </span>UPGRADE_PROPOSE_OFFSET: u64 = <span class="number">5</span>;
+<span class="doccomment">/// Default values for the upgrade constants
+</span><span class="kw">pub const </span>DEFAULT_UPGRADE_CONSTANTS: UpgradeConstants = UpgradeConstants {
+    propose_offset: <span class="number">5</span>,
+    decide_by_offset: <span class="number">105</span>,
+    begin_offset: <span class="number">110</span>,
+    finish_offset: <span class="number">115</span>,
+};
 
-<span class="attr">#[cfg(test)]
-</span><span class="doccomment">/// The offset for how far in the future the upgrade certificate we attach should be decided on (or else discarded).
-</span><span class="kw">pub const </span>UPGRADE_DECIDE_BY_OFFSET: u64 = UPGRADE_PROPOSE_OFFSET + <span class="number">5</span>;
-<span class="attr">#[cfg(not(test))]
-</span><span class="doccomment">/// The offset for how far in the future the upgrade certificate we attach should be decided on (or else discarded).
-</span><span class="kw">pub const </span>UPGRADE_DECIDE_BY_OFFSET: u64 = UPGRADE_PROPOSE_OFFSET + <span class="number">100</span>;
-
-<span class="doccomment">/// The offset for how far in the future the upgrade actually begins.
-</span><span class="kw">pub const </span>UPGRADE_BEGIN_OFFSET: u64 = UPGRADE_DECIDE_BY_OFFSET + <span class="number">5</span>;
-
-<span class="doccomment">/// The offset for how far in the future the upgrade ends.
-</span><span class="kw">pub const </span>UPGRADE_FINISH_OFFSET: u64 = UPGRADE_BEGIN_OFFSET + <span class="number">5</span>;
+<span class="doccomment">/// Default values for the upgrade constants to be used in testing
+</span><span class="kw">pub const </span>TEST_UPGRADE_CONSTANTS: UpgradeConstants = UpgradeConstants {
+    propose_offset: <span class="number">5</span>,
+    decide_by_offset: <span class="number">10</span>,
+    begin_offset: <span class="number">15</span>,
+    finish_offset: <span class="number">20</span>,
+};
 
 <span class="doccomment">/// For `STAKE_TABLE_CAPACITY=200`, the light client prover (a.k.a. `hotshot-state-prover`)
 /// would need to generate proof for a circuit of slightly below 2^20 gates.

@@ -558,6 +558,45 @@
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -581,7 +620,7 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
     traits::node_implementation::{NodeType, Versions},
-    HotShotConfig, ValidatorConfig,
+    HotShotConfig, PeerConfig, ValidatorConfig,
 };
 <span class="kw">use </span>tide_disco::Url;
 <span class="kw">use </span>vec1::Vec1;
@@ -615,20 +654,75 @@
     </span><span class="kw">pub </span>view_sync_timeout: Duration,
 }
 
+<span class="kw">pub fn </span>default_hotshot_config&lt;TYPES: NodeType&gt;(
+    known_nodes_with_stake: Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
+    known_da_nodes: Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
+    num_bootstrap_nodes: usize,
+    epoch_height: u64,
+) -&gt; HotShotConfig&lt;TYPES::SignatureKey&gt; {
+    HotShotConfig {
+        start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
+        num_nodes_with_stake: NonZeroUsize::new(known_nodes_with_stake.len()).unwrap(),
+        known_da_nodes: known_da_nodes.clone(),
+        num_bootstrap: num_bootstrap_nodes,
+        known_nodes_with_stake: known_nodes_with_stake.clone(),
+        da_staked_committee_size: known_da_nodes.len(),
+        fixed_leader_for_gpuvid: <span class="number">1</span>,
+        next_view_timeout: <span class="number">500</span>,
+        view_sync_timeout: Duration::from_millis(<span class="number">250</span>),
+        builder_timeout: Duration::from_millis(<span class="number">1000</span>),
+        data_request_delay: Duration::from_millis(<span class="number">200</span>),
+        <span class="comment">// Placeholder until we spin up the builder
+        </span>builder_urls: <span class="macro">vec1::vec1!</span>[Url::parse(<span class="string">"http://localhost:9999"</span>).expect(<span class="string">"Valid URL"</span>)],
+        start_proposing_view: u64::MAX,
+        stop_proposing_view: <span class="number">0</span>,
+        start_voting_view: u64::MAX,
+        stop_voting_view: <span class="number">0</span>,
+        start_proposing_time: u64::MAX,
+        stop_proposing_time: <span class="number">0</span>,
+        start_voting_time: u64::MAX,
+        stop_voting_time: <span class="number">0</span>,
+        epoch_height,
+    }
+}
+
+<span class="attr">#[allow(clippy::type_complexity)]
+</span><span class="kw">pub fn </span>gen_node_lists&lt;TYPES: NodeType&gt;(
+    num_staked_nodes: u64,
+    num_da_nodes: u64,
+) -&gt; (
+    Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
+    Vec&lt;PeerConfig&lt;TYPES::SignatureKey&gt;&gt;,
+) {
+    <span class="kw">let </span><span class="kw-2">mut </span>staked_nodes = Vec::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>da_nodes = Vec::new();
+
+    <span class="kw">for </span>n <span class="kw">in </span><span class="number">0</span>..num_staked_nodes {
+        <span class="kw">let </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt; =
+            ValidatorConfig::generated_from_seed_indexed([<span class="number">0u8</span>; <span class="number">32</span>], n, <span class="number">1</span>, n &lt; num_da_nodes);
+
+        <span class="kw">let </span>peer_config = validator_config.public_config();
+        staked_nodes.push(peer_config.clone());
+
+        <span class="kw">if </span>n &lt; num_da_nodes {
+            da_nodes.push(peer_config)
+        }
+    }
+
+    (staked_nodes, da_nodes)
+}
+
 <span class="doccomment">/// metadata describing a test
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestDescription&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;, V: Versions&gt; {
-    <span class="doccomment">/// Total number of staked nodes in the test
-    </span><span class="kw">pub </span>num_nodes_with_stake: usize,
-    <span class="doccomment">/// nodes available at start
-    </span><span class="kw">pub </span>start_nodes: usize,
+    <span class="doccomment">/// `HotShotConfig` used for setting up the test infrastructure.
+    ///
+    /// Note: this is not the same as the `HotShotConfig` passed to test nodes for `SystemContext::init`;
+    /// those configs are instead provided by the resource generators in the test launcher.
+    </span><span class="kw">pub </span>test_config: HotShotConfig&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// Whether to skip initializing nodes that will start late, which will catch up later with
     /// `HotShotInitializer::from_reload` in the spinning task.
     </span><span class="kw">pub </span>skip_late: bool,
-    <span class="doccomment">/// number of bootstrap nodes (libp2p usage only)
-    </span><span class="kw">pub </span>num_bootstrap_nodes: usize,
-    <span class="doccomment">/// Size of the staked DA committee for the test
-    </span><span class="kw">pub </span>da_staked_committee_size: usize,
     <span class="doccomment">/// overall safety property description
     </span><span class="kw">pub </span>overall_safety_properties: OverallSafetyPropertiesDescription&lt;TYPES&gt;,
     <span class="doccomment">/// spinning properties
@@ -659,8 +753,6 @@
     </span><span class="kw">pub </span>start_solver: bool,
     <span class="doccomment">/// boxed closure used to validate the resulting transactions
     </span><span class="kw">pub </span>validate_transactions: TransactionValidator,
-    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
-    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="kw">pub fn </span>nonempty_block_threshold(threshold: (u64, u64)) -&gt; TransactionValidator {
@@ -860,9 +952,6 @@
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">100</span>;
 
         <span class="self">Self </span>{
-            num_bootstrap_nodes: num_nodes_with_stake,
-            num_nodes_with_stake,
-            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
                 num_successful_views: <span class="number">50</span>,
                 check_leaf: <span class="bool-val">true</span>,
@@ -887,9 +976,6 @@
     </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">10</span>;
         TestDescription::&lt;TYPES, I, V&gt; {
-            num_bootstrap_nodes: num_nodes_with_stake,
-            num_nodes_with_stake,
-            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
                 num_successful_views: <span class="number">20</span>,
                 check_leaf: <span class="bool-val">true</span>,
@@ -912,15 +998,22 @@
     #[allow(clippy::redundant_field_names)]
     </span><span class="kw">pub fn </span>default_more_nodes() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">20</span>;
+        <span class="kw">let </span>num_da_nodes = <span class="number">14</span>;
+        <span class="kw">let </span>epoch_height = <span class="number">10</span>;
+
+        <span class="kw">let </span>(staked_nodes, da_nodes) = gen_node_lists::&lt;TYPES&gt;(num_nodes_with_stake, num_da_nodes);
+
         <span class="self">Self </span>{
-            num_nodes_with_stake,
-            start_nodes: num_nodes_with_stake,
-            num_bootstrap_nodes: num_nodes_with_stake,
+            test_config: default_hotshot_config::&lt;TYPES&gt;(
+                staked_nodes,
+                da_nodes,
+                num_nodes_with_stake.try_into().unwrap(),
+                epoch_height,
+            ),
             <span class="comment">// The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
-            </span>da_staked_committee_size: <span class="number">14</span>,
-            completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+            </span>completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     <span class="comment">// Increase the duration to get the expected number of successful views.
                     </span>duration: Duration::new(<span class="number">340</span>, <span class="number">0</span>),
@@ -933,9 +1026,28 @@
                 next_view_timeout: <span class="number">5000</span>,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(
+                <span class="number">0</span>,
+                num_nodes_with_stake.try_into().unwrap(),
+            ),
             ..<span class="self">Self</span>::default()
         }
+    }
+
+    <span class="kw">pub fn </span>set_num_nodes(<span class="self">self</span>, num_nodes: u64, num_da_nodes: u64) -&gt; <span class="self">Self </span>{
+        <span class="macro">assert!</span>(num_da_nodes &lt;= num_nodes, <span class="string">"Cannot build test with fewer DA than total nodes. You may have mixed up the arguments to the function"</span>);
+
+        <span class="kw">let </span>(staked_nodes, da_nodes) = gen_node_lists::&lt;TYPES&gt;(num_nodes, num_da_nodes);
+
+        <span class="self">Self </span>{
+            test_config: default_hotshot_config::&lt;TYPES&gt;(
+                staked_nodes,
+                da_nodes,
+                <span class="self">self</span>.test_config.num_bootstrap,
+                <span class="self">self</span>.test_config.epoch_height,
+            ),
+            ..<span class="self">self
+        </span>}
     }
 }
 
@@ -946,14 +1058,20 @@
     </span><span class="attr">#[allow(clippy::redundant_field_names)]
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>num_nodes_with_stake = <span class="number">7</span>;
+        <span class="kw">let </span>num_da_nodes = num_nodes_with_stake;
+        <span class="kw">let </span>epoch_height = <span class="number">10</span>;
+
+        <span class="kw">let </span>(staked_nodes, da_nodes) = gen_node_lists::&lt;TYPES&gt;(num_nodes_with_stake, num_da_nodes);
+
         <span class="self">Self </span>{
-            epoch_height: <span class="number">10</span>,
+            test_config: default_hotshot_config::&lt;TYPES&gt;(
+                staked_nodes,
+                da_nodes,
+                num_nodes_with_stake.try_into().unwrap(),
+                epoch_height,
+            ),
             timing_data: TimingData::default(),
-            num_nodes_with_stake,
-            start_nodes: num_nodes_with_stake,
             skip_late: <span class="bool-val">false</span>,
-            num_bootstrap_nodes: num_nodes_with_stake,
-            da_staked_committee_size: num_nodes_with_stake,
             spinning_properties: SpinningTaskDescription {
                 node_changes: <span class="macro">vec!</span>[],
             },
@@ -967,7 +1085,10 @@
                 },
             ),
             unreliable_network: <span class="prelude-val">None</span>,
-            view_sync_properties: ViewSyncTaskDescription::Threshold(<span class="number">0</span>, num_nodes_with_stake),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(
+                <span class="number">0</span>,
+                num_nodes_with_stake.try_into().unwrap(),
+            ),
             builders: <span class="macro">vec1::vec1!</span>[BuilderDescription::default(), BuilderDescription::default(),],
             fallback_builder: BuilderDescription::default(),
             solver: FakeSolverApiDescription {
@@ -995,8 +1116,8 @@
     /// a [`TestLauncher`] that can be used to launch the test.
     /// # Panics
     /// if some of the configuration values are zero
-    </span><span class="kw">pub fn </span>gen_launcher(<span class="self">self</span>, node_id: u64) -&gt; TestLauncher&lt;TYPES, I, V&gt; {
-        <span class="self">self</span>.gen_launcher_with_tasks(node_id, <span class="macro">vec!</span>[])
+    </span><span class="kw">pub fn </span>gen_launcher(<span class="self">self</span>) -&gt; TestLauncher&lt;TYPES, I, V&gt; {
+        <span class="self">self</span>.gen_launcher_with_tasks(<span class="macro">vec!</span>[])
     }
 
     <span class="doccomment">/// turn a description of a test (e.g. a [`TestDescription`]) into
@@ -1007,72 +1128,30 @@
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>gen_launcher_with_tasks(
         <span class="self">self</span>,
-        node_id: u64,
         additional_test_tasks: Vec&lt;Box&lt;<span class="kw">dyn </span>TestTaskStateSeed&lt;TYPES, I, V&gt;&gt;&gt;,
     ) -&gt; TestLauncher&lt;TYPES, I, V&gt; {
         <span class="kw">let </span>TestDescription {
-            num_nodes_with_stake,
-            num_bootstrap_nodes,
             timing_data,
-            da_staked_committee_size,
             unreliable_network,
+            test_config,
             ..
         } = <span class="self">self</span>.clone();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>known_da_nodes = Vec::new();
+        <span class="kw">let </span>num_nodes_with_stake = test_config.num_nodes_with_stake.into();
+        <span class="kw">let </span>num_bootstrap_nodes = test_config.num_bootstrap;
+        <span class="kw">let </span>da_staked_committee_size = test_config.da_staked_committee_size;
 
-        <span class="comment">// We assign known_nodes' public key and stake value here rather than read from config file since it's a test.
-        </span><span class="kw">let </span>known_nodes_with_stake = (<span class="number">0</span>..num_nodes_with_stake)
-            .map(|node_id_| {
-                <span class="kw">let </span>cur_validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt; =
-                    ValidatorConfig::generated_from_seed_indexed(
-                        [<span class="number">0u8</span>; <span class="number">32</span>],
-                        node_id_ <span class="kw">as </span>u64,
-                        <span class="number">1</span>,
-                        node_id_ &lt; da_staked_committee_size,
-                    );
+        <span class="kw">let </span>validator_config = Rc::new(<span class="kw">move </span>|node_id| {
+            ValidatorConfig::&lt;TYPES::SignatureKey&gt;::generated_from_seed_indexed(
+                [<span class="number">0u8</span>; <span class="number">32</span>],
+                node_id,
+                <span class="number">1</span>,
+                <span class="comment">// This is the config for node 0
+                </span>node_id &lt; test_config.da_staked_committee_size.try_into().unwrap(),
+            )
+        });
 
-                <span class="comment">// Add the node to the known DA nodes based on the index (for tests)
-                </span><span class="kw">if </span>node_id_ &lt; da_staked_committee_size {
-                    known_da_nodes.push(cur_validator_config.public_config());
-                }
-
-                cur_validator_config.public_config()
-            })
-            .collect();
-        <span class="comment">// But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.
-        </span><span class="kw">let </span>validator_config = ValidatorConfig::&lt;TYPES::SignatureKey&gt;::generated_from_seed_indexed(
-            [<span class="number">0u8</span>; <span class="number">32</span>],
-            node_id,
-            <span class="number">1</span>,
-            <span class="comment">// This is the config for node 0
-            </span><span class="number">0 </span>&lt; da_staked_committee_size,
-        );
-        <span class="kw">let </span>config = HotShotConfig {
-            start_threshold: (<span class="number">1</span>, <span class="number">1</span>),
-            num_nodes_with_stake: NonZeroUsize::new(num_nodes_with_stake).unwrap(),
-            <span class="comment">// Currently making this zero for simplicity
-            </span>known_da_nodes,
-            num_bootstrap: num_bootstrap_nodes,
-            known_nodes_with_stake,
-            da_staked_committee_size,
-            fixed_leader_for_gpuvid: <span class="number">1</span>,
-            next_view_timeout: <span class="number">500</span>,
-            view_sync_timeout: Duration::from_millis(<span class="number">250</span>),
-            builder_timeout: Duration::from_millis(<span class="number">1000</span>),
-            data_request_delay: Duration::from_millis(<span class="number">200</span>),
-            <span class="comment">// Placeholder until we spin up the builder
-            </span>builder_urls: <span class="macro">vec1::vec1!</span>[Url::parse(<span class="string">"http://localhost:9999"</span>).expect(<span class="string">"Valid URL"</span>)],
-            start_proposing_view: u64::MAX,
-            stop_proposing_view: <span class="number">0</span>,
-            start_voting_view: u64::MAX,
-            stop_voting_view: <span class="number">0</span>,
-            start_proposing_time: u64::MAX,
-            stop_proposing_time: <span class="number">0</span>,
-            start_voting_time: u64::MAX,
-            stop_voting_time: <span class="number">0</span>,
-            epoch_height: <span class="self">self</span>.epoch_height,
-        };
+        <span class="kw">let </span>hotshot_config = Rc::new(<span class="kw">move </span>|<span class="kw">_</span>| test_config.clone());
         <span class="kw">let </span>TimingData {
             next_view_timeout,
             builder_timeout,
@@ -1080,18 +1159,17 @@
             secondary_network_delay,
             view_sync_timeout,
         } = timing_data;
-        <span class="kw">let </span>mod_config =
-            <span class="comment">// TODO this should really be using the timing config struct
-            </span>|a: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey&gt;| {
-                a.next_view_timeout = next_view_timeout;
-                a.builder_timeout = builder_timeout;
-                a.data_request_delay = data_request_delay;
-                a.view_sync_timeout = view_sync_timeout;
-            };
+        <span class="comment">// TODO this should really be using the timing config struct
+        </span><span class="kw">let </span>mod_hotshot_config = <span class="kw">move </span>|hotshot_config: <span class="kw-2">&amp;mut </span>HotShotConfig&lt;TYPES::SignatureKey&gt;| {
+            hotshot_config.next_view_timeout = next_view_timeout;
+            hotshot_config.builder_timeout = builder_timeout;
+            hotshot_config.data_request_delay = data_request_delay;
+            hotshot_config.view_sync_timeout = view_sync_timeout;
+        };
 
         <span class="kw">let </span>metadata = <span class="self">self</span>.clone();
         TestLauncher {
-            resource_generator: ResourceGenerators {
+            resource_generators: ResourceGenerators {
                 channel_generator: &lt;I <span class="kw">as </span>TestableNodeImplementation&lt;TYPES&gt;&gt;::gen_networks(
                     num_nodes_with_stake,
                     num_bootstrap_nodes,
@@ -1099,15 +1177,15 @@
                     unreliable_network,
                     secondary_network_delay,
                 ),
-                storage: Box::new(<span class="kw">move </span>|<span class="kw">_</span>| {
+                storage: Rc::new(<span class="kw">move </span>|<span class="kw">_</span>| {
                     <span class="kw">let </span><span class="kw-2">mut </span>storage = TestStorage::&lt;TYPES&gt;::default();
                     <span class="comment">// update storage impl to use settings delay option
                     </span>storage.delay_config = metadata.async_delay_config.clone();
                     storage
                 }),
-                config,
+                hotshot_config,
                 validator_config,
-                marketplace_config: Box::new(|<span class="kw">_</span>| MarketplaceConfig::&lt;TYPES, I&gt; {
+                marketplace_config: Rc::new(|<span class="kw">_</span>| MarketplaceConfig::&lt;TYPES, I&gt; {
                     auction_results_provider: TestAuctionResultsProvider::&lt;TYPES&gt;::default().into(),
                     fallback_builder_url: Url::parse(<span class="string">"http://localhost:9999"</span>).unwrap(),
                 }),
@@ -1115,7 +1193,7 @@
             metadata: <span class="self">self</span>,
             additional_test_tasks,
         }
-        .modify_default_config(mod_config)
+        .map_hotshot_config(mod_hotshot_config)
     }
 }
 </code></pre></div></section></main></body></html>

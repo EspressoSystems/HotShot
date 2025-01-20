@@ -273,6 +273,10 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -310,10 +314,12 @@
     ValidatedState,
 };
 <span class="kw">use crate</span>::{
+    constants::DEFAULT_UPGRADE_CONSTANTS,
     data::{Leaf2, TestableLeaf},
     traits::{
         election::Membership, signature_key::SignatureKey, states::InstanceState, BlockPayload,
     },
+    upgrade_config::UpgradeConstants,
 };
 
 <span class="doccomment">/// This trait guarantees that a particular type has urls that can be extracted from it. This trait
@@ -483,6 +489,8 @@
     + Sync
     + <span class="lifetime">'static
 </span>{
+    <span class="doccomment">/// Constants used to construct upgrade proposals
+    </span><span class="kw">const </span>UPGRADE_CONSTANTS: UpgradeConstants = DEFAULT_UPGRADE_CONSTANTS;
     <span class="doccomment">/// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `ValidatedState::Time` is using.

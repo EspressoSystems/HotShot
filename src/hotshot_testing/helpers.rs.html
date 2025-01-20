@@ -447,6 +447,7 @@
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -513,10 +514,11 @@
     Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) {
-    <span class="kw">let </span><span class="kw-2">mut </span>builder: TestDescription&lt;TYPES, I, V&gt; = TestDescription::default_multiple_rounds();
-    builder.epoch_height = <span class="number">0</span>;
+    <span class="kw">let </span>builder: TestDescription&lt;TYPES, I, V&gt; = TestDescription::default_multiple_rounds();
 
-    <span class="kw">let </span>launcher = builder.gen_launcher(node_id);
+    <span class="kw">let </span>launcher = builder.gen_launcher().map_hotshot_config(|hotshot_config| {
+        hotshot_config.epoch_height = <span class="number">0</span>;
+    });
     build_system_handle_from_launcher(node_id, <span class="kw-2">&amp;</span>launcher).<span class="kw">await
 </span>}
 
@@ -539,10 +541,10 @@
     Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) {
-    <span class="kw">let </span>network = (launcher.resource_generator.channel_generator)(node_id).<span class="kw">await</span>;
-    <span class="kw">let </span>storage = (launcher.resource_generator.storage)(node_id);
-    <span class="kw">let </span>marketplace_config = (launcher.resource_generator.marketplace_config)(node_id);
-    <span class="kw">let </span>config = launcher.resource_generator.config.clone();
+    <span class="kw">let </span>network = (launcher.resource_generators.channel_generator)(node_id).<span class="kw">await</span>;
+    <span class="kw">let </span>storage = (launcher.resource_generators.storage)(node_id);
+    <span class="kw">let </span>marketplace_config = (launcher.resource_generators.marketplace_config)(node_id);
+    <span class="kw">let </span>hotshot_config = (launcher.resource_generators.hotshot_config)(node_id);
 
     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(TestInstanceState::new(
         launcher.metadata.async_delay_config.clone(),
@@ -551,7 +553,7 @@
     </span>.unwrap();
 
     <span class="comment">// See whether or not we should be DA
-    </span><span class="kw">let </span>is_da = node_id &lt; config.da_staked_committee_size <span class="kw">as </span>u64;
+    </span><span class="kw">let </span>is_da = node_id &lt; hotshot_config.da_staked_committee_size <span class="kw">as </span>u64;
 
     <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
     </span><span class="kw">let </span>validator_config: ValidatorConfig&lt;TYPES::SignatureKey&gt; =
@@ -560,15 +562,15 @@
     <span class="kw">let </span>public_key = validator_config.public_key.clone();
 
     <span class="kw">let </span>memberships = Arc::new(RwLock::new(TYPES::Membership::new(
-        config.known_nodes_with_stake.clone(),
-        config.known_da_nodes.clone(),
+        hotshot_config.known_nodes_with_stake.clone(),
+        hotshot_config.known_da_nodes.clone(),
     )));
 
     SystemContext::init(
         public_key,
         private_key,
         node_id,
-        config,
+        hotshot_config,
         memberships,
         network,
         initializer,
