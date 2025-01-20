@@ -80,7 +80,7 @@ async fn test_combined_network_cdn_crash() {
     };
 
     let mut all_nodes = vec![];
-    for node in 0..metadata.num_nodes_with_stake {
+    for node in 0..metadata.test_config.num_nodes_with_stake.into() {
         all_nodes.push(ChangeNode {
             idx: node,
             updown: NodeAction::NetworkDown,
@@ -129,7 +129,7 @@ async fn test_combined_network_reup() {
 
     let mut all_down = vec![];
     let mut all_up = vec![];
-    for node in 0..metadata.num_nodes_with_stake {
+    for node in 0..metadata.test_config.num_nodes_with_stake.into() {
         all_down.push(ChangeNode {
             idx: node,
             updown: NodeAction::NetworkDown,
@@ -180,7 +180,7 @@ async fn test_combined_network_half_dc() {
     };
 
     let mut half = vec![];
-    for node in 0..metadata.num_nodes_with_stake / 2 {
+    for node in 0..usize::from(metadata.test_config.num_nodes_with_stake) / 2 {
         half.push(ChangeNode {
             idx: node,
             updown: NodeAction::NetworkDown,
@@ -235,10 +235,6 @@ async fn test_stress_combined_network_fuzzy() {
     hotshot::helpers::initialize_logging();
 
     let mut metadata: TestDescription<TestTypes, CombinedImpl, TestVersions> = TestDescription {
-        num_bootstrap_nodes: 10,
-        num_nodes_with_stake: 20,
-        start_nodes: 20,
-
         timing_data: TimingData {
             next_view_timeout: 10_000,
             ..Default::default()
@@ -250,12 +246,13 @@ async fn test_stress_combined_network_fuzzy() {
             },
         ),
         ..TestDescription::default_stress()
-    };
+    }
+    .set_num_nodes(20, 20);
 
     metadata.test_config.epoch_height = 0;
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: generate_random_node_changes(
-            metadata.num_nodes_with_stake,
+            metadata.test_config.num_nodes_with_stake.into(),
             metadata.overall_safety_properties.num_successful_views * 2,
         ),
     };

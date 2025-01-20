@@ -121,17 +121,9 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     /// Note: this is not the same as the `HotShotConfig` passed to test nodes for `SystemContext::init`;
     /// those configs are instead provided by the resource generators in the test launcher.
     pub test_config: HotShotConfig<TYPES::SignatureKey>,
-    /// Total number of staked nodes in the test
-    pub num_nodes_with_stake: usize,
-    /// nodes available at start
-    pub start_nodes: usize,
     /// Whether to skip initializing nodes that will start late, which will catch up later with
     /// `HotShotInitializer::from_reload` in the spinning task.
     pub skip_late: bool,
-    /// number of bootstrap nodes (libp2p usage only)
-    pub num_bootstrap_nodes: usize,
-    /// Size of the staked DA committee for the test
-    pub da_staked_committee_size: usize,
     /// overall safety property description
     pub overall_safety_properties: OverallSafetyPropertiesDescription<TYPES>,
     /// spinning properties
@@ -361,9 +353,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
         let num_nodes_with_stake = 100;
 
         Self {
-            num_bootstrap_nodes: num_nodes_with_stake,
-            num_nodes_with_stake,
-            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::<TYPES> {
                 num_successful_views: 50,
                 check_leaf: true,
@@ -388,9 +377,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
     pub fn default_multiple_rounds() -> Self {
         let num_nodes_with_stake = 10;
         TestDescription::<TYPES, I, V> {
-            num_bootstrap_nodes: num_nodes_with_stake,
-            num_nodes_with_stake,
-            start_nodes: num_nodes_with_stake,
             overall_safety_properties: OverallSafetyPropertiesDescription::<TYPES> {
                 num_successful_views: 20,
                 check_leaf: true,
@@ -413,14 +399,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
     #[allow(clippy::redundant_field_names)]
     pub fn default_more_nodes() -> Self {
         let num_nodes_with_stake = 20;
+        let num_da_nodes = 14;
+        let epoch_height = 10;
+
+        let (staked_nodes, da_nodes) = gen_node_lists::<TYPES>(num_nodes_with_stake, num_da_nodes);
+
         Self {
-            num_nodes_with_stake,
-            start_nodes: num_nodes_with_stake,
-            num_bootstrap_nodes: num_nodes_with_stake,
+            test_config: default_hotshot_config::<TYPES>(
+                staked_nodes,
+                da_nodes,
+                num_nodes_with_stake.try_into().unwrap(),
+                epoch_height,
+            ),
             // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
             // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
             // following issue.
-            da_staked_committee_size: 14,
             completion_task_description: CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
                 TimeBasedCompletionTaskDescription {
                     // Increase the duration to get the expected number of successful views.
@@ -434,8 +427,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
                 next_view_timeout: 5000,
                 ..TimingData::default()
             },
-            view_sync_properties: ViewSyncTaskDescription::Threshold(0, num_nodes_with_stake),
+            view_sync_properties: ViewSyncTaskDescription::Threshold(
+                0,
+                num_nodes_with_stake.try_into().unwrap(),
+            ),
             ..Self::default()
+        }
+    }
+
+    pub fn set_num_nodes(self, num_nodes: u64, num_da_nodes: u64) -> Self {
+        assert!(num_da_nodes <= num_nodes, "Cannot build test with fewer DA than total nodes. You may have mixed up the arguments to the function");
+
+        let (staked_nodes, da_nodes) = gen_node_lists::<TYPES>(num_nodes, num_da_nodes);
+
+        Self {
+            test_config: default_hotshot_config::<TYPES>(
+                staked_nodes,
+                da_nodes,
+                self.test_config.num_bootstrap,
+                self.test_config.epoch_height,
+            ),
+            ..self
         }
     }
 }
@@ -447,7 +459,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
     #[allow(clippy::redundant_field_names)]
     fn default() -> Self {
         let num_nodes_with_stake = 7;
-        let num_da_nodes = 5;
+        let num_da_nodes = num_nodes_with_stake;
         let epoch_height = 10;
 
         let (staked_nodes, da_nodes) = gen_node_lists::<TYPES>(num_nodes_with_stake, num_da_nodes);
@@ -460,11 +472,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
                 epoch_height,
             ),
             timing_data: TimingData::default(),
-            num_nodes_with_stake: num_nodes_with_stake.try_into().unwrap(),
-            start_nodes: num_nodes_with_stake.try_into().unwrap(),
             skip_late: false,
-            num_bootstrap_nodes: num_nodes_with_stake.try_into().unwrap(),
-            da_staked_committee_size: num_nodes_with_stake.try_into().unwrap(),
             spinning_properties: SpinningTaskDescription {
                 node_changes: vec![],
             },
@@ -524,53 +532,27 @@ where
         additional_test_tasks: Vec<Box<dyn TestTaskStateSeed<TYPES, I, V>>>,
     ) -> TestLauncher<TYPES, I, V> {
         let TestDescription {
-            num_nodes_with_stake,
-            num_bootstrap_nodes,
             timing_data,
-            da_staked_committee_size,
             unreliable_network,
+            test_config,
             ..
         } = self.clone();
 
-        let mut known_da_nodes = Vec::new();
+        let num_nodes_with_stake = test_config.num_nodes_with_stake.into();
+        let num_bootstrap_nodes = test_config.num_bootstrap;
+        let da_staked_committee_size = test_config.da_staked_committee_size;
 
-        // We assign known_nodes' public key and stake value here rather than read from config file since it's a test.
-        let known_nodes_with_stake: Vec<_> = (0..num_nodes_with_stake)
-            .map(|node_id_| {
-                let cur_validator_config: ValidatorConfig<TYPES::SignatureKey> =
-                    ValidatorConfig::generated_from_seed_indexed(
-                        [0u8; 32],
-                        node_id_ as u64,
-                        1,
-                        node_id_ < da_staked_committee_size,
-                    );
-
-                // Add the node to the known DA nodes based on the index (for tests)
-                if node_id_ < da_staked_committee_size {
-                    known_da_nodes.push(cur_validator_config.public_config());
-                }
-
-                cur_validator_config.public_config()
-            })
-            .collect();
-        // But now to test validator's config, we input the info of my_own_validator from config file when node_id == 0.
         let validator_config = Rc::new(move |node_id| {
             ValidatorConfig::<TYPES::SignatureKey>::generated_from_seed_indexed(
                 [0u8; 32],
                 node_id,
                 1,
                 // This is the config for node 0
-                0 < da_staked_committee_size,
+                node_id < test_config.da_staked_committee_size.try_into().unwrap(),
             )
         });
-        let hotshot_config = Rc::new(move |_| {
-            default_hotshot_config::<TYPES>(
-                known_nodes_with_stake.clone(),
-                known_da_nodes.clone(),
-                num_bootstrap_nodes,
-                self.test_config.epoch_height,
-            )
-        });
+
+        let hotshot_config = Rc::new(move |_| test_config.clone());
         let TimingData {
             next_view_timeout,
             builder_timeout,

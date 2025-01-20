@@ -70,7 +70,8 @@ async fn libp2p_network_failures_2() {
             ..Default::default()
         },
         ..TestDescription::default_multiple_rounds()
-    };
+    }
+    .set_num_nodes(12, 12);
     metadata.test_config.epoch_height = 0;
 
     let dead_nodes = vec![ChangeNode {
@@ -81,9 +82,6 @@ async fn libp2p_network_failures_2() {
     metadata.spinning_properties = SpinningTaskDescription {
         node_changes: vec![(3, dead_nodes)],
     };
-    metadata.num_nodes_with_stake = 12;
-    metadata.da_staked_committee_size = 12;
-    metadata.start_nodes = 12;
     // 2 nodes fail triggering view sync, expect no other timeouts
     metadata.overall_safety_properties.num_failed_views = 1;
     // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts

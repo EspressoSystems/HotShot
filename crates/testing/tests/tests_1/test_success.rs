@@ -125,12 +125,9 @@ cross_tests!(
     Versions: [TestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
+        let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12,12);
         metadata.test_config.epoch_height = 0;
-        metadata.num_bootstrap_nodes = 10;
-        metadata.num_nodes_with_stake = 12;
-        metadata.da_staked_committee_size = 12;
-        metadata.start_nodes = 12;
+        metadata.test_config.num_bootstrap = 10;
 
         metadata.overall_safety_properties.num_failed_views = 0;
 

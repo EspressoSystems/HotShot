@@ -111,7 +111,11 @@ where
         }
 
         self.add_nodes::<B>(
-            self.launcher.metadata.num_nodes_with_stake,
+            self.launcher
+                .metadata
+                .test_config
+                .num_nodes_with_stake
+                .into(),
             &late_start_nodes,
             &restart_nodes,
         )

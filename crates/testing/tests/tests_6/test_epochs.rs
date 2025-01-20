@@ -149,12 +149,9 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
-        metadata.num_bootstrap_nodes = 10;
+        let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12,12);
+        metadata.test_config.num_bootstrap = 10;
         metadata.test_config.epoch_height = 10;
-        metadata.num_nodes_with_stake = 12;
-        metadata.da_staked_committee_size = 12;
-        metadata.start_nodes = 12;
 
         metadata.overall_safety_properties.num_failed_views = 0;
 
@@ -177,12 +174,8 @@ cross_tests!(
                     duration: Duration::from_millis(100000),
                 },
             ),
-            num_nodes_with_stake: 11,
-            start_nodes: 11,
-            num_bootstrap_nodes: 11,
-            da_staked_committee_size: 11,
             ..TestDescription::default()
-        };
+        }.set_num_nodes(11,11);
 
         metadata.test_config.epoch_height = 10;
 
@@ -257,10 +250,7 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
-        metadata.num_nodes_with_stake = 12;
-        metadata.da_staked_committee_size = 12;
-        metadata.start_nodes = 12;
+        let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12,12);
         metadata.test_config.epoch_height = 10;
         let dead_nodes = vec![
             ChangeNode {
@@ -301,10 +291,7 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
-        metadata.num_nodes_with_stake = 12;
-        metadata.da_staked_committee_size = 12;
-        metadata.start_nodes = 12;
+        let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12,12);
         let dead_nodes = vec![
             ChangeNode {
                 idx: 5,
@@ -331,7 +318,7 @@ cross_tests!(
         metadata.overall_safety_properties.num_successful_views = 13;
 
         // only turning off 1 node, so expected should be num_nodes_with_stake - 1
-        let expected_nodes_in_view_sync = metadata.num_nodes_with_stake - 1;
+        let expected_nodes_in_view_sync = 11;
         metadata.view_sync_properties = ViewSyncTaskDescription::Threshold(expected_nodes_in_view_sync, expected_nodes_in_view_sync);
 
         metadata
@@ -433,7 +420,7 @@ cross_tests!(
           next_view_timeout: 2000,
           ..Default::default()
       };
-      let mut metadata = TestDescription::default();
+      let mut metadata = TestDescription::default().set_num_nodes(20,20);
       let mut catchup_nodes = vec![];
 
       for i in 0..20 {
@@ -444,8 +431,6 @@ cross_tests!(
       }
 
       metadata.timing_data = timing_data;
-      metadata.start_nodes = 20;
-      metadata.num_nodes_with_stake = 20;
 
       metadata.spinning_properties = SpinningTaskDescription {
           // Restart all the nodes in view 10
