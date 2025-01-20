@@ -17,7 +17,7 @@ use hotshot_types::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
+        node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload,
     },
@@ -62,9 +62,6 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
-
-    /// Lock for a decided upgrade
-    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TYPES, I, V> {
