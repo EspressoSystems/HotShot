@@ -30,7 +30,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, Versions},
     },
 };
-use vbs::version::StaticVersionType;
+use vbs::version::{StaticVersionType, Version};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_da_task() {
@@ -41,12 +41,13 @@ async fn test_da_task() {
         .0;
 
     let membership = Arc::clone(&handle.hotshot.memberships);
+    let default_version = Version { major: 0, minor: 0 };
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction::new(vec![0])];
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
-    let (payload_commit, precompute) = precompute_vid_commitment(
+    let (payload_commit, precompute) = precompute_vid_commitment::<TestVersions>(
         &encoded_transactions,
         handle
             .hotshot
@@ -54,6 +55,7 @@ async fn test_da_task() {
             .read()
             .await
             .total_nodes(EpochNumber::new(0)),
+        default_version,
     );
 
     let mut generator = TestViewGenerator::generate(membership.clone());
@@ -154,12 +156,13 @@ async fn test_da_task_storage_failure() {
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;
     let membership = Arc::clone(&handle.hotshot.memberships);
+    let default_version = Version { major: 0, minor: 0 };
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
     let transactions = vec![TestTransaction::new(vec![0])];
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
-    let (payload_commit, precompute) = precompute_vid_commitment(
+    let (payload_commit, precompute) = precompute_vid_commitment::<TestVersions>(
         &encoded_transactions,
         handle
             .hotshot
@@ -167,6 +170,7 @@ async fn test_da_task_storage_failure() {
             .read()
             .await
             .total_nodes(EpochNumber::new(0)),
+        default_version,
     );
 
     let mut generator = TestViewGenerator::generate(Arc::clone(&membership));

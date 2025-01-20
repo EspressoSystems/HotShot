@@ -20,6 +20,8 @@ use vbs::version::StaticVersionType;
 #[cfg(test)]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transaction_task_leader_two_views_in_a_row() {
+    use vbs::version::Version;
+
     hotshot::helpers::initialize_logging();
 
     // Build the API for node 2.
@@ -40,7 +42,9 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     ));
     input.push(HotShotEvent::Shutdown);
 
-    let (_, precompute_data) = precompute_vid_commitment(
+    let default_version = Version { major: 0, minor: 0 };
+
+    let (_, precompute_data) = precompute_vid_commitment::<TestVersions>(
         &[],
         handle
             .hotshot
@@ -48,6 +52,7 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
             .read()
             .await
             .total_nodes(EpochNumber::new(0)),
+        default_version,
     );
 
     // current view

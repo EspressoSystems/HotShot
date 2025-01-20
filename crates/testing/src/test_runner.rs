@@ -179,7 +179,7 @@ where
             late_start,
             latest_view: None,
             changes,
-            last_decided_leaf: Leaf2::genesis(
+            last_decided_leaf: Leaf2::genesis::<V>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )

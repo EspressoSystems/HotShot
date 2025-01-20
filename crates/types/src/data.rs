@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::task::spawn_blocking;
 use utils::anytrace::*;
+use vbs::version::Version;
 use vec1::Vec1;
 
 use crate::{
@@ -41,7 +42,7 @@ use crate::{
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
-            GENESIS_VID_NUM_STORAGE_NODES,
+            GENESIS_VID_NUM_STORAGE_NODES, GENESIS_VID_VERSION,
         },
         election::Membership,
         node_implementation::{ConsensusTime, NodeType, Versions},
@@ -257,12 +258,13 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// # Errors
     /// Returns an error if the disperse or commitment calculation fails
     #[allow(clippy::panic)]
-    pub async fn calculate_vid_disperse(
+    pub async fn calculate_vid_disperse<V: Versions>(
         payload: &TYPES::BlockPayload,
         membership: &Arc<RwLock<TYPES::Membership>>,
         view: TYPES::View,
         target_epoch: TYPES::Epoch,
         data_epoch: TYPES::Epoch,
+        version: Version,
     ) -> Result<Self> {
         let num_nodes = membership.read().await.total_nodes(target_epoch);
 
@@ -270,12 +272,13 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         let txns_clone = Arc::clone(&txns);
         let num_txns = txns.len();
 
-        let vid_disperse = spawn_blocking(move || vid_scheme(num_nodes).disperse(&txns_clone))
-            .await
-            .wrap()
-            .context(error!("Join error"))?
-            .wrap()
-            .context(|err| error!("Failed to calculate VID disperse. Error: {}", err))?;
+        let vid_disperse =
+            spawn_blocking(move || vid_scheme::<V>(num_nodes, version).disperse(&txns_clone))
+                .await
+                .wrap()
+                .context(error!("Join error"))?
+                .wrap()
+                .context(|err| error!("Failed to calculate VID disperse. Error: {}", err))?;
 
         let payload_commitment = if target_epoch == data_epoch {
             None
@@ -283,7 +286,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
             let num_nodes = membership.read().await.total_nodes(data_epoch);
 
             Some(
-              spawn_blocking(move || vid_scheme(num_nodes).commit_only(&txns))
+              spawn_blocking(move || vid_scheme::<V>(num_nodes, version).commit_only(&txns))
                 .await
                 .wrap()
                 .context(error!("Join error"))?
@@ -888,7 +891,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
     /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
     /// interpreted as bytes).
     #[must_use]
-    pub async fn genesis(
+    pub async fn genesis<V: Versions>(
         validated_state: &TYPES::ValidatedState,
         instance_state: &TYPES::InstanceState,
     ) -> Self {
@@ -899,7 +902,11 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
-        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        let payload_commitment = vid_commitment::<V>(
+            &payload_bytes,
+            GENESIS_VID_NUM_STORAGE_NODES,
+            GENESIS_VID_VERSION,
+        );
 
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -977,13 +984,14 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
     ///
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
     /// or if the transactions are of invalid length
-    pub fn fill_block_payload(
+    pub fn fill_block_payload<V: Versions>(
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
+        version: Version,
     ) -> std::result::Result<(), BlockError> {
         let encoded_txns = block_payload.encode();
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
+        let commitment = vid_commitment::<V>(&encoded_txns, num_storage_nodes, version);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }
@@ -1170,7 +1178,7 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         let genesis_view = <TYPES::View as ConsensusTime>::genesis();
 
         let data = QuorumData {
-            leaf_commit: Leaf::genesis(validated_state, instance_state)
+            leaf_commit: Leaf::genesis::<V>(validated_state, instance_state)
                 .await
                 .commit(&upgrade_lock)
                 .await,
@@ -1205,7 +1213,7 @@ impl<TYPES: NodeType> QuorumCertificate2<TYPES> {
         let genesis_view = <TYPES::View as ConsensusTime>::genesis();
 
         let data = QuorumData2 {
-            leaf_commit: Leaf2::genesis(validated_state, instance_state)
+            leaf_commit: Leaf2::genesis::<V>(validated_state, instance_state)
                 .await
                 .commit(),
             epoch: TYPES::Epoch::genesis(),
@@ -1235,7 +1243,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
     /// interpreted as bytes).
     #[must_use]
-    pub async fn genesis(
+    pub async fn genesis<V: Versions>(
         validated_state: &TYPES::ValidatedState,
         instance_state: &TYPES::InstanceState,
     ) -> Self {
@@ -1246,7 +1254,11 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
-        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        let payload_commitment = vid_commitment::<V>(
+            &payload_bytes,
+            GENESIS_VID_NUM_STORAGE_NODES,
+            GENESIS_VID_VERSION,
+        );
 
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -1314,13 +1326,14 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     ///
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
     /// or if the transactions are of invalid length
-    pub fn fill_block_payload(
+    pub fn fill_block_payload<V: Versions>(
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
+        version: Version,
     ) -> std::result::Result<(), BlockError> {
         let encoded_txns = block_payload.encode();
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
+        let commitment = vid_commitment::<V>(&encoded_txns, num_storage_nodes, version);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }
@@ -1531,7 +1544,6 @@ pub mod null_block {
     #![allow(missing_docs)]
 
     use jf_vid::VidScheme;
-    use memoize::memoize;
     use vbs::version::StaticVersionType;
 
     use crate::{
@@ -1550,10 +1562,12 @@ pub mod null_block {
     /// and may change (albeit rarely) during execution.
     ///
     /// We memoize the result to avoid having to recalculate it.
-    #[memoize(SharedCache, Capacity: 10)]
+    // TODO(Chengyu): fix it. Empty commitment must be computed at every upgrade.
+    // #[memoize(SharedCache, Capacity: 10)]
     #[must_use]
-    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
-        let vid_result = vid_scheme(num_storage_nodes).commit_only(Vec::new());
+    pub fn commitment<V: Versions>(num_storage_nodes: usize) -> Option<VidCommitment> {
+        let version = <V as Versions>::Base::VERSION;
+        let vid_result = vid_scheme::<V>(num_storage_nodes, version).commit_only(Vec::new());
 
         match vid_result {
             Ok(r) => Some(r),
@@ -1597,7 +1611,7 @@ pub mod null_block {
                 &priv_key,
                 FEE_AMOUNT,
                 &null_block_metadata,
-                &commitment(num_storage_nodes)?,
+                &commitment::<V>(num_storage_nodes)?,
             ) {
                 Ok(sig) => Some(BuilderFee {
                     fee_amount: FEE_AMOUNT,

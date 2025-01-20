@@ -30,7 +30,7 @@ use hotshot_types::{
     },
 };
 use jf_vid::{precomputable::Precomputable, VidScheme};
-use vbs::version::StaticVersionType;
+use vbs::version::{StaticVersionType, Version};
 use vec1::vec1;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -47,10 +47,13 @@ async fn test_vid_task() {
 
     let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(
+    let default_version = Version { major: 0, minor: 0 };
+
+    let mut vid = vid_scheme_from_view_number::<TestTypes, TestVersions>(
         &membership,
         ViewNumber::new(0),
         EpochNumber::new(0),
+        default_version,
     )
     .await;
     let transactions = vec![TestTransaction::new(vec![0])];
@@ -147,7 +150,7 @@ async fn test_vid_task() {
         ]),
     ];
 
-    let vid_state = VidTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let vid_state = VidTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut script = TaskScript {
         timeout: std::time::Duration::from_millis(35),
         state: vid_state,

@@ -250,6 +250,9 @@ impl Versions for TestVersions {
     type Marketplace = StaticVersion<0, 3>;
 
     type Epochs = StaticVersion<0, 4>;
+
+    // TODO(Chengyu): fill number here
+    type AVIDMUpgrade = StaticVersion<0, 0>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -266,6 +269,9 @@ impl Versions for MarketplaceUpgradeTestVersions {
     type Marketplace = StaticVersion<0, 3>;
 
     type Epochs = StaticVersion<0, 4>;
+
+    // TODO(Chengyu): fill number here
+    type AVIDMUpgrade = StaticVersion<0, 0>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -282,6 +288,9 @@ impl Versions for MarketplaceTestVersions {
     type Marketplace = StaticVersion<0, 3>;
 
     type Epochs = StaticVersion<0, 4>;
+
+    // TODO(Chengyu): fill number here
+    type AVIDMUpgrade = StaticVersion<0, 0>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -298,6 +307,9 @@ impl Versions for EpochsTestVersions {
     type Marketplace = StaticVersion<0, 5>;
 
     type Epochs = StaticVersion<0, 4>;
+
+    // TODO(Chengyu): fill number here
+    type AVIDMUpgrade = StaticVersion<0, 0>;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -314,6 +326,9 @@ impl Versions for EpochUpgradeTestVersions {
     type Marketplace = StaticVersion<0, 5>;
 
     type Epochs = StaticVersion<0, 4>;
+
+    // TODO(Chengyu): fill number here
+    type AVIDMUpgrade = StaticVersion<0, 0>;
 }
 
 #[cfg(test)]

@@ -1037,7 +1037,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         let high_qc = QuorumCertificate2::genesis::<V>(&validated_state, &instance_state).await;
 
         Ok(Self {
-            inner: Leaf2::genesis(&validated_state, &instance_state).await,
+            inner: Leaf2::genesis::<V>(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::View::new(0),

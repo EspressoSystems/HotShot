@@ -13,11 +13,11 @@ use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare2},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        node_implementation::{ConsensusTime, NodeImplementation, NodeType},
+        node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload,
     },
@@ -32,7 +32,7 @@ use crate::{
 };
 
 /// Tracks state of a VID task
-pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> {
     /// View number this view is executing in.
     pub cur_view: TYPES::View,
 
@@ -59,9 +59,12 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
+
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TYPES, I, V> {
     /// main task event handler
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "VID Main Task", level = "error", target = "VidTaskState")]
     pub async fn handle(
@@ -96,12 +99,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                     );
                     return None;
                 }
-                let vid_disperse = VidDisperse::calculate_vid_disperse(
+                let version = self.upgrade_lock.version_infallible(*view_number).await;
+                let vid_disperse = VidDisperse::calculate_vid_disperse::<V>(
                     &payload,
                     &Arc::clone(&self.membership),
                     *view_number,
                     epoch,
                     epoch,
+                    version,
                 )
                 .await
                 .ok()?;
@@ -202,12 +207,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
                 let payload = Arc::clone(payload);
                 drop(consensus_reader);
 
-                let next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse(
+                let version = self
+                    .upgrade_lock
+                    .version_infallible(proposal_view_number)
+                    .await;
+                let next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse::<V>(
                     payload.as_ref(),
                     &Arc::clone(&self.membership),
                     proposal_view_number,
                     target_epoch,
                     sender_epoch,
+                    version,
                 )
                 .await
                 .ok()?;
@@ -246,7 +256,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> VidTaskState<TYPES, I> {
 
 #[async_trait]
 /// task state implementation for VID Task
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for VidTaskState<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TaskState
+    for VidTaskState<TYPES, I, V>
+{
     type Event = HotShotEvent<TYPES>;
 
     async fn handle_event(

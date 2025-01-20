@@ -228,7 +228,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             // Create an empty block payload and metadata
             let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
 
-            let (_, precompute_data) = precompute_vid_commitment(&[], membership_total_nodes);
+            let (_, precompute_data) =
+                precompute_vid_commitment::<V>(&[], membership_total_nodes, version);
 
             // Broadcast the empty block
             broadcast_event(
@@ -375,7 +376,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
         // Create an empty block payload and metadata
         let (_, metadata) = <TYPES as NodeType>::BlockPayload::empty();
 
-        let (_, precompute_data) = precompute_vid_commitment(&[], membership_total_nodes);
+        let (_, precompute_data) =
+            precompute_vid_commitment::<V>(&[], membership_total_nodes, version);
 
         Some(PackedBundle::new(
             vec![].into(),

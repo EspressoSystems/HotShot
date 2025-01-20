@@ -97,16 +97,23 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), genesis_epoch)
-                .await;
+        let genesis_vid_version = upgrade_lock.version_infallible(genesis_view).await;
 
-        let (vid_disperse, vid_proposal) = build_vid_proposal(
+        let payload_commitment = da_payload_commitment::<TestTypes, TestVersions>(
+            membership,
+            transactions.clone(),
+            genesis_epoch,
+            genesis_vid_version,
+        )
+        .await;
+
+        let (vid_disperse, vid_proposal) = build_vid_proposal::<TestTypes, TestVersions>(
             membership,
             genesis_view,
             genesis_epoch,
             transactions.clone(),
             &private_key,
+            genesis_vid_version,
         )
         .await;
 
@@ -122,7 +129,7 @@ impl TestView {
         .await;
 
         let block_header = TestBlockHeader::new(
-            &Leaf2::<TestTypes>::genesis(
+            &Leaf2::<TestTypes>::genesis::<TestVersions>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
@@ -241,16 +248,22 @@ impl TestView {
             &metadata,
         );
 
-        let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), self.epoch_number)
-                .await;
+        let version = self.upgrade_lock.version_infallible(next_view).await;
+        let payload_commitment = da_payload_commitment::<TestTypes, TestVersions>(
+            membership,
+            transactions.clone(),
+            self.epoch_number,
+            version,
+        )
+        .await;
 
-        let (vid_disperse, vid_proposal) = build_vid_proposal(
+        let (vid_disperse, vid_proposal) = build_vid_proposal::<TestTypes, TestVersions>(
             membership,
             next_view,
             self.epoch_number,
             transactions.clone(),
             &private_key,
+            version,
         )
         .await;
 

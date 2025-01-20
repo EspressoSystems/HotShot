@@ -17,6 +17,7 @@ use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWrite
 use committable::{Commitment, Committable};
 use tracing::instrument;
 use utils::anytrace::*;
+use vbs::version::Version;
 use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
@@ -30,7 +31,7 @@ use crate::{
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -944,11 +945,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
     /// Returned `Option` indicates whether the update has actually happened or not.
     #[instrument(skip_all, target = "Consensus", fields(view = *view))]
-    pub async fn calculate_and_update_vid(
+    pub async fn calculate_and_update_vid<V: Versions>(
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
         membership: Arc<RwLock<TYPES::Membership>>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        version: Version,
     ) -> Option<()> {
         let payload = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
         let epoch = consensus
@@ -959,10 +961,16 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .view_inner
             .epoch()?;
 
-        let vid =
-            VidDisperse::calculate_vid_disperse(payload.as_ref(), &membership, view, epoch, epoch)
-                .await
-                .ok()?;
+        let vid = VidDisperse::calculate_vid_disperse::<V>(
+            payload.as_ref(),
+            &membership,
+            view,
+            epoch,
+            epoch,
+            version,
+        )
+        .await
+        .ok()?;
 
         let shares = VidDisperseShare2::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;

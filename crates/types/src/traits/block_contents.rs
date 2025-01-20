@@ -26,7 +26,11 @@ use vbs::version::Version;
 use super::signature_key::BuilderSignatureKey;
 use crate::{
     data::Leaf2,
-    traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
+    traits::{
+        node_implementation::{NodeType, Versions},
+        states::InstanceState,
+        ValidatedState,
+    },
     utils::BuilderCommitment,
     vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType},
 };
@@ -145,12 +149,13 @@ pub trait TestableBlock<TYPES: NodeType>: BlockPayload<TYPES> + Debug {
 /// If the VID computation fails.
 #[must_use]
 #[allow(clippy::panic)]
-pub fn vid_commitment(
+pub fn vid_commitment<V: Versions>(
     encoded_transactions: &[u8],
     num_storage_nodes: usize,
+    version: Version,
 ) -> <VidSchemeType as VidScheme>::Commit {
     let encoded_tx_len = encoded_transactions.len();
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
+    vid_scheme::<V>(num_storage_nodes, version).commit_only(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
 }
 
 /// Compute the VID payload commitment along with precompute data reducing time in VID Disperse
@@ -158,15 +163,16 @@ pub fn vid_commitment(
 /// If the VID computation fails.
 #[must_use]
 #[allow(clippy::panic)]
-pub fn precompute_vid_commitment(
+pub fn precompute_vid_commitment<V: Versions>(
     encoded_transactions: &[u8],
     num_storage_nodes: usize,
+    version: Version,
 ) -> (
     <VidSchemeType as VidScheme>::Commit,
     <VidSchemeType as Precomputable>::PrecomputeData,
 ) {
     let encoded_tx_len = encoded_transactions.len();
-    vid_scheme(num_storage_nodes).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
+    vid_scheme::<V>(num_storage_nodes, version).commit_only_precompute(encoded_transactions).unwrap_or_else(|err| panic!("VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"))
 }
 
 /// The number of storage nodes to use when computing the genesis VID commitment.
@@ -174,6 +180,9 @@ pub fn precompute_vid_commitment(
 /// The number of storage nodes for the genesis VID commitment is arbitrary, since we don't actually
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
 pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
+
+/// The genesis block VID version number.
+pub const GENESIS_VID_VERSION: Version = Version { major: 0, minor: 0 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// Information about builder fee for proposed block
