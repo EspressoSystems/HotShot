@@ -43,9 +43,29 @@ test-ci-5:
   echo Running integration test group 5
   RUST_LOG=info cargo nextest run --profile ci tests_5 --lib --bins --tests --benches --workspace --no-fail-fast
 
-test-ci-6:
+test-ci-6-1:
   echo Running integration test group 6
-  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast
+  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:1/6
+
+test-ci-6-2:
+  echo Running integration test group 6
+  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:2/6
+
+test-ci-6-3:
+  echo Running integration test group 6
+  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:3/6
+
+test-ci-6-4:
+  echo Running integration test group 6
+  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:4/6
+
+test-ci-6-5:
+  echo Running integration test group 6
+  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:5/6
+
+test-ci-6-6:
+  echo Running integration test group 6
+  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:6/6
 
 # Usage:
 #

@@ -21,7 +21,7 @@ use hotshot_testing::{
     serial,
 };
 use hotshot_types::{
-    data::{null_block, DaProposal, EpochNumber, PackedBundle, VidDisperse, ViewNumber},
+    data::{null_block, DaProposal, PackedBundle, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -52,7 +52,7 @@ async fn test_vid_task() {
     let mut vid = vid_scheme_from_view_number::<TestTypes, TestVersions>(
         &membership,
         ViewNumber::new(0),
-        EpochNumber::new(0),
+        None,
         default_version,
     )
     .await;
@@ -94,8 +94,8 @@ async fn test_vid_task() {
         message.data.view_number,
         vid_disperse,
         &membership,
-        EpochNumber::new(0),
-        EpochNumber::new(0),
+        None,
+        None,
         None,
     )
     .await;
@@ -106,18 +106,18 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
     let inputs = vec![
-        serial![ViewChange(ViewNumber::new(1), EpochNumber::new(0))],
+        serial![ViewChange(ViewNumber::new(1), None)],
         serial![
-            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
+            ViewChange(ViewNumber::new(2), None),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
                     num_transactions: transactions.len() as u64
                 },
                 ViewNumber::new(2),
-                EpochNumber::new(0),
+                None,
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    membership.read().await.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(None),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )
@@ -139,7 +139,7 @@ async fn test_vid_task() {
                 },
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    membership.read().await.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(None),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )

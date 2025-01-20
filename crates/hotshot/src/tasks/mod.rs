@@ -44,8 +44,8 @@ use tokio::{spawn, time::sleep};
 use vbs::version::StaticVersionType;
 
 use crate::{
-    tasks::task_state::CreateTaskState, types::SystemContextHandle, ConsensusApi,
-    ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
+    genesis_epoch_from_version, tasks::task_state::CreateTaskState, types::SystemContextHandle,
+    ConsensusApi, ConsensusMetricsValue, ConsensusTaskRegistry, HotShotConfig, HotShotInitializer,
     MarketplaceConfig, NetworkTaskRegistry, SignatureKey, SystemContext, Versions,
 };
 
@@ -131,14 +131,15 @@ pub fn add_network_message_task<
     handle: &mut SystemContextHandle<TYPES, I, V>,
     channel: &Arc<NET>,
 ) {
-    let network_state: NetworkMessageTaskState<_> = NetworkMessageTaskState {
+    let upgrade_lock = handle.hotshot.upgrade_lock.clone();
+
+    let network_state: NetworkMessageTaskState<TYPES, V> = NetworkMessageTaskState {
         internal_event_stream: handle.internal_event_stream.0.clone(),
         external_event_stream: handle.output_event_stream.0.clone(),
         public_key: handle.public_key().clone(),
         transactions_cache: lru::LruCache::new(NonZeroUsize::new(100_000).unwrap()),
+        upgrade_lock: upgrade_lock.clone(),
     };
-
-    let upgrade_lock = handle.hotshot.upgrade_lock.clone();
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
@@ -200,7 +201,7 @@ pub fn add_network_event_task<
     let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
         network,
         view: TYPES::View::genesis(),
-        epoch: TYPES::Epoch::genesis(),
+        epoch: genesis_epoch_from_version::<V, TYPES>(),
         membership,
         storage: Arc::clone(&handle.storage()),
         consensus: OuterConsensus::new(handle.consensus()),

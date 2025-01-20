@@ -21,7 +21,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         BlockPayload,
     },
-    utils::epoch_from_block_number,
+    utils::option_epoch_from_block_number,
 };
 use tracing::{debug, error, info, instrument};
 use utils::anytrace::Result;
@@ -37,7 +37,7 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     pub cur_view: TYPES::View,
 
     /// Epoch number this node is executing in.
-    pub cur_epoch: TYPES::Epoch,
+    pub cur_epoch: Option<TYPES::Epoch>,
 
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: OuterConsensus<TYPES>,
@@ -57,6 +57,9 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     /// This state's ID
     pub id: u64,
 
+    /// Lock for a decided upgrade
+    pub upgrade_lock: UpgradeLock<TYPES, V>,
+
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
 
@@ -66,7 +69,7 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TYPES, I, V> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "VID Main Task", level = "error", target = "VidTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = self.cur_epoch.map(|x| *x)), name = "VID Main Task", level = "error", target = "VidTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -143,8 +146,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                     return None;
                 };
                 debug!(
-                    "publishing VID disperse for view {} and epoch {}",
-                    *view_number, *epoch
+                    "publishing VID disperse for view {} and epoch {:?}",
+                    *view_number, epoch
                 );
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
@@ -179,21 +182,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
             }
 
             HotShotEvent::QuorumProposalSend(proposal, _) => {
-                let proposed_block_number = proposal.data.block_header.block_number();
-                if self.epoch_height == 0 || proposed_block_number % self.epoch_height != 0 {
+                let proposed_block_number = proposal.data.block_header().block_number();
+                if !proposal.data.with_epoch || proposed_block_number % self.epoch_height != 0 {
                     // This is not the last block in the epoch, do nothing.
                     return None;
                 }
                 // We just sent a proposal for the last block in the epoch. We need to calculate
                 // and send VID for the nodes in the next epoch so that they can vote.
-                let proposal_view_number = proposal.data.view_number;
-                let sender_epoch = TYPES::Epoch::new(epoch_from_block_number(
+                let proposal_view_number = proposal.data.view_number();
+                let sender_epoch = option_epoch_from_block_number::<TYPES>(
+                    true,
                     proposed_block_number,
                     self.epoch_height,
-                ));
-                let target_epoch = TYPES::Epoch::new(
-                    epoch_from_block_number(proposed_block_number, self.epoch_height) + 1,
                 );
+                let target_epoch = sender_epoch.map(|x| x + 1);
 
                 let consensus_reader = self.consensus.read().await;
                 let Some(payload) = consensus_reader.saved_payloads().get(&proposal_view_number)
@@ -229,8 +231,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                     return None;
                 };
                 debug!(
-                    "publishing VID disperse for view {} and epoch {}",
-                    *proposal_view_number, *target_epoch
+                    "publishing VID disperse for view {} and epoch {:?}",
+                    *proposal_view_number, target_epoch
                 );
                 broadcast_event(
                     Arc::new(HotShotEvent::VidDisperseSend(
