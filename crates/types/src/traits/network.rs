@@ -260,7 +260,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     /// Queues lookup of a node's information. We use this in Libp2p to look up a node's
     /// routing information _before_ they are leader
     ///
-    /// Errors
+    /// # Errors
     /// - If we failed to queue the lookup request
     fn queue_node_lookup(
         &self,

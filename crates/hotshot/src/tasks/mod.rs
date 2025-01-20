@@ -13,10 +13,7 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroUsize, sync::Arc, time:
 use async_broadcast::{broadcast, RecvError};
 use async_lock::RwLock;
 use async_trait::async_trait;
-use futures::{
-    future::{BoxFuture, FutureExt},
-    stream, StreamExt,
-};
+use futures::{future::FutureExt, stream, StreamExt};
 use hotshot_task::task::Task;
 #[cfg(feature = "rewind")]
 use hotshot_task_impls::rewind::RewindTaskState;
@@ -40,7 +37,7 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
 };
-use tokio::{spawn, time::sleep};
+use tokio::{select, spawn, sync::Notify, time::sleep};
 use vbs::version::StaticVersionType;
 
 use crate::{
@@ -100,12 +97,12 @@ pub fn add_queue_len_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Vers
 ) {
     let consensus = handle.hotshot.consensus();
     let rx = handle.internal_event_stream.1.clone();
-    let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+    let shutdown_signal = create_shutdown_event_monitor(handle);
     let task_handle = spawn(async move {
         futures::pin_mut!(shutdown_signal);
         loop {
-            futures::select! {
-                () = shutdown_signal => {
+            select! {
+                () = shutdown_signal.notified() => {
                     return;
                 },
                 () = sleep(Duration::from_millis(500)).fuse() => {
@@ -140,21 +137,19 @@ pub fn add_network_message_task<
 
     let network = Arc::clone(channel);
     let mut state = network_state.clone();
-    let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+    let shutdown_signal = create_shutdown_event_monitor(handle);
     let task_handle = spawn(async move {
-        futures::pin_mut!(shutdown_signal);
-
         loop {
             // Wait for one of the following to resolve:
-            futures::select! {
+            select! {
                 // Wait for a shutdown signal
-                () = shutdown_signal => {
+                () = shutdown_signal.notified() => {
                     tracing::error!("Shutting down network message task");
                     return;
                 }
 
                 // Wait for a message from the network
-                message = network.recv_message().fuse() => {
+                message = network.recv_message()=> {
                     // Make sure the message did not fail
                     let message = match message {
                         Ok(message) => {
@@ -263,23 +258,28 @@ pub async fn add_consensus_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, 
 /// Creates a monitor for shutdown events.
 ///
 /// # Returns
-/// A `BoxFuture<'static, ()>` that resolves when a `HotShotEvent::Shutdown` is detected.
+/// A `Arc<Notify>` that resolves when a `HotShotEvent::Shutdown` is detected.
 ///
 /// # Usage
 /// Use in `select!` macros or similar constructs for graceful shutdowns:
 #[must_use]
 pub fn create_shutdown_event_monitor<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
     handle: &SystemContextHandle<TYPES, I, V>,
-) -> BoxFuture<'static, ()> {
+) -> Arc<Notify> {
+    // Create a new notify
+    let notify = Arc::new(Notify::new());
+
     // Activate the cloned internal event stream
     let mut event_stream = handle.internal_event_stream.1.activate_cloned();
 
-    // Create a future that completes when the `HotShotEvent::Shutdown` is received
-    async move {
+    // Spawn a future that waits for a shutdown event
+    let notify_clone = Arc::clone(&notify);
+    spawn(async move {
         loop {
             match event_stream.recv_direct().await {
                 Ok(event) => {
                     if matches!(event.as_ref(), HotShotEvent::Shutdown) {
+                        notify_clone.notify_one();
                         return;
                     }
                 }
@@ -291,8 +291,9 @@ pub fn create_shutdown_event_monitor<TYPES: NodeType, I: NodeImplementation<TYPE
                 }
             }
         }
-    }
-    .boxed()
+    });
+
+    notify
 }
 
 #[async_trait]
@@ -409,7 +410,7 @@ where
         let state_out = Arc::clone(&state_in);
         // spawn a task to listen on the (original) internal event stream,
         // and broadcast the transformed events to the replacement event stream we just created.
-        let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+        let shutdown_signal = create_shutdown_event_monitor(handle);
         let public_key = handle.public_key().clone();
         let private_key = handle.private_key().clone();
         let upgrade_lock = handle.hotshot.upgrade_lock.clone();
@@ -417,7 +418,7 @@ where
         let send_handle = spawn(async move {
             futures::pin_mut!(shutdown_signal);
 
-            let recv_stream = stream::unfold(original_receiver, |mut recv| async move {
+            let mut recv_stream = stream::unfold(original_receiver, |mut recv| async move {
                 match recv.recv().await {
                     Ok(event) => Some((Ok(event), recv)),
                     Err(async_broadcast::RecvError::Closed) => None,
@@ -426,17 +427,14 @@ where
             })
             .boxed();
 
-            let fused_recv_stream = recv_stream.fuse();
-            futures::pin_mut!(fused_recv_stream);
-
             loop {
-                futures::select! {
-                    () = shutdown_signal => {
+                select! {
+                    () = shutdown_signal.notified() => {
                         tracing::error!("Shutting down relay send task");
                         let _ = sender_to_network.broadcast(HotShotEvent::<TYPES>::Shutdown.into()).await;
                         return;
                     }
-                    event = fused_recv_stream.next() => {
+                    event = recv_stream.next() => {
                         match event {
                             Some(Ok(msg)) => {
                                 let mut state = state_out.write().await;
@@ -467,10 +465,8 @@ where
 
         // spawn a task to listen on the newly created event stream,
         // and broadcast the transformed events to the original internal event stream
-        let shutdown_signal = create_shutdown_event_monitor(handle).fuse();
+        let shutdown_signal = create_shutdown_event_monitor(handle);
         let recv_handle = spawn(async move {
-            futures::pin_mut!(shutdown_signal);
-
             let network_recv_stream =
                 stream::unfold(receiver_from_network, |mut recv| async move {
                     match recv.recv().await {
@@ -484,8 +480,8 @@ where
             futures::pin_mut!(fused_network_recv_stream);
 
             loop {
-                futures::select! {
-                    () = shutdown_signal => {
+                select! {
+                    () = shutdown_signal.notified() => {
                         tracing::error!("Shutting down relay receive task");
                         return;
                     }
