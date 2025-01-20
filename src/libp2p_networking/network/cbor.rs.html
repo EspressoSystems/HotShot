@@ -144,6 +144,8 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::TryReserveError, convert::Infallible, io, marker::PhantomData};
 
 <span class="kw">use </span>async_trait::async_trait;
@@ -271,15 +273,17 @@
 </span><span class="kw">fn </span>decode_into_io_error(err: cbor4ii::serde::DecodeError&lt;Infallible&gt;) -&gt; io::Error {
     <span class="kw">match </span>err {
         cbor4ii::serde::DecodeError::Core(DecodeError::Read(e)) =&gt; {
-            io::Error::new(io::ErrorKind::Other, e)
+            io::Error::new(io::ErrorKind::Other, e.to_string())
         }
         cbor4ii::serde::DecodeError::Core(e @ DecodeError::Unsupported { .. }) =&gt; {
-            io::Error::new(io::ErrorKind::Unsupported, e)
+            io::Error::new(io::ErrorKind::Unsupported, e.to_string())
         }
         cbor4ii::serde::DecodeError::Core(e @ DecodeError::Eof { .. }) =&gt; {
-            io::Error::new(io::ErrorKind::UnexpectedEof, e)
+            io::Error::new(io::ErrorKind::UnexpectedEof, e.to_string())
         }
-        cbor4ii::serde::DecodeError::Core(e) =&gt; io::Error::new(io::ErrorKind::InvalidData, e),
+        cbor4ii::serde::DecodeError::Core(e) =&gt; {
+            io::Error::new(io::ErrorKind::InvalidData, e.to_string())
+        }
         cbor4ii::serde::DecodeError::Custom(e) =&gt; {
             io::Error::new(io::ErrorKind::Other, e.to_string())
         }
