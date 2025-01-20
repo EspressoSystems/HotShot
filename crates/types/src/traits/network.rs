@@ -176,10 +176,10 @@ pub enum BroadcastDelay {
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
 pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'static {
-    /// Pauses the underlying network
+    /// Pauses the underlying network, discarding any messages sent or received until resumed
     fn pause(&self);
 
-    /// Resumes the underlying network
+    /// Resumes the underlying network, allowing messages to be sent and received after being paused
     fn resume(&self);
 
     /// Blocks until the network is successfully initialized
@@ -191,8 +191,11 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
         'a: 'b,
         Self: 'b;
 
-    /// broadcast message to some subset of nodes
-    /// blocking
+    /// Broadcast a message to a subset of nodes in the specified topic. In Libp2p this
+    /// makes use of vanilla gossip.
+    ///
+    /// Errors:
+    /// - If there is a network-related failure
     async fn broadcast_message(
         &self,
         message: Vec<u8>,
@@ -200,8 +203,12 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
         broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError>;
 
-    /// broadcast a message only to a DA committee
-    /// blocking
+    /// Broadcast a message to only members of the DA committee. This is different in Libp2p
+    /// as we use it to directly send to each recipient as opposed to gossiping to the network,
+    /// which is less efficient.
+    ///
+    /// Errors:
+    /// - If there is a network-related failure
     async fn da_broadcast_message(
         &self,
         message: Vec<u8>,
@@ -209,8 +216,11 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
         broadcast_delay: BroadcastDelay,
     ) -> Result<(), NetworkError>;
 
-    /// send messages with vid shares to its recipients
-    /// blocking
+    /// This is different in Libp2p as we use it to directly send VID shares to recipients as
+    /// opposed to gossiping to the network, which is less efficient
+    ///
+    /// Errors:
+    /// - If one or many of the messages failed to send
     async fn vid_broadcast_message(
         &self,
         messages: HashMap<K, Vec<u8>>,
@@ -236,7 +246,9 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     }
 
     /// Sends a direct message to a specific node
-    /// blocking
+    ///
+    /// Errors
+    /// If there is a network-related failure
     async fn direct_message(&self, message: Vec<u8>, recipient: K) -> Result<(), NetworkError>;
 
     /// Receive one or many messages from the underlying network.
@@ -245,10 +257,11 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     /// If there is a network-related failure.
     async fn recv_message(&self) -> Result<Vec<u8>, NetworkError>;
 
-    /// queues lookup of a node
+    /// Queues lookup of a node's information. We use this in Libp2p to look up a node's
+    /// routing information _before_ they are leader
     ///
-    /// # Errors
-    /// Does not error.
+    /// Errors
+    /// - If we failed to queue the lookup request
     fn queue_node_lookup(
         &self,
         _view_number: ViewNumber,
@@ -269,7 +282,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
     {
     }
 
-    /// Is primary network down? Makes sense only for combined network
+    /// Returns whether or not the primary network is down. This is only relevant for the combined network
     fn is_primary_down(&self) -> bool {
         false
     }

@@ -440,10 +440,10 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         self.networks.0.vid_broadcast_message(messages).await
     }
 
-    /// Receive one or many messages from the underlying network.
+    /// Receive one message from either of the underlying networks
     ///
     /// # Errors
-    /// Does not error
+    /// If we failed to receive a message from either network
     async fn recv_message(&self) -> Result<Vec<u8>, NetworkError> {
         loop {
             // Receive from both networks
