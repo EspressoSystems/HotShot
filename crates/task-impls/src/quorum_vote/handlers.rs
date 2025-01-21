@@ -487,11 +487,18 @@ pub(crate) async fn update_shared_state<
 
     drop(consensus_reader);
 
+    let justify_qc_epoch_number = option_epoch_from_block_number::<TYPES>(
+        proposed_leaf.with_epoch,
+        proposed_leaf.height() - 1,
+        epoch_height,
+    );
+
     maybe_parent = match maybe_parent {
         Some(p) => Some(p),
         None => {
             match fetch_proposal(
                 justify_qc.view_number(),
+                justify_qc_epoch_number,
                 sender.clone(),
                 receiver.activate_cloned(),
                 Arc::clone(&membership),

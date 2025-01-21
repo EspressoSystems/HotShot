@@ -28,6 +28,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    utils::option_epoch_from_block_number,
 };
 use tracing::instrument;
 
@@ -136,6 +137,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     pub fn request_proposal(
         &self,
         view: TYPES::View,
+        with_epoch: bool,
+        block_number: u64,
         leaf_commitment: Commitment<Leaf2<TYPES>>,
     ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposalWrapper<TYPES>>>>>
     {
@@ -156,6 +159,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let receiver = self.internal_event_stream.1.activate_cloned();
         let sender = self.internal_event_stream.0.clone();
         let epoch_height = self.epoch_height;
+
+        /// these next two may be unused
+        let epoch_number =
+            option_epoch_from_block_number::<TYPES>(with_epoch, block_number, epoch_height);
+        let drb_result = drb_result(
+            epoch_number,
+            OuterConsensus {
+                inner_consensus: self.consensus(),
+            },
+        )
+        .await;
         Ok(async move {
             // First, broadcast that we need a proposal
             broadcast_event(
