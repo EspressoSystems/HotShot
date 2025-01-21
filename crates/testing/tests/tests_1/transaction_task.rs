@@ -10,7 +10,6 @@ use hotshot_testing::helpers::build_system_handle;
 use hotshot_types::{
     data::{null_block, EpochNumber, PackedBundle, ViewNumber},
     traits::{
-        block_contents::precompute_vid_commitment,
         election::Membership,
         node_implementation::{ConsensusTime, Versions},
     },
@@ -20,8 +19,6 @@ use vbs::version::StaticVersionType;
 #[cfg(test)]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transaction_task_leader_two_views_in_a_row() {
-    use vbs::version::Version;
-
     hotshot::helpers::initialize_logging();
 
     // Build the API for node 2.
@@ -45,19 +42,6 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     ));
     input.push(HotShotEvent::Shutdown);
 
-    let default_version = Version { major: 0, minor: 0 };
-
-    let (_, precompute_data) = precompute_vid_commitment::<TestVersions>(
-        &[],
-        handle
-            .hotshot
-            .memberships
-            .read()
-            .await
-            .total_nodes(Some(EpochNumber::new(0))),
-        default_version,
-    );
-
     // current view
     let mut exp_packed_bundle = PackedBundle::new(
         vec![].into(),
@@ -79,7 +63,6 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
             )
             .unwrap()
         ],
-        Some(precompute_data.clone()),
         None,
     );
     output.push(HotShotEvent::BlockRecv(exp_packed_bundle.clone()));

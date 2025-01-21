@@ -22,7 +22,7 @@ use hotshot_builder_api::{
 use hotshot_types::{
     constants::{LEGACY_BUILDER_MODULE, MARKETPLACE_BUILDER_MODULE},
     traits::{
-        block_contents::{precompute_vid_commitment, EncodeBytes},
+        block_contents::EncodeBytes,
         node_implementation::{NodeType, Versions},
         signature_key::BuilderSignatureKey,
     },
@@ -187,7 +187,7 @@ where
 
     let commitment = block_payload.builder_commitment(&metadata);
 
-    let (vid_commitment, precompute_data) = precompute_vid_commitment::<V>(
+    let vid_commitment = hotshot_types::traits::block_contents::vid_commitment::<V>(
         &block_payload.encode(),
         *num_storage_nodes.read_arc().await,
         version,
@@ -228,7 +228,6 @@ where
     };
     let header_input = AvailableBlockHeaderInput {
         vid_commitment,
-        vid_precompute_data: precompute_data,
         message_signature: signature_over_vid_commitment.clone(),
         fee_signature: signature_over_fee_info,
         sender: pub_key,

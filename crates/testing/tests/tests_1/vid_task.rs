@@ -29,7 +29,7 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use jf_vid::{precomputable::Precomputable, VidScheme};
+use jf_vid::VidScheme;
 use vbs::version::{StaticVersionType, Version};
 use vec1::vec1;
 
@@ -69,7 +69,6 @@ async fn test_vid_task() {
         <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(&payload, &metadata);
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    let (_, vid_precompute) = vid.commit_only_precompute(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(
@@ -122,7 +121,6 @@ async fn test_vid_task() {
                     *ViewNumber::new(2),
                 )
                 .unwrap()],
-                Some(vid_precompute),
                 None,
             )),
         ],

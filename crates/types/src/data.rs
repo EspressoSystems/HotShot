@@ -51,7 +51,7 @@ use crate::{
         BlockPayload,
     },
     utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number},
-    vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -252,7 +252,6 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     }
 
     /// Calculate the vid disperse information from the payload given a view, epoch and membership,
-    /// optionally using precompute data from builder.
     /// If the sender epoch is missing, it means it's the same as the target epoch.
     ///
     /// # Errors
@@ -1741,9 +1740,6 @@ pub struct PackedBundle<TYPES: NodeType> {
     /// The sequencing fee for submitting bundles.
     pub sequencing_fees: Vec1<BuilderFee<TYPES>>,
 
-    /// The Vid precompute for the block.
-    pub vid_precompute: Option<VidPrecomputeData>,
-
     /// The auction results for the block, if it was produced as the result of an auction
     pub auction_result: Option<TYPES::AuctionResult>,
 }
@@ -1756,7 +1752,6 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
         view_number: TYPES::View,
         epoch_number: Option<TYPES::Epoch>,
         sequencing_fees: Vec1<BuilderFee<TYPES>>,
-        vid_precompute: Option<VidPrecomputeData>,
         auction_result: Option<TYPES::AuctionResult>,
     ) -> Self {
         Self {
@@ -1765,7 +1760,6 @@ impl<TYPES: NodeType> PackedBundle<TYPES> {
             view_number,
             epoch_number,
             sequencing_fees,
-            vid_precompute,
             auction_result,
         }
     }
