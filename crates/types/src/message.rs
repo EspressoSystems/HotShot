@@ -30,6 +30,7 @@ use crate::{
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
         QuorumProposalWrapper, UpgradeProposal,
     },
+    drb::DrbResult,
     request_response::ProposalRequestPayload,
     simple_certificate::{
         DaCertificate, DaCertificate2, QuorumCertificate2, UpgradeCertificate,
@@ -525,9 +526,14 @@ where
         membership: &TYPES::Membership,
         _epoch_height: u64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
+        drb_result: DrbResult,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let view_leader_key = membership.leader(view_number, None)?;
+        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+            self.data.block_header.block_number(),
+            epoch_height,
+        ));
+        let view_leader_key = membership.leader(view_number, proposal_epoch, drb_result);
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
         ensure!(
@@ -553,6 +559,7 @@ where
         &self,
         membership: &TYPES::Membership,
         epoch_height: u64,
+        drb_result: DrbResult,
     ) -> Result<()> {
         let view_number = self.data.view_number();
         let proposal_epoch = option_epoch_from_block_number::<TYPES>(
@@ -583,6 +590,7 @@ where
         &self,
         membership: &TYPES::Membership,
         epoch_height: u64,
+        drb_result: DrbResult,
     ) -> Result<()> {
         let view_number = self.data.proposal.view_number();
         let proposal_epoch = option_epoch_from_block_number::<TYPES>(
@@ -590,7 +598,7 @@ where
             self.data.block_header().block_number(),
             epoch_height,
         );
-        let view_leader_key = membership.leader(view_number, proposal_epoch)?;
+        let view_leader_key = membership.leader(view_number, proposal_epoch, drb_result);
         let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
 
         ensure!(

@@ -13,6 +13,7 @@ use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{DaProposal2, PackedBundle},
+    drb::drb_result,
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate2,
@@ -115,12 +116,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     );
                 }
 
+                let epoch_number = proposal.data.epoch;
+                let drb_result = drb_result(epoch_number, self.consensus.clone()).await?;
                 let encoded_transactions_hash = Sha256::digest(&proposal.data.encoded_transactions);
-                let view_leader_key = self
-                    .membership
-                    .read()
-                    .await
-                    .leader(view, proposal.data.epoch)?;
+                let view_leader_key =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view, epoch_number, drb_result);
                 ensure!(
                     view_leader_key == sender,
                     warn!(
@@ -286,13 +289,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let view = vote.view_number();
                 let epoch = vote.data.epoch;
 
+                let drb_result = drb_result(epoch, self.consensus.clone()).await?;
                 let membership_reader = self.membership.read().await;
                 ensure!(
-                    membership_reader.leader(view, epoch)? == self.public_key,
+                    membership_reader.leader(view, epoch,drb_result) == self.public_key,
                     debug!(
                       "We are not the DA committee leader for view {} are we leader for next view? {}",
                       *view,
-                      membership_reader.leader(view + 1, epoch)? == self.public_key
+                      membership_reader.leader(view + 1, epoch,drb_result) == self.public_key
                     )
                 );
                 drop(membership_reader);
@@ -302,6 +306,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     vote,
                     self.public_key.clone(),
                     &self.membership,
+                    self.consensus.clone(),
                     epoch,
                     self.id,
                     &event,
@@ -345,7 +350,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                         .wrap()?;
 
                 let epoch = self.cur_epoch;
-                let leader = self.membership.read().await.leader(view_number, epoch)?;
+                let drb_result = drb_result(epoch, self.consensus.clone()).await?;
+                let leader = self
+                    .membership
+                    .read()
+                    .await
+                    .leader(view_number, epoch, drb_result);
                 if leader != self.public_key {
                     tracing::debug!(
                         "We are not the leader in the current epoch. Do not send the DA proposal"

@@ -16,7 +16,8 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{VidDisperse, VidDisperseShare},
+    data::{VidDisperse, VidDisperseShare, VidDisperseShare2},
+    drb::drb_result,
     event::{Event, EventType, HotShotAction},
     message::{
         convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
@@ -721,22 +722,15 @@ impl<
             HotShotEvent::QuorumVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self
-                    .membership
-                    .read()
+
+                let drb_result = drb_result(vote.epoch(), self.consensus.clone())
                     .await
-                    .leader(view_number, vote.epoch())
-                {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
+                    .ok()?;
+                let leader =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view_number, vote.epoch(), drb_result);
 
                 let message = if self.upgrade_lock.epochs_enabled(vote.view_number()).await {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -819,17 +813,12 @@ impl<
                 *maybe_action = Some(HotShotAction::DaVote);
                 let view_number = vote.view_number();
                 let epoch = vote.data.epoch;
-                let leader = match self.membership.read().await.leader(view_number, epoch) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
+                let drb_result = drb_result(epoch, self.consensus.clone()).await.ok()?;
+                let leader = self
+                    .membership
+                    .read()
+                    .await
+                    .leader(view_number, epoch, drb_result);
 
                 let message = if self.upgrade_lock.epochs_enabled(view_number).await {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
@@ -863,18 +852,18 @@ impl<
             }
             HotShotEvent::ViewSyncPreCommitVoteSend(vote) => {
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.membership.read().await.leader(view_number, self.epoch) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
-                let message = if self.upgrade_lock.epochs_enabled(vote.view_number()).await {
+                let drb_result = drb_result(self.epoch, self.consensus.clone()).await.ok()?;
+                let leader =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view_number, self.epoch, drb_result);
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncPreCommitVote2(vote.clone()),
                     ))
@@ -889,18 +878,18 @@ impl<
             HotShotEvent::ViewSyncCommitVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::ViewSyncVote);
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.membership.read().await.leader(view_number, self.epoch) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
-                let message = if self.upgrade_lock.epochs_enabled(vote.view_number()).await {
+                let drb_result = drb_result(self.epoch, self.consensus.clone()).await.ok()?;
+                let leader =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view_number, self.epoch, drb_result);
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncCommitVote2(vote.clone()),
                     ))
@@ -915,18 +904,18 @@ impl<
             HotShotEvent::ViewSyncFinalizeVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::ViewSyncVote);
                 let view_number = vote.view_number() + vote.date().relay;
-                let leader = match self.membership.read().await.leader(view_number, self.epoch) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
-                let message = if self.upgrade_lock.epochs_enabled(vote.view_number()).await {
+                let drb_result = drb_result(self.epoch, self.consensus.clone()).await.ok()?;
+                let leader =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view_number, self.epoch, drb_result);
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::ViewSyncFinalizeVote2(vote.clone()),
                     ))
@@ -983,18 +972,18 @@ impl<
             HotShotEvent::TimeoutVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::Vote);
                 let view_number = vote.view_number() + 1;
-                let leader = match self.membership.read().await.leader(view_number, self.epoch) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
-                let message = if self.upgrade_lock.epochs_enabled(vote.view_number()).await {
+                let drb_result = drb_result(self.epoch, self.consensus.clone()).await.ok()?;
+                let leader =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view_number, self.epoch, drb_result);
+                let message = if self
+                    .upgrade_lock
+                    .version_infallible(vote.view_number())
+                    .await
+                    >= V::Epochs::VERSION
+                {
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
                         GeneralConsensusMessage::TimeoutVote2(vote.clone()),
                     ))
@@ -1016,17 +1005,12 @@ impl<
             HotShotEvent::UpgradeVoteSend(vote) => {
                 tracing::error!("Sending upgrade vote!");
                 let view_number = vote.view_number();
-                let leader = match self.membership.read().await.leader(view_number, self.epoch) {
-                    Ok(l) => l,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to calculate leader for view number {:?}. Error: {:?}",
-                            view_number,
-                            e
-                        );
-                        return None;
-                    }
-                };
+                let drb_result = drb_result(self.epoch, self.consensus.clone()).await.ok()?;
+                let leader =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view_number, self.epoch, drb_result);
                 Some((
                     vote.signing_key(),
                     MessageKind::<TYPES>::from_consensus_message(SequencingMessage::General(
@@ -1045,8 +1029,10 @@ impl<
                 let net = Arc::clone(&self.network);
                 let epoch = self.epoch.map(|x| x.u64());
                 let mem = Arc::clone(&self.membership);
+                let drb_result = drb_result(self.epoch, self.consensus.clone()).await.ok()?;
                 spawn(async move {
-                    net.update_view::<TYPES>(*keep_view, epoch, mem).await;
+                    net.update_view::<TYPES>(*keep_view, epoch, mem, drb_result)
+                        .await;
                 });
                 None
             }

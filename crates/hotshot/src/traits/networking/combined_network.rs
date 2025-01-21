@@ -32,6 +32,7 @@ use hotshot_types::{
         COMBINED_NETWORK_MIN_PRIMARY_FAILURES, COMBINED_NETWORK_PRIMARY_CHECK_INTERVAL,
     },
     data::ViewNumber,
+    drb::DrbResult,
     traits::{
         network::{BroadcastDelay, ConnectedNetwork, Topic},
         node_implementation::NodeType,
@@ -472,6 +473,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         view: u64,
         epoch: Option<u64>,
         membership: Arc<RwLock<T::Membership>>,
+        drb_result: DrbResult,
     ) where
         T: NodeType<SignatureKey = TYPES::SignatureKey> + 'a,
     {
@@ -494,7 +496,7 @@ impl<TYPES: NodeType> ConnectedNetwork<TYPES::SignatureKey> for CombinedNetworks
         // Run `update_view` logic for the libp2p network
         self.networks
             .1
-            .update_view::<T>(view, epoch, membership)
+            .update_view::<T>(view, epoch, membership, drb_result)
             .await;
     }
 

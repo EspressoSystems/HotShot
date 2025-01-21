@@ -12,7 +12,13 @@ use async_trait::async_trait;
 use committable::Committable;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    consensus::OuterConsensus,
+    constants::{
+        UPGRADE_BEGIN_OFFSET, UPGRADE_DECIDE_BY_OFFSET, UPGRADE_FINISH_OFFSET,
+        UPGRADE_PROPOSE_OFFSET,
+    },
     data::UpgradeProposal,
+    drb::drb_result,
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
     simple_certificate::UpgradeCertificate,
@@ -48,6 +54,9 @@ pub struct UpgradeTaskState<TYPES: NodeType, V: Versions> {
 
     /// Membership for Quorum Certs/votes
     pub membership: Arc<RwLock<TYPES::Membership>>,
+
+    /// Shared consensus state
+    pub consensus: OuterConsensus<TYPES>,
 
     /// A map of `UpgradeVote` collector tasks
     pub vote_collectors: VoteCollectorsMap<TYPES, UpgradeVote<TYPES>, UpgradeCertificate<TYPES>, V>,
@@ -177,7 +186,12 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                 );
 
                 // We then validate that the proposal was issued by the leader for the view.
-                let view_leader_key = self.membership.read().await.leader(view, self.cur_epoch)?;
+                let drb_result = drb_result(self.cur_epoch, self.consensus.clone()).await?;
+                let view_leader_key =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view, self.cur_epoch, drb_result);
                 ensure!(
                     view_leader_key == *sender,
                     info!(
@@ -221,12 +235,15 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                 {
                     let view = vote.view_number();
                     let membership_reader = self.membership.read().await;
+                    let drb_result = drb_result(self.cur_epoch, self.consensus.clone()).await?;
                     ensure!(
-                        membership_reader.leader(view, self.cur_epoch)? == self.public_key,
+                        membership_reader.leader(view, self.cur_epoch, drb_result)
+                            == self.public_key,
                         debug!(
                             "We are not the leader for view {} are we leader for next view? {}",
                             *view,
-                            membership_reader.leader(view + 1, self.cur_epoch)? == self.public_key
+                            membership_reader.leader(view + 1, self.cur_epoch, drb_result)
+                                == self.public_key
                         )
                     );
                 }
@@ -236,6 +253,7 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                     vote,
                     self.public_key.clone(),
                     &self.membership,
+                    self.consensus.clone(),
                     self.cur_epoch,
                     self.id,
                     &event,
@@ -262,10 +280,12 @@ impl<TYPES: NodeType, V: Versions> UpgradeTaskState<TYPES, V> {
                     ))?
                     .as_secs();
 
+                let drb_result = drb_result(self.cur_epoch, self.consensus.clone()).await?;
                 let leader = self.membership.read().await.leader(
                     TYPES::View::new(view + TYPES::UPGRADE_CONSTANTS.propose_offset),
                     self.cur_epoch,
-                )?;
+                    drb_result,
+                );
 
                 // We try to form a certificate 5 views before we're leader.
                 if view >= self.start_proposing_view

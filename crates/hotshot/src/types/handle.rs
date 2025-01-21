@@ -8,19 +8,16 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Ok, Result};
+use anyhow::Result;
 use async_broadcast::{InactiveReceiver, Receiver, Sender};
 use async_lock::RwLock;
-use committable::{Commitment, Committable};
 use futures::Stream;
-use hotshot_task::{
-    dependency::{Dependency, EventDependency},
-    task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState},
-};
-use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
+use hotshot_task::task::{ConsensusTaskRegistry, NetworkTaskRegistry, Task, TaskState};
+use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::Consensus,
     data::{Leaf2, QuorumProposalWrapper},
+    drb::DrbResult,
     error::HotShotError,
     message::{Message, MessageKind, Proposal, RecipientList},
     request_response::ProposalRequestPayload,
@@ -325,13 +322,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         &self,
         view_number: TYPES::View,
         epoch_number: Option<TYPES::Epoch>,
-    ) -> Result<TYPES::SignatureKey> {
+        drb_result: DrbResult,
+    ) -> TYPES::SignatureKey {
+        // was result
         self.hotshot
             .memberships
             .read()
             .await
-            .leader(view_number, epoch_number)
-            .context("Failed to lookup leader")
+            .leader(view_number, epoch_number, drb_result)
     }
 
     // Below is for testing only:

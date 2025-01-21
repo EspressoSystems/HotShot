@@ -21,7 +21,8 @@ use hotshot_testing::{
     test_builder::{Behaviour, TestDescription},
 };
 use hotshot_types::{
-    data::ViewNumber,
+    data::{EpochNumber, ViewNumber},
+    drb::INITIAL_DRB_RESULT,
     message::{GeneralConsensusMessage, MessageKind, SequencingMessage},
     traits::{
         election::Membership,
@@ -179,7 +180,11 @@ cross_tests!(
                 view_increment: nodes_count,
                 modifier: Arc::new(move |_pk, message_kind, transmit_type: &mut TransmitType<TestTypes>, membership: &<TestTypes as NodeType>::Membership| {
                     if let MessageKind::Consensus(SequencingMessage::General(GeneralConsensusMessage::Vote(vote))) = message_kind {
+<<<<<<< HEAD
                         *transmit_type = TransmitType::Direct(membership.leader(vote.view_number() + 1 - nodes_count, None).unwrap());
+=======
+                        *transmit_type = TransmitType::Direct(membership.leader(vote.view_number() + 1 - nodes_count as u64, EpochNumber::new(0), INITIAL_DRB_RESULT));
+>>>>>>> 00fc1b543a (Fix build)
                     } else {
                         {}
                     }

@@ -25,6 +25,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
     data::{Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse, ViewChangeEvidence2},
+    drb::drb_result,
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -377,11 +378,12 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
 
         // Make sure we are the leader for the view and epoch.
         // We might have ended up here because we were in the epoch transition.
+        let drb_result = drb_result(epoch, self.consensus.clone()).await?;
         if self
             .membership
             .read()
             .await
-            .leader(self.view_number, epoch)?
+            .leader(self.view_number, epoch, drb_result)
             != self.public_key
         {
             tracing::debug!(

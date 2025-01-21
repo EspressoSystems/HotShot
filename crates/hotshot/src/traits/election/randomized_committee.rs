@@ -7,6 +7,7 @@
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
 use hotshot_types::{
+    drb::DrbResult,
     traits::{
         election::Membership,
         node_implementation::NodeType,
@@ -16,7 +17,6 @@ use hotshot_types::{
 };
 use primitive_types::U256;
 use rand::{rngs::StdRng, Rng};
-use utils::anytrace::Result;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
@@ -205,7 +205,9 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
         &self,
         view_number: <TYPES as NodeType>::View,
         _epoch: Option<<TYPES as NodeType>::Epoch>,
-    ) -> Result<TYPES::SignatureKey> {
+        _drb_result: DrbResult,
+    ) -> TYPES::SignatureKey {
+        // was result
         let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
 
         let randomized_view_number: u64 = rng.gen_range(0..=u64::MAX);
@@ -214,7 +216,7 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
 
         let res = self.eligible_leaders[index].clone();
 
-        Ok(TYPES::SignatureKey::public_key(&res))
+        TYPES::SignatureKey::public_key(&res)
     }
 
     /// Get the total number of nodes in the committee

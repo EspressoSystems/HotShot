@@ -30,7 +30,7 @@ use thiserror::Error;
 use tokio::{sync::mpsc::error::TrySendError, time::sleep};
 
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ViewNumber, message::SequencingMessage, BoxSyncFuture};
+use crate::{data::ViewNumber, drb::DrbResult, message::SequencingMessage, BoxSyncFuture};
 
 /// Centralized server specific errors
 #[derive(Debug, Error, Serialize, Deserialize)]
@@ -264,6 +264,7 @@ pub trait ConnectedNetwork<K: SignatureKey + 'static>: Clone + Send + Sync + 'st
         _view: u64,
         _epoch: Option<u64>,
         _membership: Arc<RwLock<TYPES::Membership>>,
+        _drb_result: DrbResult,
     ) where
         TYPES: NodeType<SignatureKey = K> + 'a,
     {

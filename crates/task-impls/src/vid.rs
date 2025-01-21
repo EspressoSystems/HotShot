@@ -12,7 +12,8 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{PackedBundle, VidDisperse, VidDisperseShare},
+    data::{PackedBundle, VidDisperse, VidDisperseShare, VidDisperseShare2},
+    drb::drb_result,
     message::{Proposal, UpgradeLock},
     simple_vote::HasEpoch,
     traits::{
@@ -87,12 +88,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                     <TYPES as NodeType>::BlockPayload::from_bytes(encoded_transactions, metadata);
                 let builder_commitment = payload.builder_commitment(metadata);
                 let epoch = self.cur_epoch;
+                let drb_result = drb_result(epoch, self.consensus.clone()).await.ok()?;
                 if self
                     .membership
                     .read()
                     .await
-                    .leader(*view_number, epoch)
-                    .ok()?
+                    .leader(*view_number, epoch, drb_result)
                     != self.public_key
                 {
                     tracing::debug!(

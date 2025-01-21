@@ -35,6 +35,7 @@ use hotshot_types::{
     boxed_sync,
     constants::LOOK_AHEAD,
     data::ViewNumber,
+    drb::DrbResult,
     network::NetworkConfig,
     traits::{
         election::Membership,
@@ -993,21 +994,17 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
         view: u64,
         epoch: Option<u64>,
         membership: Arc<RwLock<TYPES::Membership>>,
+        drb_result: DrbResult,
     ) where
         TYPES: NodeType<SignatureKey = T::SignatureKey> + 'a,
     {
         let future_view = <TYPES as NodeType>::View::new(view) + LOOK_AHEAD;
         let epoch = epoch.map(<TYPES as NodeType>::Epoch::new);
 
-        let future_leader = match membership.read().await.leader(future_view, epoch) {
-            Ok(l) => l,
-            Err(e) => {
-                return tracing::info!(
-                    "Failed to calculate leader for view {:?}: {e}",
-                    future_view
-                );
-            }
-        };
+        let future_leader = membership
+            .read()
+            .await
+            .leader(future_view, epoch, drb_result);
 
         let _ = self
             .queue_node_lookup(ViewNumber::new(*future_view), future_leader)

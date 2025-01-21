@@ -8,10 +8,9 @@
 use std::{collections::BTreeSet, fmt::Debug, num::NonZeroU64};
 
 use async_trait::async_trait;
-use utils::anytrace::Result;
 
 use super::node_implementation::NodeType;
-use crate::{traits::signature_key::SignatureKey, PeerConfig};
+use crate::{drb::DrbResult, traits::signature_key::SignatureKey, PeerConfig};
 
 #[async_trait]
 /// A protocol for determining membership in and participating in a committee.
@@ -86,33 +85,29 @@ pub trait Membership<TYPES: NodeType>: Debug + Send + Sync {
     ///
     /// Note: this function uses a HotShot-internal error type.
     /// You should implement `lookup_leader`, rather than implementing this function directly.
-    ///
-    /// # Errors
-    /// Returns an error if the leader cannot be calculated.
     fn leader(
         &self,
         view: TYPES::View,
         epoch: Option<TYPES::Epoch>,
-    ) -> Result<TYPES::SignatureKey> {
-        use utils::anytrace::*;
-
-        self.lookup_leader(view, epoch).wrap().context(info!(
-            "Failed to get leader for view {view} in epoch {epoch}"
-        ))
+        drb_result: DrbResult,
+    ) -> TYPES::SignatureKey {
+        // was result
+        self.lookup_leader(view, epoch, drb_result)
     }
 
-    /// The leader of the committee for view `view_number` in `epoch`.
+    /// The leader of the committee for view `view_number` in `epoch` with the given DRB result.
     ///
     /// Note: There is no such thing as a DA leader, so any consumer
     /// requiring a leader should call this.
     ///
-    /// # Errors
-    /// Returns an error if the leader cannot be calculated
+    /// # Arguments
+    /// * `epoch` - not used when the leader is elected by DRB.
     fn lookup_leader(
         &self,
         view: TYPES::View,
         epoch: Option<TYPES::Epoch>,
-    ) -> std::result::Result<TYPES::SignatureKey, Self::Error>;
+        drb_result: DrbResult,
+    ) -> TYPES::SignatureKey; // was result - std::result::Result<TYPES::SignatureKey, Self::Error>;
 
     /// Returns the number of total nodes in the committee in an epoch `epoch`
     fn total_nodes(&self, epoch: Option<TYPES::Epoch>) -> usize;

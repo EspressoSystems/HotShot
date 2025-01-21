@@ -15,7 +15,8 @@ use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposalWrapper, ViewChangeEvidence2},
+    data::{Leaf2, QuorumProposal2, QuorumProposalWrapper, ViewChangeEvidence2},
+    drb::drb_result,
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     request_response::ProposalRequestPayload,
@@ -77,6 +78,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     .await;
 
     let mem = Arc::clone(&membership);
+    let drb_result = drb_result(TYPES::Epoch::new(epoch_height), consensus.clone()).await?;
     // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
@@ -109,7 +111,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                     {
                         // Make sure that the quorum_proposal is valid
                         let mem_reader = mem.read().await;
-                        if quorum_proposal.validate_signature(&mem_reader, epoch_height).is_ok() {
+                        if quorum_proposal.validate_signature(&mem_reader, epoch_height,drb_result).is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -741,7 +743,12 @@ pub(crate) async fn validate_proposal_view_and_certs<
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     let membership_reader = validation_info.membership.read().await;
-    proposal.validate_signature(&membership_reader, validation_info.epoch_height)?;
+    let drb_result = drb_result(
+        TYPES::Epoch::new(validation_info.epoch_height),
+        validation_info.consensus.clone(),
+    )
+    .await?;
+    proposal.validate_signature(&membership_reader, validation_info.epoch_height, drb_result)?;
     drop(membership_reader);
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.

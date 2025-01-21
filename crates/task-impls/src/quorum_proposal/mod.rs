@@ -17,6 +17,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
+    drb::drb_result,
     message::UpgradeLock,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -281,17 +282,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
         epoch_transition_indicator: EpochTransitionIndicator,
     ) -> Result<()> {
         let membership_reader = self.membership.read().await;
+        let drb_result_current = drb_result(epoch_number, self.consensus.clone()).await?;
+        let drb_result_next = drb_result(epoch_number + 1, self.consensus.clone()).await?;
         let leader_in_current_epoch =
-            membership_reader.leader(view_number, epoch_number)? == self.public_key;
+            membership_reader.leader(view_number, epoch_number, drb_result_current)
+                == self.public_key;
         // If we are in the epoch transition and we are the leader in the next epoch,
         // we might want to start collecting dependencies for our next epoch proposal.
-
         let leader_in_next_epoch = epoch_number.is_some()
             && matches!(
                 epoch_transition_indicator,
                 EpochTransitionIndicator::InTransition
             )
-            && membership_reader.leader(view_number, epoch_number.map(|x| x + 1))?
+            && membership_reader.leader(view_number, epoch_number.map(|x| x + 1), drb_result_next)
                 == self.public_key;
         drop(membership_reader);
 

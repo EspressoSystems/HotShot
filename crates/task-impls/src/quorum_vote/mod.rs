@@ -18,7 +18,7 @@ use hotshot_task::{
 use hotshot_types::{
     consensus::{ConsensusMetricsValue, OuterConsensus},
     data::{Leaf2, QuorumProposalWrapper},
-    drb::DrbComputation,
+    drb::{drb_result, DrbComputation},
     event::Event,
     message::{Proposal, UpgradeLock},
     simple_vote::HasEpoch,
@@ -579,11 +579,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 let target_epoch = share.data.target_epoch();
                 let membership_reader = self.membership.read().await;
                 // ensure that the VID share was sent by a DA member OR the view leader
+                let drb_result = drb_result(vid_epoch, self.consensus.clone()).await?;
                 ensure!(
                     membership_reader
                         .da_committee_members(view, vid_epoch)
                         .contains(sender)
-                        || *sender == membership_reader.leader(view, vid_epoch)?,
+                        || *sender == membership_reader.leader(view, vid_epoch, drb_result),
                     "VID share was not sent by a DA member or the view leader."
                 );
 

@@ -18,6 +18,7 @@ use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{null_block, PackedBundle},
+    drb::drb_result,
     event::{Event, EventType},
     message::UpgradeLock,
     traits::{
@@ -487,8 +488,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
                 );
                 self.cur_view = view;
                 self.cur_epoch = epoch;
-
-                let leader = self.membership.read().await.leader(view, epoch)?;
+                let drb_result = drb_result(epoch, self.consensus.clone()).await?;
+                let leader = self.membership.read().await.leader(view, epoch, drb_result);
                 if leader == self.public_key {
                     self.handle_view_change(&event_stream, view, epoch).await;
                     return Ok(());
