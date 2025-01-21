@@ -260,8 +260,8 @@ pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
 /// Returns the block number of the epoch root in the given epoch
 ///
 /// WARNING: This is NOT the root block for the given epoch.
-/// To find that root block number for epoch e, call `epoch_root_in_epoch(e-2,_)`.
-pub fn epoch_root_in_epoch(epoch: u64, epoch_height: u64) -> u64 {
+/// To find that root block number for epoch e, call `root_block_in_epoch(e-2,_)`.
+pub fn root_block_in_epoch(epoch: u64, epoch_height: u64) -> u64 {
     if epoch_height == 0 || epoch < 1 {
         0
     } else {
@@ -363,11 +363,11 @@ mod test {
     }
 
     #[test]
-    fn test_epoch_root_in_epoch() {
+    fn test_root_block_in_epoch() {
         // block 0 is always epoch 0
         let epoch = 3;
         let epoch_height = 10;
-        let epoch_root_block_number = epoch_root_in_epoch(3, epoch_height);
+        let epoch_root_block_number = root_block_in_epoch(3, epoch_height);
 
         assert!(is_epoch_root(28, epoch_height));
 
