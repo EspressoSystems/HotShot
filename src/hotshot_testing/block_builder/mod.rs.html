@@ -260,8 +260,7 @@
 <span class="kw">use </span>hotshot_types::{
     constants::{LEGACY_BUILDER_MODULE, MARKETPLACE_BUILDER_MODULE},
     traits::{
-        block_contents::{precompute_vid_commitment, EncodeBytes},
-        node_implementation::NodeType,
+        block_contents::EncodeBytes, node_implementation::NodeType,
         signature_key::BuilderSignatureKey,
     },
 };
@@ -424,8 +423,10 @@
 
     <span class="kw">let </span>commitment = block_payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
 
-    <span class="kw">let </span>(vid_commitment, precompute_data) =
-        precompute_vid_commitment(<span class="kw-2">&amp;</span>block_payload.encode(), <span class="kw-2">*</span>num_storage_nodes.read_arc().<span class="kw">await</span>);
+    <span class="kw">let </span>vid_commitment = hotshot_types::traits::block_contents::vid_commitment(
+        <span class="kw-2">&amp;</span>block_payload.encode(),
+        <span class="kw-2">*</span>num_storage_nodes.read_arc().<span class="kw">await</span>,
+    );
 
     <span class="comment">// Get block size from the encoded payload
     </span><span class="kw">let </span>block_size = block_payload.encode().len() <span class="kw">as </span>u64;
@@ -462,7 +463,6 @@
     };
     <span class="kw">let </span>header_input = AvailableBlockHeaderInput {
         vid_commitment,
-        vid_precompute_data: precompute_data,
         message_signature: signature_over_vid_commitment.clone(),
         fee_signature: signature_over_fee_info,
         sender: pub_key,

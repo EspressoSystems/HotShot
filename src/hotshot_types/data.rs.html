@@ -1750,12 +1750,6 @@
 <a href="#1750" id="1750">1750</a>
 <a href="#1751" id="1751">1751</a>
 <a href="#1752" id="1752">1752</a>
-<a href="#1753" id="1753">1753</a>
-<a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1808,7 +1802,7 @@
         BlockPayload,
     },
     utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number},
-    vid::{vid_scheme, VidCommitment, VidCommon, VidPrecomputeData, VidSchemeType, VidShare},
+    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -2009,7 +2003,6 @@
     }
 
     <span class="doccomment">/// Calculate the vid disperse information from the payload given a view, epoch and membership,
-    /// optionally using precompute data from builder.
     /// If the sender epoch is missing, it means it's the same as the target epoch.
     ///
     /// # Errors
@@ -3485,9 +3478,6 @@
     <span class="doccomment">/// The sequencing fee for submitting bundles.
     </span><span class="kw">pub </span>sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
 
-    <span class="doccomment">/// The Vid precompute for the block.
-    </span><span class="kw">pub </span>vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
-
     <span class="doccomment">/// The auction results for the block, if it was produced as the result of an auction
     </span><span class="kw">pub </span>auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
 }
@@ -3500,7 +3490,6 @@
         view_number: TYPES::View,
         epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         sequencing_fees: Vec1&lt;BuilderFee&lt;TYPES&gt;&gt;,
-        vid_precompute: <span class="prelude-ty">Option</span>&lt;VidPrecomputeData&gt;,
         auction_result: <span class="prelude-ty">Option</span>&lt;TYPES::AuctionResult&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -3509,7 +3498,6 @@
             view_number,
             epoch_number,
             sequencing_fees,
-            vid_precompute,
             auction_result,
         }
     }
