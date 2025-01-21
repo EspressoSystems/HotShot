@@ -252,13 +252,16 @@ pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
     }
 }
 
-/// Returns the block number of the epoch root for the given epoch number
-pub fn epoch_root_block_number(epoch: u64, epoch_height: u64) -> u64 {
-  if epoch_height == 0 {
-    0
-  } else {
-    (epoch + 1) * epoch_height - 3
-  }
+/// Returns the block number of the epoch root in the given epoch
+///
+/// WARNING: This is NOT the root block for the given epoch.
+/// To find that root block number for epoch e, call `epoch_root_in_epoch(e-2,_)`.
+pub fn epoch_root_in_epoch(epoch: u64, epoch_height: u64) -> u64 {
+    if epoch_height == 0 || epoch < 1 {
+        0
+    } else {
+        epoch_height * epoch - 2
+    }
 }
 
 /// A function for generating a cute little user mnemonic from a hash
@@ -327,12 +330,19 @@ mod test {
     }
 
     #[test]
-    fn test_epoch_root_block_number() {
+    fn test_epoch_root_in_epoch() {
         // block 0 is always epoch 0
         let epoch = 3;
         let epoch_height = 10;
-        let epoch_root_block_number = epoch_root_block_number(3, epoch_height);
-        
-        assert_eq!(epoch, epoch_from_block_number(epoch_root_block_number, epoch_height));
+        let epoch_root_block_number = epoch_root_in_epoch(3, epoch_height);
+
+        assert!(is_epoch_root(28, epoch_height));
+
+        assert_eq!(epoch_root_block_number, 28);
+
+        assert_eq!(
+            epoch,
+            epoch_from_block_number(epoch_root_block_number, epoch_height)
+        );
     }
 }
