@@ -33,6 +33,7 @@ use hotshot_types::{
         network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
+    utils::genesis_epoch_from_version,
     vote::HasViewNumber,
     ValidatorConfig,
 };
@@ -115,8 +116,8 @@ where
             sender: _,
         } = event
         {
-            if proposal.data.justify_qc.view_number() > self.high_qc.view_number() {
-                self.high_qc = proposal.data.justify_qc.clone();
+            if proposal.data.justify_qc().view_number() > self.high_qc.view_number() {
+                self.high_qc = proposal.data.justify_qc().clone();
             }
         }
 
@@ -158,7 +159,7 @@ where
                                             TestInstanceState::new(self.async_delay_config.clone()),
                                             None,
                                             TYPES::View::genesis(),
-                                            TYPES::Epoch::genesis(),
+                                            genesis_epoch_from_version::<V, TYPES>(), // #3967 is this right now after our earlier discussion? or should i be doing (epoch_height > 0).then(TYPES::Epoch::genesis)
                                             TYPES::View::genesis(),
                                             BTreeMap::new(),
                                             self.high_qc.clone(),
@@ -166,6 +167,7 @@ where
                                             None,
                                             Vec::new(),
                                             BTreeMap::new(),
+                                            None,
                                         );
                                         // We assign node's public key and stake value rather than read from config file since it's a test
                                         let validator_config =
@@ -256,6 +258,7 @@ where
                                     read_storage.decided_upgrade_certificate().await,
                                     Vec::new(),
                                     BTreeMap::new(),
+                                    Some(read_storage.vids_cloned().await),
                                 );
                                 // We assign node's public key and stake value rather than read from config file since it's a test
                                 let validator_config = ValidatorConfig::generated_from_seed_indexed(

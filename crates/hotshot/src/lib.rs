@@ -26,6 +26,7 @@ pub mod traits;
 pub mod types;
 
 pub mod tasks;
+use hotshot_types::data::QuorumProposalWrapper;
 
 /// Contains helper functions for the crate
 pub mod helpers;
@@ -47,7 +48,7 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 /// Reexport error type
 pub use hotshot_types::error::HotShotError;
 use hotshot_types::{
-    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, View, ViewInner},
+    consensus::{Consensus, ConsensusMetricsValue, OuterConsensus, VidShares, View, ViewInner},
     constants::{EVENT_CHANNEL_SIZE, EXTERNAL_EVENT_CHANNEL_SIZE},
     data::{Leaf2, QuorumProposal, QuorumProposal2},
     event::{EventType, LeafInfo},
@@ -62,7 +63,7 @@ use hotshot_types::{
         states::ValidatedState,
         storage::Storage,
     },
-    utils::epoch_from_block_number,
+    utils::{genesis_epoch_from_version, option_epoch_from_block_number},
     HotShotConfig,
 };
 /// Reexport rand crate
@@ -122,7 +123,7 @@ pub struct SystemContext<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
     start_view: TYPES::View,
 
     /// The epoch to enter when first starting consensus
-    start_epoch: TYPES::Epoch,
+    start_epoch: Option<TYPES::Epoch>,
 
     /// Access to the output event stream.
     output_event_stream: (Sender<Event<TYPES>>, InactiveReceiver<Event<TYPES>>),
@@ -236,6 +237,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             internal_chan,
             external_chan,
         )
+        .await
     }
 
     /// Creates a new [`Arc<SystemContext>`] with the given configuration options.
@@ -246,7 +248,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
     /// Use this function if you want to use some preexisting channels and to spin up the tasks
     /// and start consensus manually.  Mostly useful for tests
     #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-    pub fn new_from_channels(
+    pub async fn new_from_channels(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
@@ -291,10 +293,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             )),
         };
 
-        let epoch = TYPES::Epoch::new(epoch_from_block_number(
+        // #3967 REVIEW NOTE: Should this actually be Some()? How do we know?
+        let epoch = option_epoch_from_block_number::<TYPES>(
+            upgrade_lock
+                .epochs_enabled(anchored_leaf.view_number())
+                .await,
             anchored_leaf.height(),
             config.epoch_height,
-        ));
+        );
+
         // Insert the validated state to state map.
         let mut validated_state_map = BTreeMap::default();
         validated_state_map.insert(
@@ -323,17 +330,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             saved_payloads.insert(anchored_leaf.view_number(), Arc::new(payload));
         }
 
-        let anchored_epoch = if config.epoch_height == 0 {
-            TYPES::Epoch::new(0)
-        } else if anchored_leaf.height() % config.epoch_height == 0 {
-            TYPES::Epoch::new(anchored_leaf.height() / config.epoch_height)
-        } else {
-            TYPES::Epoch::new(anchored_leaf.height() / config.epoch_height + 1)
-        };
         let consensus = Consensus::new(
             validated_state_map,
+            initializer.saved_vid_shares,
             anchored_leaf.view_number(),
-            anchored_epoch,
+            epoch,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
             initializer.actioned_view,
@@ -415,7 +416,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> SystemContext<T
             async move {
                 sleep(Duration::from_millis(next_view_timeout)).await;
                 broadcast_event(
-                    Arc::new(HotShotEvent::Timeout(start_view + 1, start_epoch + 1)),
+                    Arc::new(HotShotEvent::Timeout(
+                        start_view + 1,
+                        start_epoch.map(|x| x + 1),
+                    )),
                     &event_stream,
                 )
                 .await;
@@ -1002,26 +1006,37 @@ pub struct HotShotInitializer<TYPES: NodeType> {
 
     /// Starting view number that should be equivalent to the view the node shut down with last.
     start_view: TYPES::View,
+
     /// Starting epoch number that should be equivalent to the epoch the node shut down with last.
-    start_epoch: TYPES::Epoch,
+    start_epoch: Option<TYPES::Epoch>,
+
     /// The view we last performed an action in.  An action is Proposing or voting for
     /// Either the quorum or DA.
     actioned_view: TYPES::View,
+
     /// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
     high_qc: QuorumCertificate2<TYPES>,
+
     /// Next epoch highest QC that was seen. This is needed to propose during epoch transition after restart.
     next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
+
     /// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
+
     /// Undecided leaves that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
     undecided_leaves: Vec<Leaf2<TYPES>>,
+
     /// Not yet decided state
     undecided_state: BTreeMap<TYPES::View, View<TYPES>>,
+
     /// Proposals we have sent out to provide to others for catchup
-    saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+    saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
+
+    /// Saved VID shares
+    saved_vid_shares: Option<VidShares<TYPES>>,
 }
 
 impl<TYPES: NodeType> HotShotInitializer<TYPES> {
@@ -1035,11 +1050,11 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         let high_qc = QuorumCertificate2::genesis::<V>(&validated_state, &instance_state).await;
 
         Ok(Self {
-            inner: Leaf2::genesis(&validated_state, &instance_state).await,
+            inner: Leaf2::genesis::<V>(&validated_state, &instance_state).await,
             validated_state: Some(Arc::new(validated_state)),
             state_delta: Some(Arc::new(state_delta)),
             start_view: TYPES::View::new(0),
-            start_epoch: TYPES::Epoch::new(0),
+            start_epoch: genesis_epoch_from_version::<V, TYPES>(),
             actioned_view: TYPES::View::new(0),
             saved_proposals: BTreeMap::new(),
             high_qc,
@@ -1048,6 +1063,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             undecided_leaves: Vec::new(),
             undecided_state: BTreeMap::new(),
             instance_state,
+            saved_vid_shares: None,
         })
     }
 
@@ -1064,14 +1080,15 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
         instance_state: TYPES::InstanceState,
         validated_state: Option<Arc<TYPES::ValidatedState>>,
         start_view: TYPES::View,
-        start_epoch: TYPES::Epoch,
+        start_epoch: Option<TYPES::Epoch>,
         actioned_view: TYPES::View,
-        saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+        saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
         high_qc: QuorumCertificate2<TYPES>,
         next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
         undecided_leaves: Vec<Leaf2<TYPES>>,
         undecided_state: BTreeMap<TYPES::View, View<TYPES>>,
+        saved_vid_shares: Option<VidShares<TYPES>>,
     ) -> Self {
         Self {
             inner: anchor_leaf,
@@ -1087,6 +1104,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             decided_upgrade_certificate,
             undecided_leaves,
             undecided_state,
+            saved_vid_shares,
         }
     }
 }
