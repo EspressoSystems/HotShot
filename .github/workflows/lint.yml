@@ -15,6 +15,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify-workspace-hack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout Repository
+      
+      - name: Install cargo-hakari
+        run: |
+          sudo apt install cargo-hakari
+      
+      - name: Run cargo-hakari
+        run: |
+          cargo hakari verify
+
   clippy:
     strategy:
       fail-fast: false
