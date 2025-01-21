@@ -28,7 +28,7 @@ jobs:
       
       - name: Run cargo-hakari
         run: |
-          cargo hakari verify
+          cargo hakari generate --diff
 
   clippy:
     strategy:
