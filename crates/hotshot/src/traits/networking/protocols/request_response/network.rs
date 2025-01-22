@@ -9,7 +9,7 @@ use super::{message::Message, request::Request, Serializable};
 
 /// The [`Sender`] trait is used to allow the [`RequestResponseProtocol`] to send messages to a specific recipient
 #[async_trait]
-pub trait Sender<K: SignatureKey + 'static>: Send + Sync + 'static {
+pub trait Sender<K: SignatureKey + 'static>: Send + Sync + 'static + Clone {
     /// Send a message to the specified recipient
     async fn send_message<R: Request>(&self, message: &Message<R, K>, recipient: K) -> Result<()>;
 }
@@ -26,7 +26,7 @@ pub trait Receiver<K: SignatureKey + 'static>: Send + Sync + 'static {
 #[async_trait]
 impl<T, K> Sender<K> for T
 where
-    T: Deref<Target: ConnectedNetwork<K>> + Send + Sync + 'static,
+    T: Deref<Target: ConnectedNetwork<K>> + Send + Sync + 'static + Clone,
     K: SignatureKey + 'static,
 {
     async fn send_message<R: Request>(&self, message: &Message<R, K>, recipient: K) -> Result<()> {

@@ -23,17 +23,17 @@ pub enum Message<R: Request, K: SignatureKey> {
 pub struct RequestMessage<R: Request, K: SignatureKey> {
     /// The requester's public key
     pub public_key: K,
-    /// The requester's signature over the [request content + timestamp]
+    /// The requester's signature over the [the actual request content + timestamp]
     pub signature: K::PureAssembledSignatureType,
     /// The timestamp of when the request was sent (in seconds since the Unix epoch)
     pub timestamp_unix_seconds: u64,
-    /// The request's content
-    pub content: R,
+    /// The actual request
+    pub request: R,
 }
 
 impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
     /// Create a new signed request message
-    pub fn new_signed(public_key: K, private_key: K::PrivateKey, content: R) -> Result<Self>
+    pub fn new_signed(public_key: K, private_key: K::PrivateKey, request: R) -> Result<Self>
     where
         <K as SignatureKey>::SignError: 'static,
     {
@@ -45,7 +45,7 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
 
         // Concatenate the content and timestamp
         let timestamped_content = [
-            &content
+            &request
                 .to_bytes()
                 .with_context(|| "failed to serialize request content")?
                 .as_slice(),
@@ -53,7 +53,7 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
         ]
         .concat();
 
-        // Sign the content with the private key
+        // Sign the actual request content with the private key
         let signature = K::sign(&private_key, &timestamped_content)
             .with_context(|| "failed to sign message")?;
 
@@ -62,17 +62,18 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
             public_key,
             signature,
             timestamp_unix_seconds,
-            content,
+            request,
         })
     }
 
-    /// Validate the request message, checking the signature and the timestamp
+    /// Validate the request message, checking the signature and the timestamp and
+    /// calling the request's application-specific validation function
     pub fn validate(&self, incoming_request_ttl: Duration) -> Result<()> {
         // Check the signature over the request content and timestamp
         if !self.public_key.validate(
             &self.signature,
             &[
-                self.content.to_bytes()?,
+                self.request.to_bytes()?,
                 self.timestamp_unix_seconds.to_le_bytes().to_vec(),
             ]
             .concat(),
@@ -92,7 +93,8 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
             return Err(anyhow::anyhow!("request is too old"));
         }
 
-        Ok(())
+        // Call the request's application-specific validation function
+        self.request.validate()
     }
 }
 
@@ -101,8 +103,8 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
 pub struct ResponseMessage<R: Request> {
     /// The hash of the request we're responding to
     pub request_hash: RequestHash,
-    /// The actual content of the response
-    pub content: R::Response,
+    /// The actual response content
+    pub response: R::Response,
 }
 
 /// A blanket implementation of the [`Serializable`] trait for any [`Message`]
@@ -174,8 +176,8 @@ impl<R: Request, K: SignatureKey> Serializable for RequestMessage<R, K> {
         // Write the timestamp
         bytes.write_all(&self.timestamp_unix_seconds.to_le_bytes())?;
 
-        // Write the actual request content
-        bytes.write_all(self.content.to_bytes()?.as_slice())?;
+        // Write the actual request
+        bytes.write_all(self.request.to_bytes()?.as_slice())?;
 
         Ok(bytes)
     }
@@ -193,14 +195,14 @@ impl<R: Request, K: SignatureKey> Serializable for RequestMessage<R, K> {
         // Read the timestamp as a [`u64`]
         let timestamp = bytes.read_u64::<LittleEndian>()?;
 
-        // Deserialize the request content
-        let content = R::from_bytes(&read_to_end(&mut bytes)?)?;
+        // Deserialize the request
+        let request = R::from_bytes(&read_to_end(&mut bytes)?)?;
 
         Ok(Self {
             public_key,
             signature,
             timestamp_unix_seconds: timestamp,
-            content,
+            request,
         })
     }
 }
@@ -214,7 +216,7 @@ impl<R: Request> Serializable for ResponseMessage<R> {
         bytes.write_u64::<LittleEndian>(self.request_hash)?;
 
         // Write the response content
-        bytes.write_all(self.content.to_bytes()?.as_slice())?;
+        bytes.write_all(self.response.to_bytes()?.as_slice())?;
 
         Ok(bytes)
     }
@@ -227,11 +229,11 @@ impl<R: Request> Serializable for ResponseMessage<R> {
         let request_hash = bytes.read_u64::<LittleEndian>()?;
 
         // Read the response content to the end
-        let content = R::Response::from_bytes(&read_to_end(&mut bytes)?)?;
+        let response = R::Response::from_bytes(&read_to_end(&mut bytes)?)?;
 
         Ok(Self {
             request_hash,
-            content,
+            response,
         })
     }
 }
@@ -322,8 +324,8 @@ mod tests {
                 0 => (true, Duration::from_secs(1)),
 
                 1 => {
-                    // Alter the content
-                    request.content[0] = !request.content[0];
+                    // Alter the requests's actual content
+                    request.request[0] = !request.request[0];
 
                     // It should not be valid anymore
                     (false, Duration::from_secs(1))
@@ -362,7 +364,7 @@ mod tests {
             let is_request = rng.gen::<u8>() % 2 == 0;
 
             // The request content will be a random vector of bytes
-            let content = vec![rng.gen::<u8>(); rng.gen_range(0..10000)];
+            let request = vec![rng.gen::<u8>(); rng.gen_range(0..10000)];
 
             // Create a message
             let message = match is_request {
@@ -372,14 +374,14 @@ mod tests {
                         BLSPubKey::generated_from_seed_indexed([1; 32], rng.gen::<u64>());
 
                     // Create a new signed request
-                    let request = RequestMessage::new_signed(public_key, private_key, content)
+                    let request = RequestMessage::new_signed(public_key, private_key, request)
                         .expect("Failed to create signed request");
 
                     Message::Request(request)
                 }
                 false => Message::Response(ResponseMessage {
                     request_hash: rng.gen::<u64>(),
-                    content: vec![rng.gen::<u8>(); rng.gen_range(0..10000)],
+                    response: vec![rng.gen::<u8>(); rng.gen_range(0..10000)],
                 }),
             };
 
