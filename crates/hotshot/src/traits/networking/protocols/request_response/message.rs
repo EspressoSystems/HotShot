@@ -286,15 +286,15 @@ mod tests {
     /// A testing implementation of the [`Request`] trait for [`Vec<u8>`]
     impl Request for Vec<u8> {
         type Response = Vec<u8>;
-        fn is_valid(&self) -> bool {
-            true
+        fn validate(&self) -> Result<()> {
+            Ok(())
         }
     }
 
     /// A testing implementation of the [`Response`] trait for [`Vec<u8>`]
     impl Response<Vec<u8>> for Vec<u8> {
-        fn is_valid(&self, _request: &Vec<u8>) -> bool {
-            true
+        fn validate(&self, _request: &Vec<u8>) -> Result<()> {
+            Ok(())
         }
     }
 

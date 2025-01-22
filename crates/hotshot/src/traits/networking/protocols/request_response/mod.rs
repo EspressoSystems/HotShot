@@ -1,10 +1,11 @@
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, rc::Rc, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use dashmap::DashMap;
 use data_source::DataSource;
+use derive_more::derive::Deref;
 use hotshot_types::traits::signature_key::SignatureKey;
-use message::Message;
+use message::{Message, RequestMessage, ResponseMessage};
 use network::{Receiver, Sender};
 use recipient_source::RecipientSource;
 use request::Request;
@@ -38,12 +39,15 @@ pub trait Serializable: Sized {
 }
 
 /// The request-response configuration
-#[derive(Clone)]
-pub struct RequestResponseConfig {
+#[derive(Clone, Deref)]
+pub struct RequestResponseConfig(Arc<RequestResponseConfigInner>);
+
+/// An `inner` struct for the [`RequestResponseConfig`]. We only use this
+/// to make the [`RequestResponseConfig`] cloneable with minimal overhead
+pub struct RequestResponseConfigInner {
     /// The timeout for incoming requests. Do not respond to a request after this threshold
     /// has passed.
     incoming_request_ttl: Duration,
-
     /// The timeout for sending responses. Includes the time it takes to derive the response
     /// and send it over the wire.
     response_timeout: Duration,
@@ -52,10 +56,10 @@ pub struct RequestResponseConfig {
 impl RequestResponseConfig {
     /// Create a new [`RequestResponseConfig`]
     pub fn new(response_timeout: Duration, incoming_request_ttl: Duration) -> Self {
-        Self {
+        Self(Arc::new(RequestResponseConfigInner {
             response_timeout,
             incoming_request_ttl,
-        }
+        }))
     }
 }
 
@@ -71,10 +75,6 @@ pub struct RequestResponse<
 > {
     /// The configuration of the protocol
     config: RequestResponseConfig,
-
-    /// The list of currently active requests
-    active_requests: Arc<DashMap<RequestHash, mpsc::Sender<()>>>,
-
     /// The sender to use for the protocol
     sender: S,
     /// The recipient source to use for the protocol
@@ -111,16 +111,15 @@ impl<
         let active_requests = Arc::new(DashMap::new());
 
         // Start the task that receives messages and handles them
-        let receive_task_handle = Arc::new(AbortOnDropHandle(tokio::spawn(Self::receive_task(
+        let receive_task_handle = Arc::new(AbortOnDropHandle(tokio::spawn(Self::receiving_task(
+            config.clone(),
             receiver,
             data_source,
             active_requests.clone(),
-            config.incoming_request_ttl,
         ))));
 
         Self {
             config,
-            active_requests,
             sender,
             recipient_source,
             receive_task_handle,
@@ -129,27 +128,20 @@ impl<
     }
 
     /// The task responsible for receiving messages and handling them
-    async fn receive_task(
+    async fn receiving_task(
+        config: RequestResponseConfig,
         mut receiver: R,
         data_source: DS,
         active_requests: Arc<DashMap<RequestHash, mpsc::Sender<()>>>,
-        incoming_request_ttl: Duration,
     ) {
         while let Ok(message) = receiver.receive_message::<Req>().await {
             match message {
                 Message::Request(request_message) => {
-                    // Validate the request message. If it's invalid, we'll just ignore it
-                    // This includes checking the signature and making sure it's not too old
-                    if let Err(e) = request_message.validate(incoming_request_ttl) {
-                        warn!("Received invalid request: {e}");
-                        continue;
-                    }
-
-                    todo!()
+                    Handlers::handle_request(request_message, &config);
                 }
                 Message::Response(response_message) => {
                     // Handle the response message
-                    todo!()
+                    Handlers::handle_response(response_message, &config);
                 }
             }
         }
@@ -164,6 +156,36 @@ impl<
         // Create a request message
         // let _message = Message::Request(request);
 
+        todo!()
+    }
+}
+
+struct Handlers;
+impl Handlers {
+    /// Handle a request sent to us
+    fn handle_request<Req: Request, K: SignatureKey>(
+        request: RequestMessage<Req, K>,
+        config: &RequestResponseConfig,
+    ) {
+        // Validate the request message. This includes checking the signature and making sure it's
+        // not too old
+        if let Err(e) = request.validate(config.incoming_request_ttl) {
+            warn!("Received invalid request: {e}");
+            return;
+        }
+
+        // Make sure the request content itself is valid to the application
+        if let Err(e) = request.content.validate() {
+            warn!("Received invalid request content: {e}");
+            return;
+        }
+    }
+
+    /// Handle a response sent to us
+    fn handle_response<Req: Request>(
+        response: ResponseMessage<Req>,
+        config: &RequestResponseConfig,
+    ) {
         todo!()
     }
 }
