@@ -203,7 +203,7 @@ pub struct ConsistencyTask<TYPES: NodeType, V: Versions> {
     /// A map from node ids to (leaves keyed on view number)
     pub consensus_leaves: NetworkMap<TYPES>,
     /// safety task requirements
-    pub safety_properties: OverallSafetyPropertiesDescription<TYPES>,
+    pub safety_properties: OverallSafetyPropertiesDescription,
     /// whether we should have seen an upgrade certificate or not
     pub ensure_upgrade: bool,
     /// phantom marker
@@ -240,6 +240,32 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
         ensure!(
           expected_upgrade == actual_upgrade,
           "Mismatch between expected and actual upgrade. Expected upgrade: {expected_upgrade}. Actual upgrade: {actual_upgrade}"
+        );
+
+        Ok(())
+    }
+
+    pub async fn check_view_failure(&self) -> Result<()> {
+        let sanitized_network_map = sanitize_network_map(&self.consensus_leaves)?;
+
+        let mut inverted_map = invert_network_map::<TYPES, V>(&sanitized_network_map).await?;
+
+        let (current_view, _) = inverted_map
+            .pop_last()
+            .context("Leaf map is empty, which should be impossible")?;
+        let Some((last_view, _)) = inverted_map.pop_last() else {
+            // the view cannot fail if there wasn't a prior view in the map.
+            return Ok(());
+        };
+
+        let unexpected_failed_views: Vec<_> = (*(last_view + 1)..*current_view)
+            .filter(|view| !self.safety_properties.expected_view_failures.contains(view))
+            .collect();
+
+        ensure!(
+            unexpected_failed_views.is_empty(),
+            "Unexpected failed views: {:?}",
+            unexpected_failed_views
         );
 
         Ok(())

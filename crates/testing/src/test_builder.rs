@@ -125,7 +125,7 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     /// `HotShotInitializer::from_reload` in the spinning task.
     pub skip_late: bool,
     /// overall safety property description
-    pub overall_safety_properties: OverallSafetyPropertiesDescription<TYPES>,
+    pub overall_safety_properties: OverallSafetyPropertiesDescription,
     /// spinning properties
     pub spinning_properties: SpinningTaskDescription,
     /// txns timing
@@ -354,14 +354,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
         let num_nodes_with_stake = 100;
 
         Self {
-            overall_safety_properties: OverallSafetyPropertiesDescription::<TYPES> {
+            overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 50,
                 check_leaf: true,
                 check_block: true,
                 num_failed_views: 15,
                 transaction_threshold: 0,
-                threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
-                expected_views_to_fail: HashMap::new(),
+                expected_view_failures: vec![],
             },
             timing_data: TimingData {
                 next_view_timeout: 2000,
@@ -378,14 +377,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
     pub fn default_multiple_rounds() -> Self {
         let num_nodes_with_stake = 10;
         TestDescription::<TYPES, I, V> {
-            overall_safety_properties: OverallSafetyPropertiesDescription::<TYPES> {
+            overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 20,
                 check_leaf: true,
                 check_block: true,
                 num_failed_views: 8,
                 transaction_threshold: 0,
-                threshold_calculator: Arc::new(|_active, total| (2 * total / 3 + 1)),
-                expected_views_to_fail: HashMap::new(),
+                expected_view_failures: vec![],
             },
             timing_data: TimingData {
                 ..TimingData::default()

@@ -4,7 +4,7 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use hotshot_example_types::{
     node_types::{
@@ -23,7 +23,6 @@ use hotshot_testing::{
     test_builder::{TestDescription, TimingData},
     view_sync_task::ViewSyncTaskDescription,
 };
-use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
 
 cross_tests!(
     TestName: test_success_with_epochs,
@@ -275,14 +274,7 @@ cross_tests!(
         metadata.overall_safety_properties.num_failed_views = 6;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 20;
-        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
-            (ViewNumber::new(5), false),
-            (ViewNumber::new(11), false),
-            (ViewNumber::new(17), false),
-            (ViewNumber::new(23), false),
-            (ViewNumber::new(29), false),
-            (ViewNumber::new(35), false),
-        ]);
+        metadata.overall_safety_properties.expected_view_failures = vec![5,11,17,23,29,35];
 
         metadata
     }
@@ -313,11 +305,11 @@ cross_tests!(
 
         // node 5 is leader twice when we shut down
         metadata.overall_safety_properties.num_failed_views = 2;
-        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
+        metadata.overall_safety_properties.expected_view_failures = vec![
             // next views after turning node off
-            (ViewNumber::new(view_spin_node_down + 1), false),
-            (ViewNumber::new(view_spin_node_down + 2), false)
-        ]);
+            view_spin_node_down + 1,
+            view_spin_node_down + 2
+        ];
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 13;
 

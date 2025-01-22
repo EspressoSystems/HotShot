@@ -46,10 +46,7 @@ use tokio::{spawn, task::JoinHandle};
 use tracing::info;
 
 use super::{
-    completion_task::CompletionTask,
-    consistency_task::ConsistencyTask,
-    overall_safety_task::{OverallSafetyTask, RoundCtx},
-    txn_task::TxnTask,
+    completion_task::CompletionTask, consistency_task::ConsistencyTask, txn_task::TxnTask,
 };
 use crate::{
     block_builder::{BuilderTask, TestBuilderImplementation},
@@ -205,15 +202,6 @@ where
             event_rxs.clone(),
             test_receiver.clone(),
         );
-        // add safety task
-        let overall_safety_task_state = OverallSafetyTask {
-            handles: Arc::clone(&handles),
-            epoch_height: launcher.metadata.test_config.epoch_height,
-            ctx: RoundCtx::default(),
-            properties: launcher.metadata.overall_safety_properties.clone(),
-            error: None,
-            test_sender,
-        };
 
         let consistency_task_state = ConsistencyTask {
             consensus_leaves: BTreeMap::new(),
@@ -225,12 +213,6 @@ where
 
         let consistency_task = TestTask::<ConsistencyTask<TYPES, V>>::new(
             consistency_task_state,
-            event_rxs.clone(),
-            test_receiver.clone(),
-        );
-
-        let overall_safety_task = TestTask::<OverallSafetyTask<TYPES, I, V>>::new(
-            overall_safety_task_state,
             event_rxs.clone(),
             test_receiver.clone(),
         );
@@ -273,7 +255,6 @@ where
             task_futs.push(task.run());
         }
 
-        task_futs.push(overall_safety_task.run());
         task_futs.push(consistency_task.run());
         task_futs.push(view_sync_task.run());
         task_futs.push(spinning_task.run());
