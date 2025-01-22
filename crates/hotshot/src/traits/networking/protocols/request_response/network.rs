@@ -11,15 +11,15 @@ use super::{message::Message, request::Request, Serializable};
 #[async_trait]
 pub trait Sender<K: SignatureKey + 'static>: Send + Sync + 'static {
     /// Send a message to the specified recipient
-    async fn send_message<R: Request>(&self, message: &Message<R>, recipient: K) -> Result<()>;
+    async fn send_message<R: Request>(&self, message: &Message<R, K>, recipient: K) -> Result<()>;
 }
 
 /// The [`Receiver`] trait is used to allow the [`RequestResponseProtocol`] to receive messages from a network
 /// or other source.
 #[async_trait]
-pub trait Receiver: Send + Sync + 'static {
+pub trait Receiver<K: SignatureKey + 'static>: Send + Sync + 'static {
     /// Receive a message
-    async fn receive_message<R: Request>(&mut self) -> Result<Message<R>>;
+    async fn receive_message<R: Request>(&mut self) -> Result<Message<R, K>>;
 }
 
 /// A blanket implementation of the [`Sender`] trait for all types that dereference to [`ConnectedNetwork`]
@@ -29,7 +29,7 @@ where
     T: Deref<Target: ConnectedNetwork<K>> + Send + Sync + 'static,
     K: SignatureKey + 'static,
 {
-    async fn send_message<R: Request>(&self, message: &Message<R>, recipient: K) -> Result<()> {
+    async fn send_message<R: Request>(&self, message: &Message<R, K>, recipient: K) -> Result<()> {
         // Serialize the message
         let serialized_message = message
             .to_bytes()
@@ -45,8 +45,8 @@ where
 /// An implementation of the [`Receiver`] trait for the [`mpsc::Receiver`] type. Allows us to send messages
 /// to a channel and have the protocol receive them.
 #[async_trait]
-impl Receiver for mpsc::Receiver<Vec<u8>> {
-    async fn receive_message<R: Request>(&mut self) -> Result<Message<R>> {
+impl<K: SignatureKey + 'static> Receiver<K> for mpsc::Receiver<Vec<u8>> {
+    async fn receive_message<R: Request>(&mut self) -> Result<Message<R, K>> {
         // Receive a message from the channel
         let message = self.recv().await.ok_or(anyhow::anyhow!("channel closed"))?;
 

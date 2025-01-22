@@ -2874,6 +2874,7 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
+ "byteorder",
  "cdn-broker",
  "cdn-client",
  "cdn-marshal",

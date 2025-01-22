@@ -1,12 +1,14 @@
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 use anyhow::Result;
+use dashmap::DashMap;
 use data_source::DataSource;
 use hotshot_types::traits::signature_key::SignatureKey;
 use message::Message;
 use network::{Receiver, Sender};
 use recipient_source::RecipientSource;
 use request::Request;
+use tokio::sync::mpsc;
 use tracing::warn;
 use utils::abort_on_drop_handle::AbortOnDropHandle;
 
@@ -22,6 +24,9 @@ pub mod network;
 pub mod recipient_source;
 /// The request trait. Is what we use to define a request and a corresponding response type
 pub mod request;
+
+/// A type alias for the hash of a request
+pub type RequestHash = u64;
 
 /// A trait for serializing and deserializing a type to and from a byte array
 pub trait Serializable: Sized {
@@ -44,7 +49,7 @@ pub struct RequestResponseConfig {
 #[derive(Clone)]
 pub struct RequestResponse<
     S: Sender<K>,
-    R: Receiver,
+    R: Receiver<K>,
     Req: Request,
     RS: RecipientSource<K>,
     DS: DataSource<Req>,
@@ -52,12 +57,16 @@ pub struct RequestResponse<
 > {
     /// The configuration of the protocol
     config: RequestResponseConfig,
+
+    /// The list of currently active requests
+    active_requests: Arc<DashMap<RequestHash, mpsc::Sender<()>>>,
+
     /// The sender to use for the protocol
     sender: S,
     /// The recipient source to use for the protocol
     recipient_source: RS,
-    /// The response data source to use for the protocol
-    response_data_source: DS,
+    /// The [response] data source to use for the protocol
+    data_source: DS,
     /// The handle to the task that receives messages
     receive_task_handle: Arc<AbortOnDropHandle<()>>,
     /// Phantom data to help with type inference
@@ -66,7 +75,7 @@ pub struct RequestResponse<
 
 impl<
         S: Sender<K>,
-        R: Receiver,
+        R: Receiver<K>,
         Req: Request,
         RS: RecipientSource<K>,
         DS: DataSource<Req>,
@@ -83,33 +92,41 @@ impl<
         receiver: R,
         // The recipient source to use for the protocol
         recipient_source: RS,
-        // The response data source to use for the protocol
-        response_data_source: DS,
+        // The [response] data source to use for the protocol
+        data_source: DS,
     ) -> Self {
+        // Create the active requests map
+        let active_requests = Arc::new(DashMap::new());
+
         // Start the task that receives messages and handles them
         let receive_task_handle = Arc::new(AbortOnDropHandle(tokio::spawn(Self::receive_task(
             receiver,
+            active_requests.clone(),
         ))));
 
         Self {
             config,
+            active_requests,
             sender,
             recipient_source,
-            response_data_source,
+            data_source,
             receive_task_handle,
             phantom_data: PhantomData,
         }
     }
 
     /// The task responsible for receiving messages and handling them
-    async fn receive_task(mut receiver: R) {
+    async fn receive_task(
+        mut receiver: R,
+        active_requests: Arc<DashMap<RequestHash, mpsc::Sender<()>>>,
+    ) {
         while let Ok(message) = receiver.receive_message::<Req>().await {
             match message {
-                Message::Request(_request) => {
+                Message::Request(request_message) => {
                     // Handle the request message
                     todo!()
                 }
-                Message::Response(_response) => {
+                Message::Response(response_message) => {
                     // Handle the response message
                     todo!()
                 }
@@ -124,7 +141,7 @@ impl<
         let _recipients = self.recipient_source.get_recipients_for(&request);
 
         // Create a request message
-        let _message = Message::Request(request);
+        // let _message = Message::Request(request);
 
         todo!()
     }
