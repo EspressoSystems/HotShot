@@ -206,6 +206,8 @@ where
         let consistency_task_state = ConsistencyTask {
             consensus_leaves: BTreeMap::new(),
             safety_properties: launcher.metadata.overall_safety_properties,
+            test_sender: test_sender.clone(),
+            errors: vec![],
             ensure_upgrade: launcher.metadata.upgrade_view.is_some(),
             validate_transactions: launcher.metadata.validate_transactions,
             _pd: PhantomData,

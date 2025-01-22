@@ -8,6 +8,7 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
 use anyhow::{bail, ensure, Context, Result};
+use async_broadcast::Sender;
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_example_types::block_types::TestBlockHeader;
@@ -21,7 +22,7 @@ use hotshot_types::{
 use crate::{
     overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::TransactionValidator,
-    test_task::{TestResult, TestTaskState},
+    test_task::{TestEvent, TestResult, TestTaskState},
 };
 
 /// Map from views to leaves for a single node, allowing multiple leaves for each view (because the node may a priori send us multiple leaves for a given view).
@@ -198,6 +199,11 @@ fn sanitize_view_map<TYPES: NodeType>(
     Ok(result)
 }
 
+enum TestProgress {
+    Incomplete,
+    Finished,
+}
+
 /// Data availability task state
 pub struct ConsistencyTask<TYPES: NodeType, V: Versions> {
     /// A map from node ids to (leaves keyed on view number)
@@ -206,6 +212,10 @@ pub struct ConsistencyTask<TYPES: NodeType, V: Versions> {
     pub safety_properties: OverallSafetyPropertiesDescription,
     /// whether we should have seen an upgrade certificate or not
     pub ensure_upgrade: bool,
+    /// a list of errors accumulated by the task
+    pub errors: Vec<anyhow::Error>,
+    /// channel used to shutdown the test
+    pub test_sender: Sender<TestEvent>,
     /// phantom marker
     pub _pd: PhantomData<V>,
     /// function used to validate the number of transactions committed in each block
@@ -240,6 +250,62 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
         ensure!(
           expected_upgrade == actual_upgrade,
           "Mismatch between expected and actual upgrade. Expected upgrade: {expected_upgrade}. Actual upgrade: {actual_upgrade}"
+        );
+
+        Ok(())
+    }
+
+    async fn partial_validate(&self) -> Result<TestProgress> {
+        self.check_view_success().await?;
+        self.check_view_failure().await?;
+
+        self.check_total_successes().await
+    }
+
+    fn add_error(&mut self, error: anyhow::Error) {
+        self.errors.push(error);
+    }
+
+    async fn handle_result(&mut self, result: Result<TestProgress>) {
+        match result {
+            Ok(TestProgress::Finished) => {
+                let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+            }
+            Err(e) => {
+                self.add_error(e);
+                let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+            }
+            Ok(TestProgress::Incomplete) => {}
+        }
+    }
+
+    async fn check_total_successes(&self) -> Result<TestProgress> {
+        let sanitized_network_map = sanitize_network_map(&self.consensus_leaves)?;
+
+        let inverted_map = invert_network_map::<TYPES, V>(&sanitized_network_map).await?;
+
+        if inverted_map.len() >= self.safety_properties.num_successful_views {
+            Ok(TestProgress::Finished)
+        } else {
+            Ok(TestProgress::Incomplete)
+        }
+    }
+    pub async fn check_view_success(&self) -> Result<()> {
+        let sanitized_network_map = sanitize_network_map(&self.consensus_leaves)?;
+
+        let mut inverted_map = invert_network_map::<TYPES, V>(&sanitized_network_map).await?;
+
+        let (current_view, _) = inverted_map
+            .pop_last()
+            .context("Leaf map is empty, which should be impossible")?;
+
+        ensure!(
+            !self
+                .safety_properties
+                .expected_view_failures
+                .contains(&current_view),
+            "Expected a view failure, but got a decided leaf for view: {:?}",
+            current_view
         );
 
         Ok(())
@@ -285,23 +351,33 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> TestTaskState
             ..
         } = message
         {
-            let map = &mut self.consensus_leaves.entry(id).or_insert(BTreeMap::new());
+            for leaf_info in leaf_chain.iter().rev() {
+                let map = &mut self.consensus_leaves.entry(id).or_insert(BTreeMap::new());
 
-            leaf_chain.iter().for_each(|leaf_info| {
                 map.entry(leaf_info.leaf.view_number())
                     .and_modify(|vec| vec.push(leaf_info.leaf.clone()))
                     .or_insert(vec![leaf_info.leaf.clone()]);
-            });
+
+                let result = self.partial_validate().await;
+
+                self.handle_result(result).await;
+            }
         }
 
         Ok(())
     }
 
     async fn check(&self) -> TestResult {
+        let mut errors: Vec<_> = self.errors.iter().map(|e| e.to_string()).collect();
+
         if let Err(e) = self.validate().await {
-            return TestResult::Fail(Box::new(e));
+            errors.push(e.to_string());
         }
 
-        TestResult::Pass
+        if !errors.is_empty() {
+            TestResult::Fail(Box::new(errors))
+        } else {
+            TestResult::Pass
+        }
     }
 }
