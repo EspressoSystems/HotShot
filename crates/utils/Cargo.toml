@@ -6,6 +6,8 @@ description = "Utils"
 
 [dependencies]
 tracing = { workspace = true }
+derive_more = { workspace = true }
+tokio = { workspace = true }
 
 [lints]
 workspace = true

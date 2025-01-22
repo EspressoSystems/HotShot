@@ -20,9 +20,10 @@ pub mod implementations {
         combined_network::{CombinedNetworks, UnderlyingCombinedNetworks},
         libp2p_network::{
             derive_libp2p_keypair, derive_libp2p_multiaddr, derive_libp2p_peer_id, GossipConfig,
-            Libp2pMetricsValue, Libp2pNetwork, PeerInfoVec, RequestResponseConfig,
+            Libp2pMetricsValue, Libp2pNetwork, PeerInfoVec, RequestResponseConfig as Libp2pRequestResponseConfig,
         },
         memory_network::{MasterMap, MemoryNetwork},
+        protocols::request_response::*,
         push_cdn_network::{
             CdnMetricsValue, KeyPair, ProductionDef, PushCdnNetwork, TestingDef, Topic as CdnTopic,
             WrappedSignatureKey,

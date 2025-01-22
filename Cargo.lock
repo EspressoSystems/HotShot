@@ -8085,6 +8085,8 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 name = "utils"
 version = "0.5.79"
 dependencies = [
+ "derive_more 1.0.0",
+ "tokio",
  "tracing",
 ]
 
