@@ -62,8 +62,7 @@ cross_tests!(
             node_changes: vec![(5, dead_nodes)]
         };
 
-        // 2 nodes fail triggering view sync, expect no other timeouts
-        metadata.overall_safety_properties.num_failed_views = 2;
+        metadata.overall_safety_properties.expected_view_failures = vec![9,10,11];
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 13;
 
@@ -97,10 +96,9 @@ cross_tests!(
             node_changes: vec![(view_spin_node_down, dead_nodes)]
         };
 
-        // node 3 is leader twice when we shut down
-        metadata.overall_safety_properties.num_failed_views = 2;
         metadata.overall_safety_properties.expected_view_failures = vec![
             // next views after turning node off
+            view_spin_node_down,
             view_spin_node_down + 1,
             view_spin_node_down + 2
         ];
