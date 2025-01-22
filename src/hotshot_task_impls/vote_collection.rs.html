@@ -716,7 +716,7 @@
 <span class="kw">use </span>async_broadcast::Sender;
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>either::Either::{<span class="self">self</span>, Left, Right};
+<span class="kw">use </span>either::Either::{Left, Right};
 <span class="kw">use </span>hotshot_types::{
     message::UpgradeLock,
     simple_certificate::{
@@ -837,8 +837,8 @@
             .accumulate(vote, <span class="kw-2">&amp;</span><span class="self">self</span>.membership, sender_epoch)
             .<span class="kw">await
         </span>{
-            Either::Left(()) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
-            Either::Right(cert) =&gt; {
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+            <span class="prelude-val">Some</span>(cert) =&gt; {
                 <span class="macro">tracing::debug!</span>(<span class="string">"Certificate Formed! {:?}"</span>, cert);
 
                 broadcast_event(
