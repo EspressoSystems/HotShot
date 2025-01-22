@@ -18,6 +18,8 @@ use async_broadcast::Sender;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
+use hotshot_types::traits::block_contents::BlockHeader;
+use hotshot_types::traits::BlockPayload;
 use hotshot_types::{
     data::Leaf2,
     error::RoundTimedoutState,
@@ -32,6 +34,7 @@ use hotshot_types::{
 };
 use thiserror::Error;
 use tracing::error;
+
 /// convenience type alias for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -158,7 +161,14 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             ..
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
         let Event { view_number, event } = message;
-        let key = match event {
+        tracing::error!(
+            "lrzasik: handle_event, view_number: {:?}, latest_epoch {:?}, event: {:?}, id {:?}",
+            view_number,
+            self.ctx.latest_epoch,
+            event,
+            id
+        );
+        let keys = match event {
             EventType::Error { error } => {
                 if !memberships_arc
                     .read()
@@ -175,55 +185,75 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             EventType::Decide {
                 leaf_chain,
                 qc,
-                block_size: maybe_block_size,
+                block_size: _,
             } => {
                 // Skip the genesis leaf.
                 if leaf_chain.last().unwrap().leaf.view_number() == TYPES::View::genesis() {
                     return Ok(());
                 }
-                let paired_up = (leaf_chain.to_vec(), (*qc).clone());
-                match self.ctx.round_results.entry(view_number) {
-                    Entry::Occupied(mut o) => {
-                        let entry = o.get_mut();
-                        let key = entry
-                            .insert_into_result(
-                                id,
-                                paired_up,
-                                maybe_block_size,
-                                &memberships_arc,
-                                public_key,
-                                self.epoch_height,
-                            )
-                            .await;
-                        if key.is_none() {
-                            // Return early, this event comes from a node not belonging to the current epoch
-                            return Ok(());
+                let mut keys = Vec::default();
+                let mut leaf_qc = (*qc).clone();
+                let mut leaf_chain_vec = leaf_chain.to_vec();
+                while !leaf_chain_vec.is_empty() {
+                    let paired_up = (leaf_chain_vec.clone(), leaf_qc.clone());
+                    let leaf_info = leaf_chain_vec.first().unwrap();
+                    let mut txns = HashSet::new();
+                    if let Some(ref payload) = leaf_info.leaf.block_payload() {
+                        for txn in payload
+                            .transaction_commitments(leaf_info.leaf.block_header().metadata())
+                        {
+                            txns.insert(txn);
                         }
-                        key
                     }
-                    Entry::Vacant(v) => {
-                        let mut round_result = RoundResult::default();
-                        let key = round_result
-                            .insert_into_result(
-                                id,
-                                paired_up,
-                                maybe_block_size,
-                                &memberships_arc,
-                                public_key,
-                                self.epoch_height,
-                            )
-                            .await;
-                        if key.is_none() {
-                            // Return early, this event comes from a node not belonging to the current epoch
-                            return Ok(());
+                    let maybe_block_size = if txns.is_empty() {
+                        None
+                    } else {
+                        Some(txns.len().try_into()?)
+                    };
+                    match self.ctx.round_results.entry(leaf_info.leaf.view_number()) {
+                        Entry::Occupied(mut o) => {
+                            let entry = o.get_mut();
+                            let key = entry
+                                .insert_into_result(
+                                    id,
+                                    paired_up,
+                                    maybe_block_size,
+                                    &memberships_arc,
+                                    &public_key,
+                                    self.epoch_height,
+                                )
+                                .await;
+                            keys.push(key);
                         }
-                        v.insert(round_result);
-                        key
+                        Entry::Vacant(v) => {
+                            let mut round_result = RoundResult::default();
+                            let key = round_result
+                                .insert_into_result(
+                                    id,
+                                    paired_up,
+                                    maybe_block_size,
+                                    &memberships_arc,
+                                    &public_key,
+                                    self.epoch_height,
+                                )
+                                .await;
+                            if key.is_some() {
+                                v.insert(round_result);
+                                keys.push(key);
+                            }
+                        }
                     }
+                    leaf_qc = leaf_chain_vec.first().unwrap().leaf.justify_qc();
+                    leaf_chain_vec.remove(0);
+                }
+                let filtered_keys: Vec<_> = keys.into_iter().flatten().collect();
+                if filtered_keys.is_empty() {
+                    None
+                } else {
+                    Some(filtered_keys)
                 }
             }
             EventType::ReplicaViewTimeout { view_number } => {
-                // Count this error only if the node belongs to the current epoch
                 if !memberships_arc
                     .read()
                     .await
@@ -242,72 +272,95 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             _ => return Ok(()),
         };
 
-        if let Some(ref key) = key {
-            match (
-                key.epoch(self.epoch_height).map(|x| *x),
-                self.ctx.latest_epoch,
-            ) {
-                (Some(key_epoch), Some(latest_epoch)) => {
-                    if key_epoch > latest_epoch {
+        if let Some(keys) = keys {
+            tracing::error!("lrzasik: handle_event, keys {:?}", keys);
+            for key in keys {
+                let key_epoch = key.epoch(self.epoch_height);
+                match (key_epoch.map(|x| *x), self.ctx.latest_epoch) {
+                    (Some(key_epoch_number), Some(latest_epoch)) => {
+                        if key_epoch_number > latest_epoch {
+                            self.ctx.latest_epoch = Some(key_epoch_number);
+                        }
+                    }
+                    (Some(key_epoch), None) => {
                         self.ctx.latest_epoch = Some(key_epoch);
                     }
+                    _ => {}
                 }
-                (Some(key_epoch), None) => {
-                    self.ctx.latest_epoch = Some(key_epoch);
-                }
-                _ => {}
-            }
-        }
 
-        let epoch = self.ctx.latest_epoch.map(TYPES::Epoch::new);
-        let memberships_reader = memberships_arc.read().await;
-        let len = memberships_reader.total_nodes(epoch);
+                let memberships_reader = memberships_arc.read().await;
+                let key_len = memberships_reader.total_nodes(key_epoch);
+                let key_threshold = memberships_reader.success_threshold(key_epoch).get() as usize;
+                drop(memberships_reader);
 
-        // update view count
-        let threshold = memberships_reader.success_threshold(epoch).get() as usize;
-        drop(memberships_reader);
-        drop(memberships_arc);
-
-        let view = self.ctx.round_results.get_mut(&view_number).unwrap();
-        if let Some(key) = key {
-            view.update_status(
-                threshold,
-                len,
-                &key,
-                check_leaf,
-                check_block,
-                transaction_threshold,
-            );
-            match view.status.clone() {
-                ViewStatus::Ok => {
-                    self.ctx.successful_views.insert(view_number);
-                    // if a view succeeds remove it from the failed views
-                    self.ctx.failed_views.remove(&view_number);
-                    if self.ctx.successful_views.len() >= num_successful_views {
-                        let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+                let key_view_number = key.view_number();
+                let key_view = self.ctx.round_results.get_mut(&key_view_number).unwrap();
+                key_view.update_status(
+                    key_threshold,
+                    key_len,
+                    &key,
+                    check_leaf,
+                    check_block,
+                    transaction_threshold,
+                );
+                match key_view.status.clone() {
+                    ViewStatus::Ok => {
+                        self.ctx.successful_views.insert(key_view_number);
+                        // if a view succeeds remove it from the failed views
+                        self.ctx.failed_views.remove(&key_view_number);
+                        tracing::error!(
+                            "lrzasik: handle_event, successful views count {:?}, view {:?}",
+                            self.ctx.successful_views.len(),
+                            key_view_number
+                        );
+                        if self.ctx.successful_views.len() >= num_successful_views {
+                            let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+                        }
                     }
-                    return Ok(());
-                }
-                ViewStatus::Failed => {
-                    self.handle_view_failure(num_failed_views, view_number)
-                        .await;
-
-                    return Ok(());
-                }
-                ViewStatus::Err(e) => {
-                    let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
-                    self.error = Some(Box::new(e));
-                    return Ok(());
-                }
-                ViewStatus::InProgress => {
-                    return Ok(());
+                    ViewStatus::Failed => {
+                        self.handle_view_failure(num_failed_views, key_view_number)
+                            .await;
+                    }
+                    ViewStatus::Err(e) => {
+                        let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
+                        self.error = Some(Box::new(e));
+                        return Ok(());
+                    }
+                    ViewStatus::InProgress => {
+                        tracing::error!(
+                            "lrzasik: handle_event, view decided by node {:?}, view {:?}",
+                            id,
+                            key_view_number
+                        );
+                    }
                 }
             }
-        } else if view.check_if_failed(threshold, len) {
-            view.status = ViewStatus::Failed;
-            self.handle_view_failure(num_failed_views, view_number)
-                .await;
-            return Ok(());
+        } else {
+            let Some(view) = self.ctx.round_results.get_mut(&view_number) else {
+                return Ok(());
+            };
+            tracing::error!(
+                "lrzasik: handle_event, view failed by node {:?}, view {:?}",
+                id,
+                view_number
+            );
+            let epoch = self.ctx.latest_epoch.map(TYPES::Epoch::new);
+
+            let memberships_reader = memberships_arc.read().await;
+            let len = memberships_reader.total_nodes(epoch);
+            let threshold = memberships_reader.success_threshold(epoch).get() as usize;
+            drop(memberships_reader);
+
+            if view.check_if_failed(threshold, len) {
+                view.status = ViewStatus::Failed;
+                self.handle_view_failure(num_failed_views, view_number)
+                    .await;
+                tracing::error!(
+                    "lrzasik: failed views count: {}, view {:?}",
+                    self.ctx.failed_views.len(),
+                    view_number
+                );
+            }
         }
         Ok(())
     }
@@ -489,15 +542,19 @@ impl<TYPES: NodeType> RoundResult<TYPES> {
         result: (LeafChain<TYPES>, QuorumCertificate2<TYPES>),
         maybe_block_size: Option<u64>,
         membership: &Arc<RwLock<TYPES::Membership>>,
-        public_key: TYPES::SignatureKey,
+        public_key: &TYPES::SignatureKey,
         epoch_height: u64,
     ) -> Option<Leaf2<TYPES>> {
         let maybe_leaf = result.0.first();
         if let Some(leaf_info) = maybe_leaf {
             let leaf = &leaf_info.leaf;
             let epoch = leaf.epoch(epoch_height);
-            if !membership.read().await.has_stake(&public_key, epoch) {
+            if !membership.read().await.has_stake(public_key, epoch) {
                 // The node doesn't belong to the epoch, don't count towards total successes count
+                return None;
+            }
+            if self.success_nodes.contains_key(&(idx as u64)) {
+                // The success of this node was previously counted, don't continue
                 return None;
             }
             self.success_nodes.insert(idx as u64, result.clone());
