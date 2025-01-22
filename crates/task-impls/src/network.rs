@@ -24,14 +24,16 @@ use hotshot_types::{
     },
     simple_vote::HasEpoch,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         network::{
-            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, Topic, TransmitType,
-            ViewMessage,
+            BroadcastDelay, ConnectedNetwork, EpochMessage, RequestKind, ResponseMessage, Topic,
+            TransmitType, ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType, Versions},
         storage::Storage,
     },
+    utils::option_epoch_from_block_number,
     vote::{HasViewNumber, Vote},
 };
 use tokio::{spawn, task::JoinHandle};
@@ -472,6 +474,9 @@ pub struct NetworkEventTaskState<
 
     /// map view number to transmit tasks
     pub transmit_tasks: BTreeMap<TYPES::View, Vec<JoinHandle<()>>>,
+
+    /// Number of blocks in an epoch, zero means there are no epochs
+    pub epoch_height: u64,
 }
 
 #[async_trait]
@@ -526,6 +531,7 @@ impl<
         sender: &<TYPES as NodeType>::SignatureKey,
     ) -> Option<HotShotTaskCompleted> {
         let view = vid_proposal.data.view_number;
+        let epoch = vid_proposal.data.epoch;
         let vid_share_proposals = VidDisperseShare2::to_vid_share_proposals(vid_proposal);
         let mut messages = HashMap::new();
 
@@ -575,6 +581,7 @@ impl<
                 storage,
                 consensus,
                 view,
+                epoch,
             )
             .await
             .is_err()
@@ -596,6 +603,7 @@ impl<
         storage: Arc<RwLock<S>>,
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
+        epoch: Option<<TYPES as NodeType>::Epoch>,
     ) -> std::result::Result<(), ()> {
         if let Some(mut action) = maybe_action {
             if !consensus.write().await.update_action(action, view) {
@@ -606,7 +614,12 @@ impl<
             if matches!(action, HotShotAction::ViewSyncVote) {
                 action = HotShotAction::Vote;
             }
-            match storage.write().await.record_action(view, action).await {
+            match storage
+                .write()
+                .await
+                .record_action(view, epoch, action)
+                .await
+            {
                 Ok(()) => Ok(()),
                 Err(e) => {
                     tracing::warn!("Not Sending {:?} because of storage error: {:?}", action, e);
@@ -1053,6 +1066,17 @@ impl<
             kind: message_kind,
         };
         let view_number = message.kind.view_number();
+        let epoch = match message.kind {
+            MessageKind::Consensus(SequencingMessage::General(
+                GeneralConsensusMessage::Proposal2(ref proposal)
+                | GeneralConsensusMessage::ProposalResponse2(ref proposal),
+            )) => option_epoch_from_block_number::<TYPES>(
+                self.upgrade_lock.epochs_enabled(view_number).await,
+                proposal.data.block_header.block_number(),
+                self.epoch_height,
+            ),
+            _ => message.kind.epoch_number(),
+        };
         let committee_topic = Topic::Global;
         let da_committee = self
             .membership
@@ -1069,6 +1093,7 @@ impl<
                 Arc::clone(&storage),
                 consensus,
                 view_number,
+                epoch,
             )
             .await
             .is_err()

@@ -9,6 +9,10 @@ use std::{
     sync::Arc,
 };
 
+use crate::{
+    test_runner::Node,
+    test_task::{TestEvent, TestResult, TestTaskState},
+};
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::RwLock;
@@ -23,15 +27,11 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType, Versions},
     },
+    utils::genesis_epoch_from_version,
     vid::VidCommitment,
 };
 use thiserror::Error;
 use tracing::error;
-
-use crate::{
-    test_runner::Node,
-    test_task::{TestEvent, TestResult, TestTaskState},
-};
 /// convenience type alias for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
@@ -138,6 +138,17 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
 
     /// Handles an event from one of multiple receivers.
     async fn handle_event(&mut self, (message, id): (Self::Event, usize)) -> Result<()> {
+        let memberships_arc = Arc::clone(
+            &self
+                .handles
+                .read()
+                .await
+                .first()
+                .unwrap()
+                .handle
+                .memberships,
+        );
+        let public_key = self.handles.read().await[id].handle.public_key();
         let OverallSafetyPropertiesDescription::<TYPES> {
             check_leaf,
             check_block,
@@ -149,6 +160,14 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         let Event { view_number, event } = message;
         let key = match event {
             EventType::Error { error } => {
+                if !memberships_arc
+                    .read()
+                    .await
+                    .has_stake(&public_key, self.ctx.latest_epoch.map(TYPES::Epoch::new))
+                {
+                    // Return early, this event comes from a node not belonging to the current epoch
+                    return Ok(());
+                }
                 self.ctx
                     .insert_error_to_context(view_number, id, error.clone());
                 None
@@ -166,17 +185,53 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                 match self.ctx.round_results.entry(view_number) {
                     Entry::Occupied(mut o) => {
                         let entry = o.get_mut();
-                        entry.insert_into_result(id, paired_up, maybe_block_size)
+                        let key = entry
+                            .insert_into_result(
+                                id,
+                                paired_up,
+                                maybe_block_size,
+                                &memberships_arc,
+                                public_key,
+                                self.epoch_height,
+                            )
+                            .await;
+                        if key.is_none() {
+                            // Return early, this event comes from a node not belonging to the current epoch
+                            return Ok(());
+                        }
+                        key
                     }
                     Entry::Vacant(v) => {
                         let mut round_result = RoundResult::default();
-                        let key = round_result.insert_into_result(id, paired_up, maybe_block_size);
+                        let key = round_result
+                            .insert_into_result(
+                                id,
+                                paired_up,
+                                maybe_block_size,
+                                &memberships_arc,
+                                public_key,
+                                self.epoch_height,
+                            )
+                            .await;
+                        if key.is_none() {
+                            // Return early, this event comes from a node not belonging to the current epoch
+                            return Ok(());
+                        }
                         v.insert(round_result);
                         key
                     }
                 }
             }
             EventType::ReplicaViewTimeout { view_number } => {
+                // Count this error only if the node belongs to the current epoch
+                if !memberships_arc
+                    .read()
+                    .await
+                    .has_stake(&public_key, self.ctx.latest_epoch.map(TYPES::Epoch::new))
+                {
+                    // Return early, this event comes from a node not belonging to the current epoch
+                    return Ok(());
+                }
                 let error = Arc::new(HotShotError::<TYPES>::ViewTimedOut {
                     view_number,
                     state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
@@ -205,16 +260,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         }
 
         let epoch = self.ctx.latest_epoch.map(TYPES::Epoch::new);
-        let memberships_arc = Arc::clone(
-            &self
-                .handles
-                .read()
-                .await
-                .first()
-                .unwrap()
-                .handle
-                .memberships,
-        );
         let memberships_reader = memberships_arc.read().await;
         let len = memberships_reader.total_nodes(epoch);
 
@@ -381,13 +426,13 @@ impl<TYPES: NodeType> Default for RoundResult<TYPES> {
 
 /// smh my head I shouldn't need to implement this
 /// Rust doesn't realize I doesn't need to implement default
-impl<TYPES: NodeType> Default for RoundCtx<TYPES> {
-    fn default() -> Self {
+impl<TYPES: NodeType> RoundCtx<TYPES> {
+    pub fn default_with_version<V: Versions>() -> Self {
         Self {
             round_results: HashMap::default(),
             failed_views: HashSet::default(),
             successful_views: HashSet::default(),
-            latest_epoch: None,
+            latest_epoch: genesis_epoch_from_version::<V, TYPES>().map(|x| *x),
         }
     }
 }
@@ -438,17 +483,24 @@ impl<TYPES: NodeType> RoundCtx<TYPES> {
 impl<TYPES: NodeType> RoundResult<TYPES> {
     /// insert into round result
     #[allow(clippy::unit_arg)]
-    pub fn insert_into_result(
+    pub async fn insert_into_result(
         &mut self,
         idx: usize,
         result: (LeafChain<TYPES>, QuorumCertificate2<TYPES>),
         maybe_block_size: Option<u64>,
+        membership: &Arc<RwLock<TYPES::Membership>>,
+        public_key: TYPES::SignatureKey,
+        epoch_height: u64,
     ) -> Option<Leaf2<TYPES>> {
-        self.success_nodes.insert(idx as u64, result.clone());
-
         let maybe_leaf = result.0.first();
         if let Some(leaf_info) = maybe_leaf {
             let leaf = &leaf_info.leaf;
+            let epoch = leaf.epoch(epoch_height);
+            if !membership.read().await.has_stake(&public_key, epoch) {
+                // The node doesn't belong to the epoch, don't count towards total successes count
+                return None;
+            }
+            self.success_nodes.insert(idx as u64, result.clone());
             match self.leaf_map.entry(leaf.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut o) => {
                     *o.get_mut() += 1;

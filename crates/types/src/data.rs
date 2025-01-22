@@ -30,7 +30,7 @@ use vec1::Vec1;
 
 use crate::{
     drb::DrbResult,
-    impl_has_epoch,
+    impl_has_epoch, impl_has_none_epoch,
     message::{Proposal, UpgradeLock},
     simple_certificate::{
         NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
@@ -871,6 +871,37 @@ impl_has_epoch!(
     VidDisperse<TYPES>,
     VidDisperseShare2<TYPES>
 );
+
+impl_has_none_epoch!(
+    QuorumProposal<TYPES>,
+    DaProposal<TYPES>,
+    VidDisperseShare<TYPES>,
+    UpgradeProposal<TYPES>
+);
+
+impl<TYPES: NodeType> HasEpoch<TYPES> for QuorumProposal2<TYPES> {
+    /// Never call this trait method for QuorumProposal2
+    /// # Panics
+    /// Always. Calling this trait method for QuorumProposal2 is incorrect.
+    /// QuorumProposal2 has an associated epoch but it needs to be calculated based on
+    /// the block number and the epoch height.
+    #[allow(clippy::panic)]
+    fn epoch(&self) -> Option<TYPES::Epoch> {
+        panic!("Never call this trait method for QuorumProposal2")
+    }
+}
+
+impl<TYPES: NodeType> HasEpoch<TYPES> for QuorumProposalWrapper<TYPES> {
+    /// Never call this trait method for QuorumProposalWrapper
+    /// # Panics
+    /// Always. Calling this trait method for QuorumProposalWrapper is incorrect.
+    /// QuorumProposalWrapper might have an associated epoch but it needs to be calculated based on
+    /// the block number and the epoch height.
+    #[allow(clippy::panic)]
+    fn epoch(&self) -> Option<TYPES::Epoch> {
+        panic!("Never call this trait method for QuorumProposal2")
+    }
+}
 
 /// The error type for block and its transactions.
 #[derive(Error, Debug, Serialize, Deserialize)]
