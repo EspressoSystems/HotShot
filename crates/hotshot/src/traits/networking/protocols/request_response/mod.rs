@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use dashmap::DashMap;
@@ -40,9 +40,23 @@ pub trait Serializable: Sized {
 /// The request-response configuration
 #[derive(Clone)]
 pub struct RequestResponseConfig {
-    /// The timeout for responses. Includes the time it takes to derive the response data
+    /// The timeout for incoming requests. Do not respond to a request after this threshold
+    /// has passed.
+    incoming_request_ttl: Duration,
+
+    /// The timeout for sending responses. Includes the time it takes to derive the response
     /// and send it over the wire.
     response_timeout: Duration,
+}
+
+impl RequestResponseConfig {
+    /// Create a new [`RequestResponseConfig`]
+    pub fn new(response_timeout: Duration, incoming_request_ttl: Duration) -> Self {
+        Self {
+            response_timeout,
+            incoming_request_ttl,
+        }
+    }
 }
 
 /// A protocol that allows for request-response communication
@@ -65,12 +79,10 @@ pub struct RequestResponse<
     sender: S,
     /// The recipient source to use for the protocol
     recipient_source: RS,
-    /// The [response] data source to use for the protocol
-    data_source: DS,
     /// The handle to the task that receives messages
     receive_task_handle: Arc<AbortOnDropHandle<()>>,
     /// Phantom data to help with type inference
-    phantom_data: PhantomData<(K, R, Req)>,
+    phantom_data: PhantomData<(K, R, Req, DS)>,
 }
 
 impl<
@@ -101,7 +113,9 @@ impl<
         // Start the task that receives messages and handles them
         let receive_task_handle = Arc::new(AbortOnDropHandle(tokio::spawn(Self::receive_task(
             receiver,
+            data_source,
             active_requests.clone(),
+            config.incoming_request_ttl,
         ))));
 
         Self {
@@ -109,7 +123,6 @@ impl<
             active_requests,
             sender,
             recipient_source,
-            data_source,
             receive_task_handle,
             phantom_data: PhantomData,
         }
@@ -118,12 +131,20 @@ impl<
     /// The task responsible for receiving messages and handling them
     async fn receive_task(
         mut receiver: R,
+        data_source: DS,
         active_requests: Arc<DashMap<RequestHash, mpsc::Sender<()>>>,
+        incoming_request_ttl: Duration,
     ) {
         while let Ok(message) = receiver.receive_message::<Req>().await {
             match message {
                 Message::Request(request_message) => {
-                    // Handle the request message
+                    // Validate the request message. If it's invalid, we'll just ignore it
+                    // This includes checking the signature and making sure it's not too old
+                    if let Err(e) = request_message.validate(incoming_request_ttl) {
+                        warn!("Received invalid request: {e}");
+                        continue;
+                    }
+
                     todo!()
                 }
                 Message::Response(response_message) => {

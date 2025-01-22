@@ -1,11 +1,9 @@
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
 use super::Serializable;
 
 /// A trait for a request. Associates itself with a response type.
-pub trait Request:
-    Send + Sync + Serializable + 'static + Hash + PartialEq + Eq + Clone + Debug
-{
+pub trait Request: Send + Sync + Serializable + 'static + PartialEq + Eq + Clone + Debug {
     /// The response type associated with this request
     type Response: Response<Self>;
 
