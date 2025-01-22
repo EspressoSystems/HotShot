@@ -36,7 +36,7 @@ use hotshot_types::{
         node_implementation::{NodeType, Versions},
     },
     utils::{option_epoch_from_block_number, View, ViewInner},
-    vid::{vid_scheme, VidCommitment, VidProposal, VidSchemeType},
+    vid::{advz_scheme, VidCommitment, VidProposal, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
     ValidatorConfig,
 };
@@ -270,19 +270,20 @@ pub fn key_pair_for_id<TYPES: NodeType>(
 /// initialize VID
 /// # Panics
 /// if unable to create a [`VidSchemeType`]
+/// TODO(Chengyu): use this version information
 #[must_use]
 pub async fn vid_scheme_from_view_number<TYPES: NodeType, V: Versions>(
     membership: &Arc<RwLock<TYPES::Membership>>,
     view_number: TYPES::View,
     epoch_number: Option<TYPES::Epoch>,
-    version: Version,
+    _version: Version,
 ) -> VidSchemeType {
     let num_storage_nodes = membership
         .read()
         .await
         .committee_members(view_number, epoch_number)
         .len();
-    vid_scheme::<V>(num_storage_nodes, version)
+    advz_scheme(num_storage_nodes)
 }
 
 pub async fn vid_payload_commitment<TYPES: NodeType, V: Versions>(

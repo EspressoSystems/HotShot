@@ -235,13 +235,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     let pk = self.private_key.clone();
                     let public_key = self.public_key.clone();
                     let chan = event_stream.clone();
+                    let upgrade_lock = self.upgrade_lock.clone();
                     spawn(async move {
                         Consensus::calculate_and_update_vid::<V>(
                             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
                             membership,
                             &pk,
-                            version,
+                            &upgrade_lock,
                         )
                         .await;
                         if let Some(Some(vid_share)) = consensus

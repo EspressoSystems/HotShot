@@ -29,7 +29,7 @@ use hotshot_types::{
         storage::Storage,
     },
     utils::{epoch_from_block_number, option_epoch_from_block_number},
-    vid::vid_scheme,
+    vid::advz_scheme,
     vote::{Certificate, HasViewNumber},
 };
 use jf_vid::VidScheme;
@@ -596,10 +596,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 let membership_total_nodes = membership_reader.total_nodes(target_epoch);
                 drop(membership_reader);
 
-                let version = self.upgrade_lock.version_infallible(view).await;
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                match vid_scheme::<V>(membership_total_nodes, version).verify_share(
+                match advz_scheme(membership_total_nodes).verify_share(
                     &disperse.data.share,
                     &disperse.data.common,
                     payload_commitment,

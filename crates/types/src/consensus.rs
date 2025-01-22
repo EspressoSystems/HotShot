@@ -17,7 +17,6 @@ use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWrite
 use committable::{Commitment, Committable};
 use tracing::instrument;
 use utils::anytrace::*;
-use vbs::version::Version;
 use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
@@ -26,7 +25,7 @@ use crate::{
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
@@ -958,7 +957,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         view: <TYPES as NodeType>::View,
         membership: Arc<RwLock<TYPES::Membership>>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        version: Version,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Option<()> {
         let payload = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
         let epoch = consensus
@@ -975,7 +974,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             view,
             epoch,
             epoch,
-            version,
+            upgrade_lock,
         )
         .await
         .ok()?;

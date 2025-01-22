@@ -33,13 +33,11 @@ use jf_vid::{
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use vbs::version::Version;
 
 use crate::{
     constants::SRS_DEGREE,
     data::{VidDisperse as HotShotVidDisperse, VidDisperseShare2},
     message::Proposal,
-    traits::node_implementation::Versions,
 };
 
 /// VID scheme constructor.
@@ -60,10 +58,10 @@ use crate::{
 ///
 /// # Panics
 /// When the construction fails for the underlying VID scheme.
+// TODO(Chengyu): move all things below to advz submodule.
 #[must_use]
-// TODO(Chengyu): cannot use memoize with type generic.
-// #[memoize::memoize(SharedCache, Capacity: 10)]
-pub fn vid_scheme<V: Versions>(num_storage_nodes: usize, _version: Version) -> VidSchemeType {
+#[memoize::memoize(SharedCache, Capacity: 10)]
+pub fn advz_scheme(num_storage_nodes: usize) -> VidSchemeType {
     // recovery_threshold is currently num_storage_nodes rounded down to a power of two
     // TODO recovery_threshold should be a function of the desired erasure code rate
     // https://github.com/EspressoSystems/HotShot/issues/2152

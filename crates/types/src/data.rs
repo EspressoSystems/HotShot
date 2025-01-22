@@ -51,7 +51,7 @@ use crate::{
         BlockPayload,
     },
     utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number},
-    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
+    vid::{advz_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -263,7 +263,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         view: TYPES::View,
         target_epoch: Option<TYPES::Epoch>,
         data_epoch: Option<TYPES::Epoch>,
-        version: Version,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<Self> {
         let num_nodes = membership.read().await.total_nodes(target_epoch);
 
@@ -271,13 +271,12 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
         let txns_clone = Arc::clone(&txns);
         let num_txns = txns.len();
 
-        let vid_disperse =
-            spawn_blocking(move || vid_scheme::<V>(num_nodes, version).disperse(&txns_clone))
-                .await
-                .wrap()
-                .context(error!("Join error"))?
-                .wrap()
-                .context(|err| error!("Failed to calculate VID disperse. Error: {}", err))?;
+        let vid_disperse = spawn_blocking(move || advz_scheme(num_nodes).disperse(&txns_clone))
+            .await
+            .wrap()
+            .context(error!("Join error"))?
+            .wrap()
+            .context(|err| error!("Failed to calculate VID disperse. Error: {}", err))?;
 
         let payload_commitment = if target_epoch == data_epoch {
             None
@@ -285,7 +284,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
             let num_nodes = membership.read().await.total_nodes(data_epoch);
 
             Some(
-              spawn_blocking(move || vid_scheme::<V>(num_nodes, version).commit_only(&txns))
+              spawn_blocking(move || advz_scheme(num_nodes).commit_only(&txns))
                 .await
                 .wrap()
                 .context(error!("Join error"))?
@@ -1651,7 +1650,7 @@ pub mod null_block {
             signature_key::BuilderSignatureKey,
             BlockPayload,
         },
-        vid::{vid_scheme, VidCommitment},
+        vid::{advz_scheme, VidCommitment},
     };
 
     /// The commitment for a null block payload.
@@ -1664,8 +1663,7 @@ pub mod null_block {
     // #[memoize(SharedCache, Capacity: 10)]
     #[must_use]
     pub fn commitment<V: Versions>(num_storage_nodes: usize) -> Option<VidCommitment> {
-        let version = <V as Versions>::Base::VERSION;
-        let vid_result = vid_scheme::<V>(num_storage_nodes, version).commit_only(Vec::new());
+        let vid_result = advz_scheme(num_storage_nodes).commit_only(Vec::new());
 
         match vid_result {
             Ok(r) => Some(r),

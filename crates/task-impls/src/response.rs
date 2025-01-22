@@ -162,13 +162,12 @@ impl<TYPES: NodeType, V: Versions> NetworkResponseState<TYPES, V> {
 
         drop(consensus_reader);
 
-        let version = self.upgrade_lock.version_infallible(view).await;
         if Consensus::calculate_and_update_vid::<V>(
             OuterConsensus::new(Arc::clone(&self.consensus)),
             view,
             Arc::clone(&self.membership),
             &self.private_key,
-            version,
+            &self.upgrade_lock,
         )
         .await
         .is_none()
@@ -180,7 +179,7 @@ impl<TYPES: NodeType, V: Versions> NetworkResponseState<TYPES, V> {
                 view,
                 Arc::clone(&self.membership),
                 &self.private_key,
-                version,
+                &self.upgrade_lock,
             )
             .await?;
         }
