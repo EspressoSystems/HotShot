@@ -292,11 +292,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let drb_result = drb_result(epoch, self.consensus.clone()).await?;
                 let membership_reader = self.membership.read().await;
                 ensure!(
-                    membership_reader.leader(view, epoch,drb_result) == self.public_key,
+                    membership_reader.leader(view, epoch, drb_result) == self.public_key,
                     debug!(
                       "We are not the DA committee leader for view {} are we leader for next view? {}",
                       *view,
-                      membership_reader.leader(view + 1, epoch,drb_result) == self.public_key
+                      membership_reader.leader(view + 1, epoch, drb_result) == self.public_key
                     )
                 );
                 drop(membership_reader);

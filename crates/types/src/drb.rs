@@ -92,11 +92,10 @@ pub fn leader<TYPES: NodeType>(
     let mut hasher = DefaultHasher::new();
     drb_result.hash(&mut hasher);
     view_number.hash(&mut hasher);
+    let hash = hasher.finish(); // double check that this is right
+
     #[allow(clippy::cast_possible_truncation)]
-    // TODO: Use the total stake rather than `len()` and update the indexing after switching to
-    // a weighted stake table.
-    // <https://github.com/EspressoSystems/HotShot/issues/3898>
-    let index = (hasher.finish() as usize) % stake_table.len();
+    let index = hash as usize % stake_table.len();
     let entry = stake_table[index].clone();
     TYPES::SignatureKey::public_key(&entry)
 }
