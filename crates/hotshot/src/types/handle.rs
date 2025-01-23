@@ -20,18 +20,14 @@ use hotshot_task::{
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
     consensus::Consensus,
-    data::{Leaf2, QuorumProposal2},
+    data::{Leaf2, QuorumProposalWrapper},
     error::HotShotError,
-    message::{Message, MessageKind, Proposal, RecipientList},
+    message::Proposal,
     request_response::ProposalRequestPayload,
     traits::{
-        consensus_api::ConsensusApi,
-        election::Membership,
-        network::{BroadcastDelay, ConnectedNetwork, Topic},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
+        consensus_api::ConsensusApi, election::Membership, network::ConnectedNetwork,
+        node_implementation::NodeType, signature_key::SignatureKey,
     },
-    vote::HasViewNumber,
 };
 use tracing::instrument;
 
@@ -94,43 +90,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         self.output_event_stream.1.activate_cloned()
     }
 
-    /// Message other participants with a serialized message from the application
-    /// Receivers of this message will get an `Event::ExternalMessageReceived` via
-    /// the event stream.
-    ///
-    /// # Errors
-    /// Errors if serializing the request fails, or the request fails to be sent
-    pub async fn send_external_message(
-        &self,
-        msg: Vec<u8>,
-        recipients: RecipientList<TYPES::SignatureKey>,
-    ) -> Result<()> {
-        let message = Message {
-            sender: self.public_key().clone(),
-            kind: MessageKind::External(msg),
-        };
-        let serialized_message = self.hotshot.upgrade_lock.serialize(&message).await?;
-
-        match recipients {
-            RecipientList::Broadcast => {
-                self.network
-                    .broadcast_message(serialized_message, Topic::Global, BroadcastDelay::None)
-                    .await?;
-            }
-            RecipientList::Direct(recipient) => {
-                self.network
-                    .direct_message(serialized_message, recipient)
-                    .await?;
-            }
-            RecipientList::Many(recipients) => {
-                self.network
-                    .da_broadcast_message(serialized_message, recipients, BroadcastDelay::None)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-
     /// Request a proposal from the all other nodes.  Will block until some node
     /// returns a valid proposal with the requested commitment.  If nobody has the
     /// proposal this will block forever
@@ -141,7 +100,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         &self,
         view: TYPES::View,
         leaf_commitment: Commitment<Leaf2<TYPES>>,
-    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal2<TYPES>>>>>
+    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposalWrapper<TYPES>>>>>
     {
         // We need to be able to sign this request before submitting it to the network. Compute the
         // payload first.
@@ -325,7 +284,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     pub async fn leader(
         &self,
         view_number: TYPES::View,
-        epoch_number: TYPES::Epoch,
+        epoch_number: Option<TYPES::Epoch>,
     ) -> Result<TYPES::SignatureKey> {
         self.hotshot
             .memberships
@@ -365,7 +324,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
 
     /// Wrapper to get the epoch number this node is on.
     #[instrument(skip_all, target = "SystemContextHandle", fields(id = self.hotshot.id))]
-    pub async fn cur_epoch(&self) -> TYPES::Epoch {
+    pub async fn cur_epoch(&self) -> Option<TYPES::Epoch> {
         self.hotshot.consensus.read().await.cur_epoch()
     }
 
