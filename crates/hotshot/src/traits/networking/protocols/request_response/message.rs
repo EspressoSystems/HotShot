@@ -212,8 +212,8 @@ impl<R: Request> Serializable for ResponseMessage<R> {
         // Create a buffer for the bytes
         let mut bytes = Vec::new();
 
-        // Write the request hash (length-prefixed)
-        bytes.write_u64::<LittleEndian>(self.request_hash)?;
+        // Write the request hash as bytes
+        bytes.write_all(self.request_hash.as_bytes())?;
 
         // Write the response content
         bytes.write_all(self.response.to_bytes()?.as_slice())?;
@@ -225,8 +225,10 @@ impl<R: Request> Serializable for ResponseMessage<R> {
         // Create a buffer for the bytes
         let mut bytes = Cursor::new(bytes);
 
-        // Read the request hash as a [`u64`]
-        let request_hash = bytes.read_u64::<LittleEndian>()?;
+        // Read the request hash as a [`blake3::Hash`]
+        let mut request_hash_bytes = [0; 32];
+        bytes.read_exact(&mut request_hash_bytes)?;
+        let request_hash = blake3::Hash::from(request_hash_bytes);
 
         // Read the response content to the end
         let response = R::Response::from_bytes(&read_to_end(&mut bytes)?)?;
@@ -380,7 +382,7 @@ mod tests {
                     Message::Request(request)
                 }
                 false => Message::Response(ResponseMessage {
-                    request_hash: rng.gen::<u64>(),
+                    request_hash: blake3::hash(&request),
                     response: vec![rng.gen::<u8>(); rng.gen_range(0..10000)],
                 }),
             };
