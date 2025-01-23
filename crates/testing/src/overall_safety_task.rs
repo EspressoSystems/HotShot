@@ -29,7 +29,6 @@ use hotshot_types::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType, Versions},
     },
-    utils::genesis_epoch_from_version,
     vid::VidCommitment,
 };
 use thiserror::Error;
@@ -162,18 +161,29 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
         let Event { view_number, event } = message;
         tracing::error!(
-            "lrzasik: handle_event, view_number: {:?}, latest_epoch {:?}, event: {:?}, id {:?}",
+            "lrzasik: handle_event, view_number: {:?}, current epoch {:?}, event: {:?}, id {:?}",
             view_number,
-            self.ctx.latest_epoch,
+            self.handles.read().await[id]
+                .handle
+                .consensus()
+                .read()
+                .await
+                .cur_epoch(),
             event,
             id
         );
-        let keys = match event {
+        let keys: Option<Vec<_>> = match event {
             EventType::Error { error } => {
+                let cur_epoch = self.handles.read().await[id]
+                    .handle
+                    .consensus()
+                    .read()
+                    .await
+                    .cur_epoch();
                 if !memberships_arc
                     .read()
                     .await
-                    .has_stake(&public_key, self.ctx.latest_epoch.map(TYPES::Epoch::new))
+                    .has_stake(&public_key, cur_epoch)
                 {
                     // Return early, this event comes from a node not belonging to the current epoch
                     return Ok(());
@@ -246,18 +256,19 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                     leaf_qc = leaf_chain_vec.first().unwrap().leaf.justify_qc();
                     leaf_chain_vec.remove(0);
                 }
-                let filtered_keys: Vec<_> = keys.into_iter().flatten().collect();
-                if filtered_keys.is_empty() {
-                    None
-                } else {
-                    Some(filtered_keys)
-                }
+                Some(keys.into_iter().flatten().collect())
             }
             EventType::ReplicaViewTimeout { view_number } => {
+                let cur_epoch = self.handles.read().await[id]
+                    .handle
+                    .consensus()
+                    .read()
+                    .await
+                    .cur_epoch();
                 if !memberships_arc
                     .read()
                     .await
-                    .has_stake(&public_key, self.ctx.latest_epoch.map(TYPES::Epoch::new))
+                    .has_stake(&public_key, cur_epoch)
                 {
                     // Return early, this event comes from a node not belonging to the current epoch
                     return Ok(());
@@ -276,18 +287,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             tracing::error!("lrzasik: handle_event, keys {:?}", keys);
             for key in keys {
                 let key_epoch = key.epoch(self.epoch_height);
-                match (key_epoch.map(|x| *x), self.ctx.latest_epoch) {
-                    (Some(key_epoch_number), Some(latest_epoch)) => {
-                        if key_epoch_number > latest_epoch {
-                            self.ctx.latest_epoch = Some(key_epoch_number);
-                        }
-                    }
-                    (Some(key_epoch), None) => {
-                        self.ctx.latest_epoch = Some(key_epoch);
-                    }
-                    _ => {}
-                }
-
                 let memberships_reader = memberships_arc.read().await;
                 let key_len = memberships_reader.total_nodes(key_epoch);
                 let key_threshold = memberships_reader.success_threshold(key_epoch).get() as usize;
@@ -344,11 +343,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                 id,
                 view_number
             );
-            let epoch = self.ctx.latest_epoch.map(TYPES::Epoch::new);
+            let cur_epoch = self.handles.read().await[id]
+                .handle
+                .consensus()
+                .read()
+                .await
+                .cur_epoch();
 
             let memberships_reader = memberships_arc.read().await;
-            let len = memberships_reader.total_nodes(epoch);
-            let threshold = memberships_reader.success_threshold(epoch).get() as usize;
+            let len = memberships_reader.total_nodes(cur_epoch);
+            let threshold = memberships_reader.success_threshold(cur_epoch).get() as usize;
             drop(memberships_reader);
 
             if view.check_if_failed(threshold, len) {
@@ -479,13 +483,12 @@ impl<TYPES: NodeType> Default for RoundResult<TYPES> {
 
 /// smh my head I shouldn't need to implement this
 /// Rust doesn't realize I doesn't need to implement default
-impl<TYPES: NodeType> RoundCtx<TYPES> {
-    pub fn default_with_version<V: Versions>() -> Self {
+impl<TYPES: NodeType> Default for RoundCtx<TYPES> {
+    fn default() -> Self {
         Self {
             round_results: HashMap::default(),
             failed_views: HashSet::default(),
             successful_views: HashSet::default(),
-            latest_epoch: genesis_epoch_from_version::<V, TYPES>().map(|x| *x),
         }
     }
 }
@@ -503,8 +506,6 @@ pub struct RoundCtx<TYPES: NodeType> {
     pub failed_views: HashSet<TYPES::View>,
     /// successful views
     pub successful_views: HashSet<TYPES::View>,
-    /// latest epoch, updated when a leaf with a higher epoch is seen
-    pub latest_epoch: Option<u64>,
 }
 
 impl<TYPES: NodeType> RoundCtx<TYPES> {

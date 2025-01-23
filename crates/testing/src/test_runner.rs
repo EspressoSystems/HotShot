@@ -208,7 +208,7 @@ where
         let overall_safety_task_state = OverallSafetyTask {
             handles: Arc::clone(&handles),
             epoch_height: launcher.metadata.test_config.epoch_height,
-            ctx: RoundCtx::default_with_version::<V>(),
+            ctx: RoundCtx::default(),
             properties: launcher.metadata.overall_safety_properties.clone(),
             error: None,
             test_sender,

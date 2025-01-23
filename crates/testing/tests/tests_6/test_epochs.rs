@@ -272,7 +272,7 @@ cross_tests!(
         };
 
         // 2 nodes fail triggering view sync, expect no other timeouts
-        metadata.overall_safety_properties.num_failed_views = 6;
+        metadata.overall_safety_properties.num_failed_views = 5;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 20;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
@@ -281,7 +281,6 @@ cross_tests!(
             (ViewNumber::new(17), false),
             (ViewNumber::new(23), false),
             (ViewNumber::new(29), false),
-            (ViewNumber::new(35), false),
         ]);
 
         metadata
