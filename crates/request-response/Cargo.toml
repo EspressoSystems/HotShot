@@ -27,3 +27,4 @@ dashmap.workspace = true
 derive_more.workspace = true
 tracing.workspace = true
 async-broadcast.workspace = true
+derive_builder.workspace = true

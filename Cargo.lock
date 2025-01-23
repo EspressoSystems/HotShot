@@ -6011,6 +6011,7 @@ dependencies = [
  "blake3",
  "byteorder",
  "dashmap",
+ "derive_builder",
  "derive_more 1.0.0",
  "hotshot-types",
  "rand 0.8.5",

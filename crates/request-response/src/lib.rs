@@ -7,7 +7,7 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 use anyhow::{Context, Result};
 use dashmap::DashMap;
 use data_source::DataSource;
-use derive_more::derive::Deref;
+use derive_builder::Builder;
 use hotshot_types::traits::signature_key::SignatureKey;
 use message::{Message, RequestMessage, ResponseMessage};
 use network::{Bytes, Receiver, Sender};
@@ -54,12 +54,8 @@ pub trait Serializable: Sized {
 }
 
 /// The request-response configuration
-#[derive(Clone, Deref)]
-pub struct RequestResponseConfig(Arc<RequestResponseConfigInner>);
-
-/// An `inner` struct for the [`RequestResponseConfig`]. We only use this
-/// to make the [`RequestResponseConfig`] cloneable with minimal overhead
-pub struct RequestResponseConfigInner {
+#[derive(Clone, Builder)]
+pub struct RequestResponseConfig {
     /// The timeout for incoming requests. Do not respond to a request after this threshold
     /// has passed.
     incoming_request_ttl: Duration,
@@ -75,28 +71,7 @@ pub struct RequestResponseConfigInner {
     max_outgoing_responses: usize,
 }
 
-impl RequestResponseConfig {
-    /// Create a new [`RequestResponseConfig`]
-    #[must_use]
-    pub fn new(
-        response_timeout: Duration,
-        incoming_request_ttl: Duration,
-        request_batch_size: usize,
-        request_batch_interval: Duration,
-        max_outgoing_responses: usize,
-    ) -> Self {
-        Self(Arc::new(RequestResponseConfigInner {
-            incoming_request_ttl,
-            response_timeout,
-            request_batch_size,
-            request_batch_interval,
-            max_outgoing_responses,
-        }))
-    }
-}
-
 /// A protocol that allows for request-response communication
-#[derive(Clone)]
 pub struct RequestResponse<
     S: Sender<K>,
     R: Receiver,
@@ -243,11 +218,11 @@ impl<
     /// - If the channel is closed (this is an internal error)
     pub async fn request(
         &self,
-        request: RequestMessage<Req, K>,
+        request_message: RequestMessage<Req, K>,
         timeout_duration: Duration,
     ) -> Result<Req::Response> {
         // Calculate the hash of the request
-        let request_hash = blake3::hash(&request.request.to_bytes()?);
+        let request_hash = blake3::hash(&request_message.request.to_bytes()?);
 
         // Get the corresponding entry in the map. If it doesn't exist, we create a new
         // active request and insert it into the map. If it does, we join with the existing
@@ -263,7 +238,7 @@ impl<
                 ActiveRequest {
                     sender,
                     receiver,
-                    request: request.request.clone(),
+                    request: request_message.request.clone(),
                     request_hash,
                     active_requests: Arc::clone(&self.active_requests),
                     ref_counter: Arc::new(()),
@@ -274,12 +249,14 @@ impl<
 
         // Get the recipients that the message should expect responses from. Shuffle them so
         // that we don't always send to the same recipients in the same order
-        let mut recipients = self.recipient_source.get_recipients_for(&request.request);
+        let mut recipients = self
+            .recipient_source
+            .get_recipients_for(&request_message.request);
         recipients.shuffle(&mut rand::thread_rng());
 
         // Create a request message and serialize it
         let message = Bytes::from(
-            Message::Request(request)
+            Message::Request(request_message)
                 .to_bytes()
                 .with_context(|| "failed to serialize request message")?,
         );
@@ -419,5 +396,294 @@ fn handle_response<Req: Request>(
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use std::{collections::HashMap, sync::Mutex};
+
+    use async_trait::async_trait;
+    use hotshot_types::signature_key::{BLSPrivKey, BLSPubKey};
+    use rand::Rng;
+    use tokio::{sync::mpsc, task::JoinSet};
+
+    use super::*;
+
+    /// A test sender that has a list of all the participants in the network
+    #[derive(Clone)]
+    pub struct TestSender {
+        network: Arc<HashMap<BLSPubKey, mpsc::Sender<Bytes>>>,
+    }
+
+    /// An implementation of the [`Sender`] trait for the [`TestSender`] type
+    #[async_trait]
+    impl Sender<BLSPubKey> for TestSender {
+        async fn send_message(&self, message: &Bytes, recipient: BLSPubKey) -> Result<()> {
+            self.network
+                .get(&recipient)
+                .ok_or(anyhow::anyhow!("recipient not found"))?
+                .send(Arc::clone(message))
+                .await
+                .map_err(|_| anyhow::anyhow!("failed to send message"))?;
+
+            Ok(())
+        }
+    }
+
+    // Implement the [`RecipientSource`] trait for the [`TestSender`] type
+    impl RecipientSource<BLSPubKey> for TestSender {
+        fn get_recipients_for<R: Request>(&self, _request: &R) -> Vec<BLSPubKey> {
+            // Get all the participants in the network
+            self.network.keys().copied().collect()
+        }
+    }
+
+    // Create a test request that is just some bytes
+    #[derive(Clone, Debug)]
+    struct TestRequest(Vec<u8>);
+
+    // Implement the [`Serializable`] trait for the [`TestRequest`] type
+    impl Serializable for TestRequest {
+        fn to_bytes(&self) -> Result<Vec<u8>> {
+            Ok(self.0.clone())
+        }
+
+        fn from_bytes(bytes: &[u8]) -> Result<Self> {
+            Ok(TestRequest(bytes.to_vec()))
+        }
+    }
+
+    // Implement the [`Request`] trait for the [`TestRequest`] type
+    impl Request for TestRequest {
+        type Response = Vec<u8>;
+
+        fn validate(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    // Implement the [`Response`] trait for the [`TestRequest`] type
+    impl Response<TestRequest> for Vec<u8> {
+        fn validate(&self, _request: &TestRequest) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    // Create a test data source that pretends to have the data or not
+    #[derive(Clone)]
+    struct TestDataSource {
+        /// Whether we have the data or not
+        has_data: bool,
+        /// The time at which the data is available
+        data_available_time: Instant,
+    }
+
+    #[async_trait]
+    impl DataSource<Vec<u8>> for TestDataSource {
+        async fn derive_response_for(&self, request: &Vec<u8>) -> Result<Vec<u8>> {
+            // Return a response if we hit the hit rate
+            if self.has_data && Instant::now() >= self.data_available_time {
+                Ok(blake3::hash(request).as_bytes().to_vec())
+            } else {
+                Err(anyhow::anyhow!("did not have the data"))
+            }
+        }
+    }
+
+    fn default_protocol_config() -> RequestResponseConfig {
+        RequestResponseConfigBuilder::create_empty()
+            .incoming_request_ttl(Duration::from_secs(60))
+            .response_timeout(Duration::from_secs(60))
+            .request_batch_size(10)
+            .request_batch_interval(Duration::from_secs(1))
+            .max_outgoing_responses(10)
+            .build()
+            .expect("failed to build config")
+    }
+
+    /// Create fully connected test networks with `num_participants` participants
+    fn create_participants(
+        num: usize,
+    ) -> Vec<(TestSender, mpsc::Receiver<Bytes>, (BLSPubKey, BLSPrivKey))> {
+        // The entire network
+        let mut network = HashMap::new();
+
+        // All receivers in the network
+        let mut receivers = Vec::new();
+
+        // All keypairs in the network
+        let mut keypairs = Vec::new();
+
+        // For each participant,
+        for i in 0..num {
+            // Create a unique `BLSPubKey`
+            let (public_key, private_key) =
+                BLSPubKey::generated_from_seed_indexed([2; 32], i.try_into().unwrap());
+
+            // Add the keypair to the list
+            keypairs.push((public_key, private_key));
+
+            // Create a channel for sending and receiving messages
+            let (sender, receiver) = mpsc::channel::<Bytes>(100);
+
+            // Add the participant to the network
+            network.insert(public_key, sender);
+
+            // Add the receiver to the list of receivers
+            receivers.push(receiver);
+        }
+
+        // Create a test sender from the network
+        let sender = TestSender {
+            network: Arc::new(network),
+        };
+
+        // Return all senders and receivers
+        receivers
+            .into_iter()
+            .zip(keypairs)
+            .map(|(r, k)| (sender.clone(), r, k))
+            .collect()
+    }
+
+    /// The configuration for an integration test
+    #[derive(Clone)]
+    struct IntegrationTestConfig {
+        /// The request response protocol configuration
+        request_response_config: RequestResponseConfig,
+        /// The number of participants in the network
+        num_participants: usize,
+        /// The number of participants that have the data
+        num_participants_with_data: usize,
+        /// The timeout for the requests
+        request_timeout: Duration,
+        /// The delay before the nodes have the data available
+        data_available_delay: Duration,
+    }
+
+    /// The result of an integration test
+    struct IntegrationTestResult {
+        /// The number of nodes that received a response
+        num_succeeded: usize,
+    }
+
+    /// Run an integration test with the given parameters
+    async fn run_integration_test(config: IntegrationTestConfig) -> IntegrationTestResult {
+        // Create a fully connected network with `num_participants` participants
+        let participants = create_participants(config.num_participants);
+
+        // Create a join set to wait for all the tasks to finish
+        let mut join_set = JoinSet::new();
+
+        // We need to keep these here so they don't get dropped
+        let handles = Arc::new(Mutex::new(Vec::new()));
+
+        // For each one, create a new [`RequestResponse`] protocol
+        for (i, (sender, receiver, (public_key, private_key))) in
+            participants.into_iter().enumerate()
+        {
+            let config_clone = config.request_response_config.clone();
+            let handles_clone = Arc::clone(&handles);
+            join_set.spawn(async move {
+                let protocol = RequestResponse::new(
+                    config_clone,
+                    sender.clone(),
+                    receiver,
+                    sender,
+                    TestDataSource {
+                        has_data: i < config.num_participants_with_data,
+                        data_available_time: Instant::now() + config.data_available_delay,
+                    },
+                );
+
+                // Add the handle to the handles list
+                #[allow(clippy::used_underscore_binding)]
+                handles_clone
+                    .lock()
+                    .unwrap()
+                    .push(Arc::clone(&protocol._receive_task_handle));
+
+                // Create a random request
+                let request = vec![rand::thread_rng().gen(); 100];
+
+                // Get the hash of the request
+                let request_hash = blake3::hash(&request).as_bytes().to_vec();
+
+                // Create a new request message
+                let request = RequestMessage::new_signed(&public_key, &private_key, &request)
+                    .expect("failed to create request message");
+
+                // Request the data from the protocol
+                let response = protocol.request(request, config.request_timeout).await?;
+
+                // Make sure the response is the hash of the request
+                assert_eq!(response, request_hash);
+
+                Ok::<(), anyhow::Error>(())
+            });
+        }
+
+        // Wait for all the tasks to finish
+        let mut num_succeeded = config.num_participants;
+        while let Some(result) = join_set.join_next().await {
+            if result.is_err() || result.unwrap().is_err() {
+                num_succeeded -= 1;
+            }
+        }
+
+        IntegrationTestResult { num_succeeded }
+    }
+
+    /// Test the integration of the protocol with 50% of the participants having the data
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_integration_50_0s() {
+        // Build a config
+        let config = IntegrationTestConfig {
+            request_response_config: default_protocol_config(),
+            num_participants: 100,
+            num_participants_with_data: 50,
+            request_timeout: Duration::from_secs(40),
+            data_available_delay: Duration::from_secs(0),
+        };
+
+        // Run the test, making sure all the requests succeed
+        let result = run_integration_test(config).await;
+        assert_eq!(result.num_succeeded, 100);
+    }
+
+    /// Test the integration of the protocol when nobody has the data. Make sure we don't
+    /// get any responses
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_integration_0() {
+        // Build a config
+        let config = IntegrationTestConfig {
+            request_response_config: default_protocol_config(),
+            num_participants: 100,
+            num_participants_with_data: 0,
+            request_timeout: Duration::from_secs(40),
+            data_available_delay: Duration::from_secs(0),
+        };
+
+        // Run the test
+        let result = run_integration_test(config).await;
+
+        // Make sure all the requests succeeded
+        assert_eq!(result.num_succeeded, 0);
+    }
+
+    /// Test the integration of the protocol when one node has the data after
+    /// a delay of10s
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_integration_1_10s() {
+        // Build a config
+        let config = IntegrationTestConfig {
+            request_response_config: default_protocol_config(),
+            num_participants: 100,
+            num_participants_with_data: 1,
+            request_timeout: Duration::from_secs(40),
+            data_available_delay: Duration::from_secs(10),
+        };
+
+        // Run the test
+        let result = run_integration_test(config).await;
+
+        // Make sure all the requests succeeded
+        assert_eq!(result.num_succeeded, 100);
+    }
 }
