@@ -351,7 +351,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
         )
         .await
     } else {
-        decide_from_proposal(
+        decide_from_proposal_2(
             proposal,
             OuterConsensus::new(Arc::clone(&task_state.consensus.inner_consensus)),
             Arc::clone(&task_state.upgrade_lock.decided_upgrade_certificate),
