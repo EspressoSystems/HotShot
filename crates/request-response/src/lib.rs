@@ -39,6 +39,9 @@ mod util;
 /// A type alias for the hash of a request
 pub type RequestHash = blake3::Hash;
 
+/// A type alias for the list of currently active responses
+pub type ActiveResponsesList = BoundedVecDeque<AbortOnDropHandle<()>>;
+
 /// A trait for serializing and deserializing a type to and from a byte array. [`Request`] types and
 /// [`Response`] types will need to implement this trait
 pub trait Serializable: Sized {
@@ -85,30 +88,14 @@ pub struct RequestResponse<
     RS: RecipientSource<K>,
     DS: DataSource<Req>,
     K: SignatureKey + 'static,
->(Arc<RequestResponseInner<S, R, Req, RS, DS, K>>);
-
-/// The inner implementation for the request-response protocol
-pub struct RequestResponseInner<
-    S: Sender<K>,
-    R: Receiver,
-    Req: Request,
-    RS: RecipientSource<K>,
-    DS: DataSource<Req>,
-    K: SignatureKey + 'static,
 > {
-    /// The configuration of the protocol
-    config: RequestResponseConfig,
-    /// The sender to use for the protocol
-    sender: S,
-    /// The recipient source to use for the protocol
-    recipient_source: RS,
-    /// The handle to the task that receives messages
-    _receive_task_handle: AbortOnDropHandle<()>,
-    /// The map of currently active requests
-    active_requests: Arc<DashMap<RequestHash, ActiveRequest<Req>>>,
-    /// Phantom data to help with type inference
-    phantom_data: PhantomData<(K, R, Req, DS)>,
+    #[deref]
+    /// The inner implementation of the request-response protocol
+    inner: Arc<RequestResponseInner<S, R, Req, RS, DS, K>>,
+    /// A handle to the receiving task. This will automatically get cancelled when the protocol is dropped
+    _receiving_task_handle: Arc<AbortOnDropHandle<()>>,
 }
+
 impl<
         S: Sender<K>,
         R: Receiver,
@@ -136,70 +123,64 @@ impl<
         // Create the active requests map
         let active_requests = Arc::new(DashMap::new());
 
-        // Start the task that receives messages and handles them. This will automatically get cancelled
-        // when the protocol is dropped
-        let receive_task_handle = AbortOnDropHandle(tokio::spawn(Self::receiving_task(
-            config.clone(),
-            sender.clone(),
-            receiver,
-            data_source,
-            Arc::clone(&active_requests),
-        )));
-
-        Self(Arc::new(RequestResponseInner {
+        // Create the inner implementation
+        let inner = Arc::new(RequestResponseInner {
             config,
             sender,
             recipient_source,
-            _receive_task_handle: receive_task_handle,
+            data_source,
             active_requests,
             phantom_data: PhantomData,
-        }))
-    }
+        });
 
-    /// The task responsible for receiving messages from the receiver and handling them
-    async fn receiving_task(
-        config: RequestResponseConfig,
-        sender: S,
-        mut receiver: R,
-        data_source: DS,
-        active_requests: Arc<DashMap<RequestHash, ActiveRequest<Req>>>,
-    ) {
-        // Create a bounded queue for the currently active responses. We use this to make sure
-        // we have less than [`config.max_outgoing_responses`] responses in flight at any time.
-        let mut active_responses = BoundedVecDeque::new(config.max_outgoing_responses);
+        // Start the task that receives messages and handles them. This will automatically get cancelled
+        // when the protocol is dropped
+        let inner_clone = inner.clone();
+        let receive_task_handle =
+            AbortOnDropHandle(tokio::spawn(inner_clone.receiving_task(receiver)));
 
-        // While the receiver is open, we receive messages and handle them
-        while let Ok(message) = receiver.receive_message().await {
-            // Deserialize the message, warning if it fails
-            let message = match Message::from_bytes(&message) {
-                Ok(message) => message,
-                Err(e) => {
-                    warn!("Received invalid message: {e}");
-                    continue;
-                }
-            };
-
-            // Handle the message based on its type
-            match message {
-                Message::Request(request_message) => {
-                    handle_request(
-                        request_message,
-                        &config,
-                        &sender,
-                        &data_source,
-                        &mut active_responses,
-                    );
-                }
-                Message::Response(response_message) => {
-                    handle_response(response_message, &active_requests);
-                }
-            }
+        // Return the protocol
+        Self {
+            inner,
+            _receiving_task_handle: Arc::new(receive_task_handle),
         }
-        error!("Request/response receive task exited: sending channel closed or dropped");
     }
+}
 
+/// The inner implementation for the request-response protocol
+pub struct RequestResponseInner<
+    S: Sender<K>,
+    R: Receiver,
+    Req: Request,
+    RS: RecipientSource<K>,
+    DS: DataSource<Req>,
+    K: SignatureKey + 'static,
+> {
+    /// The configuration of the protocol
+    config: RequestResponseConfig,
+    /// The sender to use for the protocol
+    sender: S,
+    /// The recipient source to use for the protocol
+    recipient_source: RS,
+    /// The data source to use for the protocol
+    data_source: DS,
+    /// The map of currently active requests
+    active_requests: Arc<DashMap<RequestHash, ActiveRequest<Req>>>,
+    /// Phantom data to help with type inference
+    phantom_data: PhantomData<(K, R, Req, DS)>,
+}
+impl<
+        S: Sender<K>,
+        R: Receiver,
+        Req: Request,
+        RS: RecipientSource<K>,
+        DS: DataSource<Req>,
+        K: SignatureKey + 'static,
+    > RequestResponseInner<S, R, Req, RS, DS, K>
+{
     /// Request something from the protocol and wait for the response. This function
-    /// will join with an existing request for the same data (determined by `Blake3` hash)
+    /// will join with an existing request for the same data (determined by `Blake3` hash),
+    /// however both will continue making requests until the timeout is reached
     ///
     /// # Errors
     /// - If the request times out
@@ -294,92 +275,117 @@ impl<
             .map_err(|_| anyhow::anyhow!("request timed out"))
             .and_then(|result| result.map_err(|e| anyhow::anyhow!("channel was closed: {e}")))
     }
-}
 
-/// Handle a request sent to us
-fn handle_request<Req: Request, K: SignatureKey + 'static, DS: DataSource<Req>, S: Sender<K>>(
-    request_message: RequestMessage<Req, K>,
-    config: &RequestResponseConfig,
-    sender: &S,
-    data_source: &DS,
-    active_responses: &mut BoundedVecDeque<AbortOnDropHandle<()>>,
-) {
-    // Validate the request message. This includes:
-    // - Checking the signature and making sure it's valid
-    // - Checking the timestamp and making sure it's not too old
-    // - Calling the request's application-specific validation function
-    if let Err(e) = request_message.validate(config.incoming_request_ttl) {
-        warn!("Received invalid request: {e}");
-        return;
-    }
+    /// The task responsible for receiving messages from the receiver and handling them
+    async fn receiving_task(self: Arc<Self>, mut receiver: R) {
+        // Create an upper bound to the number of concurrent responses we will have in flight
+        let mut active_responses = ActiveResponsesList::new(self.config.max_outgoing_responses);
 
-    // Spawn a task to:
-    // - Derive the response data (check if we have it)
-    // - Send the response to the requester
-    let data_source_clone = data_source.clone();
-    let sender_clone = sender.clone();
-    let config_clone = config.clone();
-    let response_task = tokio::spawn(async move {
-        let result = timeout(config_clone.response_timeout, async move {
-            // Try to fetch the response data from the data source
-            let response = data_source_clone
-                .derive_response_for(&request_message.request)
-                .await
-                .with_context(|| "failed to derive response for request")?;
+        // While the receiver is open, we receive messages and handle them
+        while let Ok(message) = receiver.receive_message().await {
+            // Deserialize the message, warning if it fails
+            let message = match Message::from_bytes(&message) {
+                Ok(message) => message,
+                Err(e) => {
+                    warn!("Received invalid message: {e}");
+                    continue;
+                }
+            };
 
-            // Create the response message and serialize it
-            let response = Bytes::from(
-                Message::Response::<Req, K>(ResponseMessage {
-                    request_hash: blake3::hash(&request_message.request.to_bytes()?),
-                    response,
-                })
-                .to_bytes()
-                .with_context(|| "failed to serialize response message")?,
-            );
-
-            // Send the response to the requester
-            sender_clone
-                .send_message(&response, request_message.public_key)
-                .await
-                .with_context(|| "failed to send response to requester")?;
-
-            Ok::<(), anyhow::Error>(())
-        })
-        .await
-        .map_err(|_| anyhow::anyhow!("timed out while sending response"))
-        .and_then(|result| result);
-
-        if let Err(e) = result {
-            warn!("Failed to send response to requester: {e}");
+            // Handle the message based on its type
+            match message {
+                Message::Request(request_message) => {
+                    self.handle_request(request_message, &mut active_responses);
+                }
+                Message::Response(response_message) => {
+                    self.handle_response(response_message);
+                }
+            }
         }
-    });
-
-    // Add the response task to the active responses queue. This will automatically cancel an older task
-    // if there are more than [`config.max_outgoing_responses`] responses in flight.
-    active_responses.push(AbortOnDropHandle(response_task));
-}
-
-/// Handle a response sent to us
-fn handle_response<Req: Request>(
-    response: ResponseMessage<Req>,
-    active_requests: &Arc<DashMap<RequestHash, ActiveRequest<Req>>>,
-) {
-    // Get the entry in the map, ignoring it if it doesn't exist
-    let Some(active_request) = active_requests
-        .get(&response.request_hash)
-        .map(|r| r.value().clone())
-    else {
-        return;
-    };
-
-    // Make sure the response is valid for the given request
-    if let Err(e) = response.response.validate(&active_request.request) {
-        warn!("Received invalid response: {e}");
-        return;
+        error!("Request/response receive task exited: sending channel closed or dropped");
     }
 
-    // Send the response to the requester (the user of [`RequestResponse::request`])
-    let _ = active_request.sender.try_broadcast(response.response);
+    /// Handle a request sent to us
+    fn handle_request(
+        self: &Arc<Self>,
+        request_message: RequestMessage<Req, K>,
+        active_responses: &mut ActiveResponsesList,
+    ) {
+        // Validate the request message. This includes:
+        // - Checking the signature and making sure it's valid
+        // - Checking the timestamp and making sure it's not too old
+        // - Calling the request's application-specific validation function
+        if let Err(e) = request_message.validate(self.config.incoming_request_ttl) {
+            warn!("Received invalid request: {e}");
+            return;
+        }
+
+        // Spawn a task to:
+        // - Derive the response data (check if we have it)
+        // - Send the response to the requester
+        let self_clone = self.clone();
+        let response_task = tokio::spawn(async move {
+            let result = timeout(self_clone.config.response_timeout, async move {
+                // Try to fetch the response data from the data source
+                let response = self_clone
+                    .data_source
+                    .derive_response_for(&request_message.request)
+                    .await
+                    .with_context(|| "failed to derive response for request")?;
+
+                // Create the response message and serialize it
+                let response = Bytes::from(
+                    Message::Response::<Req, K>(ResponseMessage {
+                        request_hash: blake3::hash(&request_message.request.to_bytes()?),
+                        response,
+                    })
+                    .to_bytes()
+                    .with_context(|| "failed to serialize response message")?,
+                );
+
+                // Send the response to the requester
+                self_clone
+                    .sender
+                    .send_message(&response, request_message.public_key)
+                    .await
+                    .with_context(|| "failed to send response to requester")?;
+
+                Ok::<(), anyhow::Error>(())
+            })
+            .await
+            .map_err(|_| anyhow::anyhow!("timed out while sending response"))
+            .and_then(|result| result);
+
+            if let Err(e) = result {
+                warn!("Failed to send response to requester: {e}");
+            }
+        });
+
+        // Add the response task to the active responses queue. This will automatically cancel an older task
+        // if there are more than [`config.max_outgoing_responses`] responses in flight.
+        active_responses.push(AbortOnDropHandle(response_task));
+    }
+
+    /// Handle a response sent to us
+    fn handle_response(self: &Arc<Self>, response: ResponseMessage<Req>) {
+        // Get the entry in the map, ignoring it if it doesn't exist
+        let Some(active_request) = self
+            .active_requests
+            .get(&response.request_hash)
+            .map(|r| r.value().clone())
+        else {
+            return;
+        };
+
+        // Make sure the response is valid for the given request
+        if let Err(e) = response.response.validate(&active_request.request) {
+            warn!("Received invalid response: {e}");
+            return;
+        }
+
+        // Send the response to the requester (the user of [`RequestResponse::request`])
+        let _ = active_request.sender.try_broadcast(response.response);
+    }
 }
 
 /// An active request. This is what we use to track a request and its corresponding response
@@ -613,7 +619,10 @@ mod tests {
                 // Add the handle to the handles list so it doesn't get dropped and
                 // cancelled
                 #[allow(clippy::used_underscore_binding)]
-                handles_clone.lock().unwrap().push(Arc::clone(&protocol.0));
+                handles_clone
+                    .lock()
+                    .unwrap()
+                    .push(Arc::clone(&protocol._receiving_task_handle));
 
                 // Create a random request
                 let request = vec![rand::thread_rng().gen(); 100];
