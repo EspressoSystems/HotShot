@@ -11,6 +11,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[dev-dependencies]
+serde.workspace = true
+
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true

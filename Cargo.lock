@@ -6014,6 +6014,7 @@ dependencies = [
  "derive_more 1.0.0",
  "hotshot-types",
  "rand 0.8.5",
+ "serde",
  "tokio",
  "tracing",
 ]

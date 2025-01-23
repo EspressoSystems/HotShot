@@ -10,7 +10,7 @@ use data_source::DataSource;
 use derive_more::derive::Deref;
 use hotshot_types::traits::signature_key::SignatureKey;
 use message::{Message, RequestMessage, ResponseMessage};
-use network::{Receiver, Sender};
+use network::{Bytes, Receiver, Sender};
 use rand::seq::SliceRandom;
 use recipient_source::RecipientSource;
 use request::{Request, Response};
@@ -99,7 +99,7 @@ impl RequestResponseConfig {
 #[derive(Clone)]
 pub struct RequestResponse<
     S: Sender<K>,
-    R: Receiver<K>,
+    R: Receiver,
     Req: Request,
     RS: RecipientSource<K>,
     DS: DataSource<Req>,
@@ -152,7 +152,7 @@ impl<R: Request> Drop for ActiveRequest<R> {
 
 impl<
         S: Sender<K>,
-        R: Receiver<K>,
+        R: Receiver,
         Req: Request,
         RS: RecipientSource<K>,
         DS: DataSource<Req>,
@@ -206,7 +206,17 @@ impl<
         // we have less than [`config.max_outgoing_responses`] responses in flight at any time.
         let mut active_responses = BoundedVecDeque::new(config.max_outgoing_responses);
 
-        while let Ok(message) = receiver.receive_message::<Req>().await {
+        while let Ok(message) = receiver.receive_message().await {
+            let message = match Message::from_bytes(&message)
+                .with_context(|| "failed to deserialize message")
+            {
+                Ok(message) => message,
+                Err(e) => {
+                    warn!("Received invalid message: {e}");
+                    continue;
+                }
+            };
+
             match message {
                 Message::Request(request_message) => {
                     handle_request(
@@ -218,7 +228,6 @@ impl<
                     );
                 }
                 Message::Response(response_message) => {
-                    // Handle the response message
                     handle_response(response_message, &active_requests);
                 }
             }
@@ -268,8 +277,12 @@ impl<
         let mut recipients = self.recipient_source.get_recipients_for(&request.request);
         recipients.shuffle(&mut rand::thread_rng());
 
-        // Create a request message
-        let message = Arc::new(Message::Request(request));
+        // Create a request message and serialize it
+        let message = Bytes::from(
+            Message::Request(request)
+                .to_bytes()
+                .with_context(|| "failed to serialize request message")?,
+        );
 
         // Get the current time so we can check when the timeout has elapsed
         let start_time = Instant::now();
@@ -349,15 +362,19 @@ fn handle_request<Req: Request, K: SignatureKey + 'static, DS: DataSource<Req>, 
                 .await
                 .with_context(|| "failed to derive response for request")?;
 
+            // Create the response message and serialize it
+            let response = Bytes::from(
+                Message::Response::<Req, K>(ResponseMessage {
+                    request_hash: blake3::hash(&request_message.request.to_bytes()?),
+                    response,
+                })
+                .to_bytes()
+                .with_context(|| "failed to serialize response message")?,
+            );
+
             // Send the response to the requester
             sender_clone
-                .send_message(
-                    &Message::Response(ResponseMessage::<Req> {
-                        request_hash: blake3::hash(&request_message.request.to_bytes()?),
-                        response,
-                    }),
-                    request_message.public_key,
-                )
+                .send_message(&response, request_message.public_key)
                 .await
                 .with_context(|| "failed to send response to requester")?;
 
@@ -398,4 +415,9 @@ fn handle_response<Req: Request>(
 
     // Send the response to the requester (the user of [`RequestResponse::request`])
     let _ = active_request.sender.try_broadcast(response.response);
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
 }
