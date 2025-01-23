@@ -20,7 +20,7 @@ members = [
     "crates/hotshot-stake-table",
     "crates/libp2p-networking",
     "crates/macros",
-    "crates/orchestrator",
+    "crates/orchestrator", "crates/request-response",
     "crates/task",
     "crates/task-impls",
     "crates/testing",
@@ -80,6 +80,7 @@ thiserror = "2"
 surf-disco = "0.9"
 tagged-base64 = "0.4"
 tide-disco = "0.9"
+dashmap = "6"
 time = "0.3"
 toml = "0.8"
 tracing = "0.1"

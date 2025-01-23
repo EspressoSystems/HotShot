@@ -2874,7 +2874,6 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
- "byteorder",
  "cdn-broker",
  "cdn-client",
  "cdn-marshal",
@@ -5999,6 +5998,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71fe3824f5629716b1589be05dacd749f6aa084c87e00e016714a8cdfccc997c"
 dependencies = [
  "bytecheck",
+]
+
+[[package]]
+name = "request-response"
+version = "0.5.79"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-trait",
+ "bincode",
+ "blake3",
+ "byteorder",
+ "dashmap",
+ "derive_more 1.0.0",
+ "hotshot-types",
+ "rand 0.8.5",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

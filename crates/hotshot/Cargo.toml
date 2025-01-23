@@ -31,7 +31,7 @@ cdn-client = { workspace = true }
 cdn-marshal = { workspace = true }
 chrono = { workspace = true }
 committable = { workspace = true }
-dashmap = "6"
+dashmap = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
@@ -56,7 +56,6 @@ tracing-subscriber = { workspace = true }
 url = { workspace = true }
 utils = { path = "../utils" }
 vbs = { workspace = true }
-byteorder = { version = "1", default-features = false }
 
 [dev-dependencies]
 blake3 = { workspace = true }

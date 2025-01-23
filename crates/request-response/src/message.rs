@@ -35,7 +35,14 @@ pub struct RequestMessage<R: Request, K: SignatureKey> {
 
 impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
     /// Create a new signed request message
-    pub fn new_signed(public_key: K, private_key: K::PrivateKey, request: R) -> Result<Self>
+    ///
+    /// # Errors
+    /// - If the request's content cannot be serialized
+    /// - If the request cannot be signed
+    ///
+    /// # Panics
+    /// - If time is not monotonic
+    pub fn new_signed(public_key: &K, private_key: &K::PrivateKey, request: &R) -> Result<Self>
     where
         <K as SignatureKey>::SignError: 'static,
     {
@@ -47,7 +54,7 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
 
         // Concatenate the content and timestamp
         let timestamped_content = [
-            &request
+            request
                 .to_bytes()
                 .with_context(|| "failed to serialize request content")?
                 .as_slice(),
@@ -56,20 +63,27 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
         .concat();
 
         // Sign the actual request content with the private key
-        let signature = K::sign(&private_key, &timestamped_content)
-            .with_context(|| "failed to sign message")?;
+        let signature =
+            K::sign(private_key, &timestamped_content).with_context(|| "failed to sign message")?;
 
         // Return the newly signed request message
         Ok(RequestMessage {
-            public_key,
+            public_key: public_key.clone(),
             signature,
             timestamp_unix_seconds,
-            request,
+            request: request.clone(),
         })
     }
 
     /// Validate the request message, checking the signature and the timestamp and
     /// calling the request's application-specific validation function
+    ///
+    /// # Errors
+    /// - If the request's signature is invalid
+    /// - If the request is too old
+    ///
+    /// # Panics
+    /// - If time is not monotonic
     pub fn validate(&self, incoming_request_ttl: Duration) -> Result<()> {
         // Check the signature over the request content and timestamp
         if !self.public_key.validate(
@@ -171,10 +185,10 @@ impl<R: Request, K: SignatureKey> Serializable for RequestMessage<R, K> {
         let mut bytes = Vec::new();
 
         // Write the public key (length-prefixed)
-        write_length_prefixed(&mut bytes, self.public_key.to_bytes())?;
+        write_length_prefixed(&mut bytes, &self.public_key.to_bytes())?;
 
         // Write the signature (length-prefixed)
-        write_length_prefixed(&mut bytes, bincode::serialize(&self.signature)?)?;
+        write_length_prefixed(&mut bytes, &bincode::serialize(&self.signature)?)?;
 
         // Write the timestamp
         bytes.write_all(&self.timestamp_unix_seconds.to_le_bytes())?;
@@ -244,12 +258,14 @@ impl<R: Request> Serializable for ResponseMessage<R> {
 }
 
 /// A helper function to write a length-prefixed value to a writer
-fn write_length_prefixed<W: Write>(writer: &mut W, value: Vec<u8>) -> Result<()> {
+fn write_length_prefixed<W: Write>(writer: &mut W, value: &[u8]) -> Result<()> {
     // Write the length of the value as a u32
-    writer.write_u32::<LittleEndian>(value.len() as u32)?;
+    writer.write_u32::<LittleEndian>(
+        u32::try_from(value.len()).with_context(|| "value was too large")?,
+    )?;
 
     // Write the (already serialized) value
-    writer.write_all(&value)?;
+    writer.write_all(value)?;
     Ok(())
 }
 
@@ -276,7 +292,7 @@ mod tests {
     use hotshot_types::signature_key::BLSPubKey;
     use rand::Rng;
 
-    use crate::traits::implementations::request::Response;
+    use crate::request::Response;
 
     use super::*;
 
@@ -319,9 +335,9 @@ mod tests {
 
             // Create a valid request with some random content
             let mut request = RequestMessage::new_signed(
-                public_key,
-                private_key,
-                vec![rng.gen::<u8>(); rng.gen_range(1..10000)],
+                &public_key,
+                &private_key,
+                &vec![rng.gen::<u8>(); rng.gen_range(1..10000)],
             )
             .expect("Failed to create signed request");
 
@@ -372,27 +388,26 @@ mod tests {
             let request = vec![rng.gen::<u8>(); rng.gen_range(0..10000)];
 
             // Create a message
-            let message = match is_request {
-                true => {
-                    // Create a random keypair
-                    let (public_key, private_key) =
-                        BLSPubKey::generated_from_seed_indexed([1; 32], rng.gen::<u64>());
+            let message = if is_request {
+                // Create a random keypair
+                let (public_key, private_key) =
+                    BLSPubKey::generated_from_seed_indexed([1; 32], rng.gen::<u64>());
 
-                    // Create a new signed request
-                    let request = RequestMessage::new_signed(public_key, private_key, request)
-                        .expect("Failed to create signed request");
+                // Create a new signed request
+                let request = RequestMessage::new_signed(&public_key, &private_key, &request)
+                    .expect("Failed to create signed request");
 
-                    Message::Request(request)
-                }
-                false => Message::Response(ResponseMessage {
+                Message::Request(request)
+            } else {
+                // Create a response message
+                Message::Response(ResponseMessage {
                     request_hash: blake3::hash(&request),
                     response: vec![rng.gen::<u8>(); rng.gen_range(0..10000)],
-                }),
+                })
             };
 
             // Serialize the message
             let serialized = message.to_bytes().expect("Failed to serialize message");
-            println!("serialized: {:?}", serialized);
 
             // Deserialize the message
             let deserialized =
@@ -403,7 +418,7 @@ mod tests {
         }
     }
 
-    //// Tests that length-prefixed values are read and written correctly
+    /// Tests that length-prefixed values are read and written correctly
     #[test]
     fn test_length_prefix_parity() {
         // Create some RNG
@@ -417,7 +432,7 @@ mod tests {
             let value = vec![rng.gen::<u8>(); rng.gen_range(0..10000)];
 
             // Write the length-prefixed value
-            write_length_prefixed(&mut bytes, value).unwrap();
+            write_length_prefixed(&mut bytes, &value).unwrap();
 
             // Create a reader from the bytes
             let mut reader = Cursor::new(bytes);

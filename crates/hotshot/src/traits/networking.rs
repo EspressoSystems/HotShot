@@ -14,7 +14,6 @@
 pub mod combined_network;
 pub mod libp2p_network;
 pub mod memory_network;
-pub mod protocols;
 /// The Push CDN network
 pub mod push_cdn_network;
 

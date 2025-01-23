@@ -2,7 +2,9 @@ use std::collections::VecDeque;
 
 /// A bounded [`VecDeque`]
 pub struct BoundedVecDeque<T> {
+    /// The inner [`VecDeque`]
     inner: VecDeque<T>,
+    /// The maximum size of the [`VecDeque`]
     max_size: usize,
 }
 

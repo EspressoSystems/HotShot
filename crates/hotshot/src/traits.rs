@@ -24,7 +24,6 @@ pub mod implementations {
             RequestResponseConfig as Libp2pRequestResponseConfig,
         },
         memory_network::{MasterMap, MemoryNetwork},
-        protocols::request_response::*,
         push_cdn_network::{
             CdnMetricsValue, KeyPair, ProductionDef, PushCdnNetwork, TestingDef, Topic as CdnTopic,
             WrappedSignatureKey,
