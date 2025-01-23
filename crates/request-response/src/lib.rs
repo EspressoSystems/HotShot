@@ -668,9 +668,9 @@ mod tests {
     }
 
     /// Test the integration of the protocol when one node has the data after
-    /// a delay of10s
+    /// a delay of 20s
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_integration_1_10s() {
+    async fn test_integration_1_20s() {
         // Build a config
         let config = IntegrationTestConfig {
             request_response_config: default_protocol_config(),
