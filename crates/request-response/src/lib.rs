@@ -47,6 +47,20 @@ pub type ActiveRequestsMap<Req> = Arc<RwLock<HashMap<RequestHash, Weak<ActiveReq
 /// A type alias for the list of currently active responses
 pub type ActiveResponsesList = BoundedVecDeque<AbortOnDropHandle<()>>;
 
+/// The errors that can occur when making a request for data
+#[derive(thiserror::Error, Debug)]
+pub enum RequestError {
+    /// The request timed out
+    #[error("request timed out")]
+    Timeout,
+    /// The request was invalid
+    #[error("request was invalid")]
+    InvalidRequest(anyhow::Error),
+    /// Other errors
+    #[error("other error")]
+    Other(anyhow::Error),
+}
+
 /// A trait for serializing and deserializing a type to and from a byte array. [`Request`] types and
 /// [`Response`] types will need to implement this trait
 pub trait Serializable: Sized {
@@ -183,6 +197,41 @@ impl<
         K: SignatureKey + 'static,
     > RequestResponseInner<S, R, Req, RS, DS, K>
 {
+    /// Request something from the protocol indefinitely until we get a response
+    /// or there was a critical error (e.g. the request could not be signed)
+    ///
+    /// # Errors
+    /// - If the request was invalid
+    /// - If there was a critical error (e.g. the channel was closed)
+    pub async fn request_indefinitely(
+        self: &Arc<Self>,
+        public_key: &K,
+        private_key: &K::PrivateKey,
+        // The estimated TTL of other participants. This is used to decide when to
+        // stop making requests and sign a new one
+        estimated_request_ttl: Duration,
+        // The request to make
+        request: Req,
+    ) -> std::result::Result<Req::Response, RequestError> {
+        loop {
+            // Sign a request message
+            let request_message = RequestMessage::new_signed(public_key, private_key, &request)
+                .map_err(|e| {
+                    RequestError::InvalidRequest(anyhow::anyhow!(
+                        "failed to sign request message: {e}"
+                    ))
+                })?;
+
+            // Request the data, handling the errors appropriately
+            match self.request(request_message, estimated_request_ttl).await {
+                Ok(response) => return Ok(response),
+                Err(RequestError::Timeout) => continue,
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    /// Request something from the protocol and wait for the response. This function
     /// Request something from the protocol and wait for the response. This function
     /// will join with an existing request for the same data (determined by `Blake3` hash),
     /// however both will make requests until the timeout is reached
@@ -194,9 +243,13 @@ impl<
         self: &Arc<Self>,
         request_message: RequestMessage<Req, K>,
         timeout_duration: Duration,
-    ) -> Result<Req::Response> {
+    ) -> std::result::Result<Req::Response, RequestError> {
         // Calculate the hash of the request
-        let request_hash = blake3::hash(&request_message.request.to_bytes()?);
+        let request_hash = blake3::hash(&request_message.request.to_bytes().map_err(|e| {
+            RequestError::InvalidRequest(anyhow::anyhow!(
+                "failed to serialize request message: {e}"
+            ))
+        })?);
 
         let request = {
             // Get a write lock on the active requests map
@@ -238,11 +291,11 @@ impl<
         recipients.shuffle(&mut rand::thread_rng());
 
         // Create a request message and serialize it
-        let message = Bytes::from(
-            Message::Request(request_message)
-                .to_bytes()
-                .with_context(|| "failed to serialize request message")?,
-        );
+        let message = Bytes::from(Message::Request(request_message).to_bytes().map_err(|e| {
+            RequestError::InvalidRequest(anyhow::anyhow!(
+                "failed to serialize request message: {e}"
+            ))
+        })?);
 
         // Get the current time so we can check when the timeout has elapsed
         let start_time = Instant::now();
@@ -289,8 +342,10 @@ impl<
         // Wait for a response on the channel (or timeout)
         timeout(timeout_duration, request.receiver.clone().recv())
             .await
-            .map_err(|_| anyhow::anyhow!("request timed out"))
-            .and_then(|result| result.map_err(|e| anyhow::anyhow!("channel was closed: {e}")))
+            .map_err(|_| RequestError::Timeout)
+            .and_then(|result| {
+                result.map_err(|e| RequestError::Other(anyhow::anyhow!("channel was closed: {e}")))
+            })
     }
 
     /// The task responsible for receiving messages from the receiver and handling them
