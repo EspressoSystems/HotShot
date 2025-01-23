@@ -488,10 +488,10 @@ mod tests {
 
     fn default_protocol_config() -> RequestResponseConfig {
         RequestResponseConfigBuilder::create_empty()
-            .incoming_request_ttl(Duration::from_secs(60))
-            .response_timeout(Duration::from_secs(60))
+            .incoming_request_ttl(Duration::from_secs(6))
+            .response_timeout(Duration::from_secs(6))
             .request_batch_size(10)
-            .request_batch_interval(Duration::from_secs(1))
+            .request_batch_interval(Duration::from_millis(100))
             .max_outgoing_responses(10)
             .build()
             .expect("failed to build config")
@@ -638,7 +638,7 @@ mod tests {
             request_response_config: default_protocol_config(),
             num_participants: 100,
             num_participants_with_data: 50,
-            request_timeout: Duration::from_secs(40),
+            request_timeout: Duration::from_secs(4),
             data_available_delay: Duration::from_secs(0),
         };
 
@@ -656,7 +656,7 @@ mod tests {
             request_response_config: default_protocol_config(),
             num_participants: 100,
             num_participants_with_data: 0,
-            request_timeout: Duration::from_secs(40),
+            request_timeout: Duration::from_secs(4),
             data_available_delay: Duration::from_secs(0),
         };
 
@@ -668,16 +668,16 @@ mod tests {
     }
 
     /// Test the integration of the protocol when one node has the data after
-    /// a delay of 20s
+    /// a delay of 1s
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_integration_1_20s() {
+    async fn test_integration_1_1s() {
         // Build a config
         let config = IntegrationTestConfig {
             request_response_config: default_protocol_config(),
             num_participants: 100,
             num_participants_with_data: 1,
-            request_timeout: Duration::from_secs(40),
-            data_available_delay: Duration::from_secs(10),
+            request_timeout: Duration::from_secs(10),
+            data_available_delay: Duration::from_secs(1),
         };
 
         // Run the test
