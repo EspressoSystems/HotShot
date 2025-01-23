@@ -171,6 +171,7 @@
             cargo-workspaces
             cargo-audit
             cargo-nextest
+            cargo-hakari
             nixpkgs-fmt
             git-chglog
             typos

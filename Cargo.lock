@@ -1029,7 +1029,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -2912,6 +2912,7 @@ dependencies = [
  "url",
  "utils",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -2930,6 +2931,7 @@ dependencies = [
  "tide-disco",
  "toml",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -2954,6 +2956,7 @@ dependencies = [
  "tokio",
  "url",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -2986,6 +2989,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.19",
  "url",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3003,6 +3007,7 @@ dependencies = [
  "tokio",
  "toml",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3013,6 +3018,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3035,6 +3041,7 @@ dependencies = [
  "toml",
  "tracing",
  "vbs",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3056,6 +3063,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "serde",
  "tagged-base64",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3068,6 +3076,7 @@ dependencies = [
  "tokio",
  "tracing",
  "utils",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3101,6 +3110,7 @@ dependencies = [
  "utils",
  "vbs",
  "vec1",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3141,6 +3151,7 @@ dependencies = [
  "url",
  "vbs",
  "vec1",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -3195,6 +3206,7 @@ dependencies = [
  "utils",
  "vbs",
  "vec1",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -4425,6 +4437,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -5536,9 +5549,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.25"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d1ec885c64d0457d564db4ec299b2dae3f9c02808b8ad9c3a089c591b18033"
+checksum = "6924ced06e1f7dfe3fa48d57b9f74f55d8915f5036121bef647ef4b204895fac"
 dependencies = [
  "proc-macro2",
  "syn 2.0.96",
@@ -8116,6 +8129,7 @@ name = "utils"
 version = "0.5.79"
 dependencies = [
  "tracing",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -8653,6 +8667,96 @@ checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
  "cfg-if",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "workspace-hack"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-crypto-primitives",
+ "ark-ff",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+ "arrayvec",
+ "async-std",
+ "async-tungstenite",
+ "base64 0.13.1",
+ "base64 0.22.1",
+ "byteorder",
+ "bytes",
+ "concurrent-queue",
+ "crossbeam-utils",
+ "crunchy",
+ "crypto-common",
+ "data-encoding",
+ "derive_more 1.0.0",
+ "derive_more-impl",
+ "digest 0.10.7",
+ "digest 0.9.0",
+ "displaydoc",
+ "downcast-rs",
+ "either",
+ "event-listener 5.3.1",
+ "event-listener-strategy",
+ "form_urlencoded",
+ "futures",
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-io",
+ "futures-sink",
+ "futures-task",
+ "futures-util",
+ "generic-array",
+ "getrandom 0.2.15",
+ "hashbrown 0.14.5",
+ "hashbrown 0.15.2",
+ "idna",
+ "itertools 0.12.1",
+ "jf-relation",
+ "jf-rescue",
+ "jf-signature",
+ "jf-utils",
+ "libp2p-identity",
+ "libsecp256k1-core",
+ "log",
+ "memchr",
+ "multihash",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand 0.8.5",
+ "regex",
+ "regex-automata 0.4.9",
+ "regex-syntax 0.8.5",
+ "rustls-pki-types",
+ "serde",
+ "sha2 0.9.9",
+ "sha3",
+ "smallvec",
+ "sqlx-core",
+ "sqlx-sqlite",
+ "standback",
+ "subtle",
+ "syn 2.0.96",
+ "time 0.3.37",
+ "tokio",
+ "toml_datetime",
+ "toml_edit",
+ "tracing",
+ "tracing-core",
+ "tracing-log",
+ "tracing-subscriber 0.3.19",
+ "tungstenite",
+ "uint",
+ "url",
+ "zerocopy",
+ "zeroize",
 ]
 
 [[package]]
