@@ -129,8 +129,8 @@ cdn-proto = { git = "https://github.com/EspressoSystems/Push-CDN", tag = "0.5.6"
 
 # Apply some optimizations to test dependencies in debug/test builds
 [profile.dev]
-strip = false
-debug = 1
+strip = true
+debug = 0
 
 # Generally optimize dependencies a little
 [profile.dev.package."*"]
