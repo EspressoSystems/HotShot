@@ -435,7 +435,10 @@ impl<R: Request> Drop for ActiveRequestInner<R> {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Mutex};
+    use std::{
+        collections::HashMap,
+        sync::{atomic::AtomicBool, Mutex},
+    };
 
     use async_trait::async_trait;
     use hotshot_types::signature_key::{BLSPrivKey, BLSPubKey};
@@ -547,8 +550,13 @@ mod tests {
     struct TestDataSource {
         /// Whether we have the data or not
         has_data: bool,
-        /// The time at which the data is available
+        /// The time at which the data will be available if we have it
         data_available_time: Instant,
+
+        /// Whether or not the data will be taken once served
+        take_data: bool,
+        /// Whether or not the data has been taken
+        taken: Arc<AtomicBool>,
     }
 
     #[async_trait]
@@ -556,6 +564,9 @@ mod tests {
         async fn derive_response_for(&self, request: &Vec<u8>) -> Result<Vec<u8>> {
             // Return a response if we hit the hit rate
             if self.has_data && Instant::now() >= self.data_available_time {
+                if self.take_data && !self.taken.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                    return Err(anyhow::anyhow!("data already taken"));
+                }
                 Ok(blake3::hash(request).as_bytes().to_vec())
             } else {
                 Err(anyhow::anyhow!("did not have the data"))
@@ -666,6 +677,8 @@ mod tests {
                     TestDataSource {
                         has_data: i < config.num_participants_with_data,
                         data_available_time: Instant::now() + config.data_available_delay,
+                        take_data: false,
+                        taken: Arc::new(AtomicBool::new(false)),
                     },
                 );
 
@@ -763,5 +776,74 @@ mod tests {
 
         // Make sure all the requests succeeded
         assert_eq!(result.num_succeeded, 100);
+    }
+
+    /// Test that we can join an existing request for the same data and get the same (single) response
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_join_existing_request() {
+        // Build a config
+        let config = default_protocol_config();
+
+        // Create two participants
+        let mut participants = Vec::new();
+
+        for (sender, receiver, (public_key, private_key)) in create_participants(2) {
+            // For each, create a new [`RequestResponse`] protocol
+            let protocol = RequestResponse::new(
+                config.clone(),
+                sender.clone(),
+                receiver,
+                sender,
+                TestDataSource {
+                    take_data: true,
+                    has_data: true,
+                    data_available_time: Instant::now() + Duration::from_secs(2),
+                    taken: Arc::new(AtomicBool::new(false)),
+                },
+            );
+
+            // Add the participants to the list
+            participants.push((protocol, public_key, private_key));
+        }
+
+        // Take the first participant
+        let one = Arc::new(participants.remove(0));
+
+        // Create the request that they should all be able to join on
+        let request = vec![rand::thread_rng().gen(); 100];
+
+        // Create a join set to wait for all the tasks to finish
+        let mut join_set = JoinSet::new();
+
+        // Make 10 requests with the same hash
+        for _ in 0..10 {
+            // Clone the first participant
+            let one_clone = Arc::clone(&one);
+
+            // Clone the request
+            let request_clone = request.clone();
+
+            // Spawn a task to request the data
+            join_set.spawn(async move {
+                // Create a new, signed request message
+                let request_message =
+                    RequestMessage::new_signed(&one_clone.1, &one_clone.2, &request_clone)?;
+
+                // Start requesting it
+                one_clone
+                    .0
+                    .request(request_message, Duration::from_secs(20))
+                    .await?;
+
+                Ok::<(), anyhow::Error>(())
+            });
+        }
+
+        // Wait for all the tasks to finish, making sure they all succeed
+        while let Some(result) = join_set.join_next().await {
+            result
+                .expect("failed to join task")
+                .expect("failed to request data");
+        }
     }
 }
