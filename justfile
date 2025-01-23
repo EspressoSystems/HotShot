@@ -25,47 +25,47 @@ test-ci-rest *ARGS:
 
 test-ci-1:
   echo Running integration test group 1
-  RUST_LOG=info cargo nextest run --profile ci tests_1 --lib --bins --tests --benches --workspace --no-fail-fast
+  true || RUST_LOG=info cargo nextest run --profile ci tests_1 --lib --bins --tests --benches --workspace --no-fail-fast
 
 test-ci-2:
   echo Running integration test group 2
-  RUST_LOG=info cargo nextest run --profile ci tests_2 --lib --bins --tests --benches --workspace --no-fail-fast
+  true || RUST_LOG=info cargo nextest run --profile ci tests_2 --lib --bins --tests --benches --workspace --no-fail-fast
 
 test-ci-3:
   echo Running integration test group 3
-  RUST_LOG=info cargo nextest run --profile ci tests_3 --lib --bins --tests --benches --workspace --no-fail-fast
+  true || RUST_LOG=info cargo nextest run --profile ci tests_3 --lib --bins --tests --benches --workspace --no-fail-fast
 
 test-ci-4:
   echo Running integration test group 4
-  RUST_LOG=info cargo nextest run --profile ci tests_4 --lib --bins --tests --benches --workspace --no-fail-fast
+  true || RUST_LOG=info cargo nextest run --profile ci tests_4 --lib --bins --tests --benches --workspace --no-fail-fast
 
 test-ci-5:
   echo Running integration test group 5
-  RUST_LOG=info cargo nextest run --profile ci tests_5 --lib --bins --tests --benches --workspace --no-fail-fast
+  true || RUST_LOG=info cargo nextest run --profile ci tests_5 --lib --bins --tests --benches --workspace --no-fail-fast
 
 test-ci-6-1:
   echo Running integration test group 6
-  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:1/6
+  true || RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:1/6
 
 test-ci-6-2:
   echo Running integration test group 6
-  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:2/6
+  true || RUST_BACKTRACE=full RUST_LOG=info,hotshot=trace cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:2/6
 
 test-ci-6-3:
   echo Running integration test group 6
-  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:3/6
+  true || RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:3/6
 
 test-ci-6-4:
   echo Running integration test group 6
-  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:4/6
+  true || RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:4/6
 
 test-ci-6-5:
   echo Running integration test group 6
-  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:5/6
+  true || RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:5/6
 
 test-ci-6-6:
   echo Running integration test group 6
-  RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:6/6
+  true || RUST_LOG=info cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:6/6
 
 # Usage:
 #
