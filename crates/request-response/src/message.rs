@@ -9,7 +9,7 @@ use hotshot_types::traits::signature_key::SignatureKey;
 
 use super::{request::Request, RequestHash, Serializable};
 
-/// The message type for the request-response protocol. Can either be a request or a response
+/// The outer message type for the request-response protocol. Can either be a request or a response
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum Message<R: Request, K: SignatureKey> {
@@ -27,10 +27,22 @@ pub struct RequestMessage<R: Request, K: SignatureKey> {
     pub public_key: K,
     /// The requester's signature over the [the actual request content + timestamp]
     pub signature: K::PureAssembledSignatureType,
-    /// The timestamp of when the request was sent (in seconds since the Unix epoch)
+    /// The timestamp of when the request was sent (in seconds since the Unix epoch). We use this to
+    /// ensure that the request is not old, which is useful for preventing replay attacks.
     pub timestamp_unix_seconds: u64,
-    /// The actual request
+    /// The actual request data. This is from the application
     pub request: R,
+}
+
+/// A response message, which includes the hash of the request we're responding to and the response itself.
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+pub struct ResponseMessage<R: Request> {
+    /// The hash of the application-specific request we're responding to. The hash is a cheap way
+    /// to identify the request
+    pub request_hash: RequestHash,
+    /// The actual response content
+    pub response: R::Response,
 }
 
 impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
@@ -97,7 +109,7 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
             return Err(anyhow::anyhow!("invalid request signature"));
         }
 
-        // Check if the request is too old
+        // Make sure the request is not too old
         if self
             .timestamp_unix_seconds
             .saturating_add(incoming_request_ttl.as_secs())
@@ -114,19 +126,9 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
     }
 }
 
-/// A response message, which includes the hash of the request we're responding to and the response itself
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
-pub struct ResponseMessage<R: Request> {
-    /// The hash of the request we're responding to
-    pub request_hash: RequestHash,
-    /// The actual response content
-    pub response: R::Response,
-}
-
 /// A blanket implementation of the [`Serializable`] trait for any [`Message`]
 impl<R: Request, K: SignatureKey> Serializable for Message<R, K> {
-    /// Converts any [`Message`] to bytes
+    /// Converts any [`Message`] to bytes if the content is also [`Serializable`]
     fn to_bytes(&self) -> Result<Vec<u8>> {
         // Create a buffer for the bytes
         let mut bytes = Vec::new();
@@ -134,14 +136,14 @@ impl<R: Request, K: SignatureKey> Serializable for Message<R, K> {
         // Convert the message to bytes based on the type. By default it is just type-prefixed
         match self {
             Message::Request(request_message) => {
-                // Write the request type
+                // Write the type (request)
                 bytes.push(0);
 
                 // Write the request content
                 bytes.extend_from_slice(request_message.to_bytes()?.as_slice());
             }
             Message::Response(response_message) => {
-                // Write the response type
+                // Write the type (response)
                 bytes.push(1);
 
                 // Write the response content
@@ -245,7 +247,7 @@ impl<R: Request> Serializable for ResponseMessage<R> {
         // Read the request hash as a [`blake3::Hash`]
         let mut request_hash_bytes = [0; 32];
         bytes.read_exact(&mut request_hash_bytes)?;
-        let request_hash = blake3::Hash::from(request_hash_bytes);
+        let request_hash = RequestHash::from(request_hash_bytes);
 
         // Read the response content to the end
         let response = R::Response::from_bytes(&read_to_end(&mut bytes)?)?;

@@ -40,7 +40,9 @@ pub type RequestHash = blake3::Hash;
 
 /// A trait for serializing and deserializing a type to and from a byte array
 pub trait Serializable: Sized {
-    /// Serialize the type to a byte array
+    /// Serialize the type to a byte array. If this is for a [`Request`] and your [`Request`] type
+    /// is represented as an enum, please make sure that you serialize a unique type ID. Otherwise,
+    /// you may end up with collisions as the hash is used as a unique identifier
     ///
     /// # Errors
     /// - If the type cannot be serialized to a byte array
@@ -452,7 +454,6 @@ mod tests {
     // Implement the [`Request`] trait for the [`TestRequest`] type
     impl Request for TestRequest {
         type Response = Vec<u8>;
-
         fn validate(&self) -> Result<()> {
             Ok(())
         }
