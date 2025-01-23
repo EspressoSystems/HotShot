@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use dashmap::DashMap;
 use data_source::DataSource;
 use derive_builder::Builder;
+use derive_more::derive::Deref;
 use hotshot_types::traits::signature_key::SignatureKey;
 use message::{Message, RequestMessage, ResponseMessage};
 use network::{Bytes, Receiver, Sender};
@@ -16,7 +17,7 @@ use recipient_source::RecipientSource;
 use request::{Request, Response};
 use tokio::spawn;
 use tokio::time::{sleep, timeout};
-use tracing::warn;
+use tracing::{error, warn};
 use util::abort_on_drop_handle::AbortOnDropHandle;
 use util::bounded_vec_deque::BoundedVecDeque;
 
@@ -68,14 +69,26 @@ pub struct RequestResponseConfig {
     /// The batch size for outgoing requests. This is the number of request messages that we will
     /// send out at a time for a single request before waiting for the [`request_batch_interval`].
     request_batch_size: usize,
-    /// The time to wait between sending out batches of request messages for a single request.
+    /// The time to wait (per request) between sending out batches of request messages
     request_batch_interval: Duration,
     /// The maximum (global) number of outgoing responses that can be in flight at any given time
     max_outgoing_responses: usize,
 }
 
-/// A protocol that allows for request-response communication
+/// A protocol that allows for request-response communication. Is cheaply cloneable, so there is no
+/// need to wrap it in an `Arc`
+#[derive(Clone, Deref)]
 pub struct RequestResponse<
+    S: Sender<K>,
+    R: Receiver,
+    Req: Request,
+    RS: RecipientSource<K>,
+    DS: DataSource<Req>,
+    K: SignatureKey + 'static,
+>(Arc<RequestResponseInner<S, R, Req, RS, DS, K>>);
+
+/// The inner implementation for the request-response protocol
+pub struct RequestResponseInner<
     S: Sender<K>,
     R: Receiver,
     Req: Request,
@@ -90,44 +103,12 @@ pub struct RequestResponse<
     /// The recipient source to use for the protocol
     recipient_source: RS,
     /// The handle to the task that receives messages
-    _receive_task_handle: Arc<AbortOnDropHandle<()>>,
+    _receive_task_handle: AbortOnDropHandle<()>,
     /// The map of currently active requests
     active_requests: Arc<DashMap<RequestHash, ActiveRequest<Req>>>,
     /// Phantom data to help with type inference
     phantom_data: PhantomData<(K, R, Req, DS)>,
 }
-
-/// An active request. This is what we use to track a request and its corresponding response
-/// in the protocol.
-#[derive(Clone)]
-pub struct ActiveRequest<R: Request> {
-    /// The sender to use for the protocol
-    sender: async_broadcast::Sender<R::Response>,
-    /// The receiver to use for the protocol
-    receiver: async_broadcast::Receiver<R::Response>,
-    /// The request that we are waiting for a response to
-    request: R,
-    /// The hash of the request
-    request_hash: RequestHash,
-    /// A copy of the map of currently active requests
-    active_requests: Arc<DashMap<RequestHash, ActiveRequest<R>>>,
-    /// The tracker for references to this active request. We use this to
-    /// remove ourselves from the map if we are dropped
-    ref_counter: Arc<()>,
-}
-
-impl<R: Request> Drop for ActiveRequest<R> {
-    fn drop(&mut self) {
-        // If the reference counter == 2, we are the "last" reference. This is because
-        // we have one reference in the map, and one reference in the `ActiveRequest` struct
-        // itself.
-        if Arc::strong_count(&self.ref_counter) == 2 {
-            // Remove ourselves from the map
-            self.active_requests.remove(&self.request_hash);
-        }
-    }
-}
-
 impl<
         S: Sender<K>,
         R: Receiver,
@@ -141,38 +122,41 @@ impl<
     pub fn new(
         // The configuration for the protocol
         config: RequestResponseConfig,
-        // The network sender to use for the protocol
+        // The network sender that [`RequestResponseProtocol`] will use to send messages
         sender: S,
-        // The network receiver to use for the protocol
+        // The network receiver that [`RequestResponseProtocol`] will use to receive messages
         receiver: R,
-        // The recipient source to use for the protocol
+        // The recipient source that [`RequestResponseProtocol`] will use to get the recipients
+        // that a specific message should expect responses from
         recipient_source: RS,
-        // The [response] data source to use for the protocol
+        // The [response] data source that [`RequestResponseProtocol`] will use to derive the
+        // response data for a specific request
         data_source: DS,
     ) -> Self {
         // Create the active requests map
         let active_requests = Arc::new(DashMap::new());
 
-        // Start the task that receives messages and handles them
-        let receive_task_handle = Arc::new(AbortOnDropHandle(tokio::spawn(Self::receiving_task(
+        // Start the task that receives messages and handles them. This will automatically get cancelled
+        // when the protocol is dropped
+        let receive_task_handle = AbortOnDropHandle(tokio::spawn(Self::receiving_task(
             config.clone(),
             sender.clone(),
             receiver,
             data_source,
             Arc::clone(&active_requests),
-        ))));
+        )));
 
-        Self {
+        Self(Arc::new(RequestResponseInner {
             config,
             sender,
             recipient_source,
             _receive_task_handle: receive_task_handle,
             active_requests,
             phantom_data: PhantomData,
-        }
+        }))
     }
 
-    /// The task responsible for receiving messages and handling them
+    /// The task responsible for receiving messages from the receiver and handling them
     async fn receiving_task(
         config: RequestResponseConfig,
         sender: S,
@@ -184,10 +168,10 @@ impl<
         // we have less than [`config.max_outgoing_responses`] responses in flight at any time.
         let mut active_responses = BoundedVecDeque::new(config.max_outgoing_responses);
 
+        // While the receiver is open, we receive messages and handle them
         while let Ok(message) = receiver.receive_message().await {
-            let message = match Message::from_bytes(&message)
-                .with_context(|| "failed to deserialize message")
-            {
+            // Deserialize the message, warning if it fails
+            let message = match Message::from_bytes(&message) {
                 Ok(message) => message,
                 Err(e) => {
                     warn!("Received invalid message: {e}");
@@ -195,6 +179,7 @@ impl<
                 }
             };
 
+            // Handle the message based on its type
             match message {
                 Message::Request(request_message) => {
                     handle_request(
@@ -210,7 +195,7 @@ impl<
                 }
             }
         }
-        warn!("Request/response receive task exited: sending channel closed or dropped");
+        error!("Request/response receive task exited: sending channel closed or dropped");
     }
 
     /// Request something from the protocol and wait for the response. This function
@@ -395,6 +380,37 @@ fn handle_response<Req: Request>(
 
     // Send the response to the requester (the user of [`RequestResponse::request`])
     let _ = active_request.sender.try_broadcast(response.response);
+}
+
+/// An active request. This is what we use to track a request and its corresponding response
+/// in the protocol.
+#[derive(Clone)]
+pub struct ActiveRequest<R: Request> {
+    /// The sender to use for the protocol
+    sender: async_broadcast::Sender<R::Response>,
+    /// The receiver to use for the protocol
+    receiver: async_broadcast::Receiver<R::Response>,
+    /// The request that we are waiting for a response to
+    request: R,
+    /// The hash of the request
+    request_hash: RequestHash,
+    /// A copy of the map of currently active requests
+    active_requests: Arc<DashMap<RequestHash, ActiveRequest<R>>>,
+    /// The tracker for references to this active request. We use this to
+    /// remove ourselves from the map if we are dropped
+    ref_counter: Arc<()>,
+}
+
+impl<R: Request> Drop for ActiveRequest<R> {
+    fn drop(&mut self) {
+        // If the reference counter == 2, we are the "last" reference. This is because
+        // we have one reference in the map, and one reference in the `ActiveRequest` struct
+        // itself.
+        if Arc::strong_count(&self.ref_counter) == 2 {
+            // Remove ourselves from the map
+            self.active_requests.remove(&self.request_hash);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -594,12 +610,10 @@ mod tests {
                     },
                 );
 
-                // Add the handle to the handles list
+                // Add the handle to the handles list so it doesn't get dropped and
+                // cancelled
                 #[allow(clippy::used_underscore_binding)]
-                handles_clone
-                    .lock()
-                    .unwrap()
-                    .push(Arc::clone(&protocol._receive_task_handle));
+                handles_clone.lock().unwrap().push(Arc::clone(&protocol.0));
 
                 // Create a random request
                 let request = vec![rand::thread_rng().gen(); 100];
