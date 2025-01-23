@@ -49,7 +49,7 @@ test-ci-6-1:
 
 test-ci-6-2:
   echo Running integration test group 6
-  RUST_BACKTRACE=full RUST_LOG=info,hotshot=trace cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:2/6
+  RUST_BACKTRACE=full RUST_LOG=info,hotshot=trace cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast
 
 test-ci-6-3:
   echo Running integration test group 6
