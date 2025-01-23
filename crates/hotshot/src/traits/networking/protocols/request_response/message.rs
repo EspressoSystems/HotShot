@@ -10,7 +10,8 @@ use hotshot_types::traits::signature_key::SignatureKey;
 use super::{request::Request, RequestHash, Serializable};
 
 /// The message type for the request-response protocol. Can either be a request or a response
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum Message<R: Request, K: SignatureKey> {
     /// A request
     Request(RequestMessage<R, K>),
@@ -19,7 +20,8 @@ pub enum Message<R: Request, K: SignatureKey> {
 }
 
 /// A request message, which includes the requester's public key, the request's signature, and the request itself
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct RequestMessage<R: Request, K: SignatureKey> {
     /// The requester's public key
     pub public_key: K,
@@ -99,7 +101,8 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
 }
 
 /// A response message, which includes the hash of the request we're responding to and the response itself
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct ResponseMessage<R: Request> {
     /// The hash of the request we're responding to
     pub request_hash: RequestHash,
