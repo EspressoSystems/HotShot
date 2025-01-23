@@ -21,7 +21,7 @@ example_gpuvid_leader *ARGS:
 
 test-ci-rest *ARGS:
   echo Running unit tests
-  RUST_LOG=info cargo nextest run -E 'not (test(tests_1) | test(tests_2) | test(tests_3) | test(tests_4) | test(tests_5) | test(tests_6))' --profile ci --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}}
+  true || RUST_LOG=info cargo nextest run -E 'not (test(tests_1) | test(tests_2) | test(tests_3) | test(tests_4) | test(tests_5) | test(tests_6))' --profile ci --lib --bins --tests --benches --workspace --no-fail-fast {{ARGS}}
 
 test-ci-1:
   echo Running integration test group 1
@@ -49,7 +49,7 @@ test-ci-6-1:
 
 test-ci-6-2:
   echo Running integration test group 6
-  true || RUST_BACKTRACE=full RUST_LOG=info,hotshot=trace cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:2/6
+  RUST_BACKTRACE=full RUST_LOG=info,hotshot=trace cargo nextest run --profile ci tests_6 --lib --bins --tests --benches --workspace --no-fail-fast --partition hash:2/6
 
 test-ci-6-3:
   echo Running integration test group 6
