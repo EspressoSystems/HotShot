@@ -8730,6 +8730,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "parking_lot",
  "rand 0.8.5",
  "regex",
  "regex-automata 0.4.9",
