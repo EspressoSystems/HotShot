@@ -26,6 +26,7 @@ members = [
     "crates/testing",
     "crates/types",
     "crates/utils",
+    "crates/workspace-hack",
 ]
 resolver = "2"
 
