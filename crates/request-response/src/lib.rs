@@ -39,6 +39,9 @@ mod util;
 /// A type alias for the hash of a request
 pub type RequestHash = blake3::Hash;
 
+/// A type alias for the active request map
+pub type ActiveRequestsMap<Req> = Arc<DashMap<RequestHash, ActiveRequest<Req>>>;
+
 /// A type alias for the list of currently active responses
 pub type ActiveResponsesList = BoundedVecDeque<AbortOnDropHandle<()>>;
 
@@ -135,7 +138,7 @@ impl<
 
         // Start the task that receives messages and handles them. This will automatically get cancelled
         // when the protocol is dropped
-        let inner_clone = inner.clone();
+        let inner_clone = Arc::clone(&inner);
         let receive_task_handle =
             AbortOnDropHandle(tokio::spawn(inner_clone.receiving_task(receiver)));
 
@@ -165,7 +168,7 @@ pub struct RequestResponseInner<
     /// The data source to use for the protocol
     data_source: DS,
     /// The map of currently active requests
-    active_requests: Arc<DashMap<RequestHash, ActiveRequest<Req>>>,
+    active_requests: ActiveRequestsMap<Req>,
     /// Phantom data to help with type inference
     phantom_data: PhantomData<(K, R, Req, DS)>,
 }
@@ -180,13 +183,13 @@ impl<
 {
     /// Request something from the protocol and wait for the response. This function
     /// will join with an existing request for the same data (determined by `Blake3` hash),
-    /// however both will continue making requests until the timeout is reached
+    /// however both will make requests until the timeout is reached
     ///
     /// # Errors
     /// - If the request times out
     /// - If the channel is closed (this is an internal error)
     pub async fn request(
-        &self,
+        self: &Arc<Self>,
         request_message: RequestMessage<Req, K>,
         timeout_duration: Duration,
     ) -> Result<Req::Response> {
@@ -195,7 +198,11 @@ impl<
 
         // Get the corresponding entry in the map. If it doesn't exist, we create a new
         // active request and insert it into the map. If it does, we join with the existing
-        // active request
+        // active request.
+        //
+        // We use `entry` here because we want to be atomic with map operations in case we make
+        // another request for the same data while an active, identical request is being removed
+        // from the map
         let mut active_request = self
             .active_requests
             .entry(request_hash)
@@ -216,7 +223,7 @@ impl<
             .value()
             .clone();
 
-        // Get the recipients that the message should expect responses from. Shuffle them so
+        // Get the recipients that the request should expect responses from. Shuffle them so
         // that we don't always send to the same recipients in the same order
         let mut recipients = self
             .recipient_source
@@ -234,26 +241,29 @@ impl<
         let start_time = Instant::now();
 
         // Spawn a task that sends out requests to the network
-        let config_clone = self.config.clone();
-        let sender_clone = self.sender.clone();
+        let self_clone = Arc::clone(self);
         let _handle = AbortOnDropHandle(spawn(async move {
             // Create a bounded queue for the outgoing requests. We use this to make sure
-            // we have less than [`config.request_batch_size`] requests in flight at any time
-            let mut outgoing_requests = BoundedVecDeque::new(config_clone.request_batch_size);
+            // we have less than [`config.request_batch_size`] requests in flight at any time.
+            //
+            // When newer requests are added, older ones are removed from the queue. Because we use
+            // `AbortOnDropHandle`, the older ones will automatically get cancelled
+            let mut outgoing_requests = BoundedVecDeque::new(self_clone.config.request_batch_size);
 
-            // While the timeout hasn't elapsed, we send out requests to the network
+            // While the timeout hasn't elapsed, send out requests to the network
             while start_time.elapsed() < timeout_duration {
                 // Send out requests to the network in their own separate tasks
-                for recipient_batch in recipients.chunks(config_clone.request_batch_size) {
+                for recipient_batch in recipients.chunks(self_clone.config.request_batch_size) {
                     for recipient in recipient_batch {
-                        // Clone the message, recipient, and sender
-                        let message_clone = Arc::clone(&message);
+                        // Clone ourselves, the message, and the recipient so they can be moved
+                        let self_clone = Arc::clone(&self_clone);
                         let recipient_clone = recipient.clone();
-                        let sender_clone = sender_clone.clone();
+                        let message_clone = Arc::clone(&message);
 
                         // Spawn the task that sends the request to the participant
                         let individual_sending_task = spawn(async move {
-                            let _ = sender_clone
+                            let _ = self_clone
+                                .sender
                                 .send_message(&message_clone, recipient_clone)
                                 .await;
                         });
@@ -264,7 +274,7 @@ impl<
 
                     // After we send the batch out, wait the [`config.request_batch_interval`]
                     // before sending the next one
-                    sleep(config_clone.request_batch_interval).await;
+                    sleep(self_clone.config.request_batch_interval).await;
                 }
             }
         }));
@@ -323,7 +333,7 @@ impl<
         // Spawn a task to:
         // - Derive the response data (check if we have it)
         // - Send the response to the requester
-        let self_clone = self.clone();
+        let self_clone = Arc::clone(self);
         let response_task = tokio::spawn(async move {
             let result = timeout(self_clone.config.response_timeout, async move {
                 // Try to fetch the response data from the data source
@@ -389,7 +399,7 @@ impl<
 }
 
 /// An active request. This is what we use to track a request and its corresponding response
-/// in the protocol.
+/// in the protocol
 #[derive(Clone)]
 pub struct ActiveRequest<R: Request> {
     /// The sender to use for the protocol
@@ -398,20 +408,21 @@ pub struct ActiveRequest<R: Request> {
     receiver: async_broadcast::Receiver<R::Response>,
     /// The request that we are waiting for a response to
     request: R,
-    /// The hash of the request
-    request_hash: RequestHash,
+
     /// A copy of the map of currently active requests
-    active_requests: Arc<DashMap<RequestHash, ActiveRequest<R>>>,
+    active_requests: ActiveRequestsMap<R>,
+    /// The hash of the request. We need this so we can remove ourselves from the map
+    request_hash: RequestHash,
+
     /// The tracker for references to this active request. We use this to
-    /// remove ourselves from the map if we are dropped
+    /// remove the request from the map if we are dropped
     ref_counter: Arc<()>,
 }
 
 impl<R: Request> Drop for ActiveRequest<R> {
     fn drop(&mut self) {
         // If the reference counter == 2, we are the "last" reference. This is because
-        // we have one reference in the map, and one reference in the `ActiveRequest` struct
-        // itself.
+        // we have one reference in the map, and the one that's currently being dropped
         if Arc::strong_count(&self.ref_counter) == 2 {
             // Remove ourselves from the map
             self.active_requests.remove(&self.request_hash);
