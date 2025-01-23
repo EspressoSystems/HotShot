@@ -19,7 +19,7 @@ pub enum Message<R: Request, K: SignatureKey> {
     Response(ResponseMessage<R>),
 }
 
-/// A request message, which includes the requester's public key, the request's signature, and the request itself
+/// A request message, which includes the requester's public key, the request's signature, a timestamp, and the request itself
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct RequestMessage<R: Request, K: SignatureKey> {
@@ -38,15 +38,15 @@ pub struct RequestMessage<R: Request, K: SignatureKey> {
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct ResponseMessage<R: Request> {
-    /// The hash of the application-specific request we're responding to. The hash is a cheap way
-    /// to identify the request
+    /// The hash of the application-specific request we're responding to. The hash is a free way
+    /// to identify the request and weed out any potential incompatibilities
     pub request_hash: RequestHash,
     /// The actual response content
     pub response: R::Response,
 }
 
 impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
-    /// Create a new signed request message
+    /// Create a new signed request message from a request
     ///
     /// # Errors
     /// - If the request's content cannot be serialized
@@ -87,7 +87,7 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
         })
     }
 
-    /// Validate the request message, checking the signature and the timestamp and
+    /// Validate the [`RequestMessage`], checking the signature and the timestamp and
     /// calling the request's application-specific validation function
     ///
     /// # Errors

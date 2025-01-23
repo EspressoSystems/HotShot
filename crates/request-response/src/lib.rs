@@ -38,11 +38,12 @@ mod util;
 /// A type alias for the hash of a request
 pub type RequestHash = blake3::Hash;
 
-/// A trait for serializing and deserializing a type to and from a byte array
+/// A trait for serializing and deserializing a type to and from a byte array. [`Request`] types and
+/// [`Response`] types will need to implement this trait
 pub trait Serializable: Sized {
     /// Serialize the type to a byte array. If this is for a [`Request`] and your [`Request`] type
-    /// is represented as an enum, please make sure that you serialize a unique type ID. Otherwise,
-    /// you may end up with collisions as the hash is used as a unique identifier
+    /// is represented as an enum, please make sure that you serialize it with a unique type ID. Otherwise,
+    /// you may end up with collisions as the request hash is used as a unique identifier
     ///
     /// # Errors
     /// - If the type cannot be serialized to a byte array
@@ -55,7 +56,7 @@ pub trait Serializable: Sized {
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
 }
 
-/// The request-response configuration
+/// The underlying configuration for the request-response protocol
 #[derive(Clone, Builder)]
 pub struct RequestResponseConfig {
     /// The timeout for incoming requests. Do not respond to a request after this threshold
