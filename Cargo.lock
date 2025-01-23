@@ -6025,7 +6025,7 @@ dependencies = [
  "parking_lot",
  "rand 0.8.5",
  "serde",
- "thiserror 2.0.9",
+ "thiserror 2.0.11",
  "tokio",
  "tracing",
 ]
