@@ -232,7 +232,6 @@ impl<
     }
 
     /// Request something from the protocol and wait for the response. This function
-    /// Request something from the protocol and wait for the response. This function
     /// will join with an existing request for the same data (determined by `Blake3` hash),
     /// however both will make requests until the timeout is reached
     ///
@@ -629,6 +628,7 @@ mod tests {
         }
     }
 
+    /// Create and return a default protocol configuration
     fn default_protocol_config() -> RequestResponseConfig {
         RequestResponseConfigBuilder::create_empty()
             .incoming_request_ttl(Duration::from_secs(40))
