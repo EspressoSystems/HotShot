@@ -12,7 +12,7 @@ use chrono::Utc;
 use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposalWrapper, VidDisperseShare2},
+    data::{Leaf2, QuorumProposalWrapper, VidDisperseShare},
     drb::{compute_drb_result, DrbResult},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
@@ -463,7 +463,7 @@ pub(crate) async fn update_shared_state<
     instance_state: Arc<TYPES::InstanceState>,
     storage: Arc<RwLock<I::Storage>>,
     proposed_leaf: &Leaf2<TYPES>,
-    vid_share: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
+    vid_share: &Proposal<TYPES, VidDisperseShare<TYPES>>,
     parent_view_number: Option<TYPES::View>,
     epoch_height: u64,
 ) -> Result<()> {
@@ -537,7 +537,7 @@ pub(crate) async fn update_shared_state<
             &instance_state,
             &parent,
             &proposed_leaf.block_header().clone(),
-            vid_share.data.common.clone(),
+            vid_share.data.vid_common_ref().clone(),
             version,
             *view_number,
         )
@@ -588,7 +588,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     view_number: TYPES::View,
     storage: Arc<RwLock<I::Storage>>,
     leaf: Leaf2<TYPES>,
-    vid_share: Proposal<TYPES, VidDisperseShare2<TYPES>>,
+    vid_share: Proposal<TYPES, VidDisperseShare<TYPES>>,
     extended_vote: bool,
     epoch_height: u64,
 ) -> Result<()> {

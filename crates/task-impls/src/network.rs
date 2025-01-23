@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{VidDisperse, VidDisperseShare, VidDisperseShare2},
+    data::{VidDisperse, VidDisperseShare},
     event::{Event, HotShotAction},
     message::{
         convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
@@ -525,8 +525,8 @@ impl<
         vid_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
         sender: &<TYPES as NodeType>::SignatureKey,
     ) -> Option<HotShotTaskCompleted> {
-        let view = vid_proposal.data.view_number;
-        let vid_share_proposals = VidDisperseShare2::to_vid_share_proposals(vid_proposal);
+        let view = vid_proposal.data.view_number();
+        let vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
         let mut messages = HashMap::new();
 
         for proposal in vid_share_proposals {

@@ -353,7 +353,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     }
                     VoteDependency::Vid => {
                         if let HotShotEvent::VidShareValidated(disperse) = event {
-                            disperse.data.view_number
+                            disperse.data.view_number()
                         } else {
                             return false;
                         }
@@ -615,7 +615,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     .update_vid_shares(view, disperse.clone());
 
                 ensure!(
-                    disperse.data.recipient_key == self.public_key,
+                    *disperse.data.recipient_key() == self.public_key,
                     "Got a Valid VID share but it's not for our key"
                 );
 
@@ -693,8 +693,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         ))?;
 
         let mut updated_vid = vid.clone();
-        updated_vid.data.view_number = proposal.data.view_number();
-        consensus_writer.update_vid_shares(updated_vid.data.view_number, updated_vid.clone());
+        updated_vid.data.view_number() = proposal.data.view_number();
+        consensus_writer.update_vid_shares(updated_vid.data.view_number(), updated_vid.clone());
 
         drop(consensus_writer);
 

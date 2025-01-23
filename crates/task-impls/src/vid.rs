@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{PackedBundle, VidDisperse, VidDisperseShare2},
+    data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::{Proposal, UpgradeLock},
     traits::{
         block_contents::BlockHeader,
@@ -108,8 +108,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                 )
                 .await
                 .ok()?;
-                let payload_commitment = vid_disperse.payload_commitment;
-                let shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
+                let payload_commitment = vid_disperse.payload_commitment();
+                let shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
                 let mut consensus_writer = self.consensus.write().await;
                 for share in shares {
                     if let Some(disperse) = share.to_proposal(&self.private_key) {
@@ -135,7 +135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                 let view_number = *view_number;
                 let Ok(signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    vid_disperse.payload_commitment.as_ref(),
+                    &vid_disperse.payload_commitment(),
                 ) else {
                     error!("VID: failed to sign dispersal payload");
                     return None;
@@ -215,7 +215,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                 .ok()?;
                 let Ok(next_epoch_signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    next_epoch_vid_disperse.payload_commitment.as_ref(),
+                    &next_epoch_vid_disperse.payload_commitment(),
                 ) else {
                     error!("VID: failed to sign dispersal payload for the next epoch");
                     return None;
