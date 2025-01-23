@@ -42,6 +42,7 @@ async-lock = "3"
 derive_builder = "0.20"
 async-trait = "0.1"
 bincode = "1"
+parking_lot = { version = "0.12", features = ["send_guard"] }
 bitvec = { version = "1", default-features = false, features = [
     "alloc",
     "atomic",

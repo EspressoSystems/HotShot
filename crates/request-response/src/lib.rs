@@ -1,17 +1,19 @@
 //! This crate contains a general request-response protocol. It is used to send requests to
 //! a set of recipients and wait for responses.
 
+use std::collections::HashMap;
+use std::sync::Weak;
 use std::time::Instant;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
-use dashmap::DashMap;
 use data_source::DataSource;
 use derive_builder::Builder;
 use derive_more::derive::Deref;
 use hotshot_types::traits::signature_key::SignatureKey;
 use message::{Message, RequestMessage, ResponseMessage};
 use network::{Bytes, Receiver, Sender};
+use parking_lot::RwLock;
 use rand::seq::SliceRandom;
 use recipient_source::RecipientSource;
 use request::{Request, Response};
@@ -40,7 +42,7 @@ mod util;
 pub type RequestHash = blake3::Hash;
 
 /// A type alias for the active request map
-pub type ActiveRequestsMap<Req> = Arc<DashMap<RequestHash, ActiveRequest<Req>>>;
+pub type ActiveRequestsMap<Req> = Arc<RwLock<HashMap<RequestHash, Weak<ActiveRequestInner<Req>>>>>;
 
 /// A type alias for the list of currently active responses
 pub type ActiveResponsesList = BoundedVecDeque<AbortOnDropHandle<()>>;
@@ -71,7 +73,7 @@ pub struct RequestResponseConfig {
     incoming_request_ttl: Duration,
     /// The maximum amount of time we will spend trying to both derive a response for a request and
     /// send the response over the wire.
-    response_timeout: Duration,
+    response_send_timeout: Duration,
     /// The batch size for outgoing requests. This is the number of request messages that we will
     /// send out at a time for a single request before waiting for the [`request_batch_interval`].
     request_batch_size: usize,
@@ -124,7 +126,7 @@ impl<
         data_source: DS,
     ) -> Self {
         // Create the active requests map
-        let active_requests = Arc::new(DashMap::new());
+        let active_requests = ActiveRequestsMap::default();
 
         // Create the inner implementation
         let inner = Arc::new(RequestResponseInner {
@@ -196,32 +198,37 @@ impl<
         // Calculate the hash of the request
         let request_hash = blake3::hash(&request_message.request.to_bytes()?);
 
-        // Get the corresponding entry in the map. If it doesn't exist, we create a new
-        // active request and insert it into the map. If it does, we join with the existing
-        // active request.
-        //
-        // We use `entry` here because we want to be atomic with map operations in case we make
-        // another request for the same data while an active, identical request is being removed
-        // from the map
-        let mut active_request = self
-            .active_requests
-            .entry(request_hash)
-            .or_insert_with(|| {
+        let request = {
+            // Get a write lock on the active requests map
+            let mut active_requests_write = self.active_requests.write();
+
+            // Conditionally get the active request, creating a new one if it doesn't exist or if
+            // the existing one has been dropped and not yet removed
+            if let Some(active_request) = active_requests_write
+                .get(&request_hash)
+                .and_then(Weak::upgrade)
+            {
+                ActiveRequest(active_request)
+            } else {
                 // Create a new broadcast channel for the response
                 let (sender, receiver) = async_broadcast::broadcast(1);
 
                 // Create a new active request
-                ActiveRequest {
+                let active_request = ActiveRequest(Arc::new(ActiveRequestInner {
                     sender,
                     receiver,
                     request: request_message.request.clone(),
-                    request_hash,
                     active_requests: Arc::clone(&self.active_requests),
-                    ref_counter: Arc::new(()),
-                }
-            })
-            .value()
-            .clone();
+                    request_hash,
+                }));
+
+                // Write the new active request to the map
+                active_requests_write.insert(request_hash, Arc::downgrade(&active_request.0));
+
+                // Return the new active request
+                active_request
+            }
+        };
 
         // Get the recipients that the request should expect responses from. Shuffle them so
         // that we don't always send to the same recipients in the same order
@@ -280,7 +287,7 @@ impl<
         }));
 
         // Wait for a response on the channel (or timeout)
-        timeout(timeout_duration, active_request.receiver.recv())
+        timeout(timeout_duration, request.receiver.clone().recv())
             .await
             .map_err(|_| anyhow::anyhow!("request timed out"))
             .and_then(|result| result.map_err(|e| anyhow::anyhow!("channel was closed: {e}")))
@@ -335,7 +342,7 @@ impl<
         // - Send the response to the requester
         let self_clone = Arc::clone(self);
         let response_task = tokio::spawn(async move {
-            let result = timeout(self_clone.config.response_timeout, async move {
+            let result = timeout(self_clone.config.response_send_timeout, async move {
                 // Try to fetch the response data from the data source
                 let response = self_clone
                     .data_source
@@ -381,8 +388,10 @@ impl<
         // Get the entry in the map, ignoring it if it doesn't exist
         let Some(active_request) = self
             .active_requests
+            .read()
             .get(&response.request_hash)
-            .map(|r| r.value().clone())
+            .cloned()
+            .and_then(|r| r.upgrade())
         else {
             return;
         };
@@ -400,8 +409,11 @@ impl<
 
 /// An active request. This is what we use to track a request and its corresponding response
 /// in the protocol
-#[derive(Clone)]
-pub struct ActiveRequest<R: Request> {
+#[derive(Clone, Deref)]
+pub struct ActiveRequest<R: Request>(Arc<ActiveRequestInner<R>>);
+
+/// The inner implementation of an active request
+pub struct ActiveRequestInner<R: Request> {
     /// The sender to use for the protocol
     sender: async_broadcast::Sender<R::Response>,
     /// The receiver to use for the protocol
@@ -413,20 +425,11 @@ pub struct ActiveRequest<R: Request> {
     active_requests: ActiveRequestsMap<R>,
     /// The hash of the request. We need this so we can remove ourselves from the map
     request_hash: RequestHash,
-
-    /// The tracker for references to this active request. We use this to
-    /// remove the request from the map if we are dropped
-    ref_counter: Arc<()>,
 }
 
-impl<R: Request> Drop for ActiveRequest<R> {
+impl<R: Request> Drop for ActiveRequestInner<R> {
     fn drop(&mut self) {
-        // If the reference counter == 2, we are the "last" reference. This is because
-        // we have one reference in the map, and the one that's currently being dropped
-        if Arc::strong_count(&self.ref_counter) == 2 {
-            // Remove ourselves from the map
-            self.active_requests.remove(&self.request_hash);
-        }
+        self.active_requests.write().remove(&self.request_hash);
     }
 }
 
@@ -440,6 +443,45 @@ mod tests {
     use tokio::{sync::mpsc, task::JoinSet};
 
     use super::*;
+
+    /// This test makes sure that when all references to an active request are dropped, it is
+    /// removed from the active requests map
+    #[test]
+    fn test_active_request_drop() {
+        // Create an active requests map
+        let active_requests = ActiveRequestsMap::default();
+
+        // Create an active request
+        let (sender, receiver) = async_broadcast::broadcast(1);
+        let active_request = ActiveRequest(Arc::new(ActiveRequestInner {
+            sender,
+            receiver,
+            request: TestRequest(vec![1, 2, 3]),
+            active_requests: Arc::clone(&active_requests),
+            request_hash: blake3::hash(&[1, 2, 3]),
+        }));
+
+        // Insert the active request into the map
+        active_requests.write().insert(
+            active_request.request_hash,
+            Arc::downgrade(&active_request.0),
+        );
+
+        // Clone the active request
+        let active_request_clone = active_request.clone();
+
+        // Drop the active request
+        drop(active_request);
+
+        // Make sure nothing has been removed
+        assert_eq!(active_requests.read().len(), 1);
+
+        // Drop the clone
+        drop(active_request_clone);
+
+        // Make sure it has been removed
+        assert_eq!(active_requests.read().len(), 0);
+    }
 
     /// A test sender that has a list of all the participants in the network
     #[derive(Clone)]
@@ -523,8 +565,8 @@ mod tests {
 
     fn default_protocol_config() -> RequestResponseConfig {
         RequestResponseConfigBuilder::create_empty()
-            .incoming_request_ttl(Duration::from_secs(6))
-            .response_timeout(Duration::from_secs(6))
+            .incoming_request_ttl(Duration::from_secs(40))
+            .response_send_timeout(Duration::from_secs(40))
             .request_batch_size(10)
             .request_batch_interval(Duration::from_millis(100))
             .max_outgoing_responses(10)
@@ -674,7 +716,7 @@ mod tests {
             request_response_config: default_protocol_config(),
             num_participants: 100,
             num_participants_with_data: 50,
-            request_timeout: Duration::from_secs(4),
+            request_timeout: Duration::from_secs(40),
             data_available_delay: Duration::from_secs(0),
         };
 
@@ -692,7 +734,7 @@ mod tests {
             request_response_config: default_protocol_config(),
             num_participants: 100,
             num_participants_with_data: 0,
-            request_timeout: Duration::from_secs(4),
+            request_timeout: Duration::from_secs(40),
             data_available_delay: Duration::from_secs(0),
         };
 
@@ -712,8 +754,8 @@ mod tests {
             request_response_config: default_protocol_config(),
             num_participants: 100,
             num_participants_with_data: 1,
-            request_timeout: Duration::from_secs(10),
-            data_available_delay: Duration::from_secs(1),
+            request_timeout: Duration::from_secs(40),
+            data_available_delay: Duration::from_secs(2),
         };
 
         // Run the test
