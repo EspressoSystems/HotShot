@@ -135,7 +135,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                 let view_number = *view_number;
                 let Ok(signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    &vid_disperse.payload_commitment(),
+                    vid_disperse.payload_commitment().as_ref(),
                 ) else {
                     error!("VID: failed to sign dispersal payload");
                     return None;
@@ -215,7 +215,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                 .ok()?;
                 let Ok(next_epoch_signature) = TYPES::SignatureKey::sign(
                     &self.private_key,
-                    &next_epoch_vid_disperse.payload_commitment(),
+                    next_epoch_vid_disperse.payload_commitment().as_ref(),
                 ) else {
                     error!("VID: failed to sign dispersal payload for the next epoch");
                     return None;

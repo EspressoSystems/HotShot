@@ -21,6 +21,7 @@ use hotshot_types::{
     drb::DrbComputation,
     event::Event,
     message::{Proposal, UpgradeLock},
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -29,10 +30,8 @@ use hotshot_types::{
         storage::Storage,
     },
     utils::{epoch_from_block_number, option_epoch_from_block_number},
-    vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-use jf_vid::VidScheme;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
@@ -176,13 +175,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     }
                 }
                 HotShotEvent::VidShareValidated(share) => {
-                    let vid_payload_commitment = if let Some(ref data_epoch_payload_commitment) =
-                        share.data.data_epoch_payload_commitment
-                    {
-                        data_epoch_payload_commitment
-                    } else {
-                        &share.data.payload_commitment
-                    };
+                    let vid_payload_commitment = &share
+                        .data
+                        .data_epoch_payload_commitment()
+                        .unwrap_or(share.data.payload_commitment());
                     vid_share = Some(share.clone());
                     if let Some(ref comm) = payload_commitment {
                         if vid_payload_commitment != comm {
@@ -573,7 +569,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
 
                 // Validate the VID share.
-                let payload_commitment = &disperse.data.payload_commitment;
+                let payload_commitment = disperse.data.payload_commitment_ref();
 
                 // Check that the signature is valid
                 ensure!(
@@ -581,8 +577,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     "VID share signature is invalid"
                 );
 
-                let vid_epoch = disperse.data.epoch;
-                let target_epoch = disperse.data.target_epoch;
+                let vid_epoch = disperse.data.epoch();
+                let target_epoch = disperse.data.target_epoch();
                 let membership_reader = self.membership.read().await;
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
@@ -598,15 +594,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                match vid_scheme(membership_total_nodes).verify_share(
-                    &disperse.data.share,
-                    &disperse.data.common,
-                    payload_commitment,
-                ) {
-                    Ok(Err(())) | Err(_) => {
-                        bail!("Failed to verify VID share");
-                    }
-                    Ok(Ok(())) => {}
+                if let Err(()) = disperse.data.verify_share(membership_total_nodes) {
+                    bail!("Failed to verify VID share");
                 }
 
                 self.consensus
@@ -693,7 +682,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         ))?;
 
         let mut updated_vid = vid.clone();
-        updated_vid.data.view_number() = proposal.data.view_number();
+        updated_vid
+            .data
+            .set_view_number(proposal.data.view_number());
         consensus_writer.update_vid_shares(updated_vid.data.view_number(), updated_vid.clone());
 
         drop(consensus_writer);

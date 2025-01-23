@@ -30,8 +30,7 @@ use vid_disperse::{ADVZDisperse, ADVZDisperseShare, VidDisperseShare2};
 use crate::{
     drb::DrbResult,
     impl_has_epoch,
-    message::Proposal,
-    message::UpgradeLock,
+    message::{convert_proposal, Proposal, UpgradeLock},
     simple_certificate::{
         NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         TimeoutCertificate2, UpgradeCertificate, ViewSyncFinalizeCertificate,
@@ -299,6 +298,13 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
             Self::V0(disperse) | Self::V1(disperse) => disperse,
         }
     }
+
+    /// Set the view number
+    pub fn set_view_number(&mut self, view_number: <TYPES as NodeType>::View) {
+        match self {
+            Self::V0(share) | Self::V1(share) => share.view_number = view_number,
+        }
+    }
 }
 
 /// VID share and associated metadata for a single node
@@ -350,6 +356,28 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         })
     }
 
+    /// Split a VID share proposal into a proposal for each recipient.
+    pub fn to_vid_share_proposals(
+        vid_disperse_proposal: Proposal<TYPES, VidDisperse<TYPES>>,
+    ) -> Vec<Proposal<TYPES, Self>> {
+        match vid_disperse_proposal.data {
+            VidDisperse::V0(disperse) => ADVZDisperseShare::to_vid_share_proposals(
+                disperse,
+                &vid_disperse_proposal.signature,
+            )
+            .into_iter()
+            .map(|proposal| convert_proposal(proposal))
+            .collect(),
+            VidDisperse::V1(disperse) => VidDisperseShare2::to_vid_share_proposals(
+                disperse,
+                &vid_disperse_proposal.signature,
+            )
+            .into_iter()
+            .map(|proposal| convert_proposal(proposal))
+            .collect(),
+        }
+    }
+
     /// Return the internal `recipient_key`
     pub fn recipient_key(&self) -> &TYPES::SignatureKey {
         match self {
@@ -366,12 +394,57 @@ impl<TYPES: NodeType> VidDisperseShare<TYPES> {
         }
     }
 
+    /// Return the internal payload VID commitment
+    /// TODO(Chengyu): restructure this, since payload commitment will have different types given different version.
+    pub fn payload_commitment(&self) -> VidCommitment {
+        match self {
+            Self::V0(share) => share.payload_commitment,
+            Self::V1(share) => share.payload_commitment,
+        }
+    }
+    /// Return the internal data epoch payload VID commitment
+    /// TODO(Chengyu): restructure this, since payload commitment will have different types given different version.
+    pub fn data_epoch_payload_commitment(&self) -> Option<VidCommitment> {
+        match self {
+            Self::V0(_) => None,
+            Self::V1(share) => share.data_epoch_payload_commitment,
+        }
+    }
+
     /// Return a reference to the internal VidCommon field.
     /// TODO(Chengyu): remove this after VID upgrade
     pub fn vid_common_ref(&self) -> &VidCommon {
         match self {
             Self::V0(share) => &share.common,
             Self::V1(share) => &share.common,
+        }
+    }
+
+    /// Return the target epoch
+    /// TODO(Chengyu): remove this?
+    pub fn target_epoch(&self) -> Option<<TYPES as NodeType>::Epoch> {
+        match self {
+            Self::V0(_) => None,
+            Self::V1(share) => share.target_epoch,
+        }
+    }
+
+    /// Internally verify the share given necessary information
+    ///
+    /// # Errors
+    #[allow(clippy::result_unit_err)]
+    pub fn verify_share(&self, total_nodes: usize) -> std::result::Result<(), ()> {
+        match self {
+            Self::V0(share) => share.verify_share(total_nodes),
+            Self::V1(share) => share.verify_share(total_nodes),
+        }
+    }
+
+    /// Set the view number
+    pub fn set_view_number(&mut self, view_number: <TYPES as NodeType>::View) {
+        match self {
+            Self::V0(share) => share.view_number = view_number,
+            Self::V1(share) => share.view_number = view_number,
         }
     }
 }
@@ -403,6 +476,16 @@ impl<TYPES: NodeType> From<vid_disperse::ADVZDisperseShare<TYPES>> for VidDisper
 impl<TYPES: NodeType> From<vid_disperse::VidDisperseShare2<TYPES>> for VidDisperseShare<TYPES> {
     fn from(share: vid_disperse::VidDisperseShare2<TYPES>) -> Self {
         Self::V1(share)
+    }
+}
+
+// TODO(Chengyu): this conversion may not be done after vid upgrade. Sync with storage `append_vid2` change later.
+impl<TYPES: NodeType> From<VidDisperseShare<TYPES>> for vid_disperse::VidDisperseShare2<TYPES> {
+    fn from(share: VidDisperseShare<TYPES>) -> vid_disperse::VidDisperseShare2<TYPES> {
+        match share {
+            VidDisperseShare::V0(share) => share.into(),
+            VidDisperseShare::V1(share) => share,
+        }
     }
 }
 

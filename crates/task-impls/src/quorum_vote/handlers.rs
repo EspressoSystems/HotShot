@@ -15,7 +15,7 @@ use hotshot_types::{
     data::{Leaf2, QuorumProposalWrapper, VidDisperseShare},
     drb::{compute_drb_result, DrbResult},
     event::{Event, EventType},
-    message::{Proposal, UpgradeLock},
+    message::{convert_proposal, Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
     traits::{
         block_contents::BlockHeader,
@@ -633,7 +633,7 @@ pub(crate) async fn submit_vote<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     storage
         .write()
         .await
-        .append_vid2(&vid_share)
+        .append_vid2(&convert_proposal(vid_share))
         .await
         .wrap()
         .context(error!("Failed to store VID share"))?;

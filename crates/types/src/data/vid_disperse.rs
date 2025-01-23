@@ -221,24 +221,35 @@ impl<TYPES: NodeType> ADVZDisperseShare<TYPES> {
 
     /// Split a VID share proposal into a proposal for each recipient.
     pub fn to_vid_share_proposals(
-        vid_disperse_proposal: Proposal<TYPES, ADVZDisperse<TYPES>>,
+        vid_disperse: ADVZDisperse<TYPES>,
+        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Vec<Proposal<TYPES, Self>> {
-        vid_disperse_proposal
-            .data
+        vid_disperse
             .shares
             .into_iter()
             .map(|(recipient_key, share)| Proposal {
                 data: Self {
                     share,
                     recipient_key,
-                    view_number: vid_disperse_proposal.data.view_number,
-                    common: vid_disperse_proposal.data.common.clone(),
-                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
+                    view_number: vid_disperse.view_number,
+                    common: vid_disperse.common.clone(),
+                    payload_commitment: vid_disperse.payload_commitment,
                 },
-                signature: vid_disperse_proposal.signature.clone(),
-                _pd: vid_disperse_proposal._pd,
+                signature: signature.clone(),
+                _pd: PhantomData,
             })
             .collect()
+    }
+
+    /// Internally verify the share given necessary information
+    ///
+    /// # Errors
+    /// Verification fail
+    #[allow(clippy::result_unit_err)]
+    pub fn verify_share(&self, total_nodes: usize) -> std::result::Result<(), ()> {
+        vid_scheme(total_nodes)
+            .verify_share(&self.share, &self.common, &self.payload_commitment)
+            .unwrap_or(Err(()))
     }
 }
 
@@ -337,29 +348,37 @@ impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
 
     /// Split a VID share proposal into a proposal for each recipient.
     pub fn to_vid_share_proposals(
-        vid_disperse_proposal: Proposal<TYPES, ADVZDisperse<TYPES>>,
+        vid_disperse: ADVZDisperse<TYPES>,
+        signature: &<TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ) -> Vec<Proposal<TYPES, Self>> {
-        vid_disperse_proposal
-            .data
+        vid_disperse
             .shares
             .into_iter()
             .map(|(recipient_key, share)| Proposal {
                 data: Self {
                     share,
                     recipient_key,
-                    view_number: vid_disperse_proposal.data.view_number,
-                    common: vid_disperse_proposal.data.common.clone(),
-                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
-                    data_epoch_payload_commitment: vid_disperse_proposal
-                        .data
-                        .data_epoch_payload_commitment,
-                    epoch: vid_disperse_proposal.data.epoch,
-                    target_epoch: vid_disperse_proposal.data.target_epoch,
+                    view_number: vid_disperse.view_number,
+                    common: vid_disperse.common.clone(),
+                    payload_commitment: vid_disperse.payload_commitment,
+                    data_epoch_payload_commitment: vid_disperse.data_epoch_payload_commitment,
+                    epoch: vid_disperse.epoch,
+                    target_epoch: vid_disperse.target_epoch,
                 },
-                signature: vid_disperse_proposal.signature.clone(),
-                _pd: vid_disperse_proposal._pd,
+                signature: signature.clone(),
+                _pd: PhantomData,
             })
             .collect()
+    }
+
+    /// Internally verify the share given necessary information
+    ///
+    /// # Errors
+    #[allow(clippy::result_unit_err)]
+    pub fn verify_share(&self, total_nodes: usize) -> std::result::Result<(), ()> {
+        vid_scheme(total_nodes)
+            .verify_share(&self.share, &self.common, &self.payload_commitment)
+            .unwrap_or(Err(()))
     }
 }
 
