@@ -85,7 +85,6 @@ cross_tests!(
         };
 
         metadata.test_config.epoch_height = 10;
-        metadata.overall_safety_properties.num_failed_views = 0;
         metadata.overall_safety_properties.num_successful_views = 0;
         let mut config = DelayConfig::default();
         let delay_settings = DelaySettings {
@@ -118,7 +117,6 @@ cross_tests!(
         };
 
         metadata.test_config.epoch_height = 10;
-        metadata.overall_safety_properties.num_failed_views = 0;
         metadata.overall_safety_properties.num_successful_views = 30;
         let mut config = DelayConfig::default();
         let mut delay_settings = DelaySettings {
@@ -151,8 +149,6 @@ cross_tests!(
         let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12,12);
         metadata.test_config.num_bootstrap = 10;
         metadata.test_config.epoch_height = 10;
-
-        metadata.overall_safety_properties.num_failed_views = 0;
 
         metadata.view_sync_properties = ViewSyncTaskDescription::Threshold(0, 0);
 
@@ -213,7 +209,6 @@ cross_tests!(
             node_changes: vec![(1, dead_nodes)]
         };
         metadata.overall_safety_properties.num_successful_views = 1;
-        metadata.overall_safety_properties.num_failed_views = 0;
         metadata
     },
 );
@@ -270,11 +265,9 @@ cross_tests!(
             node_changes: vec![(5, dead_nodes)]
         };
 
-        // 2 nodes fail triggering view sync, expect no other timeouts
-        metadata.overall_safety_properties.num_failed_views = 6;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 20;
-        metadata.overall_safety_properties.expected_view_failures = vec![5,11,17,23,29,35];
+        metadata.overall_safety_properties.expected_view_failures = vec![4, 5, 10, 11, 17, 22, 23, 28, 29, 34, 35];
 
         metadata
     }
@@ -304,9 +297,8 @@ cross_tests!(
         };
 
         // node 5 is leader twice when we shut down
-        metadata.overall_safety_properties.num_failed_views = 2;
         metadata.overall_safety_properties.expected_view_failures = vec![
-            // next views after turning node off
+            view_spin_node_down,
             view_spin_node_down + 1,
             view_spin_node_down + 2
         ];
@@ -352,7 +344,7 @@ cross_tests!(
             node_changes: vec![(5, dead_nodes)]
         };
 
-        metadata.overall_safety_properties.num_failed_views = 3;
+        metadata.overall_safety_properties.expected_view_failures = vec![16, 17, 18, 19];
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 19;
         metadata
@@ -367,7 +359,7 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
-        metadata.overall_safety_properties.num_failed_views = 6;
+        metadata.overall_safety_properties.expected_view_failures = vec![13, 14, 15, 16, 17, 18, 19];
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 15;
         let dead_nodes = vec![
@@ -444,7 +436,7 @@ cross_tests!(
       metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
           // Make sure we keep committing rounds after the catchup, but not the full 50.
           num_successful_views: 22,
-          num_failed_views: 15,
+          expected_view_failures: vec![10, 11],
           ..Default::default()
       };
 
