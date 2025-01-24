@@ -54,6 +54,8 @@ pub struct SpinningTask<
     I: TestableNodeImplementation<TYPES>,
     V: Versions,
 > {
+    /// epoch height
+    pub epoch_height: u64,
     /// handle to the nodes
     pub(crate) handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
     /// late start nodes
@@ -156,6 +158,7 @@ where
 
                                         let initializer = HotShotInitializer::<TYPES>::load(
                                             TestInstanceState::new(self.async_delay_config.clone()),
+                                            self.epoch_height,
                                             self.last_decided_leaf.clone(),
                                             (
                                                 TYPES::View::genesis(),
@@ -255,6 +258,7 @@ where
 
                                 let initializer = HotShotInitializer::<TYPES>::load(
                                     TestInstanceState::new(self.async_delay_config.clone()),
+                                    self.epoch_height,
                                     self.last_decided_leaf.clone(),
                                     (start_view, start_epoch),
                                     (high_qc, next_epoch_high_qc),

@@ -985,6 +985,9 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     /// Instance-level state.
     pub instance_state: TYPES::InstanceState,
 
+    /// Epoch height
+    pub epoch_height: u64,
+
     /// the anchor leaf for the hotshot initializer
     pub anchor_leaf: Leaf2<TYPES>,
 
@@ -1035,6 +1038,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     /// If we are unable to apply the genesis block to the default state
     pub async fn from_genesis<V: Versions>(
         instance_state: TYPES::InstanceState,
+        epoch_height: u64,
     ) -> Result<Self, HotShotError<TYPES>> {
         let (validated_state, state_delta) = TYPES::ValidatedState::genesis(&instance_state);
         let high_qc = QuorumCertificate2::genesis::<V>(&validated_state, &instance_state).await;
@@ -1054,6 +1058,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             undecided_state: BTreeMap::new(),
             instance_state,
             saved_vid_shares: BTreeMap::new(),
+            epoch_height,
         })
     }
 
@@ -1080,7 +1085,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
                 leaf: leaf.commit(),
                 state: Arc::new(TYPES::ValidatedState::from_header(leaf.block_header())),
                 delta: None,
-                epoch: leaf.epoch(0),
+                epoch: leaf.epoch(self.epoch_height),
             };
             let view = View { view_inner };
 
@@ -1101,8 +1106,10 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
     ///
     /// If you are able to or would prefer to set these yourself,
     /// you should use the `HotShotInitializer` constructor directly.
+    #[allow(clippy::too_many_arguments)]
     pub fn load(
         instance_state: TYPES::InstanceState,
+        epoch_height: u64,
         anchor_leaf: Leaf2<TYPES>,
         (start_view, start_epoch): (TYPES::View, Option<TYPES::Epoch>),
         (high_qc, next_epoch_high_qc): (
@@ -1120,6 +1127,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
 
         let initializer = Self {
             instance_state,
+            epoch_height,
             anchor_leaf,
             anchor_state,
             anchor_state_delta,
