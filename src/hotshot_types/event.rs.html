@@ -195,6 +195,14 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -368,6 +376,14 @@
         </span>proposal: Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;,
         <span class="doccomment">/// Public key of the leader submitting the proposal
         </span>sender: TYPES::SignatureKey,
+    },
+
+    <span class="doccomment">/// A message destined for external listeners was received
+    </span>ExternalMessageReceived {
+        <span class="doccomment">/// Public Key of the message sender
+        </span>sender: TYPES::SignatureKey,
+        <span class="doccomment">/// Serialized data of the message
+        </span>data: Vec&lt;u8&gt;,
     },
 }
 <span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Copy)]

@@ -649,6 +649,9 @@
 <a href="#649" id="649">649</a>
 <a href="#650" id="650">650</a>
 <a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -774,6 +777,8 @@
     </span>Consensus(SequencingMessage&lt;TYPES&gt;),
     <span class="doccomment">/// Messages relating to sharing data between nodes
     </span>Data(DataMessage&lt;TYPES&gt;),
+    <span class="doccomment">/// A (still serialized) message to be passed through to external listeners
+    </span>External(Vec&lt;u8&gt;),
 }
 
 <span class="doccomment">/// List of keys to send a message to, or broadcast to all known keys
@@ -811,6 +816,7 @@
                 ResponseMessage::Found(m) =&gt; m.view_number(),
                 ResponseMessage::NotFound | ResponseMessage::Denied =&gt; TYPES::View::new(<span class="number">1</span>),
             },
+            MessageKind::External(<span class="kw">_</span>) =&gt; TYPES::View::new(<span class="number">1</span>),
         }
     }
 }
