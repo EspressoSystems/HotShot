@@ -13,9 +13,12 @@ use anyhow::Result;
 use async_broadcast::broadcast;
 use async_lock::RwLock;
 use async_trait::async_trait;
+use committable::Committable;
 use futures::future::join_all;
 use hotshot::{
-    traits::TestableNodeImplementation, types::EventType, HotShotInitializer, SystemContext,
+    traits::{TestableNodeImplementation, ValidatedState},
+    types::EventType,
+    HotShotInitializer, SystemContext,
 };
 use hotshot_example_types::{
     auction_results_provider_types::TestAuctionResultsProvider,
@@ -33,7 +36,7 @@ use hotshot_types::{
         network::{AsyncGenerator, ConnectedNetwork},
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
-    utils::genesis_epoch_from_version,
+    utils::{genesis_epoch_from_version, View, ViewInner},
     vote::HasViewNumber,
     ValidatorConfig,
 };
@@ -239,13 +242,32 @@ where
                                 let marketplace_config =
                                     node.handle.hotshot.marketplace_config.clone();
                                 let read_storage = storage.read().await;
-                                let undecided_leaves = read_storage
+                                let undecided_leaves: Vec<_> = read_storage
                                     .proposals_cloned()
                                     .await
                                     .iter()
                                     .map(|(_, wrapper)| Leaf2::from_quorum_proposal(&wrapper.data))
                                     .filter(|leaf| {
                                         *leaf.view_number() > *self.last_decided_leaf.view_number()
+                                    })
+                                    .collect();
+                                let undecided_state: BTreeMap<_, _> = undecided_leaves
+                                    .iter()
+                                    .map(|leaf| {
+                                        let view_inner = ViewInner::<TYPES>::Leaf {
+                                            leaf: leaf.commit(),
+                                            state:
+                                                Arc::new(<TestValidatedState as ValidatedState<
+                                                    TYPES,
+                                                >>::from_header(
+                                                    leaf.block_header()
+                                                )),
+                                            delta: None,
+                                            epoch: leaf.epoch(0),
+                                        };
+                                        let view = View { view_inner };
+
+                                        (leaf.view_number(), view)
                                     })
                                     .collect();
 
@@ -268,7 +290,7 @@ where
                                     read_storage.next_epoch_high_qc_cloned().await,
                                     read_storage.decided_upgrade_certificate().await,
                                     undecided_leaves,
-                                    BTreeMap::new(),
+                                    undecided_state,
                                     Some(read_storage.vids_cloned().await),
                                 );
                                 // We assign node's public key and stake value rather than read from config file since it's a test
