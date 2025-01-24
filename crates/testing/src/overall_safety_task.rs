@@ -75,8 +75,6 @@ pub struct OverallSafetyPropertiesDescription {
     /// if n > 0, check that at least n transactions are decided upon if such information
     /// is available
     pub transaction_threshold: u64,
-    /// num of total rounds allowed to fail
-    pub num_failed_views: usize,
     /// pass in the views that we expect to fail
     pub expected_view_failures: Vec<u64>,
 }
@@ -87,7 +85,6 @@ impl Default for OverallSafetyPropertiesDescription {
             num_successful_views: 50,
             check_leaf: false,
             check_block: true,
-            num_failed_views: 0,
             transaction_threshold: 0,
             expected_view_failures: vec![],
         }

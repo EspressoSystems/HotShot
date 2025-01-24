@@ -344,7 +344,7 @@ cross_tests!(
             node_changes: vec![(5, dead_nodes)]
         };
 
-        metadata.overall_safety_properties.expected_view_failures = vec![16, 17, 18, 19];
+        metadata.overall_safety_properties.expected_view_failures = vec![7, 8, 9, 18, 19];
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 19;
         metadata
@@ -359,7 +359,7 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
-        metadata.overall_safety_properties.expected_view_failures = vec![13, 14, 15, 16, 17, 18, 19];
+        metadata.overall_safety_properties.expected_view_failures = vec![6, 7, 8, 9, 17, 18, 19];
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 15;
         let dead_nodes = vec![
@@ -436,7 +436,7 @@ cross_tests!(
       metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
           // Make sure we keep committing rounds after the catchup, but not the full 50.
           num_successful_views: 22,
-          expected_view_failures: vec![10, 11],
+          expected_view_failures: vec![10],
           ..Default::default()
       };
 
