@@ -86,6 +86,7 @@ standback = { version = "0.2", default-features = false, features = ["std"] }
 subtle = { version = "2", default-features = false, features = ["std"] }
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "parking_lot", "rt-multi-thread", "sync", "time", "tracing"] }
+tokio-util = { version = "0.7", features = ["codec", "io", "rt"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
@@ -173,6 +174,7 @@ subtle = { version = "2", default-features = false, features = ["std"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "parking_lot", "rt-multi-thread", "sync", "time", "tracing"] }
+tokio-util = { version = "0.7", features = ["codec", "io", "rt"] }
 toml_datetime = { version = "0.6", default-features = false, features = ["serde"] }
 toml_edit = { version = "0.22", features = ["serde"] }
 tracing = { version = "0.1", features = ["log"] }
