@@ -6040,6 +6040,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.11",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -7712,6 +7713,8 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
+ "hashbrown 0.14.5",
  "pin-project-lite 0.2.15",
  "tokio",
 ]

@@ -19,9 +19,9 @@ use recipient_source::RecipientSource;
 use request::{Request, Response};
 use tokio::spawn;
 use tokio::time::{sleep, timeout};
+use tokio_util::task::AbortOnDropHandle;
 use tracing::{error, warn};
-use util::abort_on_drop_handle::AbortOnDropHandle;
-use util::bounded_vec_deque::BoundedVecDeque;
+use util::BoundedVecDeque;
 
 /// The data source trait. Is what we use to derive the response data for a request
 pub mod data_source;
@@ -156,7 +156,7 @@ impl<
         // when the protocol is dropped
         let inner_clone = Arc::clone(&inner);
         let receive_task_handle =
-            AbortOnDropHandle(tokio::spawn(inner_clone.receiving_task(receiver)));
+            AbortOnDropHandle::new(tokio::spawn(inner_clone.receiving_task(receiver)));
 
         // Return the protocol
         Self {
@@ -301,7 +301,7 @@ impl<
 
         // Spawn a task that sends out requests to the network
         let self_clone = Arc::clone(self);
-        let _handle = AbortOnDropHandle(spawn(async move {
+        let _handle = AbortOnDropHandle::new(spawn(async move {
             // Create a bounded queue for the outgoing requests. We use this to make sure
             // we have less than [`config.request_batch_size`] requests in flight at any time.
             //
@@ -328,7 +328,7 @@ impl<
                         });
 
                         // Add the sending task to the queue
-                        outgoing_requests.push(AbortOnDropHandle(individual_sending_task));
+                        outgoing_requests.push(AbortOnDropHandle::new(individual_sending_task));
                     }
 
                     // After we send the batch out, wait the [`config.request_batch_interval`]
@@ -434,7 +434,7 @@ impl<
 
         // Add the response task to the active responses queue. This will automatically cancel an older task
         // if there are more than [`config.max_outgoing_responses`] responses in flight.
-        active_responses.push(AbortOnDropHandle(response_task));
+        active_responses.push(AbortOnDropHandle::new(response_task));
     }
 
     /// Handle a response sent to us
