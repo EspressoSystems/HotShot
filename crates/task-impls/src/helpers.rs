@@ -384,6 +384,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
     let view_number = proposal.view_number();
     let parent_view_number = proposal.justify_qc().view_number();
     let old_anchor_view = consensus_reader.last_decided_view();
+    tracing::error!("{:?}", old_anchor_view);
 
     let mut last_view_number_visited = view_number;
     let mut current_chain_length = 0usize;
@@ -394,6 +395,7 @@ pub async fn decide_from_proposal<TYPES: NodeType>(
         Terminator::Exclusive(old_anchor_view),
         true,
         |leaf, state, delta| {
+            tracing::error!("Visited leaf {:?}", *leaf.view_number());
             // This is the core paper logic. We're implementing the chain in chained hotstuff.
             if res.new_decided_view_number.is_none() {
                 // If the last view number is the child of the leaf we've moved to...

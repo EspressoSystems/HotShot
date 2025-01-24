@@ -239,6 +239,17 @@ where
                                 let marketplace_config =
                                     node.handle.hotshot.marketplace_config.clone();
                                 let read_storage = storage.read().await;
+                                let undecided_leaves = read_storage
+                                    .proposals_cloned()
+                                    .await
+                                    .iter()
+                                    .map(|(_, wrapper)| Leaf2::from_quorum_proposal(&wrapper.data))
+                                    .filter(|leaf| {
+                                        *leaf.view_number() > *self.last_decided_leaf.view_number()
+                                    })
+                                    .collect();
+
+                                tracing::error!("{:?}", undecided_leaves);
                                 let initializer = HotShotInitializer::<TYPES>::from_reload(
                                     self.last_decided_leaf.clone(),
                                     TestInstanceState::new(self.async_delay_config.clone()),
@@ -256,7 +267,7 @@ where
                                     ),
                                     read_storage.next_epoch_high_qc_cloned().await,
                                     read_storage.decided_upgrade_certificate().await,
-                                    Vec::new(),
+                                    undecided_leaves,
                                     BTreeMap::new(),
                                     Some(read_storage.vids_cloned().await),
                                 );
