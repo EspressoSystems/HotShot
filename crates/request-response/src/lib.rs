@@ -6,7 +6,7 @@ use std::sync::Weak;
 use std::time::Instant;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use data_source::DataSource;
 use derive_builder::Builder;
 use derive_more::derive::Deref;
@@ -44,8 +44,11 @@ pub type RequestHash = blake3::Hash;
 /// A type alias for the active request map
 pub type ActiveRequestsMap<Req> = Arc<RwLock<HashMap<RequestHash, Weak<ActiveRequestInner<Req>>>>>;
 
-/// A type alias for the list of currently active responses
-pub type ActiveResponsesList = BoundedVecDeque<AbortOnDropHandle<()>>;
+/// A type alias for the list of tasks that are responding to requests
+pub type OutgoingResponses = BoundedVecDeque<AbortOnDropHandle<()>>;
+
+/// A type alias for the list of tasks that are validating incoming responses
+pub type IncomingResponses = BoundedVecDeque<AbortOnDropHandle<()>>;
 
 /// The errors that can occur when making a request for data
 #[derive(thiserror::Error, Debug)]
@@ -88,6 +91,10 @@ pub struct RequestResponseConfig {
     /// The maximum amount of time we will spend trying to both derive a response for a request and
     /// send the response over the wire.
     response_send_timeout: Duration,
+    /// The maximum amount of time we will spend trying to validate a response. This is used to prevent
+    /// an attack where a malicious participant sends us a bunch of requests that take a long time to
+    /// validate.
+    response_validate_timeout: Duration,
     /// The batch size for outgoing requests. This is the number of request messages that we will
     /// send out at a time for a single request before waiting for the [`request_batch_interval`].
     request_batch_size: usize,
@@ -95,6 +102,10 @@ pub struct RequestResponseConfig {
     request_batch_interval: Duration,
     /// The maximum (global) number of outgoing responses that can be in flight at any given time
     max_outgoing_responses: usize,
+    /// The maximum (global) number of incoming responses that can be processed at any given time.
+    /// We need this because responses coming in need to be validated [asynchronously] that they
+    /// satisfy the request they are responding to
+    max_incoming_responses: usize,
 }
 
 /// A protocol that allows for request-response communication. Is cheaply cloneable, so there is no
@@ -238,165 +249,185 @@ impl<
     /// # Errors
     /// - If the request times out
     /// - If the channel is closed (this is an internal error)
+    /// - If the request we sign is invalid
     pub async fn request(
         self: &Arc<Self>,
         request_message: RequestMessage<Req, K>,
         timeout_duration: Duration,
     ) -> std::result::Result<Req::Response, RequestError> {
-        // Calculate the hash of the request
-        let request_hash = blake3::hash(&request_message.request.to_bytes().map_err(|e| {
-            RequestError::InvalidRequest(anyhow::anyhow!(
-                "failed to serialize request message: {e}"
-            ))
-        })?);
+        timeout(timeout_duration, async move {
+            // Calculate the hash of the request
+            let request_hash = blake3::hash(&request_message.request.to_bytes().map_err(|e| {
+                RequestError::InvalidRequest(anyhow::anyhow!(
+                    "failed to serialize request message: {e}"
+                ))
+            })?);
 
-        let request = {
-            // Get a write lock on the active requests map
-            let mut active_requests_write = self.active_requests.write();
+            let request = {
+                // Get a write lock on the active requests map
+                let mut active_requests_write = self.active_requests.write();
 
-            // Conditionally get the active request, creating a new one if it doesn't exist or if
-            // the existing one has been dropped and not yet removed
-            if let Some(active_request) = active_requests_write
-                .get(&request_hash)
-                .and_then(Weak::upgrade)
-            {
-                ActiveRequest(active_request)
-            } else {
-                // Create a new broadcast channel for the response
-                let (sender, receiver) = async_broadcast::broadcast(1);
+                // Conditionally get the active request, creating a new one if it doesn't exist or if
+                // the existing one has been dropped and not yet removed
+                if let Some(active_request) = active_requests_write
+                    .get(&request_hash)
+                    .and_then(Weak::upgrade)
+                {
+                    ActiveRequest(active_request)
+                } else {
+                    // Create a new broadcast channel for the response
+                    let (sender, receiver) = async_broadcast::broadcast(1);
 
-                // Create a new active request
-                let active_request = ActiveRequest(Arc::new(ActiveRequestInner {
-                    sender,
-                    receiver,
-                    request: request_message.request.clone(),
-                    active_requests: Arc::clone(&self.active_requests),
-                    request_hash,
-                }));
+                    // Create a new active request
+                    let active_request = ActiveRequest(Arc::new(ActiveRequestInner {
+                        sender,
+                        receiver,
+                        request: request_message.request.clone(),
+                        active_requests: Arc::clone(&self.active_requests),
+                        request_hash,
+                    }));
 
-                // Write the new active request to the map
-                active_requests_write.insert(request_hash, Arc::downgrade(&active_request.0));
+                    // Write the new active request to the map
+                    active_requests_write.insert(request_hash, Arc::downgrade(&active_request.0));
 
-                // Return the new active request
-                active_request
-            }
-        };
-
-        // Get the recipients that the request should expect responses from. Shuffle them so
-        // that we don't always send to the same recipients in the same order
-        let mut recipients = self
-            .recipient_source
-            .get_recipients_for(&request_message.request);
-        recipients.shuffle(&mut rand::thread_rng());
-
-        // Create a request message and serialize it
-        let message = Bytes::from(Message::Request(request_message).to_bytes().map_err(|e| {
-            RequestError::InvalidRequest(anyhow::anyhow!(
-                "failed to serialize request message: {e}"
-            ))
-        })?);
-
-        // Get the current time so we can check when the timeout has elapsed
-        let start_time = Instant::now();
-
-        // Spawn a task that sends out requests to the network
-        let self_clone = Arc::clone(self);
-        let _handle = AbortOnDropHandle::new(spawn(async move {
-            // Create a bounded queue for the outgoing requests. We use this to make sure
-            // we have less than [`config.request_batch_size`] requests in flight at any time.
-            //
-            // When newer requests are added, older ones are removed from the queue. Because we use
-            // `AbortOnDropHandle`, the older ones will automatically get cancelled
-            let mut outgoing_requests = BoundedVecDeque::new(self_clone.config.request_batch_size);
-
-            // While the timeout hasn't elapsed, send out requests to the network
-            while start_time.elapsed() < timeout_duration {
-                // Send out requests to the network in their own separate tasks
-                for recipient_batch in recipients.chunks(self_clone.config.request_batch_size) {
-                    for recipient in recipient_batch {
-                        // Clone ourselves, the message, and the recipient so they can be moved
-                        let self_clone = Arc::clone(&self_clone);
-                        let recipient_clone = recipient.clone();
-                        let message_clone = Arc::clone(&message);
-
-                        // Spawn the task that sends the request to the participant
-                        let individual_sending_task = spawn(async move {
-                            let _ = self_clone
-                                .sender
-                                .send_message(&message_clone, recipient_clone)
-                                .await;
-                        });
-
-                        // Add the sending task to the queue
-                        outgoing_requests.push(AbortOnDropHandle::new(individual_sending_task));
-                    }
-
-                    // After we send the batch out, wait the [`config.request_batch_interval`]
-                    // before sending the next one
-                    sleep(self_clone.config.request_batch_interval).await;
+                    // Return the new active request
+                    active_request
                 }
-            }
-        }));
+            };
 
-        // Wait for a response on the channel (or timeout)
-        timeout(timeout_duration, request.receiver.clone().recv())
-            .await
-            .map_err(|_| RequestError::Timeout)
-            .and_then(|result| {
-                result.map_err(|e| RequestError::Other(anyhow::anyhow!("channel was closed: {e}")))
-            })
+            // Get the recipients that the request should expect responses from. Shuffle them so
+            // that we don't always send to the same recipients in the same order
+            let mut recipients = self
+                .recipient_source
+                .get_recipients_for(&request_message.request)
+                .await;
+            recipients.shuffle(&mut rand::thread_rng());
+
+            // Create a request message and serialize it
+            let message =
+                Bytes::from(Message::Request(request_message).to_bytes().map_err(|e| {
+                    RequestError::InvalidRequest(anyhow::anyhow!(
+                        "failed to serialize request message: {e}"
+                    ))
+                })?);
+
+            // Get the current time so we can check when the timeout has elapsed
+            let start_time = Instant::now();
+
+            // Spawn a task that sends out requests to the network
+            let self_clone = Arc::clone(self);
+            let _handle = AbortOnDropHandle::new(spawn(async move {
+                // Create a bounded queue for the outgoing requests. We use this to make sure
+                // we have less than [`config.request_batch_size`] requests in flight at any time.
+                //
+                // When newer requests are added, older ones are removed from the queue. Because we use
+                // `AbortOnDropHandle`, the older ones will automatically get cancelled
+                let mut outgoing_requests =
+                    BoundedVecDeque::new(self_clone.config.request_batch_size);
+
+                // While the timeout hasn't elapsed, send out requests to the network
+                while start_time.elapsed() < timeout_duration {
+                    // Send out requests to the network in their own separate tasks
+                    for recipient_batch in recipients.chunks(self_clone.config.request_batch_size) {
+                        for recipient in recipient_batch {
+                            // Clone ourselves, the message, and the recipient so they can be moved
+                            let self_clone = Arc::clone(&self_clone);
+                            let recipient_clone = recipient.clone();
+                            let message_clone = Arc::clone(&message);
+
+                            // Spawn the task that sends the request to the participant
+                            let individual_sending_task = spawn(async move {
+                                let _ = self_clone
+                                    .sender
+                                    .send_message(&message_clone, recipient_clone)
+                                    .await;
+                            });
+
+                            // Add the sending task to the queue
+                            outgoing_requests.push(AbortOnDropHandle::new(individual_sending_task));
+                        }
+
+                        // After we send the batch out, wait the [`config.request_batch_interval`]
+                        // before sending the next one
+                        sleep(self_clone.config.request_batch_interval).await;
+                    }
+                }
+            }));
+
+            // Wait for a response on the channel
+            request
+                .receiver
+                .clone()
+                .recv()
+                .await
+                .map_err(|_| RequestError::Other(anyhow!("channel was closed")))
+        })
+        .await
+        .map_err(|_| RequestError::Timeout)
+        .and_then(|result| result)
     }
 
     /// The task responsible for receiving messages from the receiver and handling them
     async fn receiving_task(self: Arc<Self>, mut receiver: R) {
-        // Create an upper bound to the number of concurrent responses we will have in flight
-        let mut active_responses = ActiveResponsesList::new(self.config.max_outgoing_responses);
+        // Upper bound the number of outgoing and incoming responses
+        let mut outgoing_responses = BoundedVecDeque::new(self.config.max_outgoing_responses);
+        let mut incoming_responses = BoundedVecDeque::new(self.config.max_incoming_responses);
 
         // While the receiver is open, we receive messages and handle them
-        while let Ok(message) = receiver.receive_message().await {
-            // Deserialize the message, warning if it fails
-            let message = match Message::from_bytes(&message) {
-                Ok(message) => message,
-                Err(e) => {
-                    warn!("Received invalid message: {e}");
-                    continue;
-                }
-            };
+        loop {
+            // Try to receive a message
+            match receiver.receive_message().await {
+                Ok(message) => {
+                    // Deserialize the message, warning if it fails
+                    let message = match Message::from_bytes(&message) {
+                        Ok(message) => message,
+                        Err(e) => {
+                            warn!("Received invalid message: {e}");
+                            continue;
+                        }
+                    };
 
-            // Handle the message based on its type
-            match message {
-                Message::Request(request_message) => {
-                    self.handle_request(request_message, &mut active_responses);
+                    // Handle the message based on its type
+                    match message {
+                        Message::Request(request_message) => {
+                            self.handle_request(request_message, &mut outgoing_responses);
+                        }
+                        Message::Response(response_message) => {
+                            self.handle_response(response_message, &mut incoming_responses);
+                        }
+                    }
                 }
-                Message::Response(response_message) => {
-                    self.handle_response(response_message);
+                // An error here means the receiver will _NEVER_ receive any more messages
+                Err(e) => {
+                    error!("Request/response receive task exited: {e}");
+                    return;
                 }
             }
         }
-        error!("Request/response receive task exited: sending channel closed or dropped");
     }
 
     /// Handle a request sent to us
     fn handle_request(
         self: &Arc<Self>,
         request_message: RequestMessage<Req, K>,
-        active_responses: &mut ActiveResponsesList,
+        outgoing_responses: &mut OutgoingResponses,
     ) {
-        // Validate the request message. This includes:
-        // - Checking the signature and making sure it's valid
-        // - Checking the timestamp and making sure it's not too old
-        // - Calling the request's application-specific validation function
-        if let Err(e) = request_message.validate(self.config.incoming_request_ttl) {
-            warn!("Received invalid request: {e}");
-            return;
-        }
-
         // Spawn a task to:
+        // - Validate the request
         // - Derive the response data (check if we have it)
         // - Send the response to the requester
         let self_clone = Arc::clone(self);
-        let response_task = tokio::spawn(async move {
+        let response_task = AbortOnDropHandle::new(tokio::spawn(async move {
             let result = timeout(self_clone.config.response_send_timeout, async move {
+                // Validate the request message. This includes:
+                // - Checking the signature and making sure it's valid
+                // - Checking the timestamp and making sure it's not too old
+                // - Calling the request's application-specific validation function
+                request_message
+                    .validate(self_clone.config.incoming_request_ttl)
+                    .await
+                    .with_context(|| "failed to validate request")?;
+
                 // Try to fetch the response data from the data source
                 let response = self_clone
                     .data_source
@@ -430,15 +461,19 @@ impl<
             if let Err(e) = result {
                 warn!("Failed to send response to requester: {e}");
             }
-        });
+        }));
 
-        // Add the response task to the active responses queue. This will automatically cancel an older task
+        // Add the response task to the outgoing responses queue. This will automatically cancel an older task
         // if there are more than [`config.max_outgoing_responses`] responses in flight.
-        active_responses.push(AbortOnDropHandle::new(response_task));
+        outgoing_responses.push(response_task);
     }
 
     /// Handle a response sent to us
-    fn handle_response(self: &Arc<Self>, response: ResponseMessage<Req>) {
+    fn handle_response(
+        self: &Arc<Self>,
+        response: ResponseMessage<Req>,
+        incoming_responses: &mut IncomingResponses,
+    ) {
         // Get the entry in the map, ignoring it if it doesn't exist
         let Some(active_request) = self
             .active_requests
@@ -450,14 +485,29 @@ impl<
             return;
         };
 
-        // Make sure the response is valid for the given request
-        if let Err(e) = response.response.validate(&active_request.request) {
-            warn!("Received invalid response: {e}");
-            return;
-        }
+        // Spawn a task to validate the response and send it to the requester (us)
+        let response_validate_timeout = self.config.response_validate_timeout;
+        let response_task = AbortOnDropHandle::new(tokio::spawn(async move {
+            if timeout(response_validate_timeout, async move {
+                // Make sure the response is valid for the given request
+                if let Err(e) = response.response.validate(&active_request.request).await {
+                    warn!("Received invalid response: {e}");
+                    return;
+                }
 
-        // Send the response to the requester (the user of [`RequestResponse::request`])
-        let _ = active_request.sender.try_broadcast(response.response);
+                // Send the response to the requester (the user of [`RequestResponse::request`])
+                let _ = active_request.sender.try_broadcast(response.response);
+            })
+            .await
+            .is_err()
+            {
+                warn!("Timed out while validating response");
+            }
+        }));
+
+        // Add the response task to the incoming responses queue. This will automatically cancel an older task
+        // if there are more than [`config.max_incoming_responses`] responses being processed
+        incoming_responses.push(response_task);
     }
 }
 
@@ -562,8 +612,9 @@ mod tests {
     }
 
     // Implement the [`RecipientSource`] trait for the [`TestSender`] type
+    #[async_trait]
     impl RecipientSource<BLSPubKey> for TestSender {
-        fn get_recipients_for<R: Request>(&self, _request: &R) -> Vec<BLSPubKey> {
+        async fn get_recipients_for<R: Request>(&self, _request: &R) -> Vec<BLSPubKey> {
             // Get all the participants in the network
             self.network.keys().copied().collect()
         }
@@ -585,16 +636,18 @@ mod tests {
     }
 
     // Implement the [`Request`] trait for the [`TestRequest`] type
+    #[async_trait]
     impl Request for TestRequest {
         type Response = Vec<u8>;
-        fn validate(&self) -> Result<()> {
+        async fn validate(&self) -> Result<()> {
             Ok(())
         }
     }
 
     // Implement the [`Response`] trait for the [`TestRequest`] type
+    #[async_trait]
     impl Response<TestRequest> for Vec<u8> {
-        fn validate(&self, _request: &TestRequest) -> Result<()> {
+        async fn validate(&self, _request: &TestRequest) -> Result<()> {
             Ok(())
         }
     }
@@ -636,6 +689,8 @@ mod tests {
             .request_batch_size(10)
             .request_batch_interval(Duration::from_millis(100))
             .max_outgoing_responses(10)
+            .response_validate_timeout(Duration::from_secs(1))
+            .max_incoming_responses(5)
             .build()
             .expect("failed to build config")
     }

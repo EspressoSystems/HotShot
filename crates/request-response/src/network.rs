@@ -28,7 +28,7 @@ pub trait Sender<K: SignatureKey + 'static>: Send + Sync + 'static + Clone {
 /// or other source.
 #[async_trait]
 pub trait Receiver: Send + Sync + 'static {
-    /// Receive a message
+    /// Receive a message. Returning an error here means the receiver will _NEVER_ receive any more messages
     async fn receive_message(&mut self) -> Result<Bytes>;
 }
 
