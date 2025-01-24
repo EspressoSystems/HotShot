@@ -122,11 +122,11 @@ async fn test_network_external_mnessages() {
     let builder: TestDescription<TestTypes, MemoryImpl, TestVersions> =
         TestDescription::default_multiple_rounds();
 
-    let launcher = builder.gen_launcher(0);
+    let launcher = builder.gen_launcher();
 
     let mut handles = vec![];
     let mut event_streams = vec![];
-    for i in 0..launcher.metadata.num_nodes_with_stake {
+    for i in 0..launcher.metadata.test_config.num_nodes_with_stake.into() {
         let handle = build_system_handle_from_launcher::<TestTypes, MemoryImpl, TestVersions>(
             i.try_into().unwrap(),
             &launcher,
