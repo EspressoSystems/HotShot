@@ -24,7 +24,7 @@ cross_tests!(
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
         metadata.test_config.epoch_height = 0;
-        metadata.overall_safety_properties.num_failed_views = 6;
+        metadata.overall_safety_properties.expected_view_failures = vec![13, 14, 15, 16, 17, 18, 19];
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 20;
         metadata.test_config.num_bootstrap = 14;
