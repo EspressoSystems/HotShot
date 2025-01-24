@@ -502,58 +502,58 @@ cross_tests!(
     },
 );
 
-// cross_tests!(
-//     TestName: test_staggered_restart_with_epochs,
-//     Impls: [CombinedImpl],
-//     Types: [TestTypes, TestTwoStakeTablesTypes],
-//     Versions: [EpochsTestVersions],
-//     Ignore: false,
-//     Metadata: {
-//       let mut metadata = TestDescription::default().set_num_nodes(20,4);
-//
-//       let mut down_da_nodes = vec![];
-//       for i in 2..4 {
-//           down_da_nodes.push(ChangeNode {
-//               idx: i,
-//               updown: NodeAction::RestartDown(20),
-//           });
-//       }
-//
-//       let mut down_regular_nodes = vec![];
-//       for i in 4..20 {
-//           down_regular_nodes.push(ChangeNode {
-//               idx: i,
-//               updown: NodeAction::RestartDown(0),
-//           });
-//       }
-//       // restart the last da so it gets the new libp2p routing table
-//       for i in 0..2 {
-//           down_regular_nodes.push(ChangeNode {
-//               idx: i,
-//               updown: NodeAction::RestartDown(0),
-//           });
-//       }
-//
-//       metadata.spinning_properties = SpinningTaskDescription {
-//           node_changes: vec![(10, down_da_nodes), (30, down_regular_nodes)],
-//       };
-//       metadata.view_sync_properties =
-//           hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 50);
-//
-//       // Give the test some extra time because we are purposely timing out views
-//       metadata.completion_task_description =
-//           CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
-//               TimeBasedCompletionTaskDescription {
-//                   duration: Duration::from_secs(240),
-//               },
-//           );
-//       metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
-//           // Make sure we keep committing rounds after the catchup, but not the full 50.
-//           num_successful_views: 22,
-//           num_failed_views: 30,
-//           ..Default::default()
-//       };
-//
-//       metadata
-//     },
-// );
+cross_tests!(
+    TestName: test_staggered_restart_with_epochs,
+    Impls: [CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+      let mut metadata = TestDescription::default().set_num_nodes(20,4);
+
+      let mut down_da_nodes = vec![];
+      for i in 2..4 {
+          down_da_nodes.push(ChangeNode {
+              idx: i,
+              updown: NodeAction::RestartDown(20),
+          });
+      }
+
+      let mut down_regular_nodes = vec![];
+      for i in 4..20 {
+          down_regular_nodes.push(ChangeNode {
+              idx: i,
+              updown: NodeAction::RestartDown(0),
+          });
+      }
+      // restart the last da so it gets the new libp2p routing table
+      for i in 0..2 {
+          down_regular_nodes.push(ChangeNode {
+              idx: i,
+              updown: NodeAction::RestartDown(0),
+          });
+      }
+
+      metadata.spinning_properties = SpinningTaskDescription {
+          node_changes: vec![(10, down_da_nodes), (30, down_regular_nodes)],
+      };
+      metadata.view_sync_properties =
+          hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 50);
+
+      // Give the test some extra time because we are purposely timing out views
+      metadata.completion_task_description =
+          CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+              TimeBasedCompletionTaskDescription {
+                  duration: Duration::from_secs(240),
+              },
+          );
+      metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
+          // Make sure we keep committing rounds after the catchup, but not the full 50.
+          num_successful_views: 22,
+          num_failed_views: 30,
+          ..Default::default()
+      };
+
+      metadata
+    },
+);
