@@ -314,9 +314,47 @@ cross_tests!(
 );
 
 cross_tests!(
-    TestName: test_with_failures_half_f_epochs,
+    TestName: test_with_failures_half_f_epochs_1,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
-    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Types: [TestTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription::default_more_nodes();
+        metadata.test_config.epoch_height = 10;
+        // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
+        // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
+        // following issue.
+        let dead_nodes = vec![
+            ChangeNode {
+                idx: 17,
+                updown: NodeAction::Down,
+            },
+            ChangeNode {
+                idx: 18,
+                updown: NodeAction::Down,
+            },
+            ChangeNode {
+                idx: 19,
+                updown: NodeAction::Down,
+            },
+        ];
+
+        metadata.spinning_properties = SpinningTaskDescription {
+            node_changes: vec![(5, dead_nodes)]
+        };
+
+        metadata.overall_safety_properties.expected_view_failures = vec![16, 17, 18, 19];
+        // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
+        metadata.overall_safety_properties.num_successful_views = 19;
+        metadata
+    }
+);
+
+cross_tests!(
+    TestName: test_with_failures_half_f_epochs_2,
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
@@ -352,9 +390,55 @@ cross_tests!(
 );
 
 cross_tests!(
-    TestName: test_with_failures_f_epochs,
+    TestName: test_with_failures_f_epochs_1,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
-    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Types: [TestTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let mut metadata = TestDescription::default_more_nodes();
+        metadata.overall_safety_properties.expected_view_failures = vec![13, 14, 15, 16, 17, 18, 19];
+        // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
+        metadata.overall_safety_properties.num_successful_views = 15;
+        let dead_nodes = vec![
+            ChangeNode {
+                idx: 14,
+                updown: NodeAction::Down,
+            },
+            ChangeNode {
+                idx: 15,
+                updown: NodeAction::Down,
+            },
+            ChangeNode {
+                idx: 16,
+                updown: NodeAction::Down,
+            },
+            ChangeNode {
+                idx: 17,
+                updown: NodeAction::Down,
+            },
+            ChangeNode {
+                idx: 18,
+                updown: NodeAction::Down,
+            },
+            ChangeNode {
+                idx: 19,
+                updown: NodeAction::Down,
+            },
+        ];
+
+        metadata.spinning_properties = SpinningTaskDescription {
+            node_changes: vec![(5, dead_nodes)]
+        };
+
+        metadata
+    }
+);
+
+cross_tests!(
+    TestName: test_with_failures_f_epochs_2,
+    Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
+    Types: [TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
