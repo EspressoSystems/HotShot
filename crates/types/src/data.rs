@@ -272,7 +272,10 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     ) -> Result<Self> {
         ADVZDisperse::calculate_vid_disperse(payload, membership, view, target_epoch, data_epoch)
             .await
-            .map(|result| Self::V0(result))
+            .map(|result| match data_epoch {
+                None => Self::V0(result),
+                Some(_) => Self::V1(result),
+            })
     }
 
     /// Return a reference to the internal VidCommon field.
