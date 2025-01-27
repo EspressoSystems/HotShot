@@ -210,14 +210,14 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ),
 
+    /// A replica has responded with a valid proposal.
+    ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
+
     /// Message with a quorum proposal.
     Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
 
     /// Message with a quorum vote.
     Vote2(QuorumVote2<TYPES>),
-
-    /// A replica has responded with a valid proposal.
-    ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
 
     /// A replica has responded with a valid proposal.
     ProposalResponse2(Proposal<TYPES, QuorumProposal2<TYPES>>),
