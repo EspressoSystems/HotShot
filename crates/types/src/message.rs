@@ -204,17 +204,17 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with an upgrade vote
     UpgradeVote(UpgradeVote<TYPES>),
 
-    /// Message with a quorum proposal.
-    Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
-
-    /// Message with a quorum vote.
-    Vote2(QuorumVote2<TYPES>),
-
     /// A peer node needs a proposal from the leader.
     ProposalRequested(
         ProposalRequestPayload<TYPES>,
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ),
+
+    /// Message with a quorum proposal.
+    Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
+
+    /// Message with a quorum vote.
+    Vote2(QuorumVote2<TYPES>),
 
     /// A replica has responded with a valid proposal.
     ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
