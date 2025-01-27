@@ -31,5 +31,8 @@ third-party = [
   # `jf-vid` has features that need to be explicitly enabled via HotShot features --
   # namely "gpu-vid" and "test-srs". Hence, we exclude it from `workspace-hack` so that
   # these features are not enabled for all crates by default.
-  { name = "jf-vid", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" }
+  { name = "jf-vid", git = "https://github.com/EspressoSystems/jellyfish", tag = "0.4.5" },
+  # `sqlx` has internal packages that can have different features depending on the host/target platform.
+  # This only gets pulled in indirectly via the CDN, so it's safe to just exclude.
+  { name = "sqlx" }
 ]
