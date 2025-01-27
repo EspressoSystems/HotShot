@@ -365,8 +365,9 @@ impl<TYPES: NodeType, V: Versions> NetworkMessageTaskState<TYPES, V> {
                                 .upgrade_lock
                                 .epochs_enabled(proposal.data.view_number())
                                 .await
+                                != proposal.data.epoch().is_some()
                             {
-                                tracing::warn!("received DaConsensusMessage::VidDisperseMsg for view {} but epochs are enabled for that view", proposal.data.view_number());
+                                tracing::warn!("received DaConsensusMessage::VidDisperseMsg for view {} with incorrect epochs information", proposal.data.view_number());
                                 return;
                             }
                             HotShotEvent::VidShareRecv(sender, proposal)
