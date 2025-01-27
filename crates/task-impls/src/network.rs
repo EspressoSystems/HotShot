@@ -369,7 +369,7 @@ impl<TYPES: NodeType, V: Versions> NetworkMessageTaskState<TYPES, V> {
                                 tracing::warn!("received DaConsensusMessage::VidDisperseMsg for view {} but epochs are enabled for that view", proposal.data.view_number());
                                 return;
                             }
-                            HotShotEvent::VidShareRecv(sender, convert_proposal(proposal))
+                            HotShotEvent::VidShareRecv(sender, proposal)
                         }
                     },
                 };
@@ -396,10 +396,7 @@ impl<TYPES: NodeType, V: Versions> NetworkMessageTaskState<TYPES, V> {
                     )) = response
                     {
                         broadcast_event(
-                            Arc::new(HotShotEvent::VidResponseRecv(
-                                sender,
-                                convert_proposal(proposal),
-                            )),
+                            Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
                             &self.internal_event_stream,
                         )
                         .await;

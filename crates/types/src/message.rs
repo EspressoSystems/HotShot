@@ -355,7 +355,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     DaConsensusMessage::DaVote(vote_message) => vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) => cert.view_number,
                     DaConsensusMessage::VidDisperseMsg(disperse) => disperse.data.view_number(),
-                    // DaConsensusMessage::VidDisperseMsg2(disperse) => disperse.data.view_number(),
                     DaConsensusMessage::DaProposal2(p) => {
                         // view of leader in the leaf when proposal
                         // this should match replica upon receipt

@@ -559,8 +559,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::VidShareRecv(sender, disperse) => {
-                let view = disperse.data.view_number();
+            HotShotEvent::VidShareRecv(sender, share) => {
+                let view = share.data.view_number();
                 // Do nothing if the VID share is old
                 tracing::trace!("Received VID share for view {}", *view);
                 ensure!(
@@ -569,16 +569,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
 
                 // Validate the VID share.
-                let payload_commitment = disperse.data.payload_commitment_ref();
+                let payload_commitment = share.data.payload_commitment_ref();
 
                 // Check that the signature is valid
                 ensure!(
-                    sender.validate(&disperse.signature, payload_commitment.as_ref()),
+                    sender.validate(&share.signature, payload_commitment.as_ref()),
                     "VID share signature is invalid"
                 );
 
-                let vid_epoch = disperse.data.epoch();
-                let target_epoch = disperse.data.target_epoch();
+                let vid_epoch = share.data.epoch();
+                let target_epoch = share.data.target_epoch();
                 let membership_reader = self.membership.read().await;
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
@@ -594,22 +594,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
 
                 // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
                 // and outer results
-                if let Err(()) = disperse.data.verify_share(membership_total_nodes) {
+                if let Err(()) = share.data.verify_share(membership_total_nodes) {
                     bail!("Failed to verify VID share");
                 }
 
                 self.consensus
                     .write()
                     .await
-                    .update_vid_shares(view, disperse.clone());
+                    .update_vid_shares(view, share.clone());
 
                 ensure!(
-                    *disperse.data.recipient_key() == self.public_key,
+                    *share.data.recipient_key() == self.public_key,
                     "Got a Valid VID share but it's not for our key"
                 );
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::VidShareValidated(disperse.clone())),
+                    Arc::new(HotShotEvent::VidShareValidated(share.clone())),
                     &event_sender.clone(),
                 )
                 .await;
