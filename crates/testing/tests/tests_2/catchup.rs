@@ -53,7 +53,7 @@ async fn test_catchup() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
-        node_changes: vec![(13, catchup_node)],
+        node_changes: vec![(10, catchup_node)],
     };
 
     metadata.completion_task_description =
@@ -65,7 +65,7 @@ async fn test_catchup() {
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
         // Make sure we keep committing rounds after the catchup, but not the full 50.
         num_successful_views: 22,
-        expected_view_failures: vec![18, 19],
+        expected_view_failures: vec![],
         ..Default::default()
     };
 
@@ -277,7 +277,7 @@ async fn test_catchup_reload() {
 
     metadata.spinning_properties = SpinningTaskDescription {
         // Start the nodes before their leadership.
-        node_changes: vec![(13, catchup_node)],
+        node_changes: vec![(10, catchup_node)],
     };
 
     metadata.completion_task_description =
@@ -289,7 +289,7 @@ async fn test_catchup_reload() {
     metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
         // Make sure we keep committing rounds after the catchup, but not the full 50.
         num_successful_views: 22,
-        expected_view_failures: vec![18, 19],
+        expected_view_failures: vec![],
         ..Default::default()
     };
 
