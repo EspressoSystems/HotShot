@@ -26,8 +26,9 @@ use vbs::{
 
 use crate::{
     data::{
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
-        QuorumProposalWrapper, UpgradeProposal, VidDisperseShare,
+        QuorumProposalWrapper, UpgradeProposal,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
@@ -263,7 +264,7 @@ pub enum DaConsensusMessage<TYPES: NodeType> {
     /// Initiate VID dispersal.
     ///
     /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
-    VidDisperseMsg(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    VidDisperseMsg(Proposal<TYPES, ADVZDisperseShare<TYPES>>),
 
     /// Proposal for data availability committee
     DaProposal2(Proposal<TYPES, DaProposal2<TYPES>>),
@@ -273,6 +274,11 @@ pub enum DaConsensusMessage<TYPES: NodeType> {
 
     /// Certificate data is available
     DaCertificate2(DaCertificate2<TYPES>),
+
+    /// Initiate VID dispersal.
+    ///
+    /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
+    VidDisperseMsg2(Proposal<TYPES, VidDisperseShare2<TYPES>>),
 }
 
 /// Messages for sequencing consensus.
@@ -365,6 +371,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     }
                     DaConsensusMessage::DaVote2(vote_message) => vote_message.view_number(),
                     DaConsensusMessage::DaCertificate2(cert) => cert.view_number,
+                    DaConsensusMessage::VidDisperseMsg2(disperse) => disperse.data.view_number(),
                 }
             }
         }

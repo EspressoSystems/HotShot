@@ -365,12 +365,22 @@ impl<TYPES: NodeType, V: Versions> NetworkMessageTaskState<TYPES, V> {
                                 .upgrade_lock
                                 .epochs_enabled(proposal.data.view_number())
                                 .await
-                                != proposal.data.epoch().is_some()
                             {
-                                tracing::warn!("received DaConsensusMessage::VidDisperseMsg for view {} with incorrect epochs information", proposal.data.view_number());
+                                tracing::warn!("received DaConsensusMessage::VidDisperseMsg for view {} but epochs are enabled for that view", proposal.data.view_number());
                                 return;
                             }
-                            HotShotEvent::VidShareRecv(sender, proposal)
+                            HotShotEvent::VidShareRecv(sender, convert_proposal(proposal))
+                        }
+                        DaConsensusMessage::VidDisperseMsg2(proposal) => {
+                            if !self
+                                .upgrade_lock
+                                .epochs_enabled(proposal.data.view_number())
+                                .await
+                            {
+                                tracing::warn!("received DaConsensusMessage::VidDisperseMsg2 for view {} but epochs are not enabled for that view", proposal.data.view_number());
+                                return;
+                            }
+                            HotShotEvent::VidShareRecv(sender, convert_proposal(proposal))
                         }
                     },
                 };
@@ -392,15 +402,32 @@ impl<TYPES: NodeType, V: Versions> NetworkMessageTaskState<TYPES, V> {
                     .await;
                 }
                 DataMessage::DataResponse(response) => {
-                    if let ResponseMessage::Found(SequencingMessage::Da(
-                        DaConsensusMessage::VidDisperseMsg(proposal),
-                    )) = response
-                    {
-                        broadcast_event(
-                            Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
-                            &self.internal_event_stream,
-                        )
-                        .await;
+                    if let ResponseMessage::Found(message) = response {
+                        match message {
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(proposal)) => {
+                                broadcast_event(
+                                    Arc::new(HotShotEvent::VidResponseRecv(
+                                        sender,
+                                        convert_proposal(proposal),
+                                    )),
+                                    &self.internal_event_stream,
+                                )
+                                .await;
+                            }
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg2(
+                                proposal,
+                            )) => {
+                                broadcast_event(
+                                    Arc::new(HotShotEvent::VidResponseRecv(
+                                        sender,
+                                        convert_proposal(proposal),
+                                    )),
+                                    &self.internal_event_stream,
+                                )
+                                .await;
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 DataMessage::RequestData(data) => {
@@ -523,11 +550,50 @@ impl<
 
         for proposal in vid_share_proposals {
             let recipient = proposal.data.recipient_key().clone();
-            let message = Message {
-                sender: sender.clone(),
-                kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
-                    DaConsensusMessage::VidDisperseMsg(proposal),
-                )),
+            let message = if self
+                .upgrade_lock
+                .epochs_enabled(proposal.data.view_number())
+                .await
+            {
+                let vid_share_proposal = if let VidDisperseShare::V1(data) = proposal.data {
+                    Proposal {
+                        data,
+                        signature: proposal.signature,
+                        _pd: proposal._pd,
+                    }
+                } else {
+                    tracing::warn!(
+                        "Epochs are enabled for view {} but didn't receive VidDisperseShare2",
+                        proposal.data.view_number()
+                    );
+                    return None;
+                };
+                Message {
+                    sender: sender.clone(),
+                    kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::VidDisperseMsg2(vid_share_proposal),
+                    )),
+                }
+            } else {
+                let vid_share_proposal = if let VidDisperseShare::V0(data) = proposal.data {
+                    Proposal {
+                        data,
+                        signature: proposal.signature,
+                        _pd: proposal._pd,
+                    }
+                } else {
+                    tracing::warn!(
+                        "Epochs are not enabled for view {} but didn't receive ADVZDisperseShare",
+                        proposal.data.view_number()
+                    );
+                    return None;
+                };
+                Message {
+                    sender: sender.clone(),
+                    kind: MessageKind::<TYPES>::from_consensus_message(SequencingMessage::Da(
+                        DaConsensusMessage::VidDisperseMsg(vid_share_proposal),
+                    )),
+                }
             };
             let serialized_message = match self.upgrade_lock.serialize(&message).await {
                 Ok(serialized) => serialized,
@@ -979,9 +1045,50 @@ impl<
                 TransmitType::Direct(to),
             )),
             HotShotEvent::VidResponseSend(sender, to, proposal) => {
-                let message = MessageKind::Data(DataMessage::DataResponse(ResponseMessage::Found(
-                    SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(proposal)),
-                )));
+                let epochs_enabled = self
+                    .upgrade_lock
+                    .epochs_enabled(proposal.data.view_number())
+                    .await;
+                let message = match proposal.data {
+                    VidDisperseShare::V0(data) => {
+                        if epochs_enabled {
+                            tracing::warn!(
+                        "Epochs are enabled for view {} but didn't receive VidDisperseShare2",
+                        data.view_number()
+                    );
+                            return None;
+                        }
+                        let vid_share_proposal = Proposal {
+                            data,
+                            signature: proposal.signature,
+                            _pd: proposal._pd,
+                        };
+                        MessageKind::Data(DataMessage::DataResponse(ResponseMessage::Found(
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(
+                                vid_share_proposal,
+                            )),
+                        )))
+                    }
+                    VidDisperseShare::V1(data) => {
+                        if !epochs_enabled {
+                            tracing::warn!(
+                                "Epochs are enabled for view {} but didn't receive ADVZDisperseShare",
+                                data.view_number()
+                            );
+                            return None;
+                        }
+                        let vid_share_proposal = Proposal {
+                            data,
+                            signature: proposal.signature,
+                            _pd: proposal._pd,
+                        };
+                        MessageKind::Data(DataMessage::DataResponse(ResponseMessage::Found(
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg2(
+                                vid_share_proposal,
+                            )),
+                        )))
+                    }
+                };
                 Some((sender, message, TransmitType::Direct(to)))
             }
             HotShotEvent::HighQcSend(quorum_cert, leader, sender) => Some((
