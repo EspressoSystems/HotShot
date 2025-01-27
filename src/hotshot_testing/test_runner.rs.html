@@ -737,6 +737,8 @@
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -919,6 +921,7 @@
         }
 
         <span class="kw">let </span>spinning_task_state = SpinningTask {
+            epoch_height: launcher.metadata.test_config.epoch_height,
             handles: Arc::clone(<span class="kw-2">&amp;</span>handles),
             late_start,
             latest_view: <span class="prelude-val">None</span>,
@@ -1225,6 +1228,7 @@
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(
                         TestInstanceState::new(<span class="self">self</span>.launcher.metadata.async_delay_config.clone()),
+                        config.epoch_height,
                     )
                     .<span class="kw">await
                     </span>.unwrap();

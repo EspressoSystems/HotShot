@@ -417,6 +417,12 @@
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -473,6 +479,8 @@
     I: TestableNodeImplementation&lt;TYPES&gt;,
     V: Versions,
 &gt; {
+    <span class="doccomment">/// epoch height
+    </span><span class="kw">pub </span>epoch_height: u64,
     <span class="doccomment">/// handle to the nodes
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) handles: Arc&lt;RwLock&lt;Vec&lt;Node&lt;TYPES, I, V&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// late start nodes
@@ -573,18 +581,16 @@
                                             marketplace_config,
                                         } = late_context_params;
 
-                                        <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
-                                            <span class="self">self</span>.last_decided_leaf.clone(),
+                                        <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::load(
                                             TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
-                                            <span class="prelude-val">None</span>,
-                                            TYPES::View::genesis(),
-                                            genesis_epoch_from_version::&lt;V, TYPES&gt;(), <span class="comment">// #3967 is this right now after our earlier discussion? or should i be doing (epoch_height &gt; 0).then(TYPES::Epoch::genesis)
-                                            </span>TYPES::View::genesis(),
+                                            <span class="self">self</span>.epoch_height,
+                                            <span class="self">self</span>.last_decided_leaf.clone(),
+                                            (
+                                                TYPES::View::genesis(),
+                                                genesis_epoch_from_version::&lt;V, TYPES&gt;(),
+                                            ),
+                                            (<span class="self">self</span>.high_qc.clone(), <span class="self">self</span>.next_epoch_high_qc.clone()),
                                             BTreeMap::new(),
-                                            <span class="self">self</span>.high_qc.clone(),
-                                            <span class="self">self</span>.next_epoch_high_qc.clone(),
-                                            <span class="prelude-val">None</span>,
-                                            Vec::new(),
                                             BTreeMap::new(),
                                             <span class="prelude-val">None</span>,
                                         );
@@ -657,27 +663,33 @@
                                 <span class="kw">let </span>config = node.handle.hotshot.config.clone();
                                 <span class="kw">let </span>marketplace_config =
                                     node.handle.hotshot.marketplace_config.clone();
+
                                 <span class="kw">let </span>read_storage = storage.read().<span class="kw">await</span>;
-                                <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_reload(
-                                    <span class="self">self</span>.last_decided_leaf.clone(),
+                                <span class="kw">let </span>next_epoch_high_qc =
+                                    read_storage.next_epoch_high_qc_cloned().<span class="kw">await</span>;
+                                <span class="kw">let </span>start_view = read_storage.last_actioned_view().<span class="kw">await</span>;
+                                <span class="kw">let </span>start_epoch = read_storage.last_actioned_epoch().<span class="kw">await</span>;
+                                <span class="kw">let </span>high_qc = read_storage.high_qc_cloned().<span class="kw">await</span>.unwrap_or(
+                                    QuorumCertificate2::genesis::&lt;V&gt;(
+                                        <span class="kw-2">&amp;</span>TestValidatedState::default(),
+                                        <span class="kw-2">&amp;</span>TestInstanceState::default(),
+                                    )
+                                    .<span class="kw">await</span>,
+                                );
+                                <span class="kw">let </span>saved_proposals = read_storage.proposals_cloned().<span class="kw">await</span>;
+                                <span class="kw">let </span>saved_vid_shares = read_storage.vids_cloned().<span class="kw">await</span>;
+                                <span class="kw">let </span>decided_upgrade_certificate =
+                                    read_storage.decided_upgrade_certificate().<span class="kw">await</span>;
+
+                                <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::load(
                                     TestInstanceState::new(<span class="self">self</span>.async_delay_config.clone()),
-                                    <span class="prelude-val">None</span>,
-                                    read_storage.last_actioned_view().<span class="kw">await</span>,
-                                    read_storage.last_actioned_epoch().<span class="kw">await</span>,
-                                    read_storage.last_actioned_view().<span class="kw">await</span>,
-                                    read_storage.proposals_cloned().<span class="kw">await</span>,
-                                    read_storage.high_qc_cloned().<span class="kw">await</span>.unwrap_or(
-                                        QuorumCertificate2::genesis::&lt;V&gt;(
-                                            <span class="kw-2">&amp;</span>TestValidatedState::default(),
-                                            <span class="kw-2">&amp;</span>TestInstanceState::default(),
-                                        )
-                                        .<span class="kw">await</span>,
-                                    ),
-                                    read_storage.next_epoch_high_qc_cloned().<span class="kw">await</span>,
-                                    read_storage.decided_upgrade_certificate().<span class="kw">await</span>,
-                                    Vec::new(),
-                                    BTreeMap::new(),
-                                    <span class="prelude-val">Some</span>(read_storage.vids_cloned().<span class="kw">await</span>),
+                                    <span class="self">self</span>.epoch_height,
+                                    <span class="self">self</span>.last_decided_leaf.clone(),
+                                    (start_view, start_epoch),
+                                    (high_qc, next_epoch_high_qc),
+                                    saved_proposals,
+                                    saved_vid_shares,
+                                    decided_upgrade_certificate,
                                 );
                                 <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test
                                 </span><span class="kw">let </span>validator_config = ValidatorConfig::generated_from_seed_indexed(

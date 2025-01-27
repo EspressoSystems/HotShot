@@ -448,6 +448,7 @@
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -546,9 +547,10 @@
     <span class="kw">let </span>marketplace_config = (launcher.resource_generators.marketplace_config)(node_id);
     <span class="kw">let </span>hotshot_config = (launcher.resource_generators.hotshot_config)(node_id);
 
-    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(TestInstanceState::new(
-        launcher.metadata.async_delay_config.clone(),
-    ))
+    <span class="kw">let </span>initializer = HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(
+        TestInstanceState::new(launcher.metadata.async_delay_config.clone()),
+        launcher.metadata.test_config.epoch_height,
+    )
     .<span class="kw">await
     </span>.unwrap();
 

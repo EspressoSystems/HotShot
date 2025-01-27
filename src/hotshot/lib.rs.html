@@ -1108,6 +1108,44 @@
 <a href="#1108" id="1108">1108</a>
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1378,7 +1416,7 @@
         <span class="macro">debug!</span>(<span class="string">"Creating a new hotshot"</span>);
 
         <span class="kw">let </span>consensus_metrics = Arc::new(metrics);
-        <span class="kw">let </span>anchored_leaf = initializer.inner;
+        <span class="kw">let </span>anchored_leaf = initializer.anchor_leaf;
         <span class="kw">let </span>instance_state = initializer.instance_state;
 
         <span class="kw">let </span>(internal_tx, <span class="kw-2">mut </span>internal_rx) = internal_channel;
@@ -1396,12 +1434,7 @@
 
         <span class="comment">// Get the validated state from the initializer or construct an incomplete one from the
         // block header.
-        </span><span class="kw">let </span>validated_state = <span class="kw">match </span>initializer.validated_state {
-            <span class="prelude-val">Some</span>(state) =&gt; state,
-            <span class="prelude-val">None </span>=&gt; Arc::new(TYPES::ValidatedState::from_header(
-                anchored_leaf.block_header(),
-            )),
-        };
+        </span><span class="kw">let </span>validated_state = initializer.anchor_state;
 
         <span class="comment">// #3967 REVIEW NOTE: Should this actually be Some()? How do we know?
         </span><span class="kw">let </span>epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
@@ -1420,7 +1453,7 @@
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
                     state: Arc::clone(<span class="kw-2">&amp;</span>validated_state),
-                    delta: initializer.state_delta.clone(),
+                    delta: initializer.anchor_state_delta,
                     epoch,
                 },
             },
@@ -1433,7 +1466,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>saved_payloads = BTreeMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        <span class="kw">for </span>leaf <span class="kw">in </span>initializer.undecided_leaves {
+        <span class="kw">for </span>(<span class="kw">_</span>, leaf) <span class="kw">in </span>initializer.undecided_leaves {
             saved_leaves.insert(leaf.commit(), leaf.clone());
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = anchored_leaf.block_payload() {
@@ -1442,12 +1475,12 @@
 
         <span class="kw">let </span>consensus = Consensus::new(
             validated_state_map,
-            initializer.saved_vid_shares,
+            <span class="prelude-val">Some</span>(initializer.saved_vid_shares),
             anchored_leaf.view_number(),
             epoch,
             anchored_leaf.view_number(),
             anchored_leaf.view_number(),
-            initializer.actioned_view,
+            initializer.last_actioned_view,
             initializer.saved_proposals,
             saved_leaves,
             saved_payloads,
@@ -2097,56 +2130,54 @@
 <span class="attr">#[derive(Clone)]
 </span><span class="doccomment">/// initializer struct for creating starting block
 </span><span class="kw">pub struct </span>HotShotInitializer&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// the leaf specified initialization
-    </span>inner: Leaf2&lt;TYPES&gt;,
-
     <span class="doccomment">/// Instance-level state.
-    </span>instance_state: TYPES::InstanceState,
+    </span><span class="kw">pub </span>instance_state: TYPES::InstanceState,
 
-    <span class="doccomment">/// Optional validated state.
-    ///
-    /// If it's given, we'll use it to construct the `SystemContext`. Otherwise, we'll construct
-    /// the state from the block header.
-    </span>validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
+    <span class="doccomment">/// Epoch height
+    </span><span class="kw">pub </span>epoch_height: u64,
 
-    <span class="doccomment">/// Optional state delta.
-    ///
-    /// If it's given, we'll use it to construct the `SystemContext`.
-    </span>state_delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
+    <span class="doccomment">/// the anchor leaf for the hotshot initializer
+    </span><span class="kw">pub </span>anchor_leaf: Leaf2&lt;TYPES&gt;,
+
+    <span class="doccomment">/// ValidatedState for the anchor leaf
+    </span><span class="kw">pub </span>anchor_state: Arc&lt;TYPES::ValidatedState&gt;,
+
+    <span class="doccomment">/// ValidatedState::Delta for the anchor leaf, optional.
+    </span><span class="kw">pub </span>anchor_state_delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;TYPES::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
 
     <span class="doccomment">/// Starting view number that should be equivalent to the view the node shut down with last.
-    </span>start_view: TYPES::View,
+    </span><span class="kw">pub </span>start_view: TYPES::View,
+
+    <span class="doccomment">/// The view we last performed an action in.  An action is proposing or voting for
+    /// either the quorum or DA.
+    </span><span class="kw">pub </span>last_actioned_view: TYPES::View,
 
     <span class="doccomment">/// Starting epoch number that should be equivalent to the epoch the node shut down with last.
-    </span>start_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
-
-    <span class="doccomment">/// The view we last performed an action in.  An action is Proposing or voting for
-    /// Either the quorum or DA.
-    </span>actioned_view: TYPES::View,
+    </span><span class="kw">pub </span>start_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
 
     <span class="doccomment">/// Highest QC that was seen, for genesis it's the genesis QC.  It should be for a view greater
     /// than `inner`s view number for the non genesis case because we must have seen higher QCs
     /// to decide on the leaf.
-    </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
+    </span><span class="kw">pub </span>high_qc: QuorumCertificate2&lt;TYPES&gt;,
 
     <span class="doccomment">/// Next epoch highest QC that was seen. This is needed to propose during epoch transition after restart.
-    </span>next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
+
+    <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
+    </span><span class="kw">pub </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
-    </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Undecided leaves that were seen, but not yet decided on.  These allow a restarting node
     /// to vote and propose right away if they didn't miss anything while down.
-    </span>undecided_leaves: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>undecided_leaves: BTreeMap&lt;TYPES::View, Leaf2&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Not yet decided state
-    </span>undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
-
-    <span class="doccomment">/// Proposals we have sent out to provide to others for catchup
-    </span>saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Saved VID shares
-    </span>saved_vid_shares: <span class="prelude-ty">Option</span>&lt;VidShares&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>saved_vid_shares: VidShares&lt;TYPES&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HotShotInitializer&lt;TYPES&gt; {
@@ -2155,67 +2186,112 @@
     /// If we are unable to apply the genesis block to the default state
     </span><span class="kw">pub async fn </span>from_genesis&lt;V: Versions&gt;(
         instance_state: TYPES::InstanceState,
+        epoch_height: u64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>(validated_state, state_delta) = TYPES::ValidatedState::genesis(<span class="kw-2">&amp;</span>instance_state);
         <span class="kw">let </span>high_qc = QuorumCertificate2::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>;
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            inner: Leaf2::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
-            validated_state: <span class="prelude-val">Some</span>(Arc::new(validated_state)),
-            state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
+            anchor_leaf: Leaf2::genesis::&lt;V&gt;(<span class="kw-2">&amp;</span>validated_state, <span class="kw-2">&amp;</span>instance_state).<span class="kw">await</span>,
+            anchor_state: Arc::new(validated_state),
+            anchor_state_delta: <span class="prelude-val">Some</span>(Arc::new(state_delta)),
             start_view: TYPES::View::new(<span class="number">0</span>),
             start_epoch: genesis_epoch_from_version::&lt;V, TYPES&gt;(),
-            actioned_view: TYPES::View::new(<span class="number">0</span>),
+            last_actioned_view: TYPES::View::new(<span class="number">0</span>),
             saved_proposals: BTreeMap::new(),
             high_qc,
             next_epoch_high_qc: <span class="prelude-val">None</span>,
             decided_upgrade_certificate: <span class="prelude-val">None</span>,
-            undecided_leaves: Vec::new(),
+            undecided_leaves: BTreeMap::new(),
             undecided_state: BTreeMap::new(),
             instance_state,
-            saved_vid_shares: <span class="prelude-val">None</span>,
+            saved_vid_shares: BTreeMap::new(),
+            epoch_height,
         })
     }
 
-    <span class="doccomment">/// Reload previous state based on most recent leaf and the instance-level state.
-    ///
-    /// # Arguments
-    /// *  `start_view` - The minimum view number that we are confident won't lead to a double vote
-    ///     after restart.
-    /// * `validated_state` - Optional validated state that if given, will be used to construct the
-    ///     `SystemContext`.
-    </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    </span><span class="kw">pub fn </span>from_reload(
-        anchor_leaf: Leaf2&lt;TYPES&gt;,
-        instance_state: TYPES::InstanceState,
-        validated_state: <span class="prelude-ty">Option</span>&lt;Arc&lt;TYPES::ValidatedState&gt;&gt;,
-        start_view: TYPES::View,
-        start_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
-        actioned_view: TYPES::View,
-        saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
-        high_qc: QuorumCertificate2&lt;TYPES&gt;,
-        next_epoch_high_qc: <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
-        decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
-        undecided_leaves: Vec&lt;Leaf2&lt;TYPES&gt;&gt;,
-        undecided_state: BTreeMap&lt;TYPES::View, View&lt;TYPES&gt;&gt;,
-        saved_vid_shares: <span class="prelude-ty">Option</span>&lt;VidShares&lt;TYPES&gt;&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Use saved proposals to update undecided leaves and state
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>update_undecided(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>undecided_leaves = <span class="self">self</span>.undecided_leaves.clone();
+        <span class="kw">let </span><span class="kw-2">mut </span>undecided_state = <span class="self">self</span>.undecided_state.clone();
+
+        <span class="kw">for </span>proposal <span class="kw">in </span><span class="self">self</span>.saved_proposals.values() {
+            <span class="comment">// skip proposals unless they're newer than the anchor leaf
+            </span><span class="kw">if </span>proposal.data.view_number() &lt;= <span class="self">self</span>.anchor_leaf.view_number() {
+                <span class="kw">continue</span>;
+            }
+
+            undecided_leaves.insert(
+                proposal.data.view_number(),
+                Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data),
+            );
+        }
+
+        <span class="kw">for </span>leaf <span class="kw">in </span>undecided_leaves.values() {
+            <span class="kw">let </span>view_inner = ViewInner::Leaf {
+                leaf: leaf.commit(),
+                state: Arc::new(TYPES::ValidatedState::from_header(leaf.block_header())),
+                delta: <span class="prelude-val">None</span>,
+                epoch: leaf.epoch(<span class="self">self</span>.epoch_height),
+            };
+            <span class="kw">let </span>view = View { view_inner };
+
+            undecided_state.insert(leaf.view_number(), view);
+        }
+
         <span class="self">Self </span>{
-            inner: anchor_leaf,
-            instance_state,
-            validated_state,
-            state_delta: <span class="prelude-val">None</span>,
-            start_view,
-            start_epoch,
-            actioned_view,
-            saved_proposals,
-            high_qc,
-            next_epoch_high_qc,
-            decided_upgrade_certificate,
             undecided_leaves,
             undecided_state,
+            ..<span class="self">self
+        </span>}
+    }
+
+    <span class="doccomment">/// Create a `HotShotInitializer` from the given information.
+    ///
+    /// This function uses the anchor leaf to set the initial validated state,
+    /// and populates `undecided_leaves` and `undecided_state` using `saved_proposals`.
+    ///
+    /// If you are able to or would prefer to set these yourself,
+    /// you should use the `HotShotInitializer` constructor directly.
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">pub fn </span>load(
+        instance_state: TYPES::InstanceState,
+        epoch_height: u64,
+        anchor_leaf: Leaf2&lt;TYPES&gt;,
+        (start_view, start_epoch): (TYPES::View, <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;),
+        (high_qc, next_epoch_high_qc): (
+            QuorumCertificate2&lt;TYPES&gt;,
+            <span class="prelude-ty">Option</span>&lt;NextEpochQuorumCertificate2&lt;TYPES&gt;&gt;,
+        ),
+        saved_proposals: BTreeMap&lt;TYPES::View, Proposal&lt;TYPES, QuorumProposalWrapper&lt;TYPES&gt;&gt;&gt;,
+        saved_vid_shares: VidShares&lt;TYPES&gt;,
+        decided_upgrade_certificate: <span class="prelude-ty">Option</span>&lt;UpgradeCertificate&lt;TYPES&gt;&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>anchor_state = Arc::new(TYPES::ValidatedState::from_header(
+            anchor_leaf.block_header(),
+        ));
+        <span class="kw">let </span>anchor_state_delta = <span class="prelude-val">None</span>;
+
+        <span class="kw">let </span>initializer = <span class="self">Self </span>{
+            instance_state,
+            epoch_height,
+            anchor_leaf,
+            anchor_state,
+            anchor_state_delta,
+            high_qc,
+            start_view,
+            start_epoch,
+            last_actioned_view: start_view,
+            saved_proposals,
             saved_vid_shares,
-        }
+            next_epoch_high_qc,
+            decided_upgrade_certificate,
+            undecided_leaves: BTreeMap::new(),
+            undecided_state: BTreeMap::new(),
+        };
+
+        initializer.update_undecided()
     }
 }
 </code></pre></div></section></main></body></html>

@@ -1145,6 +1145,8 @@
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
 <a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1512,10 +1514,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         membership: Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     ) -&gt; SystemContextHandle&lt;TYPES, NODE, V&gt; {
-        <span class="kw">let </span>initializer =
-            hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(TestInstanceState::default())
-                .<span class="kw">await
-                </span>.expect(<span class="string">"Couldn't generate genesis block"</span>);
+        <span class="kw">let </span>initializer = hotshot::HotShotInitializer::&lt;TYPES&gt;::from_genesis::&lt;V&gt;(
+            TestInstanceState::default(),
+            <span class="self">self</span>.config().config.epoch_height,
+        )
+        .<span class="kw">await
+        </span>.expect(<span class="string">"Couldn't generate genesis block"</span>);
 
         <span class="kw">let </span>config = <span class="self">self</span>.config();
         <span class="kw">let </span>validator_config = <span class="self">self</span>.validator_config();
