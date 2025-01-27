@@ -858,12 +858,6 @@
     <span class="doccomment">/// Message with an upgrade vote
     </span>UpgradeVote(UpgradeVote&lt;TYPES&gt;),
 
-    <span class="doccomment">/// Message with a quorum proposal.
-    </span>Proposal2(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
-
-    <span class="doccomment">/// Message with a quorum vote.
-    </span>Vote2(QuorumVote2&lt;TYPES&gt;),
-
     <span class="doccomment">/// A peer node needs a proposal from the leader.
     </span>ProposalRequested(
         ProposalRequestPayload&lt;TYPES&gt;,
@@ -872,6 +866,12 @@
 
     <span class="doccomment">/// A replica has responded with a valid proposal.
     </span>ProposalResponse(Proposal&lt;TYPES, QuorumProposal&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// Message with a quorum proposal.
+    </span>Proposal2(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
+
+    <span class="doccomment">/// Message with a quorum vote.
+    </span>Vote2(QuorumVote2&lt;TYPES&gt;),
 
     <span class="doccomment">/// A replica has responded with a valid proposal.
     </span>ProposalResponse2(Proposal&lt;TYPES, QuorumProposal2&lt;TYPES&gt;&gt;),
