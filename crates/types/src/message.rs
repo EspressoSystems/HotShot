@@ -173,7 +173,8 @@ impl<TYPES: NodeType> EpochMessage<TYPES> for MessageKind<TYPES> {
             MessageKind::Consensus(message) => message.epoch_number(),
             MessageKind::Data(
                 DataMessage::SubmitTransaction(_, _) | DataMessage::RequestData(_),
-            ) => None,
+            )
+            | MessageKind::External(_) => None,
             MessageKind::Data(DataMessage::DataResponse(msg)) => match msg {
                 ResponseMessage::Found(m) => m.epoch_number(),
                 ResponseMessage::NotFound | ResponseMessage::Denied => None,
