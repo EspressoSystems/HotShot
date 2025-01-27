@@ -40,6 +40,14 @@ pub enum TestResult {
     Fail(Box<dyn std::fmt::Debug + Send + Sync>),
 }
 
+pub fn spawn_timeout_task(test_sender: Sender<TestEvent>, timeout: Duration) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        sleep(timeout).await;
+
+        let _ = test_sender.broadcast(TestEvent::Shutdown).await;
+    })
+}
+
 #[async_trait]
 /// Type for mutable task state that can be used as the state for a `Task`
 pub trait TestTaskState: Send {

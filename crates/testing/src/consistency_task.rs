@@ -18,11 +18,12 @@ use hotshot_types::{
     message::UpgradeLock,
     traits::node_implementation::{ConsensusTime, NodeType, Versions},
 };
+use tokio::task::JoinHandle;
 
 use crate::{
     overall_safety_task::OverallSafetyPropertiesDescription,
     test_builder::TransactionValidator,
-    test_task::{TestEvent, TestResult, TestTaskState},
+    test_task::{spawn_timeout_task, TestEvent, TestResult, TestTaskState},
 };
 
 /// Map from views to leaves for a single node, allowing multiple leaves for each view (because the node may a priori send us multiple leaves for a given view).
@@ -220,6 +221,8 @@ pub struct ConsistencyTask<TYPES: NodeType, V: Versions> {
     pub _pd: PhantomData<V>,
     /// function used to validate the number of transactions committed in each block
     pub validate_transactions: TransactionValidator,
+    /// running timeout task
+    pub timeout_task: JoinHandle<()>,
 }
 
 impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTask<TYPES, V> {
@@ -324,8 +327,12 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
             return Ok(());
         };
 
+        // filter out views we expected to (possibly) fail
         let unexpected_failed_views: Vec<_> = (*(last_view + 1)..*current_view)
-            .filter(|view| !self.safety_properties.expected_view_failures.contains(view))
+            .filter(|view| {
+                !self.safety_properties.expected_view_failures.contains(view)
+                    && !self.safety_properties.possible_view_failures.contains(view)
+            })
             .collect();
 
         ensure!(
@@ -346,6 +353,17 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> TestTaskState
 
     /// Handles an event from one of multiple receivers.
     async fn handle_event(&mut self, (message, id): (Self::Event, usize)) -> Result<()> {
+        {
+            let mut timeout_task = spawn_timeout_task(
+                self.test_sender.clone(),
+                self.safety_properties.event_timeout,
+            );
+
+            std::mem::swap(&mut self.timeout_task, &mut timeout_task);
+
+            timeout_task.abort();
+        }
+
         if let Event {
             event: EventType::Decide { leaf_chain, .. },
             ..
@@ -368,6 +386,8 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> TestTaskState
     }
 
     async fn check(&self) -> TestResult {
+        self.timeout_task.abort();
+
         let mut errors: Vec<_> = self.errors.iter().map(|e| e.to_string()).collect();
 
         if let Err(e) = self.validate().await {

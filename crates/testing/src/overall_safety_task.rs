@@ -4,7 +4,10 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 use hotshot_types::traits::node_implementation::NodeType;
 use thiserror::Error;
@@ -75,8 +78,14 @@ pub struct OverallSafetyPropertiesDescription {
     /// if n > 0, check that at least n transactions are decided upon if such information
     /// is available
     pub transaction_threshold: u64,
-    /// pass in the views that we expect to fail
+    /// pass in the views that we expect to fail.
+    ///
+    /// the test should fail if any view on this list succeeds.
     pub expected_view_failures: Vec<u64>,
+    /// pass in the views that may or may not fail.
+    pub possible_view_failures: Vec<u64>,
+    /// how long to wait between external events before timing out the test
+    pub event_timeout: Duration,
 }
 
 impl Default for OverallSafetyPropertiesDescription {
@@ -87,6 +96,8 @@ impl Default for OverallSafetyPropertiesDescription {
             check_block: true,
             transaction_threshold: 0,
             expected_view_failures: vec![],
+            possible_view_failures: vec![],
+            event_timeout: Duration::from_secs(4),
         }
     }
 }

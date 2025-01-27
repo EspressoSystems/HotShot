@@ -356,10 +356,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
         Self {
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 50,
-                check_leaf: true,
-                check_block: true,
-                transaction_threshold: 0,
-                expected_view_failures: vec![],
+                ..OverallSafetyPropertiesDescription::default()
             },
             timing_data: TimingData {
                 next_view_timeout: 2000,
@@ -378,10 +375,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TestDescription
         TestDescription::<TYPES, I, V> {
             overall_safety_properties: OverallSafetyPropertiesDescription {
                 num_successful_views: 20,
-                check_leaf: true,
-                check_block: true,
-                transaction_threshold: 0,
-                expected_view_failures: vec![],
+                ..OverallSafetyPropertiesDescription::default()
             },
             timing_data: TimingData {
                 ..TimingData::default()

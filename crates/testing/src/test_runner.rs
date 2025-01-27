@@ -54,7 +54,7 @@ use crate::{
     spinning_task::{ChangeNode, NodeAction, SpinningTask},
     test_builder::create_test_handle,
     test_launcher::{Network, TestLauncher},
-    test_task::{TestResult, TestTask},
+    test_task::{spawn_timeout_task, TestResult, TestTask},
     txn_task::TxnTaskDescription,
     view_sync_task::ViewSyncTask,
 };
@@ -205,11 +205,15 @@ where
 
         let consistency_task_state = ConsistencyTask {
             consensus_leaves: BTreeMap::new(),
-            safety_properties: launcher.metadata.overall_safety_properties,
+            safety_properties: launcher.metadata.overall_safety_properties.clone(),
             test_sender: test_sender.clone(),
             errors: vec![],
             ensure_upgrade: launcher.metadata.upgrade_view.is_some(),
             validate_transactions: launcher.metadata.validate_transactions,
+            timeout_task: spawn_timeout_task(
+                test_sender.clone(),
+                launcher.metadata.overall_safety_properties.event_timeout,
+            ),
             _pd: PhantomData,
         };
 
