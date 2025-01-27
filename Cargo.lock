@@ -2511,6 +2511,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gcr"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3041228a87cc284297d20a175eb6be77a8aca36aa49053985de84804b8a2bb"
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2892,6 +2898,7 @@ dependencies = [
  "derive_more 1.0.0",
  "either",
  "futures",
+ "gcr",
  "hotshot-task",
  "hotshot-task-impls",
  "hotshot-types",
