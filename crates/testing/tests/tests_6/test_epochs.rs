@@ -20,7 +20,7 @@ use hotshot_testing::{
     completion_task::{CompletionTaskDescription, TimeBasedCompletionTaskDescription},
     overall_safety_task::OverallSafetyPropertiesDescription,
     spinning_task::{ChangeNode, NodeAction, SpinningTaskDescription},
-    test_builder::{TestDescription, TimingData},
+    test_builder::{nonempty_block_threshold, TestDescription, TimingData},
     view_sync_task::ViewSyncTaskDescription,
 };
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
@@ -236,6 +236,7 @@ cross_tests!(
                                              },
                                          ),
             upgrade_view: Some(5),
+            validate_transactions: nonempty_block_threshold(40,50),
             ..TestDescription::default()
         };
 
@@ -254,7 +255,10 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12,12);
+        let mut metadata = TestDescription {
+          validate_transactions: nonempty_block_threshold(15,20),
+          ..TestDescription::default_more_nodes()
+        }.set_num_nodes(12,12);
         metadata.test_config.epoch_height = 10;
         let dead_nodes = vec![
             ChangeNode {
@@ -272,7 +276,7 @@ cross_tests!(
         };
 
         // 2 nodes fail triggering view sync, expect no other timeouts
-        metadata.overall_safety_properties.num_failed_views = 6;
+        metadata.overall_safety_properties.num_failed_views = 100;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 20;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([

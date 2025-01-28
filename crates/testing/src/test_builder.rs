@@ -156,9 +156,33 @@ pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
     pub validate_transactions: TransactionValidator,
 }
 
-pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
+pub fn nonempty_block_threshold(nonempty: u64, total: u64) -> TransactionValidator {
     Arc::new(move |transactions| {
-        if matches!(threshold, (0, _)) {
+        let blocks: Vec<_> = transactions.iter().filter(|(view, _)| *view != 0).collect();
+
+        let num_blocks = blocks.len() as u64;
+        let mut num_nonempty_blocks = 0;
+
+        ensure!(num_blocks > 0, "Failed to commit any non-genesis blocks");
+
+        for (_, num_transactions) in blocks {
+            if *num_transactions > 0 {
+                num_nonempty_blocks += 1;
+            }
+        }
+
+        ensure!(
+          num_nonempty_blocks >= nonempty && num_blocks >= total,
+          "Failed to meet nonempty block threshold of {}/{}; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}", nonempty, total
+        );
+
+        Ok(())
+    })
+}
+
+pub fn nonempty_block_ratio(ratio: (u64, u64)) -> TransactionValidator {
+    Arc::new(move |transactions| {
+        if matches!(ratio, (0, _)) {
             return Ok(());
         }
 
@@ -176,9 +200,9 @@ pub fn nonempty_block_threshold(threshold: (u64, u64)) -> TransactionValidator {
         }
 
         ensure!(
-          // i.e. num_nonempty_blocks / num_blocks >= threshold.0 / threshold.1
-          num_nonempty_blocks * threshold.1 >= threshold.0 * num_blocks,
-          "Failed to meet nonempty block threshold of {}/{}; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}", threshold.0, threshold.1
+          // i.e. num_nonempty_blocks / num_blocks >= ratio.0 / ratio.1
+          num_nonempty_blocks * ratio.1 >= ratio.0 * num_blocks,
+          "Failed to meet nonempty block ratio of {}/{}; got {num_nonempty_blocks} nonempty blocks out of a total of {num_blocks}", ratio.0, ratio.1
         );
 
         Ok(())
@@ -501,7 +525,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> Default
             async_delay_config: DelayConfig::default(),
             upgrade_view: None,
             start_solver: true,
-            validate_transactions: Arc::new(|_| Ok(())),
+            validate_transactions: nonempty_block_ratio((40, 50)),
         }
     }
 }
