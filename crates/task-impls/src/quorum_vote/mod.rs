@@ -592,8 +592,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 let membership_total_nodes = membership_reader.total_nodes(target_epoch);
                 drop(membership_reader);
 
-                // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
-                // and outer results
                 if let Err(()) = share.data.verify_share(membership_total_nodes) {
                     bail!("Failed to verify VID share");
                 }
