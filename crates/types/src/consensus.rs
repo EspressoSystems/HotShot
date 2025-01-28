@@ -21,7 +21,7 @@ use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf2, QuorumProposalWrapper, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
@@ -293,7 +293,7 @@ pub struct Consensus<TYPES: NodeType> {
 
     /// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
-    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
+    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
 
     /// last view had a successful decide event
     last_decided_view: TYPES::View,
@@ -417,7 +417,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         locked_view: TYPES::View,
         last_decided_view: TYPES::View,
         last_actioned_view: TYPES::View,
-        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
+        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
         saved_leaves: CommitmentMap<Leaf2<TYPES>>,
         saved_payloads: BTreeMap<TYPES::View, Arc<TYPES::BlockPayload>>,
         high_qc: QuorumCertificate2<TYPES>,
@@ -503,7 +503,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the map of our recent proposals
     pub fn last_proposals(
         &self,
-    ) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>> {
+    ) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>> {
         &self.last_proposals
     }
 
@@ -603,7 +603,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
     pub fn update_proposed_view(
         &mut self,
-        proposal: Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
+        proposal: Proposal<TYPES, QuorumProposal2<TYPES>>,
     ) -> Result<()> {
         ensure!(
             proposal.data.view_number()

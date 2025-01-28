@@ -12,6 +12,9 @@ use std::{
     task::{Context, Poll},
 };
 
+use crate::helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 use async_lock::RwLock;
 use committable::Committable;
 use futures::{FutureExt, Stream};
@@ -21,10 +24,11 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
+use hotshot_types::utils::genesis_epoch_from_version;
 use hotshot_types::{
     data::{
-        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse,
-        VidDisperseShare2, ViewChangeEvidence2, ViewNumber,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
+        ViewChangeEvidence2, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -43,16 +47,11 @@ use hotshot_types::{
 };
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
-use vbs::version::StaticVersionType;
-
-use crate::helpers::{
-    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
-};
 
 #[derive(Clone)]
 pub struct TestView {
     pub da_proposal: Proposal<TestTypes, DaProposal2<TestTypes>>,
-    pub quorum_proposal: Proposal<TestTypes, QuorumProposalWrapper<TestTypes>>,
+    pub quorum_proposal: Proposal<TestTypes, QuorumProposal2<TestTypes>>,
     pub leaf: Leaf2<TestTypes>,
     pub view_number: ViewNumber,
     pub epoch_number: Option<EpochNumber>,
@@ -77,7 +76,7 @@ impl TestView {
         membership: &Arc<RwLock<<TestTypes as NodeType>::Membership>>,
     ) -> Self {
         let genesis_view = ViewNumber::new(1);
-        let genesis_epoch = None;
+        let genesis_epoch = genesis_epoch_from_version::<V, TestTypes>();
         let upgrade_lock = UpgradeLock::new();
 
         let transactions = Vec::new();
@@ -135,22 +134,19 @@ impl TestView {
             metadata,
         );
 
-        let quorum_proposal_inner = QuorumProposalWrapper::<TestTypes> {
-            proposal: QuorumProposal2::<TestTypes> {
-                block_header: block_header.clone(),
-                view_number: genesis_view,
-                justify_qc: QuorumCertificate2::genesis::<TestVersions>(
-                    &TestValidatedState::default(),
-                    &TestInstanceState::default(),
-                )
-                .await,
-                next_epoch_justify_qc: None,
-                upgrade_certificate: None,
-                view_change_evidence: None,
-                next_drb_result: None,
-            },
-            // #3967 REVIEW NOTE: Is this right?
-            with_epoch: V::Base::VERSION >= V::Epochs::VERSION,
+        let quorum_proposal_inner = QuorumProposal2::<TestTypes> {
+            block_header: block_header.clone(),
+            view_number: genesis_view,
+            epoch: genesis_epoch,
+            justify_qc: QuorumCertificate2::genesis::<TestVersions>(
+                &TestValidatedState::default(),
+                &TestInstanceState::default(),
+            )
+            .await,
+            next_epoch_justify_qc: None,
+            upgrade_certificate: None,
+            view_change_evidence: None,
+            next_drb_result: None,
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -375,18 +371,15 @@ impl TestView {
             random,
         };
 
-        let proposal = QuorumProposalWrapper::<TestTypes> {
-            proposal: QuorumProposal2::<TestTypes> {
-                block_header: block_header.clone(),
-                view_number: next_view,
-                justify_qc: quorum_certificate.clone(),
-                next_epoch_justify_qc: None,
-                upgrade_certificate: upgrade_certificate.clone(),
-                view_change_evidence,
-                next_drb_result: None,
-            },
-            // #3967 REVIEW NOTE: Is this right?
-            with_epoch: self.upgrade_lock.epochs_enabled(next_view).await,
+        let proposal = QuorumProposal2::<TestTypes> {
+            block_header: block_header.clone(),
+            view_number: next_view,
+            epoch: self.epoch_number,
+            justify_qc: quorum_certificate.clone(),
+            next_epoch_justify_qc: None,
+            upgrade_certificate: upgrade_certificate.clone(),
+            view_change_evidence,
+            next_drb_result: None,
         };
 
         let mut leaf = Leaf2::from_quorum_proposal(&proposal);

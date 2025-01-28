@@ -24,7 +24,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{CommitmentAndMetadata, OuterConsensus},
-    data::{Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse, ViewChangeEvidence2},
+    data::{Leaf2, QuorumProposal2, VidDisperse, ViewChangeEvidence2},
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
@@ -414,17 +414,15 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             } else {
                 None
             };
-        let proposal = QuorumProposalWrapper {
-            proposal: QuorumProposal2 {
-                block_header,
-                view_number: self.view_number,
-                justify_qc: parent_qc,
-                next_epoch_justify_qc: next_epoch_qc,
-                upgrade_certificate,
-                view_change_evidence: proposal_certificate,
-                next_drb_result,
-            },
-            with_epoch: version >= V::Epochs::VERSION,
+        let proposal = QuorumProposal2 {
+            block_header,
+            view_number: self.view_number,
+            epoch,
+            justify_qc: parent_qc,
+            next_epoch_justify_qc: next_epoch_qc,
+            upgrade_certificate,
+            view_change_evidence: proposal_certificate,
+            next_drb_result,
         };
 
         let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);

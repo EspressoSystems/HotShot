@@ -20,16 +20,15 @@ use hotshot_task::{
     dependency::{Dependency, EventDependency},
     task::TaskState,
 };
+use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::OuterConsensus,
     traits::{
-        block_contents::BlockHeader,
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
-    utils::option_epoch_from_block_number,
     vote::HasViewNumber,
 };
 use rand::{seq::SliceRandom, thread_rng};
@@ -112,11 +111,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.data.view_number();
-                let prop_epoch = option_epoch_from_block_number::<TYPES>(
-                    proposal.data.with_epoch,
-                    proposal.data.block_header().block_number(),
-                    self.epoch_height,
-                );
+                let prop_epoch = proposal.data.epoch();
 
                 // If we already have the VID shares for the next view, do nothing.
                 if prop_view >= self.view

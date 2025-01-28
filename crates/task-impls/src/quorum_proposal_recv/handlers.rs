@@ -8,12 +8,22 @@
 
 use std::sync::Arc;
 
+use super::{QuorumProposalRecvTaskState, ValidationInfo};
+use crate::{
+    events::HotShotEvent,
+    helpers::{
+        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
+        validate_proposal_view_and_certs,
+    },
+    quorum_proposal_recv::{UpgradeLock, Versions},
+};
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::Committable;
+use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal, QuorumProposalWrapper},
+    data::{Leaf2, QuorumProposal, QuorumProposal2},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     traits::{
@@ -31,20 +41,10 @@ use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use super::{QuorumProposalRecvTaskState, ValidationInfo};
-use crate::{
-    events::HotShotEvent,
-    helpers::{
-        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
-        validate_proposal_view_and_certs,
-    },
-    quorum_proposal_recv::{UpgradeLock, Versions},
-};
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    proposal: &Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
+    proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
     validation_info: &ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
     let mut consensus_writer = validation_info.consensus.write().await;
@@ -139,12 +139,16 @@ pub(crate) async fn handle_quorum_proposal_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    proposal: &Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
+    proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
     quorum_proposal_sender_key: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     validation_info: ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
+    proposal
+        .data
+        .validate_epoch(&validation_info.upgrade_lock, validation_info.epoch_height)
+        .await?;
     let quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
 
     validate_proposal_view_and_certs(proposal, &validation_info)
@@ -156,12 +160,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     let justify_qc = proposal.data.justify_qc().clone();
     let maybe_next_epoch_justify_qc = proposal.data.next_epoch_justify_qc().clone();
 
-    let proposal_block_number = proposal.data.block_header().block_number();
-    let proposal_epoch = option_epoch_from_block_number::<TYPES>(
-        proposal.data.with_epoch,
-        proposal_block_number,
-        validation_info.epoch_height,
-    );
+    let proposal_epoch = proposal.data.epoch();
 
     let membership_reader = validation_info.membership.read().await;
     let membership_stake_table = membership_reader.stake_table(justify_qc.data.epoch);

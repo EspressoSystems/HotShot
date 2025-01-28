@@ -6,13 +6,22 @@
 
 use std::{collections::btree_map::Entry, sync::Arc};
 
+use super::QuorumVoteTaskState;
+use crate::{
+    events::HotShotEvent,
+    helpers::{
+        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
+        LeafChainTraversalOutcome,
+    },
+    quorum_vote::Versions,
+};
 use async_broadcast::{InactiveReceiver, Sender};
 use async_lock::RwLock;
 use chrono::Utc;
 use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposalWrapper, VidDisperseShare2},
+    data::{Leaf2, QuorumProposal2, VidDisperseShare2},
     drb::{compute_drb_result, DrbResult},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
@@ -35,16 +44,6 @@ use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
-
-use super::QuorumVoteTaskState;
-use crate::{
-    events::HotShotEvent,
-    helpers::{
-        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
-        LeafChainTraversalOutcome,
-    },
-    quorum_vote::Versions,
-};
 
 /// Store the DRB result from the computation task to the shared `results` table.
 ///
@@ -103,7 +102,7 @@ async fn store_and_get_computed_drb_result<
 ///
 /// Returns an error if we should not vote.
 async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    proposal: &QuorumProposalWrapper<TYPES>,
+    proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
     // Skip if this is not the expected block.
@@ -158,11 +157,10 @@ async fn verify_drb_result<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Ver
 ///
 /// Uses the seed previously stored in `store_drb_seed_and_result`.
 async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    proposal: &QuorumProposalWrapper<TYPES>,
+    proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) {
-    // #3967 REVIEW NOTE: Should we just exit early if we aren't doing epochs?
-    if !proposal.with_epoch {
+    if proposal.epoch.is_none() {
         return;
     }
 
@@ -319,7 +317,7 @@ pub(crate) async fn handle_quorum_proposal_validated<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    proposal: &QuorumProposalWrapper<TYPES>,
+    proposal: &QuorumProposal2<TYPES>,
     task_state: &mut QuorumVoteTaskState<TYPES, I, V>,
 ) -> Result<()> {
     let version = task_state

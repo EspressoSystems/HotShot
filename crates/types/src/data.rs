@@ -664,6 +664,9 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     /// view number for the proposal
     pub view_number: TYPES::View,
 
+    /// The epoch number corresponding to the block number. Can be `None` for pre-epoch version.
+    pub epoch: Option<TYPES::Epoch>,
+
     /// certificate that the proposal is chaining from
     pub justify_qc: QuorumCertificate2<TYPES>,
 
@@ -684,81 +687,60 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     pub next_drb_result: Option<DrbResult>,
 }
 
-/// Wrapper around a proposal to append a block
-#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-#[serde(bound(deserialize = ""))]
-pub struct QuorumProposalWrapper<TYPES: NodeType> {
-    /// The wrapped proposal
-    pub proposal: QuorumProposal2<TYPES>,
-
-    /// Indicates whether or not epochs were enabled for this proposal. This is checked when building a QuorumProposalWrapper
-    pub with_epoch: bool,
-}
-
-impl<TYPES: NodeType> QuorumProposalWrapper<TYPES> {
+impl<TYPES: NodeType> QuorumProposal2<TYPES> {
     /// Helper function to get the proposal's block_header
     pub fn block_header(&self) -> &TYPES::BlockHeader {
-        &self.proposal.block_header
+        &self.block_header
     }
 
     /// Helper function to get the proposal's view_number
     pub fn view_number(&self) -> TYPES::View {
-        self.proposal.view_number
+        self.view_number
     }
 
     /// Helper function to get the proposal's justify_qc
     pub fn justify_qc(&self) -> &QuorumCertificate2<TYPES> {
-        &self.proposal.justify_qc
+        &self.justify_qc
     }
 
     /// Helper function to get the proposal's next_epoch_justify_qc
     pub fn next_epoch_justify_qc(&self) -> &Option<NextEpochQuorumCertificate2<TYPES>> {
-        &self.proposal.next_epoch_justify_qc
+        &self.next_epoch_justify_qc
     }
 
     /// Helper function to get the proposal's upgrade_certificate
     pub fn upgrade_certificate(&self) -> &Option<UpgradeCertificate<TYPES>> {
-        &self.proposal.upgrade_certificate
+        &self.upgrade_certificate
     }
 
     /// Helper function to get the proposal's view_change_evidence
     pub fn view_change_evidence(&self) -> &Option<ViewChangeEvidence2<TYPES>> {
-        &self.proposal.view_change_evidence
+        &self.view_change_evidence
     }
 
     /// Helper function to get the proposal's next_drb_result
     pub fn next_drb_result(&self) -> &Option<DrbResult> {
-        &self.proposal.next_drb_result
+        &self.next_drb_result
     }
-}
 
-impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposalWrapper<TYPES> {
-    fn from(quorum_proposal: QuorumProposal<TYPES>) -> Self {
-        Self {
-            proposal: quorum_proposal.into(),
-            with_epoch: false,
-        }
-    }
-}
-
-impl<TYPES: NodeType> From<QuorumProposal2<TYPES>> for QuorumProposalWrapper<TYPES> {
-    fn from(quorum_proposal2: QuorumProposal2<TYPES>) -> Self {
-        Self {
-            proposal: quorum_proposal2,
-            with_epoch: true,
-        }
-    }
-}
-
-impl<TYPES: NodeType> From<QuorumProposalWrapper<TYPES>> for QuorumProposal<TYPES> {
-    fn from(quorum_proposal_wrapper: QuorumProposalWrapper<TYPES>) -> Self {
-        quorum_proposal_wrapper.proposal.into()
-    }
-}
-
-impl<TYPES: NodeType> From<QuorumProposalWrapper<TYPES>> for QuorumProposal2<TYPES> {
-    fn from(quorum_proposal_wrapper: QuorumProposalWrapper<TYPES>) -> Self {
-        quorum_proposal_wrapper.proposal
+    /// Validates whether the epoch is consistent with the version and the block number
+    /// # Errors
+    /// Returns an error if the epoch is inconsistent with the version or the block number
+    pub async fn validate_epoch<V: Versions>(
+        &self,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+        epoch_height: u64,
+    ) -> Result<()> {
+        let calculated_epoch = option_epoch_from_block_number::<TYPES>(
+            upgrade_lock.epochs_enabled(self.view_number()).await,
+            self.block_header().block_number(),
+            epoch_height,
+        );
+        ensure!(
+            calculated_epoch == self.epoch(),
+            "Quorum proposal invalid: inconsistent epoch."
+        );
+        Ok(())
     }
 }
 
@@ -767,6 +749,7 @@ impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposal2<TYPES> {
         Self {
             block_header: quorum_proposal.block_header,
             view_number: quorum_proposal.view_number,
+            epoch: None,
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
             next_epoch_justify_qc: None,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
@@ -853,12 +836,6 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposal2<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposalWrapper<TYPES> {
-    fn view_number(&self) -> TYPES::View {
-        self.proposal.view_number
-    }
-}
-
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
     fn view_number(&self) -> TYPES::View {
         self.view_number
@@ -866,6 +843,7 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
 }
 
 impl_has_epoch!(
+    QuorumProposal2<TYPES>,
     DaProposal2<TYPES>,
     VidDisperse<TYPES>,
     VidDisperseShare2<TYPES>
@@ -877,30 +855,6 @@ impl_has_none_epoch!(
     VidDisperseShare<TYPES>,
     UpgradeProposal<TYPES>
 );
-
-impl<TYPES: NodeType> HasEpoch<TYPES> for QuorumProposal2<TYPES> {
-    /// Never call this trait method for QuorumProposal2
-    /// # Panics
-    /// Always. Calling this trait method for QuorumProposal2 is incorrect.
-    /// QuorumProposal2 has an associated epoch but it needs to be calculated based on
-    /// the block number and the epoch height.
-    #[allow(clippy::panic)]
-    fn epoch(&self) -> Option<TYPES::Epoch> {
-        panic!("Never call this trait method for QuorumProposal2")
-    }
-}
-
-impl<TYPES: NodeType> HasEpoch<TYPES> for QuorumProposalWrapper<TYPES> {
-    /// Never call this trait method for QuorumProposalWrapper
-    /// # Panics
-    /// Always. Calling this trait method for QuorumProposalWrapper is incorrect.
-    /// QuorumProposalWrapper might have an associated epoch but it needs to be calculated based on
-    /// the block number and the epoch height.
-    #[allow(clippy::panic)]
-    fn epoch(&self) -> Option<TYPES::Epoch> {
-        panic!("Never call this trait method for QuorumProposal2")
-    }
-}
 
 /// The error type for block and its transactions.
 #[derive(Error, Debug, Serialize, Deserialize)]
@@ -1600,21 +1554,18 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
 
 impl<TYPES: NodeType> Leaf2<TYPES> {
     /// Constructs a leaf from a given quorum proposal.
-    pub fn from_quorum_proposal(quorum_proposal: &QuorumProposalWrapper<TYPES>) -> Self {
+    pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal2<TYPES>) -> Self {
         // WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
         // The point of this match is that we will get a compile-time error if we add a field without updating this.
-        let QuorumProposalWrapper {
-            proposal:
-                QuorumProposal2 {
-                    view_number,
-                    justify_qc,
-                    next_epoch_justify_qc,
-                    block_header,
-                    upgrade_certificate,
-                    view_change_evidence,
-                    next_drb_result,
-                },
-            with_epoch,
+        let QuorumProposal2 {
+            view_number,
+            epoch,
+            justify_qc,
+            next_epoch_justify_qc,
+            block_header,
+            upgrade_certificate,
+            view_change_evidence,
+            next_drb_result,
         } = quorum_proposal;
 
         Self {
@@ -1627,7 +1578,7 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
             block_payload: None,
             view_change_evidence: view_change_evidence.clone(),
             next_drb_result: *next_drb_result,
-            with_epoch: *with_epoch,
+            with_epoch: epoch.is_some(),
         }
     }
 }

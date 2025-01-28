@@ -26,7 +26,6 @@ pub mod traits;
 pub mod types;
 
 pub mod tasks;
-use hotshot_types::data::QuorumProposalWrapper;
 
 /// Contains helper functions for the crate
 pub mod helpers;
@@ -1016,7 +1015,7 @@ pub struct HotShotInitializer<TYPES: NodeType> {
     pub next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
 
     /// Proposals we have sent out to provide to others for catchup
-    pub saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
+    pub saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
 
     /// Previously decided upgrade certificate; this is necessary if an upgrade has happened and we are not restarting with the new version
     pub decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
@@ -1116,7 +1115,7 @@ impl<TYPES: NodeType> HotShotInitializer<TYPES> {
             QuorumCertificate2<TYPES>,
             Option<NextEpochQuorumCertificate2<TYPES>>,
         ),
-        saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
+        saved_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
         saved_vid_shares: VidShares<TYPES>,
         decided_upgrade_certificate: Option<UpgradeCertificate<TYPES>>,
     ) -> Self {

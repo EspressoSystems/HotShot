@@ -26,8 +26,8 @@ use vbs::{
 
 use crate::{
     data::{
-        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
-        QuorumProposalWrapper, UpgradeProposal, VidDisperseShare, VidDisperseShare2,
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal,
+        VidDisperseShare, VidDisperseShare2,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
@@ -41,13 +41,12 @@ use crate::{
         ViewSyncPreCommitVote, ViewSyncPreCommitVote2,
     },
     traits::{
-        block_contents::BlockHeader,
         election::Membership,
         network::{DataRequest, ResponseMessage, ViewMessage},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
-    utils::{mnemonic, option_epoch_from_block_number},
+    utils::mnemonic,
     vote::HasViewNumber,
 };
 
@@ -571,24 +570,16 @@ where
     }
 }*/
 
-impl<TYPES> Proposal<TYPES, QuorumProposalWrapper<TYPES>>
+impl<TYPES> Proposal<TYPES, QuorumProposal2<TYPES>>
 where
     TYPES: NodeType,
 {
     /// Checks that the signature of the quorum proposal is valid.
     /// # Errors
     /// Returns an error when the proposal signature is invalid.
-    pub fn validate_signature(
-        &self,
-        membership: &TYPES::Membership,
-        epoch_height: u64,
-    ) -> Result<()> {
-        let view_number = self.data.proposal.view_number();
-        let proposal_epoch = option_epoch_from_block_number::<TYPES>(
-            self.data.with_epoch,
-            self.data.block_header().block_number(),
-            epoch_height,
-        );
+    pub fn validate_signature(&self, membership: &TYPES::Membership) -> Result<()> {
+        let view_number = self.data.view_number();
+        let proposal_epoch = self.data.epoch();
         let view_leader_key = membership.leader(view_number, proposal_epoch)?;
         let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
 

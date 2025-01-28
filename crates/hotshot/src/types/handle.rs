@@ -20,7 +20,7 @@ use hotshot_task::{
 use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
     consensus::Consensus,
-    data::{Leaf2, QuorumProposalWrapper},
+    data::{Leaf2, QuorumProposal2},
     error::HotShotError,
     message::{Message, MessageKind, Proposal, RecipientList},
     request_response::ProposalRequestPayload,
@@ -140,7 +140,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         &self,
         view: TYPES::View,
         leaf_commitment: Commitment<Leaf2<TYPES>>,
-    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposalWrapper<TYPES>>>>>
+    ) -> Result<impl futures::Future<Output = Result<Proposal<TYPES, QuorumProposal2<TYPES>>>>>
     {
         // We need to be able to sign this request before submitting it to the network. Compute the
         // payload first.
@@ -158,7 +158,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         let mem = Arc::clone(&self.memberships);
         let receiver = self.internal_event_stream.1.activate_cloned();
         let sender = self.internal_event_stream.0.clone();
-        let epoch_height = self.epoch_height;
         Ok(async move {
             // First, broadcast that we need a proposal
             broadcast_event(
@@ -187,8 +186,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 {
                     // Make sure that the quorum_proposal is valid
                     let mem_reader = mem.read().await;
-                    if let Err(err) = quorum_proposal.validate_signature(&mem_reader, epoch_height)
-                    {
+                    if let Err(err) = quorum_proposal.validate_signature(&mem_reader) {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }
