@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.5.79"                                        # same as `hotshot`, but workspace subcrate can also release its own version
+version = "0.5.84"                                        # same as `hotshot`, but workspace subcrate can also release its own version
 authors = ["Espresso Systems <hello@espressosys.com>"]
 edition = "2021"
 rust-version = "1.76.0"
