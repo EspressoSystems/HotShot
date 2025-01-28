@@ -27,8 +27,8 @@ use hotshot_types::{
         block_contents::BlockHeader,
         election::Membership,
         network::{
-            BroadcastDelay, ConnectedNetwork, EpochMessage, RequestKind, ResponseMessage, Topic,
-            TransmitType, ViewMessage,
+            BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, Topic, TransmitType,
+            ViewMessage,
         },
         node_implementation::{ConsensusTime, NodeType, Versions},
         storage::Storage,
@@ -1091,7 +1091,7 @@ impl<
                 proposal.data.block_header.block_number(),
                 self.epoch_height,
             ),
-            _ => message.kind.epoch_number(),
+            _ => message.kind.epoch(),
         };
         let committee_topic = Topic::Global;
         let da_committee = self

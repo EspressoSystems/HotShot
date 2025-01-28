@@ -43,7 +43,7 @@ use crate::{
     traits::{
         block_contents::BlockHeader,
         election::Membership,
-        network::{DataRequest, EpochMessage, ResponseMessage, ViewMessage},
+        network::{DataRequest, ResponseMessage, ViewMessage},
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
@@ -167,8 +167,8 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> EpochMessage<TYPES> for MessageKind<TYPES> {
-    fn epoch_number(&self) -> Option<TYPES::Epoch> {
+impl<TYPES: NodeType> HasEpoch<TYPES> for MessageKind<TYPES> {
+    fn epoch(&self) -> Option<TYPES::Epoch> {
         match &self {
             MessageKind::Consensus(message) => message.epoch_number(),
             MessageKind::Data(

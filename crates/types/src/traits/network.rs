@@ -120,12 +120,6 @@ pub trait ViewMessage<TYPES: NodeType> {
     fn view_number(&self) -> TYPES::View;
 }
 
-/// Returns an epoch associated with the message if applicable
-pub trait EpochMessage<TYPES: NodeType> {
-    /// get the epoch out of the message if applicable
-    fn epoch_number(&self) -> Option<TYPES::Epoch>;
-}
-
 /// A request for some data that the consensus layer is asking for.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
