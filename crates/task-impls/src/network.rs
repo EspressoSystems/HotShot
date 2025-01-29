@@ -24,7 +24,6 @@ use hotshot_types::{
     },
     simple_vote::HasEpoch,
     traits::{
-        block_contents::BlockHeader,
         election::Membership,
         network::{
             BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, Topic, TransmitType,
@@ -33,7 +32,6 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType, Versions},
         storage::Storage,
     },
-    utils::option_epoch_from_block_number,
     vote::{HasViewNumber, Vote},
 };
 use tokio::{spawn, task::JoinHandle};
@@ -1082,17 +1080,7 @@ impl<
             kind: message_kind,
         };
         let view_number = message.kind.view_number();
-        let epoch = match message.kind {
-            MessageKind::Consensus(SequencingMessage::General(
-                GeneralConsensusMessage::Proposal2(ref proposal)
-                | GeneralConsensusMessage::ProposalResponse2(ref proposal),
-            )) => option_epoch_from_block_number::<TYPES>(
-                self.upgrade_lock.epochs_enabled(view_number).await,
-                proposal.data.block_header.block_number(),
-                self.epoch_height,
-            ),
-            _ => message.kind.epoch(),
-        };
+        let epoch = message.kind.epoch();
         let committee_topic = Topic::Global;
         let da_committee = self
             .membership
