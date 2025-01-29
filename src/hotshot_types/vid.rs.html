@@ -312,6 +312,7 @@
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -372,9 +373,10 @@
 ///
 /// # Panics
 /// When the construction fails for the underlying VID scheme.
+</span><span class="comment">// TODO(Chengyu): move all things below to advz submodule.
 </span><span class="attr">#[must_use]
 #[memoize::memoize(SharedCache, Capacity: <span class="number">10</span>)]
-</span><span class="kw">pub fn </span>vid_scheme(num_storage_nodes: usize) -&gt; VidSchemeType {
+</span><span class="kw">pub fn </span>advz_scheme(num_storage_nodes: usize) -&gt; VidSchemeType {
     <span class="comment">// recovery_threshold is currently num_storage_nodes rounded down to a power of two
     // TODO recovery_threshold should be a function of the desired erasure code rate
     // https://github.com/EspressoSystems/HotShot/issues/2152

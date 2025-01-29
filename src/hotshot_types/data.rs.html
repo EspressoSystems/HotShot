@@ -1655,6 +1655,24 @@
 <a href="#1655" id="1655">1655</a>
 <a href="#1656" id="1656">1656</a>
 <a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
+<a href="#1660" id="1660">1660</a>
+<a href="#1661" id="1661">1661</a>
+<a href="#1662" id="1662">1662</a>
+<a href="#1663" id="1663">1663</a>
+<a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1681,6 +1699,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
+<span class="kw">use </span>vbs::version::Version;
 <span class="kw">use </span>vec1::Vec1;
 <span class="kw">use </span>vid_disperse::{ADVZDisperse, ADVZDisperseShare, VidDisperseShare2};
 
@@ -1920,12 +1939,13 @@
     /// # Errors
     /// Returns an error if the disperse or commitment calculation fails
     </span><span class="attr">#[allow(clippy::panic)]
-    </span><span class="kw">pub async fn </span>calculate_vid_disperse(
+    </span><span class="kw">pub async fn </span>calculate_vid_disperse&lt;V: Versions&gt;(
         payload: <span class="kw-2">&amp;</span>TYPES::BlockPayload,
         membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         view: TYPES::View,
         target_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         data_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+        _upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         ADVZDisperse::calculate_vid_disperse(payload, membership, view, target_epoch, data_epoch)
             .<span class="kw">await
@@ -2550,7 +2570,14 @@
         <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
         <span class="kw">let </span>payload_bytes = payload.encode();
 
-        <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        <span class="kw">let </span>genesis_view = TYPES::View::genesis();
+        <span class="kw">let </span>upgrade_lock = UpgradeLock::&lt;TYPES, V&gt;::new();
+        <span class="kw">let </span>genesis_version = upgrade_lock.version_infallible(genesis_view).<span class="kw">await</span>;
+        <span class="kw">let </span>payload_commitment = vid_commitment::&lt;V&gt;(
+            <span class="kw-2">&amp;</span>payload_bytes,
+            GENESIS_VID_NUM_STORAGE_NODES,
+            genesis_version,
+        );
 
         <span class="kw">let </span>block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -2567,13 +2594,13 @@
         <span class="kw">let </span>justify_qc = QuorumCertificate2::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            &lt;TYPES::View <span class="kw">as </span>ConsensusTime&gt;::genesis(),
+            genesis_view,
             <span class="prelude-val">None</span>,
             PhantomData,
         );
 
         <span class="self">Self </span>{
-            view_number: TYPES::View::genesis(),
+            view_number: genesis_view,
             justify_qc,
             next_epoch_justify_qc: <span class="prelude-val">None</span>,
             parent_commitment: null_quorum_data.leaf_commit,
@@ -2630,13 +2657,14 @@
     ///
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
     /// or if the transactions are of invalid length
-    </span><span class="kw">pub fn </span>fill_block_payload(
+    </span><span class="kw">pub fn </span>fill_block_payload&lt;V: Versions&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
+        version: Version,
     ) -&gt; std::result::Result&lt;(), BlockError&gt; {
         <span class="kw">let </span>encoded_txns = block_payload.encode();
-        <span class="kw">let </span>commitment = vid_commitment(<span class="kw-2">&amp;</span>encoded_txns, num_storage_nodes);
+        <span class="kw">let </span>commitment = vid_commitment::&lt;V&gt;(<span class="kw-2">&amp;</span>encoded_txns, num_storage_nodes, version);
         <span class="kw">if </span>commitment != <span class="self">self</span>.block_header.payload_commitment() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InconsistentPayloadCommitment);
         }
@@ -2825,7 +2853,7 @@
         <span class="kw">let </span>genesis_view = &lt;TYPES::View <span class="kw">as </span>ConsensusTime&gt;::genesis();
 
         <span class="kw">let </span>data = QuorumData {
-            leaf_commit: Leaf::genesis(validated_state, instance_state)
+            leaf_commit: Leaf::genesis::&lt;V&gt;(validated_state, instance_state)
                 .<span class="kw">await
                 </span>.commit(<span class="kw-2">&amp;</span>upgrade_lock)
                 .<span class="kw">await</span>,
@@ -2890,7 +2918,7 @@
     /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
     /// interpreted as bytes).
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub async fn </span>genesis(
+    </span><span class="kw">pub async fn </span>genesis&lt;V: Versions&gt;(
         validated_state: <span class="kw-2">&amp;</span>TYPES::ValidatedState,
         instance_state: <span class="kw-2">&amp;</span>TYPES::InstanceState,
     ) -&gt; <span class="self">Self </span>{
@@ -2901,7 +2929,14 @@
         <span class="kw">let </span>builder_commitment = payload.builder_commitment(<span class="kw-2">&amp;</span>metadata);
         <span class="kw">let </span>payload_bytes = payload.encode();
 
-        <span class="kw">let </span>payload_commitment = vid_commitment(<span class="kw-2">&amp;</span>payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        <span class="kw">let </span>genesis_view = TYPES::View::genesis();
+        <span class="kw">let </span>upgrade_lock = UpgradeLock::&lt;TYPES, V&gt;::new();
+        <span class="kw">let </span>genesis_version = upgrade_lock.version_infallible(genesis_view).<span class="kw">await</span>;
+        <span class="kw">let </span>payload_commitment = vid_commitment::&lt;V&gt;(
+            <span class="kw-2">&amp;</span>payload_bytes,
+            GENESIS_VID_NUM_STORAGE_NODES,
+            genesis_version,
+        );
 
         <span class="kw">let </span>block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -2917,13 +2952,13 @@
         <span class="kw">let </span>justify_qc = QuorumCertificate::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            &lt;TYPES::View <span class="kw">as </span>ConsensusTime&gt;::genesis(),
+            genesis_view,
             <span class="prelude-val">None</span>,
             PhantomData,
         );
 
         <span class="self">Self </span>{
-            view_number: TYPES::View::genesis(),
+            view_number: genesis_view,
             justify_qc,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: <span class="prelude-val">None</span>,
@@ -2969,13 +3004,14 @@
     ///
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
     /// or if the transactions are of invalid length
-    </span><span class="kw">pub fn </span>fill_block_payload(
+    </span><span class="kw">pub fn </span>fill_block_payload&lt;V: Versions&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
+        version: Version,
     ) -&gt; std::result::Result&lt;(), BlockError&gt; {
         <span class="kw">let </span>encoded_txns = block_payload.encode();
-        <span class="kw">let </span>commitment = vid_commitment(<span class="kw-2">&amp;</span>encoded_txns, num_storage_nodes);
+        <span class="kw">let </span>commitment = vid_commitment::&lt;V&gt;(<span class="kw-2">&amp;</span>encoded_txns, num_storage_nodes, version);
         <span class="kw">if </span>commitment != <span class="self">self</span>.block_header.payload_commitment() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(BlockError::InconsistentPayloadCommitment);
         }
@@ -3191,7 +3227,6 @@
     <span class="attr">#![allow(missing_docs)]
 
     </span><span class="kw">use </span>jf_vid::VidScheme;
-    <span class="kw">use </span>memoize::memoize;
     <span class="kw">use </span>vbs::version::StaticVersionType;
 
     <span class="kw">use crate</span>::{
@@ -3201,7 +3236,7 @@
             signature_key::BuilderSignatureKey,
             BlockPayload,
         },
-        vid::{vid_scheme, VidCommitment},
+        vid::{advz_scheme, VidCommitment},
     };
 
     <span class="doccomment">/// The commitment for a null block payload.
@@ -3210,10 +3245,11 @@
     /// and may change (albeit rarely) during execution.
     ///
     /// We memoize the result to avoid having to recalculate it.
-    </span><span class="attr">#[memoize(SharedCache, Capacity: <span class="number">10</span>)]
-    #[must_use]
-    </span><span class="kw">pub fn </span>commitment(num_storage_nodes: usize) -&gt; <span class="prelude-ty">Option</span>&lt;VidCommitment&gt; {
-        <span class="kw">let </span>vid_result = vid_scheme(num_storage_nodes).commit_only(Vec::new());
+    </span><span class="comment">// TODO(Chengyu): fix it. Empty commitment must be computed at every upgrade.
+    // #[memoize(SharedCache, Capacity: 10)]
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>commitment&lt;V: Versions&gt;(num_storage_nodes: usize) -&gt; <span class="prelude-ty">Option</span>&lt;VidCommitment&gt; {
+        <span class="kw">let </span>vid_result = advz_scheme(num_storage_nodes).commit_only(Vec::new());
 
         <span class="kw">match </span>vid_result {
             <span class="prelude-val">Ok</span>(r) =&gt; <span class="prelude-val">Some</span>(r),
@@ -3257,7 +3293,7 @@
                 <span class="kw-2">&amp;</span>priv_key,
                 FEE_AMOUNT,
                 <span class="kw-2">&amp;</span>null_block_metadata,
-                <span class="kw-2">&amp;</span>commitment(num_storage_nodes)<span class="question-mark">?</span>,
+                <span class="kw-2">&amp;</span>commitment::&lt;V&gt;(num_storage_nodes)<span class="question-mark">?</span>,
             ) {
                 <span class="prelude-val">Ok</span>(sig) =&gt; <span class="prelude-val">Some</span>(BuilderFee {
                     fee_amount: FEE_AMOUNT,

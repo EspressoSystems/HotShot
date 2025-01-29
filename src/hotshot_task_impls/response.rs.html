@@ -215,6 +215,15 @@
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -229,9 +238,11 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     traits::{
-        election::Membership, network::DataRequest, node_implementation::NodeType,
+        election::Membership,
+        network::DataRequest,
+        node_implementation::{NodeType, Versions},
         signature_key::SignatureKey,
     },
 };
@@ -246,7 +257,7 @@
 <span class="doccomment">/// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
 /// parse the request, and try to find the data request in the consensus stores.
-</span><span class="kw">pub struct </span>NetworkResponseState&lt;TYPES: NodeType&gt; {
+</span><span class="kw">pub struct </span>NetworkResponseState&lt;TYPES: NodeType, V: Versions&gt; {
     <span class="doccomment">/// Locked consensus state
     </span>consensus: LockedConsensusState&lt;TYPES&gt;,
 
@@ -261,9 +272,12 @@
 
     <span class="doccomment">/// The node's id
     </span>id: u64,
+
+    <span class="doccomment">/// Lock for a decided upgrade
+    </span>upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; NetworkResponseState&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, V: Versions&gt; NetworkResponseState&lt;TYPES, V&gt; {
     <span class="doccomment">/// Create the network request state with the info it needs
     </span><span class="kw">pub fn </span>new(
         consensus: LockedConsensusState&lt;TYPES&gt;,
@@ -271,6 +285,7 @@
         pub_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         id: u64,
+        upgrade_lock: UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             consensus,
@@ -278,6 +293,7 @@
             pub_key,
             private_key,
             id,
+            upgrade_lock,
         }
     }
 
@@ -372,22 +388,24 @@
 
         drop(consensus_reader);
 
-        <span class="kw">if </span>Consensus::calculate_and_update_vid(
+        <span class="kw">if </span>Consensus::calculate_and_update_vid::&lt;V&gt;(
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)),
             view,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
         )
         .<span class="kw">await
         </span>.is_none()
         {
             <span class="comment">// Sleep in hope we receive txns in the meantime
             </span>sleep(TXNS_TIMEOUT).<span class="kw">await</span>;
-            Consensus::calculate_and_update_vid(
+            Consensus::calculate_and_update_vid::&lt;V&gt;(
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)),
                 view,
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
             )
             .<span class="kw">await</span><span class="question-mark">?</span>;
         }
@@ -425,8 +443,8 @@
 <span class="doccomment">/// Spawn the network response task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
-</span><span class="kw">pub fn </span>run_response_task&lt;TYPES: NodeType&gt;(
-    task_state: NetworkResponseState&lt;TYPES&gt;,
+</span><span class="kw">pub fn </span>run_response_task&lt;TYPES: NodeType, V: Versions&gt;(
+    task_state: NetworkResponseState&lt;TYPES, V&gt;,
     event_stream: Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     sender: Sender&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
 ) -&gt; JoinHandle&lt;()&gt; {

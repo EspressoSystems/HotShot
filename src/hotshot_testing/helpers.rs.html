@@ -449,6 +449,19 @@
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -487,13 +500,14 @@
         node_implementation::{NodeType, Versions},
     },
     utils::{option_epoch_from_block_number, View, ViewInner},
-    vid::{vid_scheme, VidCommitment, VidProposal, VidSchemeType},
+    vid::{advz_scheme, VidCommitment, VidProposal, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
     ValidatorConfig,
 };
 <span class="kw">use </span>jf_vid::VidScheme;
 <span class="kw">use </span>primitive_types::U256;
 <span class="kw">use </span>serde::Serialize;
+<span class="kw">use </span>vbs::version::Version;
 
 <span class="kw">use crate</span>::{test_builder::TestDescription, test_launcher::TestLauncher};
 
@@ -721,67 +735,78 @@
 <span class="doccomment">/// initialize VID
 /// # Panics
 /// if unable to create a [`VidSchemeType`]
+/// TODO(Chengyu): use this version information
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub async fn </span>vid_scheme_from_view_number&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>vid_scheme_from_view_number&lt;TYPES: NodeType, V: Versions&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
     view_number: TYPES::View,
     epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+    _version: Version,
 ) -&gt; VidSchemeType {
     <span class="kw">let </span>num_storage_nodes = membership
         .read()
         .<span class="kw">await
         </span>.committee_members(view_number, epoch_number)
         .len();
-    vid_scheme(num_storage_nodes)
+    advz_scheme(num_storage_nodes)
 }
 
-<span class="kw">pub async fn </span>vid_payload_commitment&lt;TYPES: NodeType&gt;(
+<span class="kw">pub async fn </span>vid_payload_commitment&lt;TYPES: NodeType, V: Versions&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     view_number: TYPES::View,
     epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     transactions: Vec&lt;TestTransaction&gt;,
+    version: Version,
 ) -&gt; VidCommitment {
-    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(membership, view_number, epoch_number).<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>vid =
+        vid_scheme_from_view_number::&lt;TYPES, V&gt;(membership, view_number, epoch_number, version)
+            .<span class="kw">await</span>;
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
     <span class="kw">let </span>vid_disperse = vid.disperse(<span class="kw-2">&amp;</span>encoded_transactions).unwrap();
 
     vid_disperse.commit
 }
 
-<span class="kw">pub async fn </span>da_payload_commitment&lt;TYPES: NodeType&gt;(
+<span class="kw">pub async fn </span>da_payload_commitment&lt;TYPES: NodeType, V: Versions&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     transactions: Vec&lt;TestTransaction&gt;,
     epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+    version: Version,
 ) -&gt; VidCommitment {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
-    vid_commitment(
+    vid_commitment::&lt;V&gt;(
         <span class="kw-2">&amp;</span>encoded_transactions,
         membership.read().<span class="kw">await</span>.total_nodes(epoch_number),
+        version,
     )
 }
 
-<span class="kw">pub async fn </span>build_payload_commitment&lt;TYPES: NodeType&gt;(
+<span class="kw">pub async fn </span>build_payload_commitment&lt;TYPES: NodeType, V: Versions&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     view: TYPES::View,
     epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+    version: Version,
 ) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
     <span class="comment">// Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(membership, view, epoch).<span class="kw">await</span>;
+    </span><span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES, V&gt;(membership, view, epoch, version).<span class="kw">await</span>;
     <span class="kw">let </span>encoded_transactions = Vec::new();
     vid.commit_only(<span class="kw-2">&amp;</span>encoded_transactions).unwrap()
 }
 
 <span class="doccomment">/// TODO: &lt;https://github.com/EspressoSystems/HotShot/issues/2821&gt;
-</span><span class="kw">pub async fn </span>build_vid_proposal&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub async fn </span>build_vid_proposal&lt;TYPES: NodeType, V: Versions&gt;(
     membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     view_number: TYPES::View,
     epoch_number: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     transactions: Vec&lt;TestTransaction&gt;,
     private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    version: Version,
 ) -&gt; VidProposal&lt;TYPES&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>vid = vid_scheme_from_view_number::&lt;TYPES&gt;(membership, view_number, epoch_number).<span class="kw">await</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>vid =
+        vid_scheme_from_view_number::&lt;TYPES, V&gt;(membership, view_number, epoch_number, version)
+            .<span class="kw">await</span>;
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
     <span class="kw">let </span>vid_disperse = VidDisperse::from_membership(
@@ -828,9 +853,10 @@
 ) -&gt; DaCertificate2&lt;TYPES&gt; {
     <span class="kw">let </span>encoded_transactions = TestTransaction::encode(<span class="kw-2">&amp;</span>transactions);
 
-    <span class="kw">let </span>da_payload_commitment = vid_commitment(
+    <span class="kw">let </span>da_payload_commitment = vid_commitment::&lt;V&gt;(
         <span class="kw-2">&amp;</span>encoded_transactions,
         membership.read().<span class="kw">await</span>.total_nodes(epoch_number),
+        upgrade_lock.version_infallible(view_number).<span class="kw">await</span>,
     );
 
     <span class="kw">let </span>da_data = DaData2 {

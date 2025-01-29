@@ -609,6 +609,19 @@
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -711,16 +724,23 @@
 
         <span class="kw">let </span>leader_public_key = public_key;
 
-        <span class="kw">let </span>payload_commitment =
-            da_payload_commitment::&lt;TestTypes&gt;(membership, transactions.clone(), genesis_epoch)
-                .<span class="kw">await</span>;
+        <span class="kw">let </span>genesis_version = upgrade_lock.version_infallible(genesis_view).<span class="kw">await</span>;
 
-        <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
+        <span class="kw">let </span>payload_commitment = da_payload_commitment::&lt;TestTypes, TestVersions&gt;(
+            membership,
+            transactions.clone(),
+            genesis_epoch,
+            genesis_version,
+        )
+        .<span class="kw">await</span>;
+
+        <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal::&lt;TestTypes, TestVersions&gt;(
             membership,
             genesis_view,
             genesis_epoch,
             transactions.clone(),
             <span class="kw-2">&amp;</span>private_key,
+            genesis_version,
         )
         .<span class="kw">await</span>;
 
@@ -859,16 +879,22 @@
             <span class="kw-2">&amp;</span>metadata,
         );
 
-        <span class="kw">let </span>payload_commitment =
-            da_payload_commitment::&lt;TestTypes&gt;(membership, transactions.clone(), <span class="self">self</span>.epoch_number)
-                .<span class="kw">await</span>;
+        <span class="kw">let </span>version = <span class="self">self</span>.upgrade_lock.version_infallible(next_view).<span class="kw">await</span>;
+        <span class="kw">let </span>payload_commitment = da_payload_commitment::&lt;TestTypes, TestVersions&gt;(
+            membership,
+            transactions.clone(),
+            <span class="self">self</span>.epoch_number,
+            version,
+        )
+        .<span class="kw">await</span>;
 
-        <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal(
+        <span class="kw">let </span>(vid_disperse, vid_proposal) = build_vid_proposal::&lt;TestTypes, TestVersions&gt;(
             membership,
             next_view,
             <span class="self">self</span>.epoch_number,
             transactions.clone(),
             <span class="kw-2">&amp;</span>private_key,
+            version,
         )
         .<span class="kw">await</span>;
 

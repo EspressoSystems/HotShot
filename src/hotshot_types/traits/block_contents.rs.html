@@ -233,6 +233,12 @@
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -261,9 +267,13 @@
 <span class="kw">use </span><span class="kw">super</span>::signature_key::BuilderSignatureKey;
 <span class="kw">use crate</span>::{
     data::Leaf2,
-    traits::{node_implementation::NodeType, states::InstanceState, ValidatedState},
+    traits::{
+        node_implementation::{NodeType, Versions},
+        states::InstanceState,
+        ValidatedState,
+    },
     utils::BuilderCommitment,
-    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType},
+    vid::{advz_scheme, VidCommitment, VidCommon, VidSchemeType},
 };
 
 <span class="doccomment">/// Trait for structures that need to be unambiguously encoded as bytes.
@@ -376,16 +386,18 @@
 
 <span class="doccomment">/// Compute the VID payload commitment.
 /// TODO(Gus) delete this function?
+/// TODO(Chengyu): use the version information
 /// # Panics
 /// If the VID computation fails.
 </span><span class="attr">#[must_use]
 #[allow(clippy::panic)]
-</span><span class="kw">pub fn </span>vid_commitment(
+</span><span class="kw">pub fn </span>vid_commitment&lt;V: Versions&gt;(
     encoded_transactions: <span class="kw-2">&amp;</span>[u8],
     num_storage_nodes: usize,
+    _version: Version,
 ) -&gt; &lt;VidSchemeType <span class="kw">as </span>VidScheme&gt;::Commit {
     <span class="kw">let </span>encoded_tx_len = encoded_transactions.len();
-    vid_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"</span>))
+    advz_scheme(num_storage_nodes).commit_only(encoded_transactions).unwrap_or_else(|err| <span class="macro">panic!</span>(<span class="string">"VidScheme::commit_only failure:(num_storage_nodes,payload_byte_len)=({num_storage_nodes},{encoded_tx_len}) error: {err}"</span>))
 }
 
 <span class="doccomment">/// The number of storage nodes to use when computing the genesis VID commitment.

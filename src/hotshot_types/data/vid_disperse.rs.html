@@ -443,7 +443,7 @@
         block_contents::EncodeBytes, election::Membership, node_implementation::NodeType,
         signature_key::SignatureKey,
     },
-    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
+    vid::{advz_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::HasViewNumber,
 };
 <span class="kw">use </span>async_lock::RwLock;
@@ -530,7 +530,7 @@
         <span class="kw">let </span>txns_clone = Arc::clone(<span class="kw-2">&amp;</span>txns);
         <span class="kw">let </span>num_txns = txns.len();
 
-        <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| vid_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns_clone))
+        <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| advz_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns_clone))
             .<span class="kw">await
             </span>.wrap()
             .context(<span class="macro">error!</span>(<span class="string">"Join error"</span>))<span class="question-mark">?
@@ -543,7 +543,7 @@
             <span class="kw">let </span>num_nodes = membership.read().<span class="kw">await</span>.total_nodes(data_epoch);
 
             <span class="prelude-val">Some</span>(
-              spawn_blocking(<span class="kw">move </span>|| vid_scheme(num_nodes).commit_only(<span class="kw-2">&amp;</span>txns))
+              spawn_blocking(<span class="kw">move </span>|| advz_scheme(num_nodes).commit_only(<span class="kw-2">&amp;</span>txns))
                 .<span class="kw">await
                 </span>.wrap()
                 .context(<span class="macro">error!</span>(<span class="string">"Join error"</span>))<span class="question-mark">?
@@ -676,7 +676,7 @@
     /// Verification fail
     </span><span class="attr">#[allow(clippy::result_unit_err)]
     </span><span class="kw">pub fn </span>verify_share(<span class="kw-2">&amp;</span><span class="self">self</span>, total_nodes: usize) -&gt; std::result::Result&lt;(), ()&gt; {
-        vid_scheme(total_nodes)
+        advz_scheme(total_nodes)
             .verify_share(<span class="kw-2">&amp;</span><span class="self">self</span>.share, <span class="kw-2">&amp;</span><span class="self">self</span>.common, <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment)
             .unwrap_or(<span class="prelude-val">Err</span>(()))
     }
@@ -805,7 +805,7 @@
     /// # Errors
     </span><span class="attr">#[allow(clippy::result_unit_err)]
     </span><span class="kw">pub fn </span>verify_share(<span class="kw-2">&amp;</span><span class="self">self</span>, total_nodes: usize) -&gt; std::result::Result&lt;(), ()&gt; {
-        vid_scheme(total_nodes)
+        advz_scheme(total_nodes)
             .verify_share(<span class="kw-2">&amp;</span><span class="self">self</span>.share, <span class="kw-2">&amp;</span><span class="self">self</span>.common, <span class="kw-2">&amp;</span><span class="self">self</span>.payload_commitment)
             .unwrap_or(<span class="prelude-val">Err</span>(()))
     }

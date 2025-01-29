@@ -1108,6 +1108,13 @@
 <a href="#1108" id="1108">1108</a>
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1135,12 +1142,12 @@
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -2062,11 +2069,12 @@
     /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
     /// Returned `Option` indicates whether the update has actually happened or not.
     </span><span class="attr">#[instrument(skip_all, target = <span class="string">"Consensus"</span>, fields(view = <span class="kw-2">*</span>view))]
-    </span><span class="kw">pub async fn </span>calculate_and_update_vid(
+    </span><span class="kw">pub async fn </span>calculate_and_update_vid&lt;V: Versions&gt;(
         consensus: OuterConsensus&lt;TYPES&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
         membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
         <span class="kw">let </span>payload = Arc::clone(consensus.read().<span class="kw">await</span>.saved_payloads().get(<span class="kw-2">&amp;</span>view)<span class="question-mark">?</span>);
         <span class="kw">let </span>epoch = consensus
@@ -2077,10 +2085,16 @@
             </span>.view_inner
             .epoch()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>vid =
-            VidDisperse::calculate_vid_disperse(payload.as_ref(), <span class="kw-2">&amp;</span>membership, view, epoch, epoch)
-                .<span class="kw">await
-                </span>.ok()<span class="question-mark">?</span>;
+        <span class="kw">let </span>vid = VidDisperse::calculate_vid_disperse::&lt;V&gt;(
+            payload.as_ref(),
+            <span class="kw-2">&amp;</span>membership,
+            view,
+            epoch,
+            epoch,
+            upgrade_lock,
+        )
+        .<span class="kw">await
+        </span>.ok()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid);
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;

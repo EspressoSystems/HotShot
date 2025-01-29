@@ -264,6 +264,8 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -365,12 +367,13 @@
                     </span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-                <span class="kw">let </span>vid_disperse = VidDisperse::calculate_vid_disperse(
+                <span class="kw">let </span>vid_disperse = VidDisperse::calculate_vid_disperse::&lt;V&gt;(
                     <span class="kw-2">&amp;</span>payload,
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     <span class="kw-2">*</span>view_number,
                     epoch,
                     epoch,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                 )
                 .<span class="kw">await
                 </span>.ok()<span class="question-mark">?</span>;
@@ -469,12 +472,13 @@
                 <span class="kw">let </span>payload = Arc::clone(payload);
                 drop(consensus_reader);
 
-                <span class="kw">let </span>next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse(
+                <span class="kw">let </span>next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse::&lt;V&gt;(
                     payload.as_ref(),
                     <span class="kw-2">&amp;</span>Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                     proposal_view_number,
                     target_epoch,
                     sender_epoch,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                 )
                 .<span class="kw">await
                 </span>.ok()<span class="question-mark">?</span>;

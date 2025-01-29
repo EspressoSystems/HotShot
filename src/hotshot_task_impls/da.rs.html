@@ -392,6 +392,10 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -573,9 +577,11 @@
                 <span class="kw">let </span>num_nodes = membership_reader.total_nodes(epoch_number);
                 drop(membership_reader);
 
+                <span class="kw">let </span>version = <span class="self">self</span>.upgrade_lock.version_infallible(view_number).<span class="kw">await</span>;
+
                 <span class="kw">let </span>txns = Arc::clone(<span class="kw-2">&amp;</span>proposal.data.encoded_transactions);
                 <span class="kw">let </span>payload_commitment =
-                    spawn_blocking(<span class="kw">move </span>|| vid_commitment(<span class="kw-2">&amp;</span>txns, num_nodes)).<span class="kw">await</span>;
+                    spawn_blocking(<span class="kw">move </span>|| vid_commitment::&lt;V&gt;(<span class="kw-2">&amp;</span>txns, num_nodes, version)).<span class="kw">await</span>;
                 <span class="kw">let </span>payload_commitment = payload_commitment.unwrap();
 
                 <span class="self">self</span>.storage
@@ -627,12 +633,14 @@
                     <span class="kw">let </span>pk = <span class="self">self</span>.private_key.clone();
                     <span class="kw">let </span>public_key = <span class="self">self</span>.public_key.clone();
                     <span class="kw">let </span>chan = event_stream.clone();
+                    <span class="kw">let </span>upgrade_lock = <span class="self">self</span>.upgrade_lock.clone();
                     spawn(<span class="kw">async move </span>{
-                        Consensus::calculate_and_update_vid(
+                        Consensus::calculate_and_update_vid::&lt;V&gt;(
                             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span>consensus.inner_consensus)),
                             view_number,
                             membership,
                             <span class="kw-2">&amp;</span>pk,
+                            <span class="kw-2">&amp;</span>upgrade_lock,
                         )
                         .<span class="kw">await</span>;
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus

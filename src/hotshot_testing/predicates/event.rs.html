@@ -282,6 +282,10 @@
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -295,7 +299,10 @@
 <span class="kw">use </span>hotshot_task_impls::events::{HotShotEvent, HotShotEvent::<span class="kw-2">*</span>};
 <span class="kw">use </span>hotshot_types::{
     data::null_block,
-    traits::{block_contents::BlockHeader, node_implementation::NodeType},
+    traits::{
+        block_contents::BlockHeader,
+        node_implementation::{NodeType, Versions},
+    },
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::predicates::{Predicate, PredicateResult};
@@ -486,18 +493,19 @@
     Box::new(EventPredicate { check, info })
 }
 
-<span class="kw">pub fn </span>quorum_proposal_send_with_null_block&lt;TYPES&gt;(
+<span class="kw">pub fn </span>quorum_proposal_send_with_null_block&lt;TYPES, V&gt;(
     num_storage_nodes: usize,
 ) -&gt; Box&lt;EventPredicate&lt;TYPES&gt;&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
+    V: Versions,
 {
     <span class="kw">let </span>info = <span class="string">"QuorumProposalSend with null block payload"</span>.to_string();
     <span class="kw">let </span>check: EventCallback&lt;TYPES&gt; =
         Arc::new(<span class="kw">move </span>|e: Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;| <span class="kw">match </span>e.as_ref() {
             QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="prelude-val">Some</span>(proposal.data.block_header().payload_commitment())
-                    == null_block::commitment(num_storage_nodes)
+                    == null_block::commitment::&lt;V&gt;(num_storage_nodes)
             }
             <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
         });

@@ -343,6 +343,13 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -370,10 +377,13 @@
     builder::BuildError,
     data_source::BuilderDataSource,
 };
-<span class="kw">use </span>hotshot_example_types::block_types::TestTransaction;
+<span class="kw">use </span>hotshot_example_types::{block_types::TestTransaction, node_types::TestVersions};
 <span class="kw">use </span>hotshot_types::{
     network::RandomBuilderConfig,
-    traits::{node_implementation::NodeType, signature_key::BuilderSignatureKey},
+    traits::{
+        node_implementation::{NodeType, Versions},
+        signature_key::BuilderSignatureKey,
+    },
     utils::BuilderCommitment,
     vid::VidCommitment,
 };
@@ -381,6 +391,7 @@
 <span class="kw">use </span>rand::{rngs::SmallRng, Rng, RngCore, SeedableRng};
 <span class="kw">use </span>tide_disco::{method::ReadState, Url};
 <span class="kw">use </span>tokio::{spawn, time::sleep};
+<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use super</span>::{
     build_block, run_builder_source_0_1, BlockEntry, BuilderTask, TestBuilderImplementation,
@@ -455,7 +466,7 @@
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&lt;Transaction = TestTransaction&gt;&gt; RandomBuilderTask&lt;TYPES&gt; {
-    <span class="kw">async fn </span>build_blocks(
+    <span class="kw">async fn </span>build_blocks&lt;V: Versions&gt;(
         options: RandomBuilderConfig,
         num_nodes: Arc&lt;RwLock&lt;usize&gt;&gt;,
         pub_key: &lt;TYPES <span class="kw">as </span>NodeType&gt;::BuilderSignatureKey,
@@ -481,11 +492,14 @@
                 })
                 .collect();
 
-            <span class="kw">let </span>block = build_block(
+            <span class="comment">// Let new VID scheme ship with Epochs upgrade.
+            </span><span class="kw">let </span>version = &lt;V <span class="kw">as </span>Versions&gt;::Epochs::VERSION;
+            <span class="kw">let </span>block = build_block::&lt;TYPES, V&gt;(
                 transactions,
                 num_nodes.clone(),
                 pub_key.clone(),
                 priv_key.clone(),
+                version,
             )
             .<span class="kw">await</span>;
 
@@ -516,7 +530,7 @@
         <span class="kw-2">mut </span><span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;,
         <span class="kw-2">mut </span>stream: Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&lt;TYPES&gt;&gt; + std::marker::Unpin + Send + <span class="lifetime">'static</span>&gt;,
     ) {
-        <span class="kw">let </span><span class="kw-2">mut </span>task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks(
+        <span class="kw">let </span><span class="kw-2">mut </span>task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks::&lt;TestVersions&gt;(
             <span class="self">self</span>.config.clone(),
             <span class="self">self</span>.num_nodes.clone(),
             <span class="self">self</span>.pub_key.clone(),
@@ -536,7 +550,7 @@
                                 <span class="kw">match </span>change {
                                     BuilderChange::Up =&gt; {
                                         <span class="kw">if </span>task.is_none() {
-                                            task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks(
+                                            task = <span class="prelude-val">Some</span>(spawn(<span class="self">Self</span>::build_blocks::&lt;TestVersions&gt;(
                                                 <span class="self">self</span>.config.clone(),
                                                 <span class="self">self</span>.num_nodes.clone(),
                                                 <span class="self">self</span>.pub_key.clone(),
