@@ -182,7 +182,7 @@ impl<
     > ConsistencyTask<TYPES, I, V>
 {
     pub async fn validate(&self) -> Result<()> {
-        let sanitized_network_map = self.sanitize_network_map(&self.consensus_leaves).await?;
+        let sanitized_network_map = self.sanitize_network_map().await?;
 
         let inverted_map = invert_network_map::<TYPES, V>(&sanitized_network_map).await?;
 
@@ -256,9 +256,7 @@ impl<
     }
 
     /// Validate that each node has only produced one unique leaf per view, and produce a `NetworkMapSanitized`.
-    async fn sanitize_network_map(
-        &self,
-    ) -> Result<NetworkMapSanitized<TYPES>> {
+    async fn sanitize_network_map(&self) -> Result<NetworkMapSanitized<TYPES>> {
         let mut result = BTreeMap::new();
 
         for (node, node_map) in self.consensus_leaves.iter() {
