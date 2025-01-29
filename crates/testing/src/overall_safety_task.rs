@@ -160,18 +160,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
             ..
         }: OverallSafetyPropertiesDescription<TYPES> = self.properties.clone();
         let Event { view_number, event } = message;
-        tracing::error!(
-            "lrzasik: handle_event, view_number: {:?}, current epoch {:?}, event: {:?}, id {:?}",
-            view_number,
-            self.handles.read().await[id]
-                .handle
-                .consensus()
-                .read()
-                .await
-                .cur_epoch(),
-            event,
-            id
-        );
         let keys: Option<Vec<_>> = match event {
             EventType::Error { error } => {
                 let cur_epoch = self.handles.read().await[id]
@@ -284,7 +272,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
         };
 
         if let Some(keys) = keys {
-            tracing::error!("lrzasik: handle_event, keys {:?}", keys);
             for key in keys {
                 let key_epoch = key.epoch(self.epoch_height);
                 let memberships_reader = memberships_arc.read().await;
@@ -307,11 +294,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                         self.ctx.successful_views.insert(key_view_number);
                         // if a view succeeds remove it from the failed views
                         self.ctx.failed_views.remove(&key_view_number);
-                        tracing::error!(
-                            "lrzasik: handle_event, successful views count {:?}, view {:?}",
-                            self.ctx.successful_views.len(),
-                            key_view_number
-                        );
                         if self.ctx.successful_views.len() >= num_successful_views {
                             let _ = self.test_sender.broadcast(TestEvent::Shutdown).await;
                         }
@@ -325,24 +307,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                         self.error = Some(Box::new(e));
                         return Ok(());
                     }
-                    ViewStatus::InProgress => {
-                        tracing::error!(
-                            "lrzasik: handle_event, view decided by node {:?}, view {:?}",
-                            id,
-                            key_view_number
-                        );
-                    }
+                    ViewStatus::InProgress => {}
                 }
             }
         } else {
             let Some(view) = self.ctx.round_results.get_mut(&view_number) else {
                 return Ok(());
             };
-            tracing::error!(
-                "lrzasik: handle_event, view failed by node {:?}, view {:?}",
-                id,
-                view_number
-            );
             let cur_epoch = self.handles.read().await[id]
                 .handle
                 .consensus()
@@ -359,11 +330,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                 view.status = ViewStatus::Failed;
                 self.handle_view_failure(num_failed_views, view_number)
                     .await;
-                tracing::error!(
-                    "lrzasik: failed views count: {}, view {:?}",
-                    self.ctx.failed_views.len(),
-                    view_number
-                );
             }
         }
         Ok(())
