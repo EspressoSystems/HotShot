@@ -502,14 +502,6 @@
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -519,9 +511,8 @@
 </span><span class="doccomment">//! Networking Implementation that has a primary and a fallback network.  If the primary
 //! Errors we will use the backup to send or receive
 </span><span class="kw">use </span>std::{
-    collections::{hash_map::DefaultHasher, BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap},
     future::Future,
-    hash::{Hash, Hasher},
     num::NonZeroUsize,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -559,13 +550,6 @@
 <span class="kw">use super</span>::{push_cdn_network::PushCdnNetwork, NetworkError};
 <span class="kw">use </span><span class="kw">crate</span>::traits::implementations::Libp2pNetwork;
 
-<span class="doccomment">/// Helper function to calculate a hash of a type that implements Hash
-</span><span class="kw">pub fn </span>calculate_hash_of&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {
-    <span class="kw">let </span><span class="kw-2">mut </span>s = DefaultHasher::new();
-    t.hash(<span class="kw-2">&amp;mut </span>s);
-    s.finish()
-}
-
 <span class="doccomment">/// Thread-safe ref counted lock to a map of channels to the delayed tasks
 </span><span class="kw">type </span>DelayedTasksChannelsMap = Arc&lt;RwLock&lt;BTreeMap&lt;u64, (Sender&lt;()&gt;, InactiveReceiver&lt;()&gt;)&gt;&gt;&gt;;
 
@@ -577,7 +561,7 @@
     </span>networks: Arc&lt;UnderlyingCombinedNetworks&lt;TYPES&gt;&gt;,
 
     <span class="doccomment">/// Last n seen messages to prevent processing duplicates
-    </span>message_cache: Arc&lt;PlRwLock&lt;LruCache&lt;u64, ()&gt;&gt;&gt;,
+    </span>message_cache: Arc&lt;PlRwLock&lt;LruCache&lt;blake3::Hash, ()&gt;&gt;&gt;,
 
     <span class="doccomment">/// How many times primary failed to deliver
     </span>primary_fail_counter: Arc&lt;AtomicU64&gt;,
@@ -969,7 +953,7 @@
             };
 
             <span class="comment">// Calculate hash of the message
-            </span><span class="kw">let </span>message_hash = calculate_hash_of(<span class="kw-2">&amp;</span>message);
+            </span><span class="kw">let </span>message_hash = blake3::hash(<span class="kw-2">&amp;</span>message);
 
             <span class="comment">// Check if the hash is in the cache and update the cache
             </span><span class="kw">if </span><span class="self">self</span>.message_cache.write().put(message_hash, ()).is_none() {

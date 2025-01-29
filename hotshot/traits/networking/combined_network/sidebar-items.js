@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["calculate_hash_of"],"struct":["CombinedNetworks","UnderlyingCombinedNetworks"],"type":["DelayedTasksChannelsMap"]};
+window.SIDEBAR_ITEMS = {"struct":["CombinedNetworks","UnderlyingCombinedNetworks"],"type":["DelayedTasksChannelsMap"]};
