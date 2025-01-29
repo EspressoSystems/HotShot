@@ -228,7 +228,7 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
-    data::VidDisperseShare2,
+    data::VidDisperseShare,
     message::Proposal,
     traits::{
         election::Membership, network::DataRequest, node_implementation::NodeType,
@@ -362,7 +362,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::View,
         key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(view) = consensus_reader.vid_shares().get(<span class="kw-2">&amp;</span>view) {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(share) = view.get(key) {

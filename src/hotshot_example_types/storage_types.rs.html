@@ -375,6 +375,7 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -392,8 +393,9 @@
 <span class="kw">use </span>hotshot_types::{
     consensus::CommitmentMap,
     data::{
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
-        QuorumProposalWrapper, VidDisperseShare, VidDisperseShare2,
+        QuorumProposalWrapper,
     },
     event::HotShotAction,
     message::Proposal,
@@ -412,7 +414,7 @@
 
 <span class="kw">type </span>VidShares&lt;TYPES&gt; = BTreeMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
-    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
+    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, ADVZDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
 <span class="kw">type </span>VidShares2&lt;TYPES&gt; = BTreeMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
@@ -518,7 +520,7 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; Storage&lt;TYPES&gt; <span class="kw">for </span>TestStorage&lt;TYPES&gt; {
-    <span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, ADVZDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
             <span class="macro">bail!</span>(<span class="string">"Failed to append VID proposal to storage"</span>);
         }

@@ -216,7 +216,7 @@
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
-    data::{DaProposal2, Leaf2, QuorumProposalWrapper, UpgradeProposal, VidDisperseShare2},
+    data::{DaProposal2, Leaf2, QuorumProposalWrapper, UpgradeProposal, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::QuorumCertificate2,
@@ -247,7 +247,7 @@
     <span class="doccomment">/// Optional application-specific state delta.
     </span><span class="kw">pub </span>delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
     <span class="doccomment">/// Optional VID share data.
-    </span><span class="kw">pub </span>vid_share: <span class="prelude-ty">Option</span>&lt;VidDisperseShare2&lt;TYPES&gt;&gt;,
+    </span><span class="kw">pub </span>vid_share: <span class="prelude-ty">Option</span>&lt;VidDisperseShare&lt;TYPES&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; LeafInfo&lt;TYPES&gt; {
@@ -256,7 +256,7 @@
         leaf: Leaf2&lt;TYPES&gt;,
         state: Arc&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState&gt;,
         delta: <span class="prelude-ty">Option</span>&lt;Arc&lt;&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::ValidatedState <span class="kw">as </span>ValidatedState&lt;TYPES&gt;&gt;::Delta&gt;&gt;,
-        vid_share: <span class="prelude-ty">Option</span>&lt;VidDisperseShare2&lt;TYPES&gt;&gt;,
+        vid_share: <span class="prelude-ty">Option</span>&lt;VidDisperseShare&lt;TYPES&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             leaf,

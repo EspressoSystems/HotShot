@@ -138,6 +138,8 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -160,8 +162,9 @@
 <span class="kw">use crate</span>::{
     consensus::{CommitmentMap, View},
     data::{
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
-        QuorumProposalWrapper, VidDisperseShare, VidDisperseShare2,
+        QuorumProposalWrapper,
     },
     event::HotShotAction,
     message::{convert_proposal, Proposal},
@@ -175,8 +178,9 @@
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>Storage&lt;TYPES: NodeType&gt;: Send + Sync + Clone {
     <span class="doccomment">/// Add a proposal to the stored VID proposals.
-    </span><span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">async fn </span>append_vid(<span class="kw-2">&amp;</span><span class="self">self</span>, proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, ADVZDisperseShare&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Add a proposal to the stored VID proposals.
+    /// TODO(Chengyu): change here because in the future disperse share types might not be convertible.
     </span><span class="kw">async fn </span>append_vid2(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         proposal: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,

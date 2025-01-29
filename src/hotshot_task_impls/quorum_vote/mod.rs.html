@@ -791,17 +791,6 @@
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -825,6 +814,7 @@
     drb::DrbComputation,
     event::Event,
     message::{Proposal, UpgradeLock},
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -833,10 +823,8 @@
         storage::Storage,
     },
     utils::{epoch_from_block_number, option_epoch_from_block_number},
-    vid::vid_scheme,
     vote::{Certificate, HasViewNumber},
 };
-<span class="kw">use </span>jf_vid::VidScheme;
 <span class="kw">use </span>tokio::task::JoinHandle;
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
@@ -980,13 +968,10 @@
                     }
                 }
                 HotShotEvent::VidShareValidated(share) =&gt; {
-                    <span class="kw">let </span>vid_payload_commitment = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>data_epoch_payload_commitment) =
-                        share.data.data_epoch_payload_commitment
-                    {
-                        data_epoch_payload_commitment
-                    } <span class="kw">else </span>{
-                        <span class="kw-2">&amp;</span>share.data.payload_commitment
-                    };
+                    <span class="kw">let </span>vid_payload_commitment = <span class="kw-2">&amp;</span>share
+                        .data
+                        .data_epoch_payload_commitment()
+                        .unwrap_or(share.data.payload_commitment());
                     vid_share = <span class="prelude-val">Some</span>(share.clone());
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>comm) = payload_commitment {
                         <span class="kw">if </span>vid_payload_commitment != comm {
@@ -1157,7 +1142,7 @@
                     }
                     VoteDependency::Vid =&gt; {
                         <span class="kw">if let </span>HotShotEvent::VidShareValidated(disperse) = event {
-                            disperse.data.view_number
+                            disperse.data.view_number()
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
@@ -1367,8 +1352,8 @@
                     Arc::clone(<span class="kw-2">&amp;</span>event),
                 );
             }
-            HotShotEvent::VidShareRecv(sender, disperse) =&gt; {
-                <span class="kw">let </span>view = disperse.data.view_number();
+            HotShotEvent::VidShareRecv(sender, share) =&gt; {
+                <span class="kw">let </span>view = share.data.view_number();
                 <span class="comment">// Do nothing if the VID share is old
                 </span><span class="macro">tracing::trace!</span>(<span class="string">"Received VID share for view {}"</span>, <span class="kw-2">*</span>view);
                 <span class="macro">ensure!</span>(
@@ -1377,16 +1362,16 @@
                 </span>);
 
                 <span class="comment">// Validate the VID share.
-                </span><span class="kw">let </span>payload_commitment = <span class="kw-2">&amp;</span>disperse.data.payload_commitment;
+                </span><span class="kw">let </span>payload_commitment = share.data.payload_commitment_ref();
 
                 <span class="comment">// Check that the signature is valid
                 </span><span class="macro">ensure!</span>(
-                    sender.validate(<span class="kw-2">&amp;</span>disperse.signature, payload_commitment.as_ref()),
+                    sender.validate(<span class="kw-2">&amp;</span>share.signature, payload_commitment.as_ref()),
                     <span class="string">"VID share signature is invalid"
                 </span>);
 
-                <span class="kw">let </span>vid_epoch = disperse.data.epoch;
-                <span class="kw">let </span>target_epoch = disperse.data.target_epoch;
+                <span class="kw">let </span>vid_epoch = share.data.epoch();
+                <span class="kw">let </span>target_epoch = share.data.target_epoch();
                 <span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
                 <span class="comment">// ensure that the VID share was sent by a DA member OR the view leader
                 </span><span class="macro">ensure!</span>(
@@ -1400,31 +1385,22 @@
                 <span class="kw">let </span>membership_total_nodes = membership_reader.total_nodes(target_epoch);
                 drop(membership_reader);
 
-                <span class="comment">// NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
-                // and outer results
-                </span><span class="kw">match </span>vid_scheme(membership_total_nodes).verify_share(
-                    <span class="kw-2">&amp;</span>disperse.data.share,
-                    <span class="kw-2">&amp;</span>disperse.data.common,
-                    payload_commitment,
-                ) {
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(())) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                        <span class="macro">bail!</span>(<span class="string">"Failed to verify VID share"</span>);
-                    }
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; {}
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(()) = share.data.verify_share(membership_total_nodes) {
+                    <span class="macro">bail!</span>(<span class="string">"Failed to verify VID share"</span>);
                 }
 
                 <span class="self">self</span>.consensus
                     .write()
                     .<span class="kw">await
-                    </span>.update_vid_shares(view, disperse.clone());
+                    </span>.update_vid_shares(view, share.clone());
 
                 <span class="macro">ensure!</span>(
-                    disperse.data.recipient_key == <span class="self">self</span>.public_key,
+                    <span class="kw-2">*</span>share.data.recipient_key() == <span class="self">self</span>.public_key,
                     <span class="string">"Got a Valid VID share but it's not for our key"
                 </span>);
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::VidShareValidated(disperse.clone())),
+                    Arc::new(HotShotEvent::VidShareValidated(share.clone())),
                     <span class="kw-2">&amp;</span>event_sender.clone(),
                 )
                 .<span class="kw">await</span>;
@@ -1497,8 +1473,10 @@
         </span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>updated_vid = vid.clone();
-        updated_vid.data.view_number = proposal.data.view_number();
-        consensus_writer.update_vid_shares(updated_vid.data.view_number, updated_vid.clone());
+        updated_vid
+            .data
+            .set_view_number(proposal.data.view_number());
+        consensus_writer.update_vid_shares(updated_vid.data.view_number(), updated_vid.clone());
 
         drop(consensus_writer);
 

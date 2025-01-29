@@ -264,7 +264,6 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -279,7 +278,7 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{PackedBundle, VidDisperse, VidDisperseShare2},
+    data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::{Proposal, UpgradeLock},
     traits::{
         block_contents::BlockHeader,
@@ -375,12 +374,12 @@
                 )
                 .<span class="kw">await
                 </span>.ok()<span class="question-mark">?</span>;
-                <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment;
-                <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid_disperse.clone());
+                <span class="kw">let </span>payload_commitment = vid_disperse.payload_commitment();
+                <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid_disperse.clone());
                 <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
                 <span class="kw">for </span>share <span class="kw">in </span>shares {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(disperse) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) {
-                        consensus_writer.update_vid_shares(<span class="kw-2">*</span>view_number, disperse);
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(share) = share.to_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key) {
+                        consensus_writer.update_vid_shares(<span class="kw-2">*</span>view_number, share);
                     }
                 }
                 drop(consensus_writer);
@@ -400,10 +399,9 @@
                 .<span class="kw">await</span>;
 
                 <span class="kw">let </span>view_number = <span class="kw-2">*</span>view_number;
-                <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                    vid_disperse.payload_commitment.as_ref(),
-                ) <span class="kw">else </span>{
+                <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
+                    TYPES::SignatureKey::sign(<span class="kw-2">&amp;</span><span class="self">self</span>.private_key, payload_commitment.as_ref())
+                <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">"VID: failed to sign dispersal payload"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
@@ -415,7 +413,7 @@
                     Arc::new(HotShotEvent::VidDisperseSend(
                         Proposal {
                             signature,
-                            data: vid_disperse.clone(),
+                            data: vid_disperse,
                             _pd: PhantomData,
                         },
                         <span class="self">self</span>.public_key.clone(),
@@ -482,7 +480,7 @@
                 </span>.ok()<span class="question-mark">?</span>;
                 <span class="kw">let </span><span class="prelude-val">Ok</span>(next_epoch_signature) = TYPES::SignatureKey::sign(
                     <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
-                    next_epoch_vid_disperse.payload_commitment.as_ref(),
+                    next_epoch_vid_disperse.payload_commitment().as_ref(),
                 ) <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">"VID: failed to sign dispersal payload for the next epoch"</span>);
                     <span class="kw">return </span><span class="prelude-val">None</span>;

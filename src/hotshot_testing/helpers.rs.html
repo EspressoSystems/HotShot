@@ -477,7 +477,7 @@
 <span class="kw">use </span>hotshot_task_impls::events::HotShotEvent;
 <span class="kw">use </span>hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf2, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, VidDisperse, VidDisperseShare},
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate2,
     simple_vote::{DaData2, DaVote2, SimpleVote, VersionedVoteData},
@@ -637,12 +637,12 @@
 }
 
 <span class="kw">pub fn </span>vid_share&lt;TYPES: NodeType&gt;(
-    shares: <span class="kw-2">&amp;</span>[Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;],
+    shares: <span class="kw-2">&amp;</span>[Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;],
     pub_key: TYPES::SignatureKey,
-) -&gt; Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt; {
+) -&gt; Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt; {
     shares
         .iter()
-        .filter(|s| s.data.recipient_key == pub_key)
+        .filter(|s| <span class="kw-2">*</span>s.data.recipient_key() == pub_key)
         .cloned()
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
         .first()
@@ -795,7 +795,7 @@
     .<span class="kw">await</span>;
 
     <span class="kw">let </span>signature =
-        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment.as_ref())
+        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment().as_ref())
             .expect(<span class="string">"Failed to sign VID commitment"</span>);
     <span class="kw">let </span>vid_disperse_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -805,7 +805,7 @@
 
     (
         vid_disperse_proposal,
-        VidDisperseShare2::from_vid_disperse(vid_disperse)
+        VidDisperseShare::from_vid_disperse(vid_disperse)
             .into_iter()
             .map(|vid_disperse| {
                 vid_disperse

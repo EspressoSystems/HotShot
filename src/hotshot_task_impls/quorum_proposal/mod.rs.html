@@ -789,8 +789,8 @@
                         }
                     }
                     ProposalDependency::VidShare =&gt; {
-                        <span class="kw">if let </span>HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) = event {
-                            vid_share.data.view_number()
+                        <span class="kw">if let </span>HotShotEvent::VidDisperseSend(vid_disperse, <span class="kw">_</span>) = event {
+                            vid_disperse.data.view_number()
                         } <span class="kw">else </span>{
                             <span class="kw">return </span><span class="bool-val">false</span>;
                         }
@@ -1164,8 +1164,8 @@
                     <span class="string">"Failed to update latest proposed view"
                 </span>);
             }
-            HotShotEvent::VidDisperseSend(vid_share, <span class="kw">_</span>) =&gt; {
-                <span class="kw">let </span>view_number = vid_share.data.view_number();
+            HotShotEvent::VidDisperseSend(vid_disperse, <span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>view_number = vid_disperse.data.view_number();
                 <span class="self">self</span>.create_dependency_task_if_new(
                     view_number,
                     epoch_number,

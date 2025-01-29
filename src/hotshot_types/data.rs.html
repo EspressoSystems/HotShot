@@ -1655,101 +1655,6 @@
 <a href="#1655" id="1655">1655</a>
 <a href="#1656" id="1656">1656</a>
 <a href="#1657" id="1657">1657</a>
-<a href="#1658" id="1658">1658</a>
-<a href="#1659" id="1659">1659</a>
-<a href="#1660" id="1660">1660</a>
-<a href="#1661" id="1661">1661</a>
-<a href="#1662" id="1662">1662</a>
-<a href="#1663" id="1663">1663</a>
-<a href="#1664" id="1664">1664</a>
-<a href="#1665" id="1665">1665</a>
-<a href="#1666" id="1666">1666</a>
-<a href="#1667" id="1667">1667</a>
-<a href="#1668" id="1668">1668</a>
-<a href="#1669" id="1669">1669</a>
-<a href="#1670" id="1670">1670</a>
-<a href="#1671" id="1671">1671</a>
-<a href="#1672" id="1672">1672</a>
-<a href="#1673" id="1673">1673</a>
-<a href="#1674" id="1674">1674</a>
-<a href="#1675" id="1675">1675</a>
-<a href="#1676" id="1676">1676</a>
-<a href="#1677" id="1677">1677</a>
-<a href="#1678" id="1678">1678</a>
-<a href="#1679" id="1679">1679</a>
-<a href="#1680" id="1680">1680</a>
-<a href="#1681" id="1681">1681</a>
-<a href="#1682" id="1682">1682</a>
-<a href="#1683" id="1683">1683</a>
-<a href="#1684" id="1684">1684</a>
-<a href="#1685" id="1685">1685</a>
-<a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
-<a href="#1692" id="1692">1692</a>
-<a href="#1693" id="1693">1693</a>
-<a href="#1694" id="1694">1694</a>
-<a href="#1695" id="1695">1695</a>
-<a href="#1696" id="1696">1696</a>
-<a href="#1697" id="1697">1697</a>
-<a href="#1698" id="1698">1698</a>
-<a href="#1699" id="1699">1699</a>
-<a href="#1700" id="1700">1700</a>
-<a href="#1701" id="1701">1701</a>
-<a href="#1702" id="1702">1702</a>
-<a href="#1703" id="1703">1703</a>
-<a href="#1704" id="1704">1704</a>
-<a href="#1705" id="1705">1705</a>
-<a href="#1706" id="1706">1706</a>
-<a href="#1707" id="1707">1707</a>
-<a href="#1708" id="1708">1708</a>
-<a href="#1709" id="1709">1709</a>
-<a href="#1710" id="1710">1710</a>
-<a href="#1711" id="1711">1711</a>
-<a href="#1712" id="1712">1712</a>
-<a href="#1713" id="1713">1713</a>
-<a href="#1714" id="1714">1714</a>
-<a href="#1715" id="1715">1715</a>
-<a href="#1716" id="1716">1716</a>
-<a href="#1717" id="1717">1717</a>
-<a href="#1718" id="1718">1718</a>
-<a href="#1719" id="1719">1719</a>
-<a href="#1720" id="1720">1720</a>
-<a href="#1721" id="1721">1721</a>
-<a href="#1722" id="1722">1722</a>
-<a href="#1723" id="1723">1723</a>
-<a href="#1724" id="1724">1724</a>
-<a href="#1725" id="1725">1725</a>
-<a href="#1726" id="1726">1726</a>
-<a href="#1727" id="1727">1727</a>
-<a href="#1728" id="1728">1728</a>
-<a href="#1729" id="1729">1729</a>
-<a href="#1730" id="1730">1730</a>
-<a href="#1731" id="1731">1731</a>
-<a href="#1732" id="1732">1732</a>
-<a href="#1733" id="1733">1733</a>
-<a href="#1734" id="1734">1734</a>
-<a href="#1735" id="1735">1735</a>
-<a href="#1736" id="1736">1736</a>
-<a href="#1737" id="1737">1737</a>
-<a href="#1738" id="1738">1738</a>
-<a href="#1739" id="1739">1739</a>
-<a href="#1740" id="1740">1740</a>
-<a href="#1741" id="1741">1741</a>
-<a href="#1742" id="1742">1742</a>
-<a href="#1743" id="1743">1743</a>
-<a href="#1744" id="1744">1744</a>
-<a href="#1745" id="1745">1745</a>
-<a href="#1746" id="1746">1746</a>
-<a href="#1747" id="1747">1747</a>
-<a href="#1748" id="1748">1748</a>
-<a href="#1749" id="1749">1749</a>
-<a href="#1750" id="1750">1750</a>
-<a href="#1751" id="1751">1751</a>
-<a href="#1752" id="1752">1752</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1762,7 +1667,6 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 </span><span class="kw">use </span>std::{
-    collections::BTreeMap,
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
@@ -1772,18 +1676,18 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>committable::{Commitment, CommitmentBoundsArkless, Committable, RawCommitmentBuilder};
-<span class="kw">use </span>jf_vid::{VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
+<span class="kw">use </span>jf_vid::VidDisperse <span class="kw">as </span>JfVidDisperse;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>thiserror::Error;
-<span class="kw">use </span>tokio::task::spawn_blocking;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vec1::Vec1;
+<span class="kw">use </span>vid_disperse::{ADVZDisperse, ADVZDisperseShare, VidDisperseShare2};
 
 <span class="kw">use crate</span>::{
     drb::DrbResult,
     impl_has_epoch,
-    message::{Proposal, UpgradeLock},
+    message::{convert_proposal, Proposal, UpgradeLock},
     simple_certificate::{
         NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         TimeoutCertificate2, UpgradeCertificate, ViewSyncFinalizeCertificate,
@@ -1795,14 +1699,13 @@
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
             GENESIS_VID_NUM_STORAGE_NODES,
         },
-        election::Membership,
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         states::TestableState,
         BlockPayload,
     },
     utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number},
-    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
+    vid::{VidCommitment, VidCommon, VidSchemeType},
     vote::{Certificate, HasViewNumber},
 };
 
@@ -1948,27 +1851,42 @@
     </span><span class="kw">pub </span>view_number: TYPES::View,
 }
 
+<span class="kw">pub mod </span>vid_disperse;
+
 <span class="doccomment">/// VID dispersal data
 ///
 /// Like [`DaProposal`].
 ///
 /// TODO move to vid.rs?
 </span><span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-</span><span class="kw">pub struct </span>VidDisperse&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// The view number for which this VID data is intended
-    </span><span class="kw">pub </span>view_number: TYPES::View,
-    <span class="doccomment">/// Epoch the data of this proposal belongs to
-    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
-    <span class="doccomment">/// Epoch to which the recipients of this VID belong to
-    </span><span class="kw">pub </span>target_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
-    <span class="doccomment">/// VidCommitment calculated based on the number of nodes in `target_epoch`.
-    </span><span class="kw">pub </span>payload_commitment: VidCommitment,
-    <span class="doccomment">/// VidCommitment calculated based on the number of nodes in `epoch`. Needed during epoch transition.
-    </span><span class="kw">pub </span>data_epoch_payload_commitment: <span class="prelude-ty">Option</span>&lt;VidCommitment&gt;,
-    <span class="doccomment">/// A storage node's key and its corresponding VID share
-    </span><span class="kw">pub </span>shares: BTreeMap&lt;TYPES::SignatureKey, VidShare&gt;,
-    <span class="doccomment">/// VID common data sent to all storage nodes
-    </span><span class="kw">pub </span>common: VidCommon,
+#[serde(bound = <span class="string">"TYPES: NodeType"</span>)]
+</span><span class="kw">pub enum </span>VidDisperse&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// Disperse type for first VID version
+    </span>V0(vid_disperse::ADVZDisperse&lt;TYPES&gt;),
+    <span class="doccomment">/// Place holder for VID upgrade
+    </span>V1(vid_disperse::ADVZDisperse&lt;TYPES&gt;),
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;vid_disperse::ADVZDisperse&lt;TYPES&gt;&gt; <span class="kw">for </span>VidDisperse&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(disperse: vid_disperse::ADVZDisperse&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::V0(disperse)
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperse&lt;TYPES&gt; {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(disperse) | <span class="self">Self</span>::V1(disperse) =&gt; disperse.view_number(),
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasEpoch&lt;TYPES&gt; <span class="kw">for </span>VidDisperse&lt;TYPES&gt; {
+    <span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(disperse) | <span class="self">Self</span>::V1(disperse) =&gt; disperse.epoch(),
+        }
+    }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperse&lt;TYPES&gt; {
@@ -1977,29 +1895,23 @@
     /// Allows for more complex stake table functionality
     </span><span class="kw">pub async fn </span>from_membership(
         view_number: TYPES::View,
-        <span class="kw-2">mut </span>vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
+        vid_disperse: JfVidDisperse&lt;VidSchemeType&gt;,
         membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         target_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         data_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         data_epoch_payload_commitment: <span class="prelude-ty">Option</span>&lt;VidCommitment&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>shares = membership
-            .read()
-            .<span class="kw">await
-            </span>.committee_members(view_number, target_epoch)
-            .iter()
-            .map(|node| (node.clone(), vid_disperse.shares.remove(<span class="number">0</span>)))
-            .collect();
-
-        <span class="self">Self </span>{
-            view_number,
-            shares,
-            common: vid_disperse.common,
-            payload_commitment: vid_disperse.commit,
-            data_epoch_payload_commitment,
-            epoch: data_epoch,
-            target_epoch,
-        }
+        <span class="self">Self</span>::V0(
+            ADVZDisperse::from_membership(
+                view_number,
+                vid_disperse,
+                membership,
+                target_epoch,
+                data_epoch,
+                data_epoch_payload_commitment,
+            )
+            .<span class="kw">await</span>,
+        )
     }
 
     <span class="doccomment">/// Calculate the vid disperse information from the payload given a view, epoch and membership,
@@ -2015,43 +1927,225 @@
         target_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         data_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>num_nodes = membership.read().<span class="kw">await</span>.total_nodes(target_epoch);
-
-        <span class="kw">let </span>txns = payload.encode();
-        <span class="kw">let </span>txns_clone = Arc::clone(<span class="kw-2">&amp;</span>txns);
-        <span class="kw">let </span>num_txns = txns.len();
-
-        <span class="kw">let </span>vid_disperse = spawn_blocking(<span class="kw">move </span>|| vid_scheme(num_nodes).disperse(<span class="kw-2">&amp;</span>txns_clone))
+        ADVZDisperse::calculate_vid_disperse(payload, membership, view, target_epoch, data_epoch)
             .<span class="kw">await
-            </span>.wrap()
-            .context(<span class="macro">error!</span>(<span class="string">"Join error"</span>))<span class="question-mark">?
-            </span>.wrap()
-            .context(|err| <span class="macro">error!</span>(<span class="string">"Failed to calculate VID disperse. Error: {}"</span>, err))<span class="question-mark">?</span>;
+            </span>.map(|result| <span class="kw">match </span>data_epoch {
+                <span class="prelude-val">None </span>=&gt; <span class="self">Self</span>::V0(result),
+                <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="self">Self</span>::V1(result),
+            })
+    }
 
-        <span class="kw">let </span>payload_commitment = <span class="kw">if </span>target_epoch == data_epoch {
-            <span class="prelude-val">None
-        </span>} <span class="kw">else </span>{
-            <span class="kw">let </span>num_nodes = membership.read().<span class="kw">await</span>.total_nodes(data_epoch);
+    <span class="doccomment">/// Return a reference to the internal VidCommon field.
+    /// TODO(Chengyu): rewrite this after VID upgrade
+    </span><span class="kw">pub fn </span>vid_common_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VidCommon {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(disperse) | <span class="self">Self</span>::V1(disperse) =&gt; <span class="kw-2">&amp;</span>disperse.common,
+        }
+    }
 
-            <span class="prelude-val">Some</span>(
-              spawn_blocking(<span class="kw">move </span>|| vid_scheme(num_nodes).commit_only(<span class="kw-2">&amp;</span>txns))
-                .<span class="kw">await
-                </span>.wrap()
-                .context(<span class="macro">error!</span>(<span class="string">"Join error"</span>))<span class="question-mark">?
-                </span>.wrap()
-                .context(|err| <span class="macro">error!</span>(<span class="string">"Failed to calculate VID commitment with (num_storage_nodes, payload_byte_len) = ({}, {}). Error: {}"</span>, num_nodes, num_txns, err))<span class="question-mark">?
-            </span>)
+    <span class="doccomment">/// Return the internal payload commitment
+    /// TODO(Chengyu): rewrite this after VID upgrade
+    </span><span class="kw">pub fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(disperse) | <span class="self">Self</span>::V1(disperse) =&gt; disperse.payload_commitment,
+        }
+    }
+
+    <span class="doccomment">/// Unwrap self
+    /// TODO(Chengyu): remove this after VID upgrade
+    </span><span class="kw">pub fn </span>as_advz(<span class="self">self</span>) -&gt; ADVZDisperse&lt;TYPES&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(disperse) | <span class="self">Self</span>::V1(disperse) =&gt; disperse,
+        }
+    }
+
+    <span class="doccomment">/// Set the view number
+    </span><span class="kw">pub fn </span>set_view_number(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View) {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) | <span class="self">Self</span>::V1(share) =&gt; share.view_number = view_number,
+        }
+    }
+}
+
+<span class="doccomment">/// VID share and associated metadata for a single node
+</span><span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound = <span class="string">"TYPES: NodeType"</span>)]
+</span><span class="kw">pub enum </span>VidDisperseShare&lt;TYPES: NodeType&gt; {
+    <span class="doccomment">/// VID disperse share type for first version VID
+    </span>V0(vid_disperse::ADVZDisperseShare&lt;TYPES&gt;),
+    <span class="doccomment">/// VID disperse share type after epoch upgrade and VID upgrade
+    </span>V1(vid_disperse::VidDisperseShare2&lt;TYPES&gt;),
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperseShare&lt;TYPES&gt; {
+    <span class="doccomment">/// Create a vector of `VidDisperseShare` from `VidDisperse`
+    </span><span class="kw">pub fn </span>from_vid_disperse(vid_disperse: VidDisperse&lt;TYPES&gt;) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">match </span>vid_disperse {
+            VidDisperse::V0(vid_disperse) =&gt; {
+                ADVZDisperseShare::&lt;TYPES&gt;::from_advz_disperse(vid_disperse)
+                    .into_iter()
+                    .map(|share| <span class="self">Self</span>::V0(share))
+                    .collect()
+            }
+            VidDisperse::V1(vid_disperse) =&gt; {
+                VidDisperseShare2::&lt;TYPES&gt;::from_vid_disperse(vid_disperse)
+                    .into_iter()
+                    .map(|share| <span class="self">Self</span>::V1(share))
+                    .collect()
+            }
+        }
+    }
+
+    <span class="doccomment">/// Consume `self` and return a `Proposal`
+    </span><span class="kw">pub fn </span>to_proposal(
+        <span class="self">self</span>,
+        private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, <span class="self">Self</span>&gt;&gt; {
+        <span class="kw">let </span>payload_commitment_ref: <span class="kw-2">&amp;</span>[u8] = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) =&gt; share.payload_commitment.as_ref(),
+            <span class="self">Self</span>::V1(share) =&gt; share.payload_commitment.as_ref(),
         };
+        <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) = TYPES::SignatureKey::sign(private_key, payload_commitment_ref) <span class="kw">else </span>{
+            <span class="macro">tracing::error!</span>(<span class="string">"VID: failed to sign dispersal share payload"</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="prelude-val">Some</span>(Proposal {
+            signature,
+            _pd: PhantomData,
+            data: <span class="self">self</span>,
+        })
+    }
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_membership(
-            view,
-            vid_disperse,
-            membership,
-            target_epoch,
-            data_epoch,
-            payload_commitment,
-        )
-        .<span class="kw">await</span>)
+    <span class="doccomment">/// Split a VID share proposal into a proposal for each recipient.
+    </span><span class="kw">pub fn </span>to_vid_share_proposals(
+        vid_disperse_proposal: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
+    ) -&gt; Vec&lt;Proposal&lt;TYPES, <span class="self">Self</span>&gt;&gt; {
+        <span class="kw">match </span>vid_disperse_proposal.data {
+            VidDisperse::V0(disperse) =&gt; ADVZDisperseShare::to_vid_share_proposals(
+                disperse,
+                <span class="kw-2">&amp;</span>vid_disperse_proposal.signature,
+            )
+            .into_iter()
+            .map(|proposal| convert_proposal(proposal))
+            .collect(),
+            VidDisperse::V1(disperse) =&gt; VidDisperseShare2::to_vid_share_proposals(
+                disperse,
+                <span class="kw-2">&amp;</span>vid_disperse_proposal.signature,
+            )
+            .into_iter()
+            .map(|proposal| convert_proposal(proposal))
+            .collect(),
+        }
+    }
+
+    <span class="doccomment">/// Return the internal `recipient_key`
+    </span><span class="kw">pub fn </span>recipient_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) =&gt; <span class="kw-2">&amp;</span>share.recipient_key,
+            <span class="self">Self</span>::V1(share) =&gt; <span class="kw-2">&amp;</span>share.recipient_key,
+        }
+    }
+
+    <span class="doccomment">/// Return a reference to the internal payload VID commitment
+    </span><span class="kw">pub fn </span>payload_commitment_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) =&gt; share.payload_commitment.as_ref(),
+            <span class="self">Self</span>::V1(share) =&gt; share.payload_commitment.as_ref(),
+        }
+    }
+
+    <span class="doccomment">/// Return the internal payload VID commitment
+    /// TODO(Chengyu): restructure this, since payload commitment will have different types given different version.
+    </span><span class="kw">pub fn </span>payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VidCommitment {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) =&gt; share.payload_commitment,
+            <span class="self">Self</span>::V1(share) =&gt; share.payload_commitment,
+        }
+    }
+    <span class="doccomment">/// Return the internal data epoch payload VID commitment
+    /// TODO(Chengyu): restructure this, since payload commitment will have different types given different version.
+    </span><span class="kw">pub fn </span>data_epoch_payload_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;VidCommitment&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+            <span class="self">Self</span>::V1(share) =&gt; share.data_epoch_payload_commitment,
+        }
+    }
+
+    <span class="doccomment">/// Return a reference to the internal VidCommon field.
+    /// TODO(Chengyu): remove this after VID upgrade
+    </span><span class="kw">pub fn </span>vid_common_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VidCommon {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) =&gt; <span class="kw-2">&amp;</span>share.common,
+            <span class="self">Self</span>::V1(share) =&gt; <span class="kw-2">&amp;</span>share.common,
+        }
+    }
+
+    <span class="doccomment">/// Return the target epoch
+    /// TODO(Chengyu): remove this?
+    </span><span class="kw">pub fn </span>target_epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+            <span class="self">Self</span>::V1(share) =&gt; share.target_epoch,
+        }
+    }
+
+    <span class="doccomment">/// Internally verify the share given necessary information
+    ///
+    /// # Errors
+    </span><span class="attr">#[allow(clippy::result_unit_err)]
+    </span><span class="kw">pub fn </span>verify_share(<span class="kw-2">&amp;</span><span class="self">self</span>, total_nodes: usize) -&gt; std::result::Result&lt;(), ()&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) =&gt; share.verify_share(total_nodes),
+            <span class="self">Self</span>::V1(share) =&gt; share.verify_share(total_nodes),
+        }
+    }
+
+    <span class="doccomment">/// Set the view number
+    </span><span class="kw">pub fn </span>set_view_number(<span class="kw-2">&amp;mut </span><span class="self">self</span>, view_number: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View) {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(share) =&gt; share.view_number = view_number,
+            <span class="self">Self</span>::V1(share) =&gt; share.view_number = view_number,
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
+    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(disperse) =&gt; disperse.view_number(),
+            <span class="self">Self</span>::V1(disperse) =&gt; disperse.view_number(),
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasEpoch&lt;TYPES&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
+    <span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::V0(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+            <span class="self">Self</span>::V1(share) =&gt; share.epoch(),
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;vid_disperse::ADVZDisperseShare&lt;TYPES&gt;&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(share: vid_disperse::ADVZDisperseShare&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::V0(share)
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;vid_disperse::VidDisperseShare2&lt;TYPES&gt;&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(share: vid_disperse::VidDisperseShare2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::V1(share)
+    }
+}
+
+<span class="comment">// TODO(Chengyu): this conversion may not be done after vid upgrade. Sync with storage `append_vid2` change later.
+</span><span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;VidDisperseShare&lt;TYPES&gt;&gt; <span class="kw">for </span>vid_disperse::VidDisperseShare2&lt;TYPES&gt; {
+    <span class="kw">fn </span>from(share: VidDisperseShare&lt;TYPES&gt;) -&gt; vid_disperse::VidDisperseShare2&lt;TYPES&gt; {
+        <span class="kw">match </span>share {
+            VidDisperseShare::V0(share) =&gt; share.into(),
+            VidDisperseShare::V1(share) =&gt; share,
+        }
     }
 }
 
@@ -2118,268 +2212,6 @@
                 ViewChangeEvidence::ViewSync(view_sync_cert.to_vsc())
             }
         }
-    }
-}
-
-<span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-</span><span class="doccomment">/// VID share and associated metadata for a single node
-</span><span class="kw">pub struct </span>VidDisperseShare&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// The view number for which this VID data is intended
-    </span><span class="kw">pub </span>view_number: TYPES::View,
-    <span class="doccomment">/// Block payload commitment
-    </span><span class="kw">pub </span>payload_commitment: VidCommitment,
-    <span class="doccomment">/// A storage node's key and its corresponding VID share
-    </span><span class="kw">pub </span>share: VidShare,
-    <span class="doccomment">/// VID common data sent to all storage nodes
-    </span><span class="kw">pub </span>common: VidCommon,
-    <span class="doccomment">/// a public key of the share recipient
-    </span><span class="kw">pub </span>recipient_key: TYPES::SignatureKey,
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperseShare&lt;TYPES&gt; {
-    <span class="doccomment">/// Create a vector of `VidDisperseShare` from `VidDisperse`
-    </span><span class="kw">pub fn </span>from_vid_disperse(vid_disperse: VidDisperse&lt;TYPES&gt;) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
-        vid_disperse
-            .shares
-            .into_iter()
-            .map(|(recipient_key, share)| <span class="self">Self </span>{
-                share,
-                recipient_key,
-                view_number: vid_disperse.view_number,
-                common: vid_disperse.common.clone(),
-                payload_commitment: vid_disperse.payload_commitment,
-            })
-            .collect()
-    }
-
-    <span class="doccomment">/// Consume `self` and return a `Proposal`
-    </span><span class="kw">pub fn </span>to_proposal(
-        <span class="self">self</span>,
-        private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, <span class="self">Self</span>&gt;&gt; {
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
-            TYPES::SignatureKey::sign(private_key, <span class="self">self</span>.payload_commitment.as_ref())
-        <span class="kw">else </span>{
-            <span class="macro">tracing::error!</span>(<span class="string">"VID: failed to sign dispersal share payload"</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="prelude-val">Some</span>(Proposal {
-            signature,
-            _pd: PhantomData,
-            data: <span class="self">self</span>,
-        })
-    }
-
-    <span class="doccomment">/// Create `VidDisperse` out of an iterator to `VidDisperseShare`s
-    </span><span class="kw">pub fn </span>to_vid_disperse&lt;<span class="lifetime">'a</span>, I&gt;(<span class="kw-2">mut </span>it: I) -&gt; <span class="prelude-ty">Option</span>&lt;VidDisperse&lt;TYPES&gt;&gt;
-    <span class="kw">where
-        </span>I: Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>&gt;,
-    {
-        <span class="kw">let </span>first_vid_disperse_share = it.next()<span class="question-mark">?</span>.clone();
-        <span class="kw">let </span><span class="kw-2">mut </span>share_map = BTreeMap::new();
-        share_map.insert(
-            first_vid_disperse_share.recipient_key,
-            first_vid_disperse_share.share,
-        );
-        <span class="kw">let </span><span class="kw-2">mut </span>vid_disperse = VidDisperse {
-            view_number: first_vid_disperse_share.view_number,
-            epoch: <span class="prelude-val">None</span>,
-            target_epoch: <span class="prelude-val">None</span>,
-            payload_commitment: first_vid_disperse_share.payload_commitment,
-            data_epoch_payload_commitment: <span class="prelude-val">None</span>,
-            common: first_vid_disperse_share.common,
-            shares: share_map,
-        };
-        <span class="kw">let _ </span>= it.map(|vid_disperse_share| {
-            vid_disperse.shares.insert(
-                vid_disperse_share.recipient_key.clone(),
-                vid_disperse_share.share.clone(),
-            )
-        });
-        <span class="prelude-val">Some</span>(vid_disperse)
-    }
-
-    <span class="doccomment">/// Split a VID share proposal into a proposal for each recipient.
-    </span><span class="kw">pub fn </span>to_vid_share_proposals(
-        vid_disperse_proposal: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
-    ) -&gt; Vec&lt;Proposal&lt;TYPES, <span class="self">Self</span>&gt;&gt; {
-        vid_disperse_proposal
-            .data
-            .shares
-            .into_iter()
-            .map(|(recipient_key, share)| Proposal {
-                data: <span class="self">Self </span>{
-                    share,
-                    recipient_key,
-                    view_number: vid_disperse_proposal.data.view_number,
-                    common: vid_disperse_proposal.data.common.clone(),
-                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
-                },
-                signature: vid_disperse_proposal.signature.clone(),
-                _pd: vid_disperse_proposal._pd,
-            })
-            .collect()
-    }
-}
-
-<span class="attr">#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
-</span><span class="doccomment">/// VID share and associated metadata for a single node
-</span><span class="kw">pub struct </span>VidDisperseShare2&lt;TYPES: NodeType&gt; {
-    <span class="doccomment">/// The view number for which this VID data is intended
-    </span><span class="kw">pub </span>view_number: TYPES::View,
-    <span class="doccomment">/// The epoch number for which this VID data belongs to
-    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
-    <span class="doccomment">/// The epoch number to which the recipient of this VID belongs to
-    </span><span class="kw">pub </span>target_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
-    <span class="doccomment">/// Block payload commitment
-    </span><span class="kw">pub </span>payload_commitment: VidCommitment,
-    <span class="doccomment">/// VidCommitment calculated based on the number of nodes in `epoch`. Needed during epoch transition.
-    </span><span class="kw">pub </span>data_epoch_payload_commitment: <span class="prelude-ty">Option</span>&lt;VidCommitment&gt;,
-    <span class="doccomment">/// A storage node's key and its corresponding VID share
-    </span><span class="kw">pub </span>share: VidShare,
-    <span class="doccomment">/// VID common data sent to all storage nodes
-    </span><span class="kw">pub </span>common: VidCommon,
-    <span class="doccomment">/// a public key of the share recipient
-    </span><span class="kw">pub </span>recipient_key: TYPES::SignatureKey,
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;VidDisperseShare2&lt;TYPES&gt;&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
-    <span class="kw">fn </span>from(vid_disperse2: VidDisperseShare2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>VidDisperseShare2 {
-            view_number,
-            epoch: <span class="kw">_</span>,
-            target_epoch: <span class="kw">_</span>,
-            payload_commitment,
-            data_epoch_payload_commitment: <span class="kw">_</span>,
-            share,
-            common,
-            recipient_key,
-        } = vid_disperse2;
-
-        <span class="self">Self </span>{
-            view_number,
-            payload_commitment,
-            share,
-            common,
-            recipient_key,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;VidDisperseShare&lt;TYPES&gt;&gt; <span class="kw">for </span>VidDisperseShare2&lt;TYPES&gt; {
-    <span class="kw">fn </span>from(vid_disperse: VidDisperseShare&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>VidDisperseShare {
-            view_number,
-            payload_commitment,
-            share,
-            common,
-            recipient_key,
-        } = vid_disperse;
-
-        <span class="self">Self </span>{
-            view_number,
-            epoch: <span class="prelude-val">None</span>,
-            target_epoch: <span class="prelude-val">None</span>,
-            payload_commitment,
-            data_epoch_payload_commitment: <span class="prelude-val">None</span>,
-            share,
-            common,
-            recipient_key,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; VidDisperseShare2&lt;TYPES&gt; {
-    <span class="doccomment">/// Create a vector of `VidDisperseShare` from `VidDisperse`
-    </span><span class="kw">pub fn </span>from_vid_disperse(vid_disperse: VidDisperse&lt;TYPES&gt;) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
-        vid_disperse
-            .shares
-            .into_iter()
-            .map(|(recipient_key, share)| <span class="self">Self </span>{
-                share,
-                recipient_key,
-                view_number: vid_disperse.view_number,
-                common: vid_disperse.common.clone(),
-                payload_commitment: vid_disperse.payload_commitment,
-                data_epoch_payload_commitment: vid_disperse.data_epoch_payload_commitment,
-                epoch: vid_disperse.epoch,
-                target_epoch: vid_disperse.target_epoch,
-            })
-            .collect()
-    }
-
-    <span class="doccomment">/// Consume `self` and return a `Proposal`
-    </span><span class="kw">pub fn </span>to_proposal(
-        <span class="self">self</span>,
-        private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, <span class="self">Self</span>&gt;&gt; {
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(signature) =
-            TYPES::SignatureKey::sign(private_key, <span class="self">self</span>.payload_commitment.as_ref())
-        <span class="kw">else </span>{
-            <span class="macro">tracing::error!</span>(<span class="string">"VID: failed to sign dispersal share payload"</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="prelude-val">Some</span>(Proposal {
-            signature,
-            _pd: PhantomData,
-            data: <span class="self">self</span>,
-        })
-    }
-
-    <span class="doccomment">/// Create `VidDisperse` out of an iterator to `VidDisperseShare`s
-    </span><span class="kw">pub fn </span>to_vid_disperse&lt;<span class="lifetime">'a</span>, I&gt;(<span class="kw-2">mut </span>it: I) -&gt; <span class="prelude-ty">Option</span>&lt;VidDisperse&lt;TYPES&gt;&gt;
-    <span class="kw">where
-        </span>I: Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>&gt;,
-    {
-        <span class="kw">let </span>first_vid_disperse_share = it.next()<span class="question-mark">?</span>.clone();
-        <span class="kw">let </span><span class="kw-2">mut </span>share_map = BTreeMap::new();
-        share_map.insert(
-            first_vid_disperse_share.recipient_key,
-            first_vid_disperse_share.share,
-        );
-        <span class="kw">let </span><span class="kw-2">mut </span>vid_disperse = VidDisperse {
-            view_number: first_vid_disperse_share.view_number,
-            epoch: first_vid_disperse_share.epoch,
-            target_epoch: first_vid_disperse_share.target_epoch,
-            payload_commitment: first_vid_disperse_share.payload_commitment,
-            data_epoch_payload_commitment: first_vid_disperse_share.data_epoch_payload_commitment,
-            common: first_vid_disperse_share.common,
-            shares: share_map,
-        };
-        <span class="kw">let _ </span>= it.map(|vid_disperse_share| {
-            vid_disperse.shares.insert(
-                vid_disperse_share.recipient_key.clone(),
-                vid_disperse_share.share.clone(),
-            )
-        });
-        <span class="prelude-val">Some</span>(vid_disperse)
-    }
-
-    <span class="doccomment">/// Split a VID share proposal into a proposal for each recipient.
-    </span><span class="kw">pub fn </span>to_vid_share_proposals(
-        vid_disperse_proposal: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
-    ) -&gt; Vec&lt;Proposal&lt;TYPES, <span class="self">Self</span>&gt;&gt; {
-        vid_disperse_proposal
-            .data
-            .shares
-            .into_iter()
-            .map(|(recipient_key, share)| Proposal {
-                data: <span class="self">Self </span>{
-                    share,
-                    recipient_key,
-                    view_number: vid_disperse_proposal.data.view_number,
-                    common: vid_disperse_proposal.data.common.clone(),
-                    payload_commitment: vid_disperse_proposal.data.payload_commitment,
-                    data_epoch_payload_commitment: vid_disperse_proposal
-                        .data
-                        .data_epoch_payload_commitment,
-                    epoch: vid_disperse_proposal.data.epoch,
-                    target_epoch: vid_disperse_proposal.data.target_epoch,
-                },
-                signature: vid_disperse_proposal.signature.clone(),
-                _pd: vid_disperse_proposal._pd,
-            })
-            .collect()
     }
 }
 
@@ -2575,24 +2407,6 @@
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperse&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
-        <span class="self">self</span>.view_number
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperseShare&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
-        <span class="self">self</span>.view_number
-    }
-}
-
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>VidDisperseShare2&lt;TYPES&gt; {
-    <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
-        <span class="self">self</span>.view_number
-    }
-}
-
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasViewNumber&lt;TYPES&gt; <span class="kw">for </span>QuorumProposal&lt;TYPES&gt; {
     <span class="kw">fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::View {
         <span class="self">self</span>.view_number
@@ -2617,11 +2431,7 @@
     }
 }
 
-<span class="macro">impl_has_epoch!</span>(
-    DaProposal2&lt;TYPES&gt;,
-    VidDisperse&lt;TYPES&gt;,
-    VidDisperseShare2&lt;TYPES&gt;
-);
+<span class="macro">impl_has_epoch!</span>(DaProposal2&lt;TYPES&gt;);
 
 <span class="doccomment">/// The error type for block and its transactions.
 </span><span class="attr">#[derive(Error, Debug, Serialize, Deserialize)]

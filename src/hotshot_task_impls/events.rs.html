@@ -639,7 +639,7 @@
 <span class="kw">use </span>hotshot_types::{
     data::{
         DaProposal2, Leaf2, PackedBundle, QuorumProposal2, QuorumProposalWrapper, UpgradeProposal,
-        VidDisperse, VidDisperseShare2,
+        VidDisperse, VidDisperseShare,
     },
     message::Proposal,
     request_response::ProposalRequestPayload,
@@ -825,10 +825,10 @@
     /// Like [`HotShotEvent::DaProposalRecv`].
     </span>VidShareRecv(
         TYPES::SignatureKey,
-        Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+        Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     ),
     <span class="doccomment">/// VID share data is validated.
-    </span>VidShareValidated(Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;),
+    </span>VidShareValidated(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
     <span class="doccomment">/// Upgrade proposal has been received from the network
     </span>UpgradeProposalRecv(Proposal&lt;TYPES, UpgradeProposal&lt;TYPES&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Upgrade proposal has been sent to the network
@@ -867,13 +867,13 @@
         </span>TYPES::SignatureKey,
         <span class="doccomment">/// Recipient key
         </span>TYPES::SignatureKey,
-        Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+        Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     ),
 
     <span class="doccomment">/// Receive a VID response from the network; received by the node that triggered the VID request.
     </span>VidResponseRecv(
         TYPES::SignatureKey,
-        Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+        Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     ),
 
     <span class="doccomment">/// A replica send us a High QC
@@ -967,7 +967,7 @@
             HotShotEvent::VidRequestSend(request, <span class="kw">_</span>, <span class="kw">_</span>)
             | HotShotEvent::VidRequestRecv(request, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(request.view),
             HotShotEvent::VidResponseSend(<span class="kw">_</span>, <span class="kw">_</span>, proposal)
-            | HotShotEvent::VidResponseRecv(<span class="kw">_</span>, proposal) =&gt; <span class="prelude-val">Some</span>(proposal.data.view_number),
+            | HotShotEvent::VidResponseRecv(<span class="kw">_</span>, proposal) =&gt; <span class="prelude-val">Some</span>(proposal.data.view_number()),
             HotShotEvent::HighQcRecv(qc, <span class="kw">_</span>) | HotShotEvent::HighQcSend(qc, ..) =&gt; {
                 <span class="prelude-val">Some</span>(qc.view_number())
             }

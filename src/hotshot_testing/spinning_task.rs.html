@@ -423,6 +423,14 @@
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -453,6 +461,7 @@
     constants::EVENT_CHANNEL_SIZE,
     data::Leaf2,
     event::Event,
+    message::convert_proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         network::{AsyncGenerator, ConnectedNetwork},
@@ -677,7 +686,14 @@
                                     .<span class="kw">await</span>,
                                 );
                                 <span class="kw">let </span>saved_proposals = read_storage.proposals_cloned().<span class="kw">await</span>;
-                                <span class="kw">let </span>saved_vid_shares = read_storage.vids_cloned().<span class="kw">await</span>;
+                                <span class="kw">let </span><span class="kw-2">mut </span>vid_shares = BTreeMap::new();
+                                <span class="kw">for </span>(view, hash_map) <span class="kw">in </span>read_storage.vids_cloned().<span class="kw">await </span>{
+                                    <span class="kw">let </span><span class="kw-2">mut </span>converted_hash_map = HashMap::new();
+                                    <span class="kw">for </span>(key, proposal) <span class="kw">in </span>hash_map {
+                                        converted_hash_map.insert(key, convert_proposal(proposal));
+                                    }
+                                    vid_shares.insert(view, converted_hash_map);
+                                }
                                 <span class="kw">let </span>decided_upgrade_certificate =
                                     read_storage.decided_upgrade_certificate().<span class="kw">await</span>;
 
@@ -688,7 +704,7 @@
                                     (start_view, start_epoch),
                                     (high_qc, next_epoch_high_qc),
                                     saved_proposals,
-                                    saved_vid_shares,
+                                    vid_shares,
                                     decided_upgrade_certificate,
                                 );
                                 <span class="comment">// We assign node's public key and stake value rather than read from config file since it's a test

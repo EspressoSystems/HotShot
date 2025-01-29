@@ -669,10 +669,10 @@
 <span class="kw">use </span>committable::Committable;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposalWrapper, VidDisperseShare2},
+    data::{Leaf2, QuorumProposalWrapper, VidDisperseShare},
     drb::{compute_drb_result, DrbResult},
     event::{Event, EventType},
-    message::{Proposal, UpgradeLock},
+    message::{convert_proposal, Proposal, UpgradeLock},
     simple_vote::{QuorumData2, QuorumVote2},
     traits::{
         block_contents::BlockHeader,
@@ -1120,7 +1120,7 @@
     instance_state: Arc&lt;TYPES::InstanceState&gt;,
     storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
     proposed_leaf: <span class="kw-2">&amp;</span>Leaf2&lt;TYPES&gt;,
-    vid_share: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+    vid_share: <span class="kw-2">&amp;</span>Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     parent_view_number: <span class="prelude-ty">Option</span>&lt;TYPES::View&gt;,
     epoch_height: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1194,7 +1194,7 @@
             <span class="kw-2">&amp;</span>instance_state,
             <span class="kw-2">&amp;</span>parent,
             <span class="kw-2">&amp;</span>proposed_leaf.block_header().clone(),
-            vid_share.data.common.clone(),
+            vid_share.data.vid_common_ref().clone(),
             version,
             <span class="kw-2">*</span>view_number,
         )
@@ -1245,7 +1245,7 @@
     view_number: TYPES::View,
     storage: Arc&lt;RwLock&lt;I::Storage&gt;&gt;,
     leaf: Leaf2&lt;TYPES&gt;,
-    vid_share: Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+    vid_share: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     extended_vote: bool,
     epoch_height: u64,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1290,7 +1290,7 @@
     </span>storage
         .write()
         .<span class="kw">await
-        </span>.append_vid2(<span class="kw-2">&amp;</span>vid_share)
+        </span>.append_vid2(<span class="kw-2">&amp;</span>convert_proposal(vid_share))
         .<span class="kw">await
         </span>.wrap()
         .context(<span class="macro">error!</span>(<span class="string">"Failed to store VID share"</span>))<span class="question-mark">?</span>;

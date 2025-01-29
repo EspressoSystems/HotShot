@@ -635,7 +635,7 @@
 <span class="kw">use </span>hotshot_types::{
     data::{
         DaProposal2, EpochNumber, Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse,
-        VidDisperseShare2, ViewChangeEvidence2, ViewNumber,
+        VidDisperseShare, ViewChangeEvidence2, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -670,7 +670,7 @@
     <span class="kw">pub </span>membership: Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     <span class="kw">pub </span>vid_disperse: Proposal&lt;TestTypes, VidDisperse&lt;TestTypes&gt;&gt;,
     <span class="kw">pub </span>vid_proposal: (
-        Vec&lt;Proposal&lt;TestTypes, VidDisperseShare2&lt;TestTypes&gt;&gt;&gt;,
+        Vec&lt;Proposal&lt;TestTypes, VidDisperseShare&lt;TestTypes&gt;&gt;&gt;,
         &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ),
     <span class="kw">pub </span>leader_public_key: &lt;TestTypes <span class="kw">as </span>NodeType&gt;::SignatureKey,

@@ -1131,7 +1131,7 @@
 
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::{View, ViewInner};
 <span class="kw">use crate</span>::{
-    data::{Leaf2, QuorumProposalWrapper, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, QuorumProposalWrapper, VidDisperse, VidDisperseShare},
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
@@ -1158,7 +1158,7 @@
 <span class="doccomment">/// A type alias for `BTreeMap&lt;T::Time, HashMap&lt;T::SignatureKey, Proposal&lt;T, VidDisperseShare&lt;T&gt;&gt;&gt;&gt;`
 </span><span class="kw">pub type </span>VidShares&lt;TYPES&gt; = BTreeMap&lt;
     &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
-    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;&gt;,
+    HashMap&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey, Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 &gt;;
 
 <span class="doccomment">/// Type alias for consensus state wrapped in a lock.
@@ -1900,12 +1900,12 @@
     </span><span class="kw">pub fn </span>update_vid_shares(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         view_number: TYPES::View,
-        disperse: Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;,
+        disperse: Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;,
     ) {
         <span class="self">self</span>.vid_shares
             .entry(view_number)
             .or_default()
-            .insert(disperse.data.recipient_key.clone(), disperse);
+            .insert(disperse.data.recipient_key().clone(), disperse);
     }
 
     <span class="doccomment">/// Add a new entry to the da_certs map.
@@ -2082,7 +2082,7 @@
                 .<span class="kw">await
                 </span>.ok()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>shares = VidDisperseShare2::from_vid_disperse(vid);
+        <span class="kw">let </span>shares = VidDisperseShare::from_vid_disperse(vid);
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
         <span class="kw">for </span>share <span class="kw">in </span>shares {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(prop) = share.to_proposal(private_key) {

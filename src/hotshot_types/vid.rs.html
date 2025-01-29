@@ -350,7 +350,7 @@
 
 <span class="kw">use crate</span>::{
     constants::SRS_DEGREE,
-    data::{VidDisperse <span class="kw">as </span>HotShotVidDisperse, VidDisperseShare2},
+    data::{VidDisperse <span class="kw">as </span>HotShotVidDisperse, VidDisperseShare},
     message::Proposal,
 };
 
@@ -425,7 +425,7 @@
 <span class="doccomment">/// VID proposal type
 </span><span class="kw">pub type </span>VidProposal&lt;TYPES&gt; = (
     Proposal&lt;TYPES, HotShotVidDisperse&lt;TYPES&gt;&gt;,
-    Vec&lt;Proposal&lt;TYPES, VidDisperseShare2&lt;TYPES&gt;&gt;&gt;,
+    Vec&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt;,
 );
 
 <span class="attr">#[cfg(not(feature = <span class="string">"gpu-vid"</span>))]

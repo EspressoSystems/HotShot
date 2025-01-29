@@ -652,6 +652,7 @@
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -680,8 +681,9 @@
 
 <span class="kw">use crate</span>::{
     data::{
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
-        QuorumProposalWrapper, UpgradeProposal, VidDisperseShare, VidDisperseShare2,
+        QuorumProposalWrapper, UpgradeProposal,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
@@ -917,7 +919,7 @@
     <span class="doccomment">/// Initiate VID dispersal.
     ///
     /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
-    </span>VidDisperseMsg(Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;),
+    </span>VidDisperseMsg(Proposal&lt;TYPES, ADVZDisperseShare&lt;TYPES&gt;&gt;),
 
     <span class="doccomment">/// Proposal for data availability committee
     </span>DaProposal2(Proposal&lt;TYPES, DaProposal2&lt;TYPES&gt;&gt;),
@@ -1017,7 +1019,6 @@
                     DaConsensusMessage::DaVote(vote_message) =&gt; vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) =&gt; cert.view_number,
                     DaConsensusMessage::VidDisperseMsg(disperse) =&gt; disperse.data.view_number(),
-                    DaConsensusMessage::VidDisperseMsg2(disperse) =&gt; disperse.data.view_number(),
                     DaConsensusMessage::DaProposal2(p) =&gt; {
                         <span class="comment">// view of leader in the leaf when proposal
                         // this should match replica upon receipt
@@ -1025,6 +1026,7 @@
                     }
                     DaConsensusMessage::DaVote2(vote_message) =&gt; vote_message.view_number(),
                     DaConsensusMessage::DaCertificate2(cert) =&gt; cert.view_number,
+                    DaConsensusMessage::VidDisperseMsg2(disperse) =&gt; disperse.data.view_number(),
                 }
             }
         }

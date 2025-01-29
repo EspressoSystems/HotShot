@@ -1260,6 +1260,59 @@
 <a href="#1260" id="1260">1260</a>
 <a href="#1261" id="1261">1261</a>
 <a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1278,7 +1331,7 @@
 <span class="kw">use </span>hotshot_task::task::TaskState;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
-    data::{VidDisperse, VidDisperseShare, VidDisperseShare2},
+    data::{VidDisperse, VidDisperseShare},
     event::{Event, EventType, HotShotAction},
     message::{
         convert_proposal, DaConsensusMessage, DataMessage, GeneralConsensusMessage, Message,
@@ -1642,7 +1695,7 @@
                                 <span class="macro">tracing::warn!</span>(<span class="string">"received DaConsensusMessage::VidDisperseMsg2 for view {} but epochs are not enabled for that view"</span>, proposal.data.view_number());
                                 <span class="kw">return</span>;
                             }
-                            HotShotEvent::VidShareRecv(sender, proposal)
+                            HotShotEvent::VidShareRecv(sender, convert_proposal(proposal))
                         }
                     },
                 };
@@ -1680,7 +1733,10 @@
                                 proposal,
                             )) =&gt; {
                                 broadcast_event(
-                                    Arc::new(HotShotEvent::VidResponseRecv(sender, proposal)),
+                                    Arc::new(HotShotEvent::VidResponseRecv(
+                                        sender,
+                                        convert_proposal(proposal),
+                                    )),
                                     <span class="kw-2">&amp;</span><span class="self">self</span>.internal_event_stream,
                                 )
                                 .<span class="kw">await</span>;
@@ -1803,28 +1859,49 @@
         vid_proposal: Proposal&lt;TYPES, VidDisperse&lt;TYPES&gt;&gt;,
         sender: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
-        <span class="kw">let </span>view = vid_proposal.data.view_number;
-        <span class="kw">let </span>vid_share_proposals = VidDisperseShare2::to_vid_share_proposals(vid_proposal);
+        <span class="kw">let </span>view = vid_proposal.data.view_number();
+        <span class="kw">let </span>vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
         <span class="kw">let </span><span class="kw-2">mut </span>messages = HashMap::new();
 
         <span class="kw">for </span>proposal <span class="kw">in </span>vid_share_proposals {
-            <span class="kw">let </span>recipient = proposal.data.recipient_key.clone();
+            <span class="kw">let </span>recipient = proposal.data.recipient_key().clone();
             <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
                 </span>.upgrade_lock
                 .epochs_enabled(proposal.data.view_number())
                 .<span class="kw">await
             </span>{
+                <span class="kw">let </span>vid_share_proposal = <span class="kw">if let </span>VidDisperseShare::V1(data) = proposal.data {
+                    Proposal {
+                        data,
+                        signature: proposal.signature,
+                        _pd: proposal._pd,
+                    }
+                } <span class="kw">else </span>{
+                    <span class="macro">tracing::warn!</span>(
+                        <span class="string">"Epochs are enabled for view {} but didn't receive VidDisperseShare2"</span>,
+                        proposal.data.view_number()
+                    );
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
+                };
                 Message {
                     sender: sender.clone(),
                     kind: MessageKind::&lt;TYPES&gt;::from_consensus_message(SequencingMessage::Da(
-                        DaConsensusMessage::VidDisperseMsg2(proposal),
+                        DaConsensusMessage::VidDisperseMsg2(vid_share_proposal),
                     )),
                 }
             } <span class="kw">else </span>{
-                <span class="kw">let </span>vid_share_proposal = Proposal {
-                    data: VidDisperseShare::from(proposal.data),
-                    signature: proposal.signature,
-                    _pd: proposal._pd,
+                <span class="kw">let </span>vid_share_proposal = <span class="kw">if let </span>VidDisperseShare::V0(data) = proposal.data {
+                    Proposal {
+                        data,
+                        signature: proposal.signature,
+                        _pd: proposal._pd,
+                    }
+                } <span class="kw">else </span>{
+                    <span class="macro">tracing::warn!</span>(
+                        <span class="string">"Epochs are not enabled for view {} but didn't receive ADVZDisperseShare"</span>,
+                        proposal.data.view_number()
+                    );
+                    <span class="kw">return </span><span class="prelude-val">None</span>;
                 };
                 Message {
                     sender: sender.clone(),
@@ -2283,20 +2360,49 @@
                 TransmitType::Direct(to),
             )),
             HotShotEvent::VidResponseSend(sender, to, proposal) =&gt; {
-                <span class="kw">let </span>message = <span class="kw">if </span><span class="self">self
+                <span class="kw">let </span>epochs_enabled = <span class="self">self
                     </span>.upgrade_lock
                     .epochs_enabled(proposal.data.view_number())
-                    .<span class="kw">await
-                </span>{
-                    MessageKind::Data(DataMessage::DataResponse(ResponseMessage::Found(
-                        SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg2(proposal)),
-                    )))
-                } <span class="kw">else </span>{
-                    MessageKind::Data(DataMessage::DataResponse(ResponseMessage::Found(
-                        SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(
-                            convert_proposal(proposal),
-                        )),
-                    )))
+                    .<span class="kw">await</span>;
+                <span class="kw">let </span>message = <span class="kw">match </span>proposal.data {
+                    VidDisperseShare::V0(data) =&gt; {
+                        <span class="kw">if </span>epochs_enabled {
+                            <span class="macro">tracing::warn!</span>(
+                        <span class="string">"Epochs are enabled for view {} but didn't receive VidDisperseShare2"</span>,
+                        data.view_number()
+                    );
+                            <span class="kw">return </span><span class="prelude-val">None</span>;
+                        }
+                        <span class="kw">let </span>vid_share_proposal = Proposal {
+                            data,
+                            signature: proposal.signature,
+                            _pd: proposal._pd,
+                        };
+                        MessageKind::Data(DataMessage::DataResponse(ResponseMessage::Found(
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg(
+                                vid_share_proposal,
+                            )),
+                        )))
+                    }
+                    VidDisperseShare::V1(data) =&gt; {
+                        <span class="kw">if </span>!epochs_enabled {
+                            <span class="macro">tracing::warn!</span>(
+                                <span class="string">"Epochs are enabled for view {} but didn't receive ADVZDisperseShare"</span>,
+                                data.view_number()
+                            );
+                            <span class="kw">return </span><span class="prelude-val">None</span>;
+                        }
+                        <span class="kw">let </span>vid_share_proposal = Proposal {
+                            data,
+                            signature: proposal.signature,
+                            _pd: proposal._pd,
+                        };
+                        MessageKind::Data(DataMessage::DataResponse(ResponseMessage::Found(
+                            SequencingMessage::Da(DaConsensusMessage::VidDisperseMsg2(
+                                vid_share_proposal,
+                            )),
+                        )))
+                    }
                 };
                 <span class="prelude-val">Some</span>((sender, message, TransmitType::Direct(to)))
             }

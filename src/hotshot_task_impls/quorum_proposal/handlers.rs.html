@@ -902,7 +902,7 @@
                 builder_commitment,
                 metadata,
                 commitment_and_metadata.fees.first().clone(),
-                vid_share.data.common.clone(),
+                vid_share.data.vid_common_ref().clone(),
                 version,
             )
             .<span class="kw">await
@@ -918,7 +918,7 @@
                 commitment_and_metadata.metadata,
                 commitment_and_metadata.fees.to_vec(),
                 <span class="kw-2">*</span><span class="self">self</span>.view_number,
-                vid_share.data.common.clone(),
+                vid_share.data.vid_common_ref().clone(),
                 commitment_and_metadata.auction_result,
                 version,
             )
