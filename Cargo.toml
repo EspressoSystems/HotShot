@@ -20,7 +20,8 @@ members = [
     "crates/hotshot-stake-table",
     "crates/libp2p-networking",
     "crates/macros",
-    "crates/orchestrator",
+    "crates/orchestrator", 
+    "crates/request-response",
     "crates/task",
     "crates/task-impls",
     "crates/testing",
@@ -39,8 +40,10 @@ ark-std = { version = "0.4", default-features = false }
 async-broadcast = "0.7"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 async-lock = "3"
+derive_builder = "0.20"
 async-trait = "0.1"
 bincode = "1"
+parking_lot = { version = "0.12", features = ["send_guard"] }
 bitvec = { version = "1", default-features = false, features = [
     "alloc",
     "atomic",
@@ -82,6 +85,7 @@ thiserror = "2"
 surf-disco = "0.9"
 tagged-base64 = "0.4"
 tide-disco = "0.9"
+dashmap = "6"
 time = "0.3"
 toml = "0.8"
 tracing = "0.1"

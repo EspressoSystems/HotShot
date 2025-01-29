@@ -6023,6 +6023,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "request-response"
+version = "0.5.84"
+dependencies = [
+ "anyhow",
+ "async-broadcast",
+ "async-trait",
+ "bincode",
+ "blake3",
+ "byteorder",
+ "derive_builder",
+ "derive_more 1.0.0",
+ "hotshot-types",
+ "parking_lot",
+ "rand 0.8.5",
+ "serde",
+ "thiserror 2.0.11",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.12.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7691,6 +7713,8 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
+ "hashbrown 0.14.5",
  "pin-project-lite 0.2.15",
  "tokio",
 ]
@@ -8708,6 +8732,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "parking_lot",
  "percent-encoding",
  "rand 0.8.5",
  "regex",
@@ -8722,6 +8747,7 @@ dependencies = [
  "syn 2.0.96",
  "time 0.3.37",
  "tokio",
+ "tokio-util",
  "toml_datetime",
  "toml_edit",
  "tracing",
