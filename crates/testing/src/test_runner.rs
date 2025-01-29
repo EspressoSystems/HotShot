@@ -220,10 +220,11 @@ where
             safety_properties: launcher.metadata.overall_safety_properties,
             ensure_upgrade: launcher.metadata.upgrade_view.is_some(),
             validate_transactions: launcher.metadata.validate_transactions,
+            handles: Arc::clone(&handles),
             _pd: PhantomData,
         };
 
-        let consistency_task = TestTask::<ConsistencyTask<TYPES, V>>::new(
+        let consistency_task = TestTask::<ConsistencyTask<TYPES, I, V>>::new(
             consistency_task_state,
             event_rxs.clone(),
             test_receiver.clone(),

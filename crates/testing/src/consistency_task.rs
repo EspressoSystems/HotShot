@@ -5,9 +5,14 @@
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
 #![allow(clippy::unwrap_or_default)]
-use std::{collections::BTreeMap, marker::PhantomData};
-
+use crate::test_runner::Node;
+use crate::{
+    overall_safety_task::OverallSafetyPropertiesDescription,
+    test_builder::TransactionValidator,
+    test_task::{TestResult, TestTaskState},
+};
 use anyhow::{bail, ensure, Context, Result};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use committable::Committable;
 use hotshot_example_types::block_types::TestBlockHeader;
@@ -17,45 +22,18 @@ use hotshot_types::{
     message::UpgradeLock,
     traits::node_implementation::{ConsensusTime, NodeType, Versions},
 };
-
-use crate::{
-    overall_safety_task::OverallSafetyPropertiesDescription,
-    test_builder::TransactionValidator,
-    test_task::{TestResult, TestTaskState},
+use hotshot_types::{
+    traits::{election::Membership, node_implementation::TestableNodeImplementation},
+    utils::option_epoch_from_block_number,
 };
+use std::sync::Arc;
+use std::{collections::BTreeMap, marker::PhantomData};
 
 /// Map from views to leaves for a single node, allowing multiple leaves for each view (because the node may a priori send us multiple leaves for a given view).
 pub type NodeMap<TYPES> = BTreeMap<<TYPES as NodeType>::View, Vec<Leaf2<TYPES>>>;
 
 /// A sanitized map from views to leaves for a single node, with only a single leaf per view.
 pub type NodeMapSanitized<TYPES> = BTreeMap<<TYPES as NodeType>::View, Leaf2<TYPES>>;
-
-/// Validate that the `NodeMap` only has a single leaf per view.
-fn sanitize_node_map<TYPES: NodeType>(
-    node_map: &NodeMap<TYPES>,
-) -> Result<NodeMapSanitized<TYPES>> {
-    let mut result = BTreeMap::new();
-
-    for (view, leaves) in node_map.iter() {
-        let mut reduced = leaves.clone();
-
-        reduced.dedup();
-
-        match reduced.len() {
-            0 => {}
-            1 => {
-                result.insert(*view, reduced[0].clone());
-            }
-            _ => {
-                bail!(
-                    "We have received inconsistent leaves for view {view:?}. Leaves:\n\n{leaves:?}"
-                );
-            }
-        }
-    }
-
-    Ok(result)
-}
 
 /// For a NodeMapSanitized, we validate that each leaf extends the preceding leaf.
 async fn validate_node_map<TYPES: NodeType, V: Versions>(
@@ -126,23 +104,6 @@ pub type NetworkMap<TYPES> = BTreeMap<usize, NodeMap<TYPES>>;
 /// A map from node ids to `NodeMapSanitized`s; the latter has been sanitized validated to have a single leaf per view.
 pub type NetworkMapSanitized<TYPES> = BTreeMap<usize, NodeMapSanitized<TYPES>>;
 
-/// Validate that each node has only produced one unique leaf per view, and produce a `NetworkMapSanitized`.
-fn sanitize_network_map<TYPES: NodeType>(
-    network_map: &NetworkMap<TYPES>,
-) -> Result<NetworkMapSanitized<TYPES>> {
-    let mut result = BTreeMap::new();
-
-    for (node, node_map) in network_map {
-        result.insert(
-            *node,
-            sanitize_node_map(node_map)
-                .context(format!("Node {node} produced inconsistent leaves."))?,
-        );
-    }
-
-    Ok(result)
-}
-
 pub type ViewMap<TYPES> = BTreeMap<<TYPES as NodeType>::View, BTreeMap<usize, Leaf2<TYPES>>>;
 
 // Invert the network map by interchanging the roles of the node_id and view number.
@@ -199,7 +160,7 @@ fn sanitize_view_map<TYPES: NodeType>(
 }
 
 /// Data availability task state
-pub struct ConsistencyTask<TYPES: NodeType, V: Versions> {
+pub struct ConsistencyTask<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> {
     /// A map from node ids to (leaves keyed on view number)
     pub consensus_leaves: NetworkMap<TYPES>,
     /// safety task requirements
@@ -210,11 +171,18 @@ pub struct ConsistencyTask<TYPES: NodeType, V: Versions> {
     pub _pd: PhantomData<V>,
     /// function used to validate the number of transactions committed in each block
     pub validate_transactions: TransactionValidator,
+    /// Handles for all nodes.
+    pub handles: Arc<RwLock<Vec<Node<TYPES, I, V>>>>,
 }
 
-impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTask<TYPES, V> {
+impl<
+        TYPES: NodeType<BlockHeader = TestBlockHeader>,
+        I: TestableNodeImplementation<TYPES>,
+        V: Versions,
+    > ConsistencyTask<TYPES, I, V>
+{
     pub async fn validate(&self) -> Result<()> {
-        let sanitized_network_map = sanitize_network_map(&self.consensus_leaves)?;
+        let sanitized_network_map = self.sanitize_network_map(&self.consensus_leaves).await?;
 
         let inverted_map = invert_network_map::<TYPES, V>(&sanitized_network_map).await?;
 
@@ -244,11 +212,74 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
 
         Ok(())
     }
+
+    /// Validate that the `NodeMap` only has a single leaf per view.
+    async fn sanitize_node_map(
+        &self,
+        node_id: usize,
+        node_map: &NodeMap<TYPES>,
+    ) -> Result<NodeMapSanitized<TYPES>> {
+        let mut result = BTreeMap::new();
+
+        let handles_reader = self.handles.read().await;
+        let mem = Arc::clone(&handles_reader[node_id].handle.memberships);
+        let pk = handles_reader[node_id].handle.public_key();
+        let epoch_height = handles_reader[node_id].handle.epoch_height;
+        drop(handles_reader);
+
+        for (view, leaves) in node_map.iter() {
+            let mut reduced = leaves.clone();
+            reduced.dedup();
+
+            match reduced.len() {
+                0 => {}
+                1 => {
+                    let leaf = reduced.remove(0);
+                    let epoch = option_epoch_from_block_number::<TYPES>(
+                        leaf.with_epoch,
+                        leaf.block_header().block_number,
+                        epoch_height,
+                    );
+                    if mem.read().await.has_stake(&pk, epoch) {
+                        result.insert(*view, leaf);
+                    }
+                }
+                _ => {
+                    bail!(
+                    "We have received inconsistent leaves for view {view:?}. Leaves:\n\n{leaves:?}"
+                );
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Validate that each node has only produced one unique leaf per view, and produce a `NetworkMapSanitized`.
+    async fn sanitize_network_map(
+        &self,
+    ) -> Result<NetworkMapSanitized<TYPES>> {
+        let mut result = BTreeMap::new();
+
+        for (node, node_map) in self.consensus_leaves.iter() {
+            result.insert(
+                *node,
+                self.sanitize_node_map(*node, node_map)
+                    .await
+                    .context(format!("Node {node} produced inconsistent leaves."))?,
+            );
+        }
+
+        Ok(result)
+    }
 }
 
 #[async_trait]
-impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> TestTaskState
-    for ConsistencyTask<TYPES, V>
+impl<
+        TYPES: NodeType<BlockHeader = TestBlockHeader>,
+        I: TestableNodeImplementation<TYPES>,
+        V: Versions,
+    > TestTaskState for ConsistencyTask<TYPES, I, V>
 {
     type Event = Event<TYPES>;
 
