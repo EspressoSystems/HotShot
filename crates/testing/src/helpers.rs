@@ -26,7 +26,7 @@ use hotshot_example_types::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf2, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, VidDisperse, VidDisperseShare},
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate2,
     simple_vote::{DaData2, DaVote2, SimpleVote, VersionedVoteData},
@@ -97,9 +97,10 @@ pub async fn build_system_handle_from_launcher<
     let marketplace_config = (launcher.resource_generators.marketplace_config)(node_id);
     let hotshot_config = (launcher.resource_generators.hotshot_config)(node_id);
 
-    let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(TestInstanceState::new(
-        launcher.metadata.async_delay_config.clone(),
-    ))
+    let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(
+        TestInstanceState::new(launcher.metadata.async_delay_config.clone()),
+        launcher.metadata.test_config.epoch_height,
+    )
     .await
     .unwrap();
 
@@ -186,12 +187,12 @@ pub async fn build_cert<
 }
 
 pub fn vid_share<TYPES: NodeType>(
-    shares: &[Proposal<TYPES, VidDisperseShare2<TYPES>>],
+    shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
     pub_key: TYPES::SignatureKey,
-) -> Proposal<TYPES, VidDisperseShare2<TYPES>> {
+) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
     shares
         .iter()
-        .filter(|s| s.data.recipient_key == pub_key)
+        .filter(|s| *s.data.recipient_key() == pub_key)
         .cloned()
         .collect::<Vec<_>>()
         .first()
@@ -355,7 +356,7 @@ pub async fn build_vid_proposal<TYPES: NodeType, V: Versions>(
     .await;
 
     let signature =
-        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment.as_ref())
+        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment().as_ref())
             .expect("Failed to sign VID commitment");
     let vid_disperse_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -365,7 +366,7 @@ pub async fn build_vid_proposal<TYPES: NodeType, V: Versions>(
 
     (
         vid_disperse_proposal,
-        VidDisperseShare2::from_vid_disperse(vid_disperse)
+        VidDisperseShare::from_vid_disperse(vid_disperse)
             .into_iter()
             .map(|vid_disperse| {
                 vid_disperse

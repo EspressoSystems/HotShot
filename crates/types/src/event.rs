@@ -11,7 +11,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    data::{DaProposal2, Leaf2, QuorumProposalWrapper, UpgradeProposal, VidDisperseShare2},
+    data::{DaProposal2, Leaf2, QuorumProposalWrapper, UpgradeProposal, VidDisperseShare},
     error::HotShotError,
     message::Proposal,
     simple_certificate::QuorumCertificate2,
@@ -42,7 +42,7 @@ pub struct LeafInfo<TYPES: NodeType> {
     /// Optional application-specific state delta.
     pub delta: Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
     /// Optional VID share data.
-    pub vid_share: Option<VidDisperseShare2<TYPES>>,
+    pub vid_share: Option<VidDisperseShare<TYPES>>,
 }
 
 impl<TYPES: NodeType> LeafInfo<TYPES> {
@@ -51,7 +51,7 @@ impl<TYPES: NodeType> LeafInfo<TYPES> {
         leaf: Leaf2<TYPES>,
         state: Arc<<TYPES as NodeType>::ValidatedState>,
         delta: Option<Arc<<<TYPES as NodeType>::ValidatedState as ValidatedState<TYPES>>::Delta>>,
-        vid_share: Option<VidDisperseShare2<TYPES>>,
+        vid_share: Option<VidDisperseShare<TYPES>>,
     ) -> Self {
         Self {
             leaf,
@@ -171,6 +171,14 @@ pub enum EventType<TYPES: NodeType> {
         proposal: Proposal<TYPES, UpgradeProposal<TYPES>>,
         /// Public key of the leader submitting the proposal
         sender: TYPES::SignatureKey,
+    },
+
+    /// A message destined for external listeners was received
+    ExternalMessageReceived {
+        /// Public Key of the message sender
+        sender: TYPES::SignatureKey,
+        /// Serialized data of the message
+        data: Vec<u8>,
     },
 }
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
