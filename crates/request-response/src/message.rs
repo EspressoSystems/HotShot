@@ -97,18 +97,6 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
     /// # Panics
     /// - If time is not monotonic
     pub async fn validate(&self, incoming_request_ttl: Duration) -> Result<()> {
-        // Check the signature over the request content and timestamp
-        if !self.public_key.validate(
-            &self.signature,
-            &[
-                self.request.to_bytes()?,
-                self.timestamp_unix_seconds.to_le_bytes().to_vec(),
-            ]
-            .concat(),
-        ) {
-            return Err(anyhow::anyhow!("invalid request signature"));
-        }
-
         // Make sure the request is not too old
         if self
             .timestamp_unix_seconds
@@ -119,6 +107,17 @@ impl<R: Request, K: SignatureKey> RequestMessage<R, K> {
                 .as_secs()
         {
             return Err(anyhow::anyhow!("request is too old"));
+        }
+        // Check the signature over the request content and timestamp
+        if !self.public_key.validate(
+            &self.signature,
+            &[
+                self.request.to_bytes()?,
+                self.timestamp_unix_seconds.to_le_bytes().to_vec(),
+            ]
+            .concat(),
+        ) {
+            return Err(anyhow::anyhow!("invalid request signature"));
         }
 
         // Call the request's application-specific validation function
