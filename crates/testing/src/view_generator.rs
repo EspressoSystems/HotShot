@@ -27,7 +27,7 @@ use hotshot_example_types::{
 use hotshot_types::utils::genesis_epoch_from_version;
 use hotshot_types::{
     data::{
-        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
         ViewChangeEvidence2, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
@@ -58,7 +58,7 @@ pub struct TestView {
     pub membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>,
     pub vid_disperse: Proposal<TestTypes, VidDisperse<TestTypes>>,
     pub vid_proposal: (
-        Vec<Proposal<TestTypes, VidDisperseShare2<TestTypes>>>,
+        Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,

@@ -15,8 +15,8 @@ use async_trait::async_trait;
 use hotshot_types::{
     consensus::CommitmentMap,
     data::{
-        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
-        VidDisperseShare2,
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
     },
     event::HotShotAction,
     message::Proposal,
@@ -35,7 +35,7 @@ use crate::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, Testa
 
 type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
-    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, ADVZDisperseShare<TYPES>>>,
 >;
 type VidShares2<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
@@ -139,7 +139,7 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
 
 #[async_trait]
 impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
-    async fn append_vid(&self, proposal: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> Result<()> {
+    async fn append_vid(&self, proposal: &Proposal<TYPES, ADVZDisperseShare<TYPES>>) -> Result<()> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
