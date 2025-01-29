@@ -8,24 +8,15 @@
 
 use std::sync::Arc;
 
-use super::{QuorumProposalRecvTaskState, ValidationInfo};
-use crate::{
-    events::HotShotEvent,
-    helpers::{
-        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
-        validate_proposal_view_and_certs,
-    },
-    quorum_proposal_recv::{UpgradeLock, Versions},
-};
 use async_broadcast::{broadcast, Receiver, Sender};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::Committable;
-use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf2, QuorumProposal, QuorumProposal2},
     message::Proposal,
     simple_certificate::QuorumCertificate,
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -41,6 +32,16 @@ use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
 use vbs::version::StaticVersionType;
+
+use super::{QuorumProposalRecvTaskState, ValidationInfo};
+use crate::{
+    events::HotShotEvent,
+    helpers::{
+        broadcast_event, fetch_proposal, validate_proposal_safety_and_liveness,
+        validate_proposal_view_and_certs,
+    },
+    quorum_proposal_recv::{UpgradeLock, Versions},
+};
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(

@@ -9,30 +9,31 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    test_runner::Node,
-    test_task::{TestEvent, TestResult, TestTaskState},
-};
 use anyhow::Result;
 use async_broadcast::Sender;
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot::{traits::TestableNodeImplementation, HotShotError};
-use hotshot_types::traits::block_contents::BlockHeader;
-use hotshot_types::traits::BlockPayload;
 use hotshot_types::{
     data::Leaf2,
     error::RoundTimedoutState,
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate2,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType, Versions},
+        BlockPayload,
     },
     vid::VidCommitment,
 };
 use thiserror::Error;
 use tracing::error;
+
+use crate::{
+    test_runner::Node,
+    test_task::{TestEvent, TestResult, TestTaskState},
+};
 
 /// convenience type alias for state and block
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);

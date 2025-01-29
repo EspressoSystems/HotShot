@@ -20,9 +20,9 @@ use hotshot_task::{
     dependency::{Dependency, EventDependency},
     task::TaskState,
 };
-use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::OuterConsensus,
+    simple_vote::HasEpoch,
     traits::{
         election::Membership,
         network::{ConnectedNetwork, DataRequest, RequestKind},

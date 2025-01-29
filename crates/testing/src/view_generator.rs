@@ -12,9 +12,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::helpers::{
-    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
-};
 use async_lock::RwLock;
 use committable::Committable;
 use futures::{FutureExt, Stream};
@@ -24,7 +21,6 @@ use hotshot_example_types::{
     node_types::{MemoryImpl, TestTypes, TestVersions},
     state_types::{TestInstanceState, TestValidatedState},
 };
-use hotshot_types::utils::genesis_epoch_from_version;
 use hotshot_types::{
     data::{
         DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
@@ -44,9 +40,14 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType, Versions},
         BlockPayload,
     },
+    utils::genesis_epoch_from_version,
 };
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
+
+use crate::helpers::{
+    build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
+};
 
 #[derive(Clone)]
 pub struct TestView {
