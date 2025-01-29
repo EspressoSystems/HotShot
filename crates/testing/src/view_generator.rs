@@ -100,13 +100,13 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let genesis_vid_version = upgrade_lock.version_infallible(genesis_view).await;
+        let genesis_version = upgrade_lock.version_infallible(genesis_view).await;
 
         let payload_commitment = da_payload_commitment::<TestTypes, TestVersions>(
             membership,
             transactions.clone(),
             genesis_epoch,
-            genesis_vid_version,
+            genesis_version,
         )
         .await;
 
@@ -116,7 +116,7 @@ impl TestView {
             genesis_epoch,
             transactions.clone(),
             &private_key,
-            genesis_vid_version,
+            genesis_version,
         )
         .await;
 

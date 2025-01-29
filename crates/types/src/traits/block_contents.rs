@@ -165,9 +165,6 @@ pub fn vid_commitment<V: Versions>(
 /// do dispersal for the genesis block. For simplicity and performance, we use 1.
 pub const GENESIS_VID_NUM_STORAGE_NODES: usize = 1;
 
-/// The genesis block VID version number.
-pub const GENESIS_VID_VERSION: Version = Version { major: 0, minor: 0 };
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// Information about builder fee for proposed block
 pub struct BuilderFee<TYPES: NodeType> {

@@ -247,8 +247,8 @@ where
             return Ok(vec![]);
         }
 
-        // TODO(Chengyu): use meaningful version
-        let version = <TestVersions as Versions>::AVIDMUpgrade::VERSION;
+        // Let new VID scheme ships with Epochs upgrade
+        let version = <TestVersions as Versions>::Epochs::VERSION;
         let block_entry = build_block::<TYPES, TestVersions>(
             transactions,
             self.num_nodes.clone(),

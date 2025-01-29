@@ -140,8 +140,8 @@ impl<TYPES: NodeType<Transaction = TestTransaction>> RandomBuilderTask<TYPES> {
                 })
                 .collect();
 
-            // TODO(Chengyu): use meaningful version number
-            let version = <V as Versions>::AVIDMUpgrade::VERSION;
+            // Let new VID scheme ship with Epochs upgrade.
+            let version = <V as Versions>::Epochs::VERSION;
             let block = build_block::<TYPES, V>(
                 transactions,
                 num_nodes.clone(),

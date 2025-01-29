@@ -276,7 +276,4 @@ pub trait Versions: Clone + Copy + Debug + Send + Sync + 'static {
 
     /// The version at which to switch over to epochs logic
     type Epochs: StaticVersionType;
-
-    /// The version at which to switch over to the new VID scheme
-    type AVIDMUpgrade: StaticVersionType;
 }

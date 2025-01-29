@@ -41,7 +41,7 @@ use crate::{
     traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
-            GENESIS_VID_NUM_STORAGE_NODES, GENESIS_VID_VERSION,
+            GENESIS_VID_NUM_STORAGE_NODES,
         },
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
@@ -895,10 +895,13 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
+        let genesis_view = TYPES::View::genesis();
+        let upgrade_lock = UpgradeLock::<TYPES, V>::new();
+        let genesis_version = upgrade_lock.version_infallible(genesis_view).await;
         let payload_commitment = vid_commitment::<V>(
             &payload_bytes,
             GENESIS_VID_NUM_STORAGE_NODES,
-            GENESIS_VID_VERSION,
+            genesis_version,
         );
 
         let block_header = TYPES::BlockHeader::genesis(
@@ -916,13 +919,13 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         let justify_qc = QuorumCertificate2::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            <TYPES::View as ConsensusTime>::genesis(),
+            genesis_view,
             None,
             PhantomData,
         );
 
         Self {
-            view_number: TYPES::View::genesis(),
+            view_number: genesis_view,
             justify_qc,
             next_epoch_justify_qc: None,
             parent_commitment: null_quorum_data.leaf_commit,
@@ -1251,10 +1254,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
+        let genesis_view = TYPES::View::genesis();
+        let upgrade_lock = UpgradeLock::<TYPES, V>::new();
+        let genesis_version = upgrade_lock.version_infallible(genesis_view).await;
         let payload_commitment = vid_commitment::<V>(
             &payload_bytes,
             GENESIS_VID_NUM_STORAGE_NODES,
-            GENESIS_VID_VERSION,
+            genesis_version,
         );
 
         let block_header = TYPES::BlockHeader::genesis(
@@ -1271,13 +1277,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let justify_qc = QuorumCertificate::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            <TYPES::View as ConsensusTime>::genesis(),
+            genesis_view,
             None,
             PhantomData,
         );
 
         Self {
-            view_number: TYPES::View::genesis(),
+            view_number: genesis_view,
             justify_qc,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
