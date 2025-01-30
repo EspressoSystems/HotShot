@@ -560,6 +560,19 @@ impl<TYPES: NodeType> ViewChangeEvidence2<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> Committable for ViewChangeEvidence2<TYPES> {
+    fn commit(&self) -> committable::Commitment<Self> {
+        let mut cb = RawCommitmentBuilder::new("ViewChangeEvidence2");
+
+        match self {
+            Self::Timeout(x) => cb = cb.field("timeout", x.commit()),
+            Self::ViewSync(x) => cb = cb.field("viewsync", x.commit()),
+        }
+
+        cb.finalize()
+    }
+}
+
 /// Proposal to append a block.
 #[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
@@ -630,9 +643,19 @@ impl<TYPES: NodeType> QuorumProposalWrapper<TYPES> {
         &self.proposal.block_header
     }
 
+    /// Helper function to get the proposal's block_header
+    pub fn block_header_mut(&mut self) -> &mut TYPES::BlockHeader {
+        &mut self.proposal.block_header
+    }
+
     /// Helper function to get the proposal's view_number
     pub fn view_number(&self) -> TYPES::View {
         self.proposal.view_number
+    }
+
+    /// Helper function to get the proposal's view_number
+    pub fn view_number_mut(&mut self) -> &mut TYPES::View {
+        &mut self.proposal.view_number
     }
 
     /// Helper function to get the proposal's justify_qc
@@ -640,9 +663,19 @@ impl<TYPES: NodeType> QuorumProposalWrapper<TYPES> {
         &self.proposal.justify_qc
     }
 
+    /// Helper function to get the proposal's justify_qc
+    pub fn justify_qc_mut(&mut self) -> &mut QuorumCertificate2<TYPES> {
+        &mut self.proposal.justify_qc
+    }
+
     /// Helper function to get the proposal's next_epoch_justify_qc
     pub fn next_epoch_justify_qc(&self) -> &Option<NextEpochQuorumCertificate2<TYPES>> {
         &self.proposal.next_epoch_justify_qc
+    }
+
+    /// Helper function to get the proposal's next_epoch_justify_qc
+    pub fn next_epoch_justify_qc_mut(&mut self) -> &mut Option<NextEpochQuorumCertificate2<TYPES>> {
+        &mut self.proposal.next_epoch_justify_qc
     }
 
     /// Helper function to get the proposal's upgrade_certificate
@@ -650,14 +683,29 @@ impl<TYPES: NodeType> QuorumProposalWrapper<TYPES> {
         &self.proposal.upgrade_certificate
     }
 
+    /// Helper function to get the proposal's upgrade_certificate
+    pub fn upgrade_certificate_mut(&mut self) -> &mut Option<UpgradeCertificate<TYPES>> {
+        &mut self.proposal.upgrade_certificate
+    }
+
     /// Helper function to get the proposal's view_change_evidence
     pub fn view_change_evidence(&self) -> &Option<ViewChangeEvidence2<TYPES>> {
         &self.proposal.view_change_evidence
     }
 
+    /// Helper function to get the proposal's view_change_evidence
+    pub fn view_change_evidence_mut(&mut self) -> &mut Option<ViewChangeEvidence2<TYPES>> {
+        &mut self.proposal.view_change_evidence
+    }
+
     /// Helper function to get the proposal's next_drb_result
     pub fn next_drb_result(&self) -> &Option<DrbResult> {
         &self.proposal.next_drb_result
+    }
+
+    /// Helper function to get the proposal's next_drb_result
+    pub fn next_drb_result_mut(&mut self) -> &mut Option<DrbResult> {
+        &mut self.proposal.next_drb_result
     }
 }
 
@@ -1084,7 +1132,7 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
             block_header,
             upgrade_certificate,
             block_payload: _,
-            view_change_evidence: _,
+            view_change_evidence,
             next_drb_result,
             with_epoch,
         } = self;
@@ -1099,7 +1147,8 @@ impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
         if *with_epoch {
             cb = cb
                 .constant_str("with_epoch")
-                .optional("next_epoch_justify_qc", next_epoch_justify_qc);
+                .optional("next_epoch_justify_qc", next_epoch_justify_qc)
+                .optional("view_change_evidence", view_change_evidence);
 
             if let Some(next_drb_result) = next_drb_result {
                 cb = cb
