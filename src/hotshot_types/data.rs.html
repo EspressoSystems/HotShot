@@ -1673,6 +1673,32 @@
 <a href="#1673" id="1673">1673</a>
 <a href="#1674" id="1674">1674</a>
 <a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2751,13 +2777,39 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; Committable <span class="kw">for </span>Leaf2&lt;TYPES&gt; {
     <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; committable::Commitment&lt;<span class="self">Self</span>&gt; {
-        RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
-            .u64_field(<span class="string">"view number"</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number)
-            .field(<span class="string">"parent leaf commitment"</span>, <span class="self">self</span>.parent_commitment)
-            .field(<span class="string">"block header"</span>, <span class="self">self</span>.block_header.commit())
-            .field(<span class="string">"justify qc"</span>, <span class="self">self</span>.justify_qc.commit())
-            .optional(<span class="string">"upgrade certificate"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_certificate)
-            .finalize()
+        <span class="kw">let </span>Leaf2 {
+            view_number,
+            justify_qc,
+            next_epoch_justify_qc,
+            parent_commitment,
+            block_header,
+            upgrade_certificate,
+            block_payload: <span class="kw">_</span>,
+            view_change_evidence: <span class="kw">_</span>,
+            next_drb_result,
+            with_epoch,
+        } = <span class="self">self</span>;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>cb = RawCommitmentBuilder::new(<span class="string">"leaf commitment"</span>)
+            .u64_field(<span class="string">"view number"</span>, <span class="kw-2">**</span>view_number)
+            .field(<span class="string">"parent leaf commitment"</span>, <span class="kw-2">*</span>parent_commitment)
+            .field(<span class="string">"block header"</span>, block_header.commit())
+            .field(<span class="string">"justify qc"</span>, justify_qc.commit())
+            .optional(<span class="string">"upgrade certificate"</span>, upgrade_certificate);
+
+        <span class="kw">if </span><span class="kw-2">*</span>with_epoch {
+            cb = cb
+                .constant_str(<span class="string">"with_epoch"</span>)
+                .optional(<span class="string">"next_epoch_justify_qc"</span>, next_epoch_justify_qc);
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(next_drb_result) = next_drb_result {
+                cb = cb
+                    .constant_str(<span class="string">"next_drb_result"</span>)
+                    .fixed_size_bytes(next_drb_result);
+            }
+        }
+
+        cb.finalize()
     }
 }
 
