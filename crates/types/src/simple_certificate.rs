@@ -170,6 +170,10 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
         threshold: NonZeroU64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
+        println!(
+            "Is valid cert called for DA, stake_table = {:?}, threshold = {:?}",
+            stake_table, threshold
+        );
         if self.view_number == TYPES::View::genesis() {
             return Ok(());
         }
@@ -259,6 +263,10 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData2<TY
         threshold: NonZeroU64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
+        println!(
+            "Is valid cert called for DA2, stake_table = {:?}, threshold = {:?}",
+            stake_table, threshold
+        );
         if self.view_number == TYPES::View::genesis() {
             return Ok(());
         }
@@ -351,6 +359,10 @@ impl<
         threshold: NonZeroU64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
+        println!(
+            "Is valid cert called for types, stake_table = {:?}, threshold = {:?}",
+            stake_table, threshold
+        );
         if self.view_number == TYPES::View::genesis() {
             return Ok(());
         }
