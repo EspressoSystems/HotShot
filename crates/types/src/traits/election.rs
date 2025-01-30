@@ -132,6 +132,14 @@ pub trait Membership<TYPES: NodeType>: Debug + Send + Sync {
     /// Returns the threshold required to upgrade the network protocol
     fn upgrade_threshold(&self, epoch: Option<TYPES::Epoch>) -> NonZeroU64;
 
+    /// Returns if the stake table is available for the current Epoch
+    async fn has_epoch(&self, epoch: TYPES::Epoch) -> bool;
+
+    /// Gets the validated block header and epoch number of the epoch root
+    /// at the given block height
+    async fn get_epoch_root(&self, block_height: u64)
+        -> Result<(TYPES::Epoch, TYPES::BlockHeader)>;
+
     #[allow(clippy::type_complexity)]
     /// Handles notifications that a new epoch root has been created
     /// Is called under a read lock to the Membership. Return a callback
