@@ -26,7 +26,7 @@ use hotshot_example_types::{
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
-    data::{Leaf2, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, VidDisperse, VidDisperseShare},
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate2,
     simple_vote::{DaData2, DaVote2, SimpleVote, VersionedVoteData},
@@ -36,13 +36,14 @@ use hotshot_types::{
         node_implementation::{NodeType, Versions},
     },
     utils::{option_epoch_from_block_number, View, ViewInner},
-    vid::{vid_scheme, VidCommitment, VidProposal, VidSchemeType},
+    vid::{advz_scheme, VidCommitment, VidProposal, VidSchemeType},
     vote::{Certificate, HasViewNumber, Vote},
     ValidatorConfig,
 };
 use jf_vid::VidScheme;
 use primitive_types::U256;
 use serde::Serialize;
+use vbs::version::Version;
 
 use crate::{test_builder::TestDescription, test_launcher::TestLauncher};
 
@@ -186,12 +187,12 @@ pub async fn build_cert<
 }
 
 pub fn vid_share<TYPES: NodeType>(
-    shares: &[Proposal<TYPES, VidDisperseShare2<TYPES>>],
+    shares: &[Proposal<TYPES, VidDisperseShare<TYPES>>],
     pub_key: TYPES::SignatureKey,
-) -> Proposal<TYPES, VidDisperseShare2<TYPES>> {
+) -> Proposal<TYPES, VidDisperseShare<TYPES>> {
     shares
         .iter()
-        .filter(|s| s.data.recipient_key == pub_key)
+        .filter(|s| *s.data.recipient_key() == pub_key)
         .cloned()
         .collect::<Vec<_>>()
         .first()
@@ -270,67 +271,78 @@ pub fn key_pair_for_id<TYPES: NodeType>(
 /// initialize VID
 /// # Panics
 /// if unable to create a [`VidSchemeType`]
+/// TODO(Chengyu): use this version information
 #[must_use]
-pub async fn vid_scheme_from_view_number<TYPES: NodeType>(
+pub async fn vid_scheme_from_view_number<TYPES: NodeType, V: Versions>(
     membership: &Arc<RwLock<TYPES::Membership>>,
     view_number: TYPES::View,
     epoch_number: Option<TYPES::Epoch>,
+    _version: Version,
 ) -> VidSchemeType {
     let num_storage_nodes = membership
         .read()
         .await
         .committee_members(view_number, epoch_number)
         .len();
-    vid_scheme(num_storage_nodes)
+    advz_scheme(num_storage_nodes)
 }
 
-pub async fn vid_payload_commitment<TYPES: NodeType>(
+pub async fn vid_payload_commitment<TYPES: NodeType, V: Versions>(
     membership: &Arc<RwLock<<TYPES as NodeType>::Membership>>,
     view_number: TYPES::View,
     epoch_number: Option<TYPES::Epoch>,
     transactions: Vec<TestTransaction>,
+    version: Version,
 ) -> VidCommitment {
-    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view_number, epoch_number).await;
+    let mut vid =
+        vid_scheme_from_view_number::<TYPES, V>(membership, view_number, epoch_number, version)
+            .await;
     let encoded_transactions = TestTransaction::encode(&transactions);
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
 
     vid_disperse.commit
 }
 
-pub async fn da_payload_commitment<TYPES: NodeType>(
+pub async fn da_payload_commitment<TYPES: NodeType, V: Versions>(
     membership: &Arc<RwLock<<TYPES as NodeType>::Membership>>,
     transactions: Vec<TestTransaction>,
     epoch_number: Option<TYPES::Epoch>,
+    version: Version,
 ) -> VidCommitment {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
-    vid_commitment(
+    vid_commitment::<V>(
         &encoded_transactions,
         membership.read().await.total_nodes(epoch_number),
+        version,
     )
 }
 
-pub async fn build_payload_commitment<TYPES: NodeType>(
+pub async fn build_payload_commitment<TYPES: NodeType, V: Versions>(
     membership: &Arc<RwLock<<TYPES as NodeType>::Membership>>,
     view: TYPES::View,
     epoch: Option<TYPES::Epoch>,
+    version: Version,
 ) -> <VidSchemeType as VidScheme>::Commit {
     // Make some empty encoded transactions, we just care about having a commitment handy for the
     // later calls. We need the VID commitment to be able to propose later.
-    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view, epoch).await;
+    let mut vid = vid_scheme_from_view_number::<TYPES, V>(membership, view, epoch, version).await;
     let encoded_transactions = Vec::new();
     vid.commit_only(&encoded_transactions).unwrap()
 }
 
 /// TODO: <https://github.com/EspressoSystems/HotShot/issues/2821>
-pub async fn build_vid_proposal<TYPES: NodeType>(
+pub async fn build_vid_proposal<TYPES: NodeType, V: Versions>(
     membership: &Arc<RwLock<<TYPES as NodeType>::Membership>>,
     view_number: TYPES::View,
     epoch_number: Option<TYPES::Epoch>,
     transactions: Vec<TestTransaction>,
     private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    version: Version,
 ) -> VidProposal<TYPES> {
-    let mut vid = vid_scheme_from_view_number::<TYPES>(membership, view_number, epoch_number).await;
+    let mut vid =
+        vid_scheme_from_view_number::<TYPES, V>(membership, view_number, epoch_number, version)
+            .await;
     let encoded_transactions = TestTransaction::encode(&transactions);
 
     let vid_disperse = VidDisperse::from_membership(
@@ -344,7 +356,7 @@ pub async fn build_vid_proposal<TYPES: NodeType>(
     .await;
 
     let signature =
-        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment.as_ref())
+        TYPES::SignatureKey::sign(private_key, vid_disperse.payload_commitment().as_ref())
             .expect("Failed to sign VID commitment");
     let vid_disperse_proposal = Proposal {
         data: vid_disperse.clone(),
@@ -354,7 +366,7 @@ pub async fn build_vid_proposal<TYPES: NodeType>(
 
     (
         vid_disperse_proposal,
-        VidDisperseShare2::from_vid_disperse(vid_disperse)
+        VidDisperseShare::from_vid_disperse(vid_disperse)
             .into_iter()
             .map(|vid_disperse| {
                 vid_disperse
@@ -377,9 +389,10 @@ pub async fn build_da_certificate<TYPES: NodeType, V: Versions>(
 ) -> DaCertificate2<TYPES> {
     let encoded_transactions = TestTransaction::encode(&transactions);
 
-    let da_payload_commitment = vid_commitment(
+    let da_payload_commitment = vid_commitment::<V>(
         &encoded_transactions,
         membership.read().await.total_nodes(epoch_number),
+        upgrade_lock.version_infallible(view_number).await,
     );
 
     let da_data = DaData2 {
