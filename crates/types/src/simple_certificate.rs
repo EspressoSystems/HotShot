@@ -177,8 +177,12 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        let Ok(commit) = self.data_commitment(upgrade_lock).await else {
-            return false;
+        let commit = match self.data_commitment(upgrade_lock).await {
+            Ok(commit) => commit,
+            Err(e) => {
+                println!("failed to get vote commitment: {e:?}");
+                return false;
+            }
         };
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
@@ -265,8 +269,12 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData2<TY
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        let Ok(commit) = self.data_commitment(upgrade_lock).await else {
-            return false;
+        let commit = match self.data_commitment(upgrade_lock).await {
+            Ok(commit) => commit,
+            Err(e) => {
+                println!("failed to get vote commitment: {e:?}");
+                return false;
+            }
         };
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
@@ -356,8 +364,12 @@ impl<
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        let Ok(commit) = self.data_commitment(upgrade_lock).await else {
-            return false;
+        let commit = match self.data_commitment(upgrade_lock).await {
+            Ok(commit) => commit,
+            Err(e) => {
+                println!("failed to get vote commitment: {e:?}");
+                return false;
+            }
         };
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,

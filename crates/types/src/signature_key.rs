@@ -124,7 +124,12 @@ impl SignatureKey for BLSPubKey {
 
     fn check(real_qc_pp: &Self::QcParams, data: &[u8], qc: &Self::QcType) -> bool {
         let msg = GenericArray::from_slice(data);
-        BitVectorQc::<BLSOverBN254CurveSignatureScheme>::check(real_qc_pp, msg, qc).is_ok()
+        if let Err(e) = BitVectorQc::<BLSOverBN254CurveSignatureScheme>::check(real_qc_pp, msg, qc)
+        {
+            println!("failed signature check: {e:?}");
+            return false;
+        }
+        true
     }
 
     fn sig_proof(signature: &Self::QcType) -> (Self::PureAssembledSignatureType, BitVec) {
