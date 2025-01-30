@@ -945,22 +945,23 @@
         stake_table: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         threshold: NonZeroU64,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
-    ) -&gt; bool {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.view_number == TYPES::View::genesis() {
-            <span class="kw">return </span><span class="bool-val">true</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
         <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(commit) = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await else </span>{
-            <span class="kw">return </span><span class="bool-val">false</span>;
-        };
+        <span class="kw">let </span>commit = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await</span><span class="question-mark">?</span>;
+
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
             <span class="kw-2">&amp;</span>real_qc_pp,
             commit.as_ref(),
             <span class="self">self</span>.signatures.as_ref().unwrap(),
         )
+        .wrap()
+        .context(|e| <span class="macro">warn!</span>(<span class="string">"Signature check failed: {}"</span>, e))
     }
     <span class="doccomment">/// Proxy's to `Membership.stake`
     </span><span class="kw">fn </span>stake_table_entry&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
@@ -1033,22 +1034,23 @@
         stake_table: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         threshold: NonZeroU64,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
-    ) -&gt; bool {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.view_number == TYPES::View::genesis() {
-            <span class="kw">return </span><span class="bool-val">true</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
         <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(commit) = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await else </span>{
-            <span class="kw">return </span><span class="bool-val">false</span>;
-        };
+        <span class="kw">let </span>commit = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await</span><span class="question-mark">?</span>;
+
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
             <span class="kw-2">&amp;</span>real_qc_pp,
             commit.as_ref(),
             <span class="self">self</span>.signatures.as_ref().unwrap(),
         )
+        .wrap()
+        .context(|e| <span class="macro">warn!</span>(<span class="string">"Signature check failed: {}"</span>, e))
     }
     <span class="doccomment">/// Proxy's to `Membership.stake`
     </span><span class="kw">fn </span>stake_table_entry&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
@@ -1124,22 +1126,23 @@
         stake_table: Vec&lt;&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::StakeTableEntry&gt;,
         threshold: NonZeroU64,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
-    ) -&gt; bool {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.view_number == TYPES::View::genesis() {
-            <span class="kw">return </span><span class="bool-val">true</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
         <span class="kw">let </span>real_qc_pp = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::public_parameter(
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        <span class="kw">let </span><span class="prelude-val">Ok</span>(commit) = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await else </span>{
-            <span class="kw">return </span><span class="bool-val">false</span>;
-        };
+        <span class="kw">let </span>commit = <span class="self">self</span>.data_commitment(upgrade_lock).<span class="kw">await</span><span class="question-mark">?</span>;
+
         &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::check(
             <span class="kw-2">&amp;</span>real_qc_pp,
             commit.as_ref(),
             <span class="self">self</span>.signatures.as_ref().unwrap(),
         )
+        .wrap()
+        .context(|e| <span class="macro">warn!</span>(<span class="string">"Signature check failed: {}"</span>, e))
     }
     <span class="kw">fn </span>threshold&lt;MEMBERSHIP: Membership&lt;TYPES&gt;&gt;(
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
@@ -1237,19 +1240,16 @@
             <span class="kw">let </span>membership_upgrade_threshold = membership_reader.upgrade_threshold(epoch);
             drop(membership_reader);
 
-            <span class="macro">ensure!</span>(
-                cert.is_valid_cert(
-                    membership_stake_table,
-                    membership_upgrade_threshold,
-                    upgrade_lock
-                )
-                .<span class="kw">await</span>,
-                <span class="string">"Invalid upgrade certificate."
-            </span>);
-            <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>(())
+            cert.is_valid_cert(
+                membership_stake_table,
+                membership_upgrade_threshold,
+                upgrade_lock,
+            )
+            .<span class="kw">await
+            </span>.context(|e| <span class="macro">warn!</span>(<span class="string">"Invalid upgrade certificate: {}"</span>, e))<span class="question-mark">?</span>;
         }
+
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Given an upgrade certificate and a view, tests whether the view is in the period

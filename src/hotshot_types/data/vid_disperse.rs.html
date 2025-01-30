@@ -427,6 +427,8 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -435,7 +437,15 @@
 
 </span><span class="doccomment">//! This module provides types for VID disperse related data structures.
 
-</span><span class="kw">use crate</span>::{
+</span><span class="kw">use </span>std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
+
+<span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>jf_vid::{VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>tokio::task::spawn_blocking;
+<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
+
+<span class="kw">use crate</span>::{
     impl_has_epoch,
     message::Proposal,
     simple_vote::HasEpoch,
@@ -446,12 +456,6 @@
     vid::{advz_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::HasViewNumber,
 };
-<span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>jf_vid::{VidDisperse <span class="kw">as </span>JfVidDisperse, VidScheme};
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
-<span class="kw">use </span>tokio::task::spawn_blocking;
-<span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 
 <span class="macro">impl_has_epoch!</span>(ADVZDisperse&lt;TYPES&gt;, VidDisperseShare2&lt;TYPES&gt;);
 

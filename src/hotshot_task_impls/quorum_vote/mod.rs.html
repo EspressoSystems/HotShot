@@ -789,8 +789,6 @@
 <a href="#789" id="789">789</a>
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1324,15 +1322,13 @@
                 drop(membership_reader);
 
                 <span class="comment">// Validate the DAC.
-                </span><span class="macro">ensure!</span>(
-                    cert.is_valid_cert(
-                        membership_da_stake_table,
-                        membership_da_success_threshold,
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
-                    )
-                    .<span class="kw">await</span>,
-                    <span class="macro">warn!</span>(<span class="string">"Invalid DAC"</span>)
-                );
+                </span>cert.is_valid_cert(
+                    membership_da_stake_table,
+                    membership_da_success_threshold,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await
+                </span>.context(|e| <span class="macro">warn!</span>(<span class="string">"Invalid DAC: {}"</span>, e))<span class="question-mark">?</span>;
 
                 <span class="comment">// Add to the storage.
                 </span><span class="self">self</span>.consensus

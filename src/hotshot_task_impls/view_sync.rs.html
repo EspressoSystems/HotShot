@@ -907,6 +907,18 @@
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1464,7 +1476,7 @@
                 drop(membership_reader);
 
                 <span class="comment">// If certificate is not valid, return current state
-                </span><span class="kw">if </span>!certificate
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = certificate
                     .is_valid_cert(
                         membership_stake_table,
                         membership_failure_threshold,
@@ -1472,7 +1484,11 @@
                     )
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">tracing::error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
+                    <span class="macro">tracing::error!</span>(
+                        <span class="string">"Not valid view sync cert! data: {:?}, error: {}"</span>,
+                        certificate.data(),
+                        e
+                    );
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1554,7 +1570,7 @@
                 drop(membership_reader);
 
                 <span class="comment">// If certificate is not valid, return current state
-                </span><span class="kw">if </span>!certificate
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = certificate
                     .is_valid_cert(
                         membership_stake_table,
                         membership_success_threshold,
@@ -1562,7 +1578,11 @@
                     )
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">tracing::error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
+                    <span class="macro">tracing::error!</span>(
+                        <span class="string">"Not valid view sync cert! data: {:?}, error: {}"</span>,
+                        certificate.data(),
+                        e
+                    );
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
@@ -1655,7 +1675,7 @@
                 drop(membership_reader);
 
                 <span class="comment">// If certificate is not valid, return current state
-                </span><span class="kw">if </span>!certificate
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = certificate
                     .is_valid_cert(
                         membership_stake_table,
                         membership_success_threshold,
@@ -1663,7 +1683,11 @@
                     )
                     .<span class="kw">await
                 </span>{
-                    <span class="macro">tracing::error!</span>(<span class="string">"Not valid view sync cert! {:?}"</span>, certificate.data());
+                    <span class="macro">tracing::error!</span>(
+                        <span class="string">"Not valid view sync cert! data: {:?}, error: {}"</span>,
+                        certificate.data(),
+                        e
+                    );
 
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }

@@ -844,6 +844,10 @@
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -982,16 +986,20 @@
     <span class="kw">let </span>membership_success_threshold = membership_reader.success_threshold(justify_qc_epoch);
     drop(membership_reader);
 
-    <span class="kw">if </span>!justify_qc
+    justify_qc
         .is_valid_cert(
             membership_stake_table,
             membership_success_threshold,
             upgrade_lock,
         )
         .<span class="kw">await
-    </span>{
-        <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
-    }
+        </span>.context(|e| {
+            <span class="macro">warn!</span>(
+                <span class="string">"Invalid justify_qc in proposal for view {}: {}"</span>,
+                <span class="kw-2">*</span>view_number, e
+            )
+        })<span class="question-mark">?</span>;
+
     <span class="kw">let </span><span class="kw-2">mut </span>consensus_writer = consensus.write().<span class="kw">await</span>;
     <span class="kw">let </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal.data);
     <span class="kw">let </span>state = Arc::new(
@@ -1609,17 +1617,19 @@
                     membership_reader.success_threshold(timeout_cert_epoch);
                 drop(membership_reader);
 
-                <span class="macro">ensure!</span>(
-                    timeout_cert
-                        .is_valid_cert(
-                            membership_stake_table,
-                            membership_success_threshold,
-                            <span class="kw-2">&amp;</span>validation_info.upgrade_lock
+                timeout_cert
+                    .is_valid_cert(
+                        membership_stake_table,
+                        membership_success_threshold,
+                        <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
+                    )
+                    .<span class="kw">await
+                    </span>.context(|e| {
+                        <span class="macro">warn!</span>(
+                            <span class="string">"Timeout certificate for view {} was invalid: {}"</span>,
+                            <span class="kw-2">*</span>view_number, e
                         )
-                        .<span class="kw">await</span>,
-                    <span class="string">"Timeout certificate for view {} was invalid"</span>,
-                    <span class="kw-2">*</span>view_number
-                );
+                    })<span class="question-mark">?</span>;
             }
             ViewChangeEvidence2::ViewSync(view_sync_cert) =&gt; {
                 <span class="macro">ensure!</span>(
@@ -1638,16 +1648,14 @@
                 drop(membership_reader);
 
                 <span class="comment">// View sync certs must also be valid.
-                </span><span class="macro">ensure!</span>(
-                    view_sync_cert
-                        .is_valid_cert(
-                            membership_stake_table,
-                            membership_success_threshold,
-                            <span class="kw-2">&amp;</span>validation_info.upgrade_lock
-                        )
-                        .<span class="kw">await</span>,
-                    <span class="string">"Invalid view sync finalize cert provided"
-                </span>);
+                </span>view_sync_cert
+                    .is_valid_cert(
+                        membership_stake_table,
+                        membership_success_threshold,
+                        <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
+                    )
+                    .<span class="kw">await
+                    </span>.context(|e| <span class="macro">warn!</span>(<span class="string">"Invalid view sync finalize cert provided: {}"</span>, e))<span class="question-mark">?</span>;
             }
         }
     }

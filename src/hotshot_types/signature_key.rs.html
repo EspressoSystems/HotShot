@@ -181,6 +181,10 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -305,9 +309,13 @@
         }
     }
 
-    <span class="kw">fn </span>check(real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcParams, data: <span class="kw-2">&amp;</span>[u8], qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcType) -&gt; bool {
+    <span class="kw">fn </span>check(
+        real_qc_pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcParams,
+        data: <span class="kw-2">&amp;</span>[u8],
+        qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SignatureError&gt; {
         <span class="kw">let </span>msg = GenericArray::from_slice(data);
-        BitVectorQc::&lt;BLSOverBN254CurveSignatureScheme&gt;::check(real_qc_pp, msg, qc).is_ok()
+        BitVectorQc::&lt;BLSOverBN254CurveSignatureScheme&gt;::check(real_qc_pp, msg, qc).map(|<span class="kw">_</span>| ())
     }
 
     <span class="kw">fn </span>sig_proof(signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::QcType) -&gt; (<span class="self">Self</span>::PureAssembledSignatureType, BitVec) {

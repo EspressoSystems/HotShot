@@ -957,13 +957,19 @@
 <a href="#957" id="957">957</a>
 <a href="#958" id="958">958</a>
 <a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This crate contains a general request-response protocol. It is used to send requests to
 //! a set of recipients and wait for responses.
 
-</span><span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::sync::Weak;
-<span class="kw">use </span>std::time::Instant;
-<span class="kw">use </span>std::{marker::PhantomData, sync::Arc, time::Duration};
+</span><span class="kw">use </span>std::{
+    collections::HashMap,
+    marker::PhantomData,
+    sync::{Arc, Weak},
+    time::{Duration, Instant},
+};
 
 <span class="kw">use </span>anyhow::{anyhow, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>data_source::DataSource;
@@ -976,8 +982,10 @@
 <span class="kw">use </span>rand::seq::SliceRandom;
 <span class="kw">use </span>recipient_source::RecipientSource;
 <span class="kw">use </span>request::{Request, Response};
-<span class="kw">use </span>tokio::spawn;
-<span class="kw">use </span>tokio::time::{sleep, timeout};
+<span class="kw">use </span>tokio::{
+    spawn,
+    time::{sleep, timeout},
+};
 <span class="kw">use </span>tokio_util::task::AbortOnDropHandle;
 <span class="kw">use </span>tracing::{error, warn};
 <span class="kw">use </span>util::BoundedVecDeque;

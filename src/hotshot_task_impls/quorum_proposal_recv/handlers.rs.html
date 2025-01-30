@@ -337,8 +337,6 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -509,17 +507,20 @@
     <span class="kw">let </span>membership_success_threshold = membership_reader.success_threshold(justify_qc.data.epoch);
     drop(membership_reader);
 
-    <span class="kw">if </span>!justify_qc
-        .is_valid_cert(
-            membership_stake_table,
-            membership_success_threshold,
-            <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
-        )
-        .<span class="kw">await
-    </span>{
+    {
         <span class="kw">let </span>consensus_reader = validation_info.consensus.read().<span class="kw">await</span>;
-        consensus_reader.metrics.invalid_qc.update(<span class="number">1</span>);
-        <span class="macro">bail!</span>(<span class="string">"Invalid justify_qc in proposal for view {}"</span>, <span class="kw-2">*</span>view_number);
+        justify_qc
+            .is_valid_cert(
+                membership_stake_table,
+                membership_success_threshold,
+                <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
+            )
+            .<span class="kw">await
+            </span>.context(|e| {
+                consensus_reader.metrics.invalid_qc.update(<span class="number">1</span>);
+
+                <span class="macro">warn!</span>(<span class="string">"Invalid certificate for view {}: {}"</span>, <span class="kw-2">*</span>view_number, e)
+            })<span class="question-mark">?</span>;
     }
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>next_epoch_justify_qc) = maybe_next_epoch_justify_qc {
@@ -539,19 +540,14 @@
         drop(membership_reader);
 
         <span class="comment">// Validate the next epoch justify qc as well
-        </span><span class="kw">if </span>!next_epoch_justify_qc
+        </span>next_epoch_justify_qc
             .is_valid_cert(
                 membership_next_stake_table,
                 membership_next_success_threshold,
                 <span class="kw-2">&amp;</span>validation_info.upgrade_lock,
             )
             .<span class="kw">await
-        </span>{
-            <span class="macro">bail!</span>(
-                <span class="string">"Invalid next_epoch_justify_qc in proposal for view {}"</span>,
-                <span class="kw-2">*</span>view_number
-            );
-        }
+            </span>.context(|e| <span class="macro">warn!</span>(<span class="string">"Invalid certificate for view {}: {}"</span>, <span class="kw-2">*</span>view_number, e))<span class="question-mark">?</span>;
     }
 
     broadcast_event(

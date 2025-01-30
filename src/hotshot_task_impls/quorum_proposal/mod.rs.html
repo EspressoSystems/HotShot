@@ -1113,19 +1113,20 @@
                     membership_reader.success_threshold(epoch_number);
                 drop(membership_reader);
 
-                <span class="macro">ensure!</span>(
-                    certificate
-                        .is_valid_cert(
-                            membership_stake_table,
-                            membership_success_threshold,
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
-                        )
-                        .<span class="kw">await</span>,
-                    <span class="macro">warn!</span>(
-                        <span class="string">"View Sync Finalize certificate {:?} was invalid"</span>,
-                        certificate.data()
+                certificate
+                    .is_valid_cert(
+                        membership_stake_table,
+                        membership_success_threshold,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
                     )
-                );
+                    .<span class="kw">await
+                    </span>.context(|e| {
+                        <span class="macro">warn!</span>(
+                            <span class="string">"View Sync Finalize certificate {:?} was invalid: {}"</span>,
+                            certificate.data(),
+                            e
+                        )
+                    })<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>view_number = certificate.view_number;
 
@@ -1197,15 +1198,14 @@
                     membership_reader.success_threshold(cert_epoch_number);
                 drop(membership_reader);
 
-                <span class="macro">ensure!</span>(
-                    qc.is_valid_cert(
-                        membership_stake_table,
-                        membership_success_threshold,
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock
-                    )
-                    .<span class="kw">await</span>,
-                    <span class="macro">warn!</span>(<span class="string">"Quorum certificate {:?} was invalid"</span>, qc.data())
-                );
+                qc.is_valid_cert(
+                    membership_stake_table,
+                    membership_success_threshold,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
+                )
+                .<span class="kw">await
+                </span>.context(|e| <span class="macro">warn!</span>(<span class="string">"Quorum certificate {:?} was invalid: {}"</span>, qc.data(), e))<span class="question-mark">?</span>;
+
                 <span class="self">self</span>.highest_qc = qc.clone();
             }
             HotShotEvent::NextEpochQc2Formed(Either::Left(next_epoch_qc)) =&gt; {
