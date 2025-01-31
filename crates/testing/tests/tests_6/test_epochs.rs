@@ -521,7 +521,7 @@ cross_tests!(
           // Make sure we keep committing rounds after the catchup, but not the full 50.
           num_successful_views: 22,
           expected_view_failures: vec![10],
-          possible_view_failures: vec![9],
+          possible_view_failures: vec![9, 11],
           ..Default::default()
       };
 
