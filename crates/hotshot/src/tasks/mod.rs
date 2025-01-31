@@ -161,7 +161,7 @@ pub fn add_network_message_task<
                             message
                         }
                         Err(e) => {
-                            tracing::error!("Failed to receive message: {:?}", e);
+                            tracing::trace!("Failed to receive message: {:?}", e);
                             continue;
                         }
                     };
