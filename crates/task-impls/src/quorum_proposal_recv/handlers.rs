@@ -13,7 +13,7 @@ use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use committable::Committable;
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposal, QuorumProposal2},
+    data::{Leaf2, QuorumProposal, QuorumProposalWrapper},
     message::Proposal,
     simple_certificate::QuorumCertificate,
     simple_vote::HasEpoch,
@@ -45,7 +45,7 @@ use crate::{
 /// Update states in the event that the parent state is not found for a given `proposal`.
 #[instrument(skip_all)]
 async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>(
-    proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
+    proposal: &Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
     validation_info: &ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
     let mut consensus_writer = validation_info.consensus.write().await;
@@ -140,7 +140,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     I: NodeImplementation<TYPES>,
     V: Versions,
 >(
-    proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
+    proposal: &Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
     quorum_proposal_sender_key: &TYPES::SignatureKey,
     event_sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
@@ -161,7 +161,12 @@ pub(crate) async fn handle_quorum_proposal_recv<
     let justify_qc = proposal.data.justify_qc().clone();
     let maybe_next_epoch_justify_qc = proposal.data.next_epoch_justify_qc().clone();
 
-    let proposal_epoch = proposal.data.epoch();
+    let proposal_block_number = proposal.data.block_header().block_number();
+    let proposal_epoch = option_epoch_from_block_number::<TYPES>(
+        proposal.data.epoch().is_some(),
+        proposal_block_number,
+        validation_info.epoch_height,
+    );
 
     let membership_reader = validation_info.membership.read().await;
     let membership_stake_table = membership_reader.stake_table(justify_qc.data.epoch);

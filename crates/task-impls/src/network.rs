@@ -95,7 +95,7 @@ impl<TYPES: NodeType, V: Versions> NetworkMessageTaskState<TYPES, V> {
                                 tracing::warn!("received GeneralConsensusMessage::Proposal2 for view {} but epochs are not enabled for that view", proposal.data.view_number());
                                 return;
                             }
-                            HotShotEvent::QuorumProposalRecv(proposal, sender)
+                            HotShotEvent::QuorumProposalRecv(convert_proposal(proposal), sender)
                         }
                         GeneralConsensusMessage::ProposalRequested(req, sig) => {
                             HotShotEvent::QuorumProposalRequestRecv(req, sig)
@@ -120,7 +120,7 @@ impl<TYPES: NodeType, V: Versions> NetworkMessageTaskState<TYPES, V> {
                                 tracing::warn!("received GeneralConsensusMessage::ProposalResponse2 for view {} but epochs are not enabled for that view", proposal.data.view_number());
                                 return;
                             }
-                            HotShotEvent::QuorumProposalResponseRecv(proposal)
+                            HotShotEvent::QuorumProposalResponseRecv(convert_proposal(proposal))
                         }
                         GeneralConsensusMessage::Vote(vote) => {
                             if self.upgrade_lock.epochs_enabled(vote.view_number()).await {

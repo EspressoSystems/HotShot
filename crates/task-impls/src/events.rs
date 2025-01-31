@@ -11,8 +11,8 @@ use either::Either;
 use hotshot_task::task::TaskEvent;
 use hotshot_types::{
     data::{
-        DaProposal2, Leaf2, PackedBundle, QuorumProposal2, UpgradeProposal, VidDisperse,
-        VidDisperseShare,
+        DaProposal2, Leaf2, PackedBundle, QuorumProposal2, QuorumProposalWrapper, UpgradeProposal,
+        VidDisperse, VidDisperseShare,
     },
     message::Proposal,
     request_response::ProposalRequestPayload,
@@ -72,7 +72,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// Shutdown the task
     Shutdown,
     /// A quorum proposal has been received from the network; handled by the consensus task
-    QuorumProposalRecv(Proposal<TYPES, QuorumProposal2<TYPES>>, TYPES::SignatureKey),
+    QuorumProposalRecv(
+        Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
+        TYPES::SignatureKey,
+    ),
     /// A quorum vote has been received from the network; handled by the consensus task
     QuorumVoteRecv(QuorumVote2<TYPES>),
     /// A timeout vote received from the network; handled by consensus task
@@ -90,7 +93,10 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// A DAC is validated.
     DaCertificateValidated(DaCertificate2<TYPES>),
     /// Send a quorum proposal to the network; emitted by the leader in the consensus task
-    QuorumProposalSend(Proposal<TYPES, QuorumProposal2<TYPES>>, TYPES::SignatureKey),
+    QuorumProposalSend(
+        Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
+        TYPES::SignatureKey,
+    ),
     /// Send a quorum vote to the next leader; emitted by a replica in the consensus task after seeing a valid quorum proposal
     QuorumVoteSend(QuorumVote2<TYPES>),
     /// Broadcast a quorum vote to form an eQC; emitted by a replica in the consensus task after seeing a valid quorum proposal
@@ -101,7 +107,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// 2. The proposal has been correctly signed by the leader of the current view
     /// 3. The justify QC is valid
     /// 4. The proposal passes either liveness or safety check.
-    QuorumProposalValidated(Proposal<TYPES, QuorumProposal2<TYPES>>, Leaf2<TYPES>),
+    QuorumProposalValidated(Proposal<TYPES, QuorumProposalWrapper<TYPES>>, Leaf2<TYPES>),
     /// A quorum proposal is missing for a view that we need.
     QuorumProposalRequestSend(
         ProposalRequestPayload<TYPES>,
@@ -113,9 +119,12 @@ pub enum HotShotEvent<TYPES: NodeType> {
         <TYPES::SignatureKey as SignatureKey>::PureAssembledSignatureType,
     ),
     /// A quorum proposal was missing for a view. As the leader, we send a reply to the recipient with their key.
-    QuorumProposalResponseSend(TYPES::SignatureKey, Proposal<TYPES, QuorumProposal2<TYPES>>),
+    QuorumProposalResponseSend(
+        TYPES::SignatureKey,
+        Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
+    ),
     /// A quorum proposal was requested by a node for a view.
-    QuorumProposalResponseRecv(Proposal<TYPES, QuorumProposal2<TYPES>>),
+    QuorumProposalResponseRecv(Proposal<TYPES, QuorumProposalWrapper<TYPES>>),
     /// Send a DA proposal to the DA committee; emitted by the DA leader (which is the same node as the leader of view v + 1) in the DA task
     DaProposalSend(Proposal<TYPES, DaProposal2<TYPES>>, TYPES::SignatureKey),
     /// Send a DA vote to the DA leader; emitted by DA committee members in the DA task after seeing a valid DA proposal
@@ -208,7 +217,7 @@ pub enum HotShotEvent<TYPES: NodeType> {
     /// 1. The proposal is not for an old view
     /// 2. The proposal has been correctly signed by the leader of the current view
     /// 3. The justify QC is valid
-    QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposal2<TYPES>>),
+    QuorumProposalPreliminarilyValidated(Proposal<TYPES, QuorumProposalWrapper<TYPES>>),
 
     /// Send a VID request to the network; emitted to on of the members of DA committee.
     /// Includes the data request, node's public key and signature as well as public key of DA committee who we want to send to.

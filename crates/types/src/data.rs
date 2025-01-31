@@ -614,42 +614,15 @@ pub struct QuorumProposal2<TYPES: NodeType> {
     pub next_drb_result: Option<DrbResult>,
 }
 
+/// Wrapper around a proposal to append a block
+#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub struct QuorumProposalWrapper<TYPES: NodeType> {
+    /// The wrapped proposal
+    pub proposal: QuorumProposal2<TYPES>,
+}
+
 impl<TYPES: NodeType> QuorumProposal2<TYPES> {
-    /// Helper function to get the proposal's block_header
-    pub fn block_header(&self) -> &TYPES::BlockHeader {
-        &self.block_header
-    }
-
-    /// Helper function to get the proposal's view_number
-    pub fn view_number(&self) -> TYPES::View {
-        self.view_number
-    }
-
-    /// Helper function to get the proposal's justify_qc
-    pub fn justify_qc(&self) -> &QuorumCertificate2<TYPES> {
-        &self.justify_qc
-    }
-
-    /// Helper function to get the proposal's next_epoch_justify_qc
-    pub fn next_epoch_justify_qc(&self) -> &Option<NextEpochQuorumCertificate2<TYPES>> {
-        &self.next_epoch_justify_qc
-    }
-
-    /// Helper function to get the proposal's upgrade_certificate
-    pub fn upgrade_certificate(&self) -> &Option<UpgradeCertificate<TYPES>> {
-        &self.upgrade_certificate
-    }
-
-    /// Helper function to get the proposal's view_change_evidence
-    pub fn view_change_evidence(&self) -> &Option<ViewChangeEvidence2<TYPES>> {
-        &self.view_change_evidence
-    }
-
-    /// Helper function to get the proposal's next_drb_result
-    pub fn next_drb_result(&self) -> &Option<DrbResult> {
-        &self.next_drb_result
-    }
-
     /// Validates whether the epoch is consistent with the version and the block number
     /// # Errors
     /// Returns an error if the epoch is inconsistent with the version or the block number
@@ -660,7 +633,7 @@ impl<TYPES: NodeType> QuorumProposal2<TYPES> {
     ) -> Result<()> {
         let calculated_epoch = option_epoch_from_block_number::<TYPES>(
             upgrade_lock.epochs_enabled(self.view_number()).await,
-            self.block_header().block_number(),
+            self.block_header.block_number(),
             epoch_height,
         );
         ensure!(
@@ -668,6 +641,84 @@ impl<TYPES: NodeType> QuorumProposal2<TYPES> {
             "Quorum proposal invalid: inconsistent epoch."
         );
         Ok(())
+    }
+}
+
+impl<TYPES: NodeType> QuorumProposalWrapper<TYPES> {
+    /// Helper function to get the proposal's block_header
+    pub fn block_header(&self) -> &TYPES::BlockHeader {
+        &self.proposal.block_header
+    }
+
+    /// Helper function to get the proposal's view_number
+    pub fn view_number(&self) -> TYPES::View {
+        self.proposal.view_number
+    }
+
+    /// Helper function to get the proposal's justify_qc
+    pub fn justify_qc(&self) -> &QuorumCertificate2<TYPES> {
+        &self.proposal.justify_qc
+    }
+
+    /// Helper function to get the proposal's next_epoch_justify_qc
+    pub fn next_epoch_justify_qc(&self) -> &Option<NextEpochQuorumCertificate2<TYPES>> {
+        &self.proposal.next_epoch_justify_qc
+    }
+
+    /// Helper function to get the proposal's upgrade_certificate
+    pub fn upgrade_certificate(&self) -> &Option<UpgradeCertificate<TYPES>> {
+        &self.proposal.upgrade_certificate
+    }
+
+    /// Helper function to get the proposal's view_change_evidence
+    pub fn view_change_evidence(&self) -> &Option<ViewChangeEvidence2<TYPES>> {
+        &self.proposal.view_change_evidence
+    }
+
+    /// Helper function to get the proposal's next_drb_result
+    pub fn next_drb_result(&self) -> &Option<DrbResult> {
+        &self.proposal.next_drb_result
+    }
+
+    /// Validates whether the epoch is consistent with the version and the block number
+    /// # Errors
+    /// Returns an error if the epoch is inconsistent with the version or the block number
+    pub async fn validate_epoch<V: Versions>(
+        &self,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
+        epoch_height: u64,
+    ) -> Result<()> {
+        self.proposal
+            .validate_epoch(upgrade_lock, epoch_height)
+            .await
+    }
+}
+
+impl<TYPES: NodeType> From<QuorumProposal<TYPES>> for QuorumProposalWrapper<TYPES> {
+    fn from(quorum_proposal: QuorumProposal<TYPES>) -> Self {
+        Self {
+            proposal: quorum_proposal.into(),
+        }
+    }
+}
+
+impl<TYPES: NodeType> From<QuorumProposal2<TYPES>> for QuorumProposalWrapper<TYPES> {
+    fn from(quorum_proposal2: QuorumProposal2<TYPES>) -> Self {
+        Self {
+            proposal: quorum_proposal2,
+        }
+    }
+}
+
+impl<TYPES: NodeType> From<QuorumProposalWrapper<TYPES>> for QuorumProposal<TYPES> {
+    fn from(quorum_proposal_wrapper: QuorumProposalWrapper<TYPES>) -> Self {
+        quorum_proposal_wrapper.proposal.into()
+    }
+}
+
+impl<TYPES: NodeType> From<QuorumProposalWrapper<TYPES>> for QuorumProposal2<TYPES> {
+    fn from(quorum_proposal_wrapper: QuorumProposalWrapper<TYPES>) -> Self {
+        quorum_proposal_wrapper.proposal
     }
 }
 
@@ -745,6 +796,12 @@ impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposal2<TYPES> {
     }
 }
 
+impl<TYPES: NodeType> HasViewNumber<TYPES> for QuorumProposalWrapper<TYPES> {
+    fn view_number(&self) -> TYPES::View {
+        self.proposal.view_number
+    }
+}
+
 impl<TYPES: NodeType> HasViewNumber<TYPES> for UpgradeProposal<TYPES> {
     fn view_number(&self) -> TYPES::View {
         self.view_number
@@ -759,6 +816,14 @@ impl_has_none_epoch!(
     UpgradeProposal<TYPES>,
     ADVZDisperseShare<TYPES>
 );
+
+impl<TYPES: NodeType> HasEpoch<TYPES> for QuorumProposalWrapper<TYPES> {
+    /// Return an underlying proposal's epoch
+    #[allow(clippy::panic)]
+    fn epoch(&self) -> Option<TYPES::Epoch> {
+        self.proposal.epoch()
+    }
+}
 
 /// The error type for block and its transactions.
 #[derive(Error, Debug, Serialize, Deserialize)]
@@ -1458,18 +1523,21 @@ impl<TYPES: NodeType> Committable for Leaf<TYPES> {
 
 impl<TYPES: NodeType> Leaf2<TYPES> {
     /// Constructs a leaf from a given quorum proposal.
-    pub fn from_quorum_proposal(quorum_proposal: &QuorumProposal2<TYPES>) -> Self {
+    pub fn from_quorum_proposal(quorum_proposal: &QuorumProposalWrapper<TYPES>) -> Self {
         // WARNING: Do NOT change this to a wildcard match, or reference the fields directly in the construction of the leaf.
         // The point of this match is that we will get a compile-time error if we add a field without updating this.
-        let QuorumProposal2 {
-            view_number,
-            epoch,
-            justify_qc,
-            next_epoch_justify_qc,
-            block_header,
-            upgrade_certificate,
-            view_change_evidence,
-            next_drb_result,
+        let QuorumProposalWrapper {
+            proposal:
+                QuorumProposal2 {
+                    view_number,
+                    epoch,
+                    justify_qc,
+                    next_epoch_justify_qc,
+                    block_header,
+                    upgrade_certificate,
+                    view_change_evidence,
+                    next_drb_result,
+                },
         } = quorum_proposal;
 
         Self {

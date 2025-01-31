@@ -23,8 +23,8 @@ use hotshot_example_types::{
 };
 use hotshot_types::{
     data::{
-        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare,
-        ViewChangeEvidence2, ViewNumber,
+        DaProposal2, EpochNumber, Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse,
+        VidDisperseShare, ViewChangeEvidence2, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -52,7 +52,7 @@ use crate::helpers::{
 #[derive(Clone)]
 pub struct TestView {
     pub da_proposal: Proposal<TestTypes, DaProposal2<TestTypes>>,
-    pub quorum_proposal: Proposal<TestTypes, QuorumProposal2<TestTypes>>,
+    pub quorum_proposal: Proposal<TestTypes, QuorumProposalWrapper<TestTypes>>,
     pub leaf: Leaf2<TestTypes>,
     pub view_number: ViewNumber,
     pub epoch_number: Option<EpochNumber>,
@@ -135,19 +135,21 @@ impl TestView {
             metadata,
         );
 
-        let quorum_proposal_inner = QuorumProposal2::<TestTypes> {
-            block_header: block_header.clone(),
-            view_number: genesis_view,
-            epoch: genesis_epoch,
-            justify_qc: QuorumCertificate2::genesis::<TestVersions>(
-                &TestValidatedState::default(),
-                &TestInstanceState::default(),
-            )
-            .await,
-            next_epoch_justify_qc: None,
-            upgrade_certificate: None,
-            view_change_evidence: None,
-            next_drb_result: None,
+        let quorum_proposal_inner = QuorumProposalWrapper::<TestTypes> {
+            proposal: QuorumProposal2::<TestTypes> {
+                block_header: block_header.clone(),
+                view_number: genesis_view,
+                epoch: genesis_epoch,
+                justify_qc: QuorumCertificate2::genesis::<TestVersions>(
+                    &TestValidatedState::default(),
+                    &TestInstanceState::default(),
+                )
+                .await,
+                next_epoch_justify_qc: None,
+                upgrade_certificate: None,
+                view_change_evidence: None,
+                next_drb_result: None,
+            },
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -372,15 +374,17 @@ impl TestView {
             random,
         };
 
-        let proposal = QuorumProposal2::<TestTypes> {
-            block_header: block_header.clone(),
-            view_number: next_view,
-            epoch: self.epoch_number,
-            justify_qc: quorum_certificate.clone(),
-            next_epoch_justify_qc: None,
-            upgrade_certificate: upgrade_certificate.clone(),
-            view_change_evidence,
-            next_drb_result: None,
+        let proposal = QuorumProposalWrapper::<TestTypes> {
+            proposal: QuorumProposal2::<TestTypes> {
+                block_header: block_header.clone(),
+                view_number: next_view,
+                epoch: old_epoch,
+                justify_qc: quorum_certificate.clone(),
+                next_epoch_justify_qc: None,
+                upgrade_certificate: upgrade_certificate.clone(),
+                view_change_evidence,
+                next_drb_result: None,
+            },
         };
 
         let mut leaf = Leaf2::from_quorum_proposal(&proposal);

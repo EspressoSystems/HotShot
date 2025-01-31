@@ -17,6 +17,7 @@ use hotshot_types::{
     data::{
         vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
+        QuorumProposalWrapper,
     },
     event::HotShotAction,
     message::Proposal,
@@ -50,6 +51,7 @@ pub struct TestStorageState<TYPES: NodeType> {
     da2s: HashMap<TYPES::View, Proposal<TYPES, DaProposal2<TYPES>>>,
     proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal<TYPES>>>,
     proposals2: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+    proposals_wrapper: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
     high_qc: Option<hotshot_types::simple_certificate::QuorumCertificate<TYPES>>,
     high_qc2: Option<hotshot_types::simple_certificate::QuorumCertificate2<TYPES>>,
     next_epoch_high_qc2:
@@ -67,6 +69,7 @@ impl<TYPES: NodeType> Default for TestStorageState<TYPES> {
             da2s: HashMap::new(),
             proposals: BTreeMap::new(),
             proposals2: BTreeMap::new(),
+            proposals_wrapper: BTreeMap::new(),
             high_qc: None,
             next_epoch_high_qc2: None,
             high_qc2: None,
@@ -109,8 +112,8 @@ impl<TYPES: NodeType> TestableDelay for TestStorage<TYPES> {
 impl<TYPES: NodeType> TestStorage<TYPES> {
     pub async fn proposals_cloned(
         &self,
-    ) -> BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>> {
-        self.inner.read().await.proposals2.clone()
+    ) -> BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>> {
+        self.inner.read().await.proposals_wrapper.clone()
     }
 
     pub async fn high_qc_cloned(&self) -> Option<QuorumCertificate2<TYPES>> {
@@ -229,6 +232,21 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
         inner
             .proposals2
             .insert(proposal.data.view_number, proposal.clone());
+        Ok(())
+    }
+
+    async fn append_proposal_wrapper(
+        &self,
+        proposal: &Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
+    ) -> Result<()> {
+        if self.should_return_err {
+            bail!("Failed to append Quorum proposal (wrapped) to storage");
+        }
+        Self::run_delay_settings_from_config(&self.delay_config).await;
+        let mut inner = self.inner.write().await;
+        inner
+            .proposals_wrapper
+            .insert(proposal.data.view_number(), proposal.clone());
         Ok(())
     }
 
