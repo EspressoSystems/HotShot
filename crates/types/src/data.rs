@@ -24,6 +24,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use utils::anytrace::*;
+use vbs::version::Version;
 use vec1::Vec1;
 use vid_disperse::{ADVZDisperse, ADVZDisperseShare, VidDisperseShare2};
 
@@ -263,12 +264,13 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     /// # Errors
     /// Returns an error if the disperse or commitment calculation fails
     #[allow(clippy::panic)]
-    pub async fn calculate_vid_disperse(
+    pub async fn calculate_vid_disperse<V: Versions>(
         payload: &TYPES::BlockPayload,
         membership: &Arc<RwLock<TYPES::Membership>>,
         view: TYPES::View,
         target_epoch: Option<TYPES::Epoch>,
         data_epoch: Option<TYPES::Epoch>,
+        _upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<Self> {
         ADVZDisperse::calculate_vid_disperse(payload, membership, view, target_epoch, data_epoch)
             .await
@@ -942,7 +944,14 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
-        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        let genesis_view = TYPES::View::genesis();
+        let upgrade_lock = UpgradeLock::<TYPES, V>::new();
+        let genesis_version = upgrade_lock.version_infallible(genesis_view).await;
+        let payload_commitment = vid_commitment::<V>(
+            &payload_bytes,
+            GENESIS_VID_NUM_STORAGE_NODES,
+            genesis_version,
+        );
 
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -959,13 +968,13 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
         let justify_qc = QuorumCertificate2::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            <TYPES::View as ConsensusTime>::genesis(),
+            genesis_view,
             None,
             PhantomData,
         );
 
         Self {
-            view_number: TYPES::View::genesis(),
+            view_number: genesis_view,
             justify_qc,
             next_epoch_justify_qc: None,
             parent_commitment: null_quorum_data.leaf_commit,
@@ -1022,13 +1031,14 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
     ///
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
     /// or if the transactions are of invalid length
-    pub fn fill_block_payload(
+    pub fn fill_block_payload<V: Versions>(
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
+        version: Version,
     ) -> std::result::Result<(), BlockError> {
         let encoded_txns = block_payload.encode();
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
+        let commitment = vid_commitment::<V>(&encoded_txns, num_storage_nodes, version);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }
@@ -1115,13 +1125,39 @@ impl<TYPES: NodeType> Leaf2<TYPES> {
 
 impl<TYPES: NodeType> Committable for Leaf2<TYPES> {
     fn commit(&self) -> committable::Commitment<Self> {
-        RawCommitmentBuilder::new("leaf commitment")
-            .u64_field("view number", *self.view_number)
-            .field("parent leaf commitment", self.parent_commitment)
-            .field("block header", self.block_header.commit())
-            .field("justify qc", self.justify_qc.commit())
-            .optional("upgrade certificate", &self.upgrade_certificate)
-            .finalize()
+        let Leaf2 {
+            view_number,
+            justify_qc,
+            next_epoch_justify_qc,
+            parent_commitment,
+            block_header,
+            upgrade_certificate,
+            block_payload: _,
+            view_change_evidence: _,
+            next_drb_result,
+            with_epoch,
+        } = self;
+
+        let mut cb = RawCommitmentBuilder::new("leaf commitment")
+            .u64_field("view number", **view_number)
+            .field("parent leaf commitment", *parent_commitment)
+            .field("block header", block_header.commit())
+            .field("justify qc", justify_qc.commit())
+            .optional("upgrade certificate", upgrade_certificate);
+
+        if *with_epoch {
+            cb = cb
+                .constant_str("with_epoch")
+                .optional("next_epoch_justify_qc", next_epoch_justify_qc);
+
+            if let Some(next_drb_result) = next_drb_result {
+                cb = cb
+                    .constant_str("next_drb_result")
+                    .fixed_size_bytes(next_drb_result);
+            }
+        }
+
+        cb.finalize()
     }
 }
 
@@ -1217,7 +1253,7 @@ impl<TYPES: NodeType> QuorumCertificate<TYPES> {
         let genesis_view = <TYPES::View as ConsensusTime>::genesis();
 
         let data = QuorumData {
-            leaf_commit: Leaf::genesis(validated_state, instance_state)
+            leaf_commit: Leaf::genesis::<V>(validated_state, instance_state)
                 .await
                 .commit(&upgrade_lock)
                 .await,
@@ -1282,7 +1318,7 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     /// Panics if the genesis payload (`TYPES::BlockPayload::genesis()`) is malformed (unable to be
     /// interpreted as bytes).
     #[must_use]
-    pub async fn genesis(
+    pub async fn genesis<V: Versions>(
         validated_state: &TYPES::ValidatedState,
         instance_state: &TYPES::InstanceState,
     ) -> Self {
@@ -1293,7 +1329,14 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let builder_commitment = payload.builder_commitment(&metadata);
         let payload_bytes = payload.encode();
 
-        let payload_commitment = vid_commitment(&payload_bytes, GENESIS_VID_NUM_STORAGE_NODES);
+        let genesis_view = TYPES::View::genesis();
+        let upgrade_lock = UpgradeLock::<TYPES, V>::new();
+        let genesis_version = upgrade_lock.version_infallible(genesis_view).await;
+        let payload_commitment = vid_commitment::<V>(
+            &payload_bytes,
+            GENESIS_VID_NUM_STORAGE_NODES,
+            genesis_version,
+        );
 
         let block_header = TYPES::BlockHeader::genesis(
             instance_state,
@@ -1309,13 +1352,13 @@ impl<TYPES: NodeType> Leaf<TYPES> {
         let justify_qc = QuorumCertificate::new(
             null_quorum_data.clone(),
             null_quorum_data.commit(),
-            <TYPES::View as ConsensusTime>::genesis(),
+            genesis_view,
             None,
             PhantomData,
         );
 
         Self {
-            view_number: TYPES::View::genesis(),
+            view_number: genesis_view,
             justify_qc,
             parent_commitment: null_quorum_data.leaf_commit,
             upgrade_certificate: None,
@@ -1361,13 +1404,14 @@ impl<TYPES: NodeType> Leaf<TYPES> {
     ///
     /// Fails if the payload commitment doesn't match `self.block_header.payload_commitment()`
     /// or if the transactions are of invalid length
-    pub fn fill_block_payload(
+    pub fn fill_block_payload<V: Versions>(
         &mut self,
         block_payload: TYPES::BlockPayload,
         num_storage_nodes: usize,
+        version: Version,
     ) -> std::result::Result<(), BlockError> {
         let encoded_txns = block_payload.encode();
-        let commitment = vid_commitment(&encoded_txns, num_storage_nodes);
+        let commitment = vid_commitment::<V>(&encoded_txns, num_storage_nodes, version);
         if commitment != self.block_header.payload_commitment() {
             return Err(BlockError::InconsistentPayloadCommitment);
         }
@@ -1583,7 +1627,6 @@ pub mod null_block {
     #![allow(missing_docs)]
 
     use jf_vid::VidScheme;
-    use memoize::memoize;
     use vbs::version::StaticVersionType;
 
     use crate::{
@@ -1593,7 +1636,7 @@ pub mod null_block {
             signature_key::BuilderSignatureKey,
             BlockPayload,
         },
-        vid::{vid_scheme, VidCommitment},
+        vid::{advz_scheme, VidCommitment},
     };
 
     /// The commitment for a null block payload.
@@ -1602,10 +1645,11 @@ pub mod null_block {
     /// and may change (albeit rarely) during execution.
     ///
     /// We memoize the result to avoid having to recalculate it.
-    #[memoize(SharedCache, Capacity: 10)]
+    // TODO(Chengyu): fix it. Empty commitment must be computed at every upgrade.
+    // #[memoize(SharedCache, Capacity: 10)]
     #[must_use]
-    pub fn commitment(num_storage_nodes: usize) -> Option<VidCommitment> {
-        let vid_result = vid_scheme(num_storage_nodes).commit_only(Vec::new());
+    pub fn commitment<V: Versions>(num_storage_nodes: usize) -> Option<VidCommitment> {
+        let vid_result = advz_scheme(num_storage_nodes).commit_only(Vec::new());
 
         match vid_result {
             Ok(r) => Some(r),
@@ -1649,7 +1693,7 @@ pub mod null_block {
                 &priv_key,
                 FEE_AMOUNT,
                 &null_block_metadata,
-                &commitment(num_storage_nodes)?,
+                &commitment::<V>(num_storage_nodes)?,
             ) {
                 Ok(sig) => Some(BuilderFee {
                     fee_amount: FEE_AMOUNT,

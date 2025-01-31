@@ -22,7 +22,7 @@ use crate::{
         block_contents::EncodeBytes, election::Membership, node_implementation::NodeType,
         signature_key::SignatureKey,
     },
-    vid::{vid_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
+    vid::{advz_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::HasViewNumber,
 };
 
@@ -103,7 +103,7 @@ impl<TYPES: NodeType> ADVZDisperse<TYPES> {
         let txns_clone = Arc::clone(&txns);
         let num_txns = txns.len();
 
-        let vid_disperse = spawn_blocking(move || vid_scheme(num_nodes).disperse(&txns_clone))
+        let vid_disperse = spawn_blocking(move || advz_scheme(num_nodes).disperse(&txns_clone))
             .await
             .wrap()
             .context(error!("Join error"))?
@@ -116,7 +116,7 @@ impl<TYPES: NodeType> ADVZDisperse<TYPES> {
             let num_nodes = membership.read().await.total_nodes(data_epoch);
 
             Some(
-              spawn_blocking(move || vid_scheme(num_nodes).commit_only(&txns))
+              spawn_blocking(move || advz_scheme(num_nodes).commit_only(&txns))
                 .await
                 .wrap()
                 .context(error!("Join error"))?
@@ -249,7 +249,7 @@ impl<TYPES: NodeType> ADVZDisperseShare<TYPES> {
     /// Verification fail
     #[allow(clippy::result_unit_err)]
     pub fn verify_share(&self, total_nodes: usize) -> std::result::Result<(), ()> {
-        vid_scheme(total_nodes)
+        advz_scheme(total_nodes)
             .verify_share(&self.share, &self.common, &self.payload_commitment)
             .unwrap_or(Err(()))
     }
@@ -378,7 +378,7 @@ impl<TYPES: NodeType> VidDisperseShare2<TYPES> {
     /// # Errors
     #[allow(clippy::result_unit_err)]
     pub fn verify_share(&self, total_nodes: usize) -> std::result::Result<(), ()> {
-        vid_scheme(total_nodes)
+        advz_scheme(total_nodes)
             .verify_share(&self.share, &self.common, &self.payload_commitment)
             .unwrap_or(Err(()))
     }
