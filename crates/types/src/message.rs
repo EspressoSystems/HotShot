@@ -26,8 +26,9 @@ use vbs::{
 
 use crate::{
     data::{
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
-        QuorumProposalWrapper, UpgradeProposal, VidDisperseShare, VidDisperseShare2,
+        QuorumProposalWrapper, UpgradeProposal,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
@@ -123,6 +124,8 @@ pub enum MessageKind<TYPES: NodeType> {
     Consensus(SequencingMessage<TYPES>),
     /// Messages relating to sharing data between nodes
     Data(DataMessage<TYPES>),
+    /// A (still serialized) message to be passed through to external listeners
+    External(Vec<u8>),
 }
 
 /// List of keys to send a message to, or broadcast to all known keys
@@ -160,6 +163,7 @@ impl<TYPES: NodeType> ViewMessage<TYPES> for MessageKind<TYPES> {
                 ResponseMessage::Found(m) => m.view_number(),
                 ResponseMessage::NotFound | ResponseMessage::Denied => TYPES::View::new(1),
             },
+            MessageKind::External(_) => TYPES::View::new(1),
         }
     }
 }
@@ -201,12 +205,6 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
     /// Message with an upgrade vote
     UpgradeVote(UpgradeVote<TYPES>),
 
-    /// Message with a quorum proposal.
-    Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
-
-    /// Message with a quorum vote.
-    Vote2(QuorumVote2<TYPES>),
-
     /// A peer node needs a proposal from the leader.
     ProposalRequested(
         ProposalRequestPayload<TYPES>,
@@ -215,6 +213,12 @@ pub enum GeneralConsensusMessage<TYPES: NodeType> {
 
     /// A replica has responded with a valid proposal.
     ProposalResponse(Proposal<TYPES, QuorumProposal<TYPES>>),
+
+    /// Message with a quorum proposal.
+    Proposal2(Proposal<TYPES, QuorumProposal2<TYPES>>),
+
+    /// Message with a quorum vote.
+    Vote2(QuorumVote2<TYPES>),
 
     /// A replica has responded with a valid proposal.
     ProposalResponse2(Proposal<TYPES, QuorumProposal2<TYPES>>),
@@ -260,7 +264,7 @@ pub enum DaConsensusMessage<TYPES: NodeType> {
     /// Initiate VID dispersal.
     ///
     /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
-    VidDisperseMsg(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    VidDisperseMsg(Proposal<TYPES, ADVZDisperseShare<TYPES>>),
 
     /// Proposal for data availability committee
     DaProposal2(Proposal<TYPES, DaProposal2<TYPES>>),
@@ -360,7 +364,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     DaConsensusMessage::DaVote(vote_message) => vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) => cert.view_number,
                     DaConsensusMessage::VidDisperseMsg(disperse) => disperse.data.view_number(),
-                    DaConsensusMessage::VidDisperseMsg2(disperse) => disperse.data.view_number(),
                     DaConsensusMessage::DaProposal2(p) => {
                         // view of leader in the leaf when proposal
                         // this should match replica upon receipt
@@ -368,6 +371,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     }
                     DaConsensusMessage::DaVote2(vote_message) => vote_message.view_number(),
                     DaConsensusMessage::DaCertificate2(cert) => cert.view_number,
+                    DaConsensusMessage::VidDisperseMsg2(disperse) => disperse.data.view_number(),
                 }
             }
         }

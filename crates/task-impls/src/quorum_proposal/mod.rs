@@ -153,8 +153,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                         }
                     }
                     ProposalDependency::VidShare => {
-                        if let HotShotEvent::VidDisperseSend(vid_share, _) = event {
-                            vid_share.data.view_number()
+                        if let HotShotEvent::VidDisperseSend(vid_disperse, _) = event {
+                            vid_disperse.data.view_number()
                         } else {
                             return false;
                         }
@@ -477,19 +477,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     membership_reader.success_threshold(epoch_number);
                 drop(membership_reader);
 
-                ensure!(
-                    certificate
-                        .is_valid_cert(
-                            membership_stake_table,
-                            membership_success_threshold,
-                            &self.upgrade_lock
-                        )
-                        .await,
-                    warn!(
-                        "View Sync Finalize certificate {:?} was invalid",
-                        certificate.data()
+                certificate
+                    .is_valid_cert(
+                        membership_stake_table,
+                        membership_success_threshold,
+                        &self.upgrade_lock,
                     )
-                );
+                    .await
+                    .context(|e| {
+                        warn!(
+                            "View Sync Finalize certificate {:?} was invalid: {}",
+                            certificate.data(),
+                            e
+                        )
+                    })?;
 
                 let view_number = certificate.view_number;
 
@@ -528,8 +529,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     "Failed to update latest proposed view"
                 );
             }
-            HotShotEvent::VidDisperseSend(vid_share, _) => {
-                let view_number = vid_share.data.view_number();
+            HotShotEvent::VidDisperseSend(vid_disperse, _) => {
+                let view_number = vid_disperse.data.view_number();
                 self.create_dependency_task_if_new(
                     view_number,
                     epoch_number,
@@ -561,15 +562,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions>
                     membership_reader.success_threshold(cert_epoch_number);
                 drop(membership_reader);
 
-                ensure!(
-                    qc.is_valid_cert(
-                        membership_stake_table,
-                        membership_success_threshold,
-                        &self.upgrade_lock
-                    )
-                    .await,
-                    warn!("Quorum certificate {:?} was invalid", qc.data())
-                );
+                qc.is_valid_cert(
+                    membership_stake_table,
+                    membership_success_threshold,
+                    &self.upgrade_lock,
+                )
+                .await
+                .context(|e| warn!("Quorum certificate {:?} was invalid: {}", qc.data(), e))?;
+
                 self.highest_qc = qc.clone();
             }
             HotShotEvent::NextEpochQc2Formed(Either::Left(next_epoch_qc)) => {

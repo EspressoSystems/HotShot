@@ -21,16 +21,16 @@ use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf2, QuorumProposalWrapper, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, QuorumProposalWrapper, VidDisperse, VidDisperseShare},
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
@@ -48,7 +48,7 @@ pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
-    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare2<TYPES>>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
 
 /// Type alias for consensus state wrapped in a lock.
@@ -790,12 +790,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_vid_shares(
         &mut self,
         view_number: TYPES::View,
-        disperse: Proposal<TYPES, VidDisperseShare2<TYPES>>,
+        disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
     ) {
         self.vid_shares
             .entry(view_number)
             .or_default()
-            .insert(disperse.data.recipient_key.clone(), disperse);
+            .insert(disperse.data.recipient_key().clone(), disperse);
     }
 
     /// Add a new entry to the da_certs map.
@@ -952,11 +952,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
     /// Returned `Option` indicates whether the update has actually happened or not.
     #[instrument(skip_all, target = "Consensus", fields(view = *view))]
-    pub async fn calculate_and_update_vid(
+    pub async fn calculate_and_update_vid<V: Versions>(
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
         membership: Arc<RwLock<TYPES::Membership>>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Option<()> {
         let payload = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
         let epoch = consensus
@@ -967,12 +968,18 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .view_inner
             .epoch()?;
 
-        let vid =
-            VidDisperse::calculate_vid_disperse(payload.as_ref(), &membership, view, epoch, epoch)
-                .await
-                .ok()?;
+        let vid = VidDisperse::calculate_vid_disperse::<V>(
+            payload.as_ref(),
+            &membership,
+            view,
+            epoch,
+            epoch,
+            upgrade_lock,
+        )
+        .await
+        .ok()?;
 
-        let shares = VidDisperseShare2::from_vid_disperse(vid);
+        let shares = VidDisperseShare::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {
