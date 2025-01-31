@@ -11,10 +11,12 @@ use async_lock::RwLock;
 use committable::Committable;
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
-    data::VidDisperseShare2,
-    message::Proposal,
+    data::VidDisperseShare,
+    message::{Proposal, UpgradeLock},
     traits::{
-        election::Membership, network::DataRequest, node_implementation::NodeType,
+        election::Membership,
+        network::DataRequest,
+        node_implementation::{NodeType, Versions},
         signature_key::SignatureKey,
     },
 };
@@ -29,7 +31,7 @@ const TXNS_TIMEOUT: Duration = Duration::from_millis(100);
 /// Task state for the Network Request Task. The task is responsible for handling
 /// requests sent to this node by the network.  It will validate the sender,
 /// parse the request, and try to find the data request in the consensus stores.
-pub struct NetworkResponseState<TYPES: NodeType> {
+pub struct NetworkResponseState<TYPES: NodeType, V: Versions> {
     /// Locked consensus state
     consensus: LockedConsensusState<TYPES>,
 
@@ -44,9 +46,12 @@ pub struct NetworkResponseState<TYPES: NodeType> {
 
     /// The node's id
     id: u64,
+
+    /// Lock for a decided upgrade
+    upgrade_lock: UpgradeLock<TYPES, V>,
 }
 
-impl<TYPES: NodeType> NetworkResponseState<TYPES> {
+impl<TYPES: NodeType, V: Versions> NetworkResponseState<TYPES, V> {
     /// Create the network request state with the info it needs
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
@@ -54,6 +59,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         id: u64,
+        upgrade_lock: UpgradeLock<TYPES, V>,
     ) -> Self {
         Self {
             consensus,
@@ -61,6 +67,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
             pub_key,
             private_key,
             id,
+            upgrade_lock,
         }
     }
 
@@ -145,7 +152,7 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
         &self,
         view: TYPES::View,
         key: &TYPES::SignatureKey,
-    ) -> Option<Proposal<TYPES, VidDisperseShare2<TYPES>>> {
+    ) -> Option<Proposal<TYPES, VidDisperseShare<TYPES>>> {
         let consensus_reader = self.consensus.read().await;
         if let Some(view) = consensus_reader.vid_shares().get(&view) {
             if let Some(share) = view.get(key) {
@@ -155,22 +162,24 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
 
         drop(consensus_reader);
 
-        if Consensus::calculate_and_update_vid(
+        if Consensus::calculate_and_update_vid::<V>(
             OuterConsensus::new(Arc::clone(&self.consensus)),
             view,
             Arc::clone(&self.membership),
             &self.private_key,
+            &self.upgrade_lock,
         )
         .await
         .is_none()
         {
             // Sleep in hope we receive txns in the meantime
             sleep(TXNS_TIMEOUT).await;
-            Consensus::calculate_and_update_vid(
+            Consensus::calculate_and_update_vid::<V>(
                 OuterConsensus::new(Arc::clone(&self.consensus)),
                 view,
                 Arc::clone(&self.membership),
                 &self.private_key,
+                &self.upgrade_lock,
             )
             .await?;
         }
@@ -185,7 +194,11 @@ impl<TYPES: NodeType> NetworkResponseState<TYPES> {
     }
 
     /// Makes sure the sender is allowed to send a request in the given epoch.
-    async fn valid_sender(&self, sender: &TYPES::SignatureKey, epoch: TYPES::Epoch) -> bool {
+    async fn valid_sender(
+        &self,
+        sender: &TYPES::SignatureKey,
+        epoch: Option<TYPES::Epoch>,
+    ) -> bool {
         self.membership.read().await.has_stake(sender, epoch)
     }
 }
@@ -204,8 +217,8 @@ fn valid_signature<TYPES: NodeType>(
 /// Spawn the network response task to handle incoming request for data
 /// from other nodes.  It will shutdown when it gets `HotshotEvent::Shutdown`
 /// on the `event_stream` arg.
-pub fn run_response_task<TYPES: NodeType>(
-    task_state: NetworkResponseState<TYPES>,
+pub fn run_response_task<TYPES: NodeType, V: Versions>(
+    task_state: NetworkResponseState<TYPES, V>,
     event_stream: Receiver<Arc<HotShotEvent<TYPES>>>,
     sender: Sender<Arc<HotShotEvent<TYPES>>>,
 ) -> JoinHandle<()> {

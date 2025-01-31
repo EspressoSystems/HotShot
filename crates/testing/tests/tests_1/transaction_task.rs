@@ -10,7 +10,6 @@ use hotshot_testing::helpers::build_system_handle;
 use hotshot_types::{
     data::{null_block, EpochNumber, PackedBundle, ViewNumber},
     traits::{
-        block_contents::precompute_vid_commitment,
         election::Membership,
         node_implementation::{ConsensusTime, Versions},
     },
@@ -33,22 +32,15 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
     let mut output = Vec::new();
 
     let current_view = ViewNumber::new(4);
-    input.push(HotShotEvent::ViewChange(current_view, EpochNumber::new(1)));
+    input.push(HotShotEvent::ViewChange(
+        current_view,
+        Some(EpochNumber::new(1)),
+    ));
     input.push(HotShotEvent::ViewChange(
         current_view + 1,
-        EpochNumber::new(1),
+        Some(EpochNumber::new(1)),
     ));
     input.push(HotShotEvent::Shutdown);
-
-    let (_, precompute_data) = precompute_vid_commitment(
-        &[],
-        handle
-            .hotshot
-            .memberships
-            .read()
-            .await
-            .total_nodes(EpochNumber::new(0)),
-    );
 
     // current view
     let mut exp_packed_bundle = PackedBundle::new(
@@ -57,7 +49,7 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
             num_transactions: 0,
         },
         current_view,
-        EpochNumber::new(1),
+        Some(EpochNumber::new(1)),
         vec1::vec1![
             null_block::builder_fee::<TestConsecutiveLeaderTypes, TestVersions>(
                 handle
@@ -65,13 +57,12 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
                     .memberships
                     .read()
                     .await
-                    .total_nodes(EpochNumber::new(0)),
+                    .total_nodes(Some(EpochNumber::new(0))),
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(4),
             )
             .unwrap()
         ],
-        Some(precompute_data.clone()),
         None,
     );
     output.push(HotShotEvent::BlockRecv(exp_packed_bundle.clone()));

@@ -37,6 +37,7 @@ use hotshot_types::{
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
     },
+    utils::genesis_epoch_from_version,
     HotShotConfig, ValidatorConfig,
 };
 use tide_disco::Url;
@@ -111,7 +112,11 @@ where
         }
 
         self.add_nodes::<B>(
-            self.launcher.metadata.num_nodes_with_stake,
+            self.launcher
+                .metadata
+                .test_config
+                .num_nodes_with_stake
+                .into(),
             &late_start_nodes,
             &restart_nodes,
         )
@@ -175,11 +180,12 @@ where
         }
 
         let spinning_task_state = SpinningTask {
+            epoch_height: launcher.metadata.test_config.epoch_height,
             handles: Arc::clone(&handles),
             late_start,
             latest_view: None,
             changes,
-            last_decided_leaf: Leaf2::genesis(
+            last_decided_leaf: Leaf2::genesis::<V>(
                 &TestValidatedState::default(),
                 &TestInstanceState::default(),
             )
@@ -192,7 +198,7 @@ where
             next_epoch_high_qc: None,
             async_delay_config: launcher.metadata.async_delay_config,
             restart_contexts: HashMap::new(),
-            channel_generator: launcher.resource_generator.channel_generator,
+            channel_generator: launcher.resource_generators.channel_generator,
         };
         let spinning_task = TestTask::<SpinningTask<TYPES, N, I, V>>::new(
             spinning_task_state,
@@ -202,7 +208,7 @@ where
         // add safety task
         let overall_safety_task_state = OverallSafetyTask {
             handles: Arc::clone(&handles),
-            epoch_height: launcher.metadata.epoch_height,
+            epoch_height: launcher.metadata.test_config.epoch_height,
             ctx: RoundCtx::default(),
             properties: launcher.metadata.overall_safety_properties.clone(),
             error: None,
@@ -327,7 +333,7 @@ where
         &self,
         num_nodes: usize,
     ) -> (Vec<Box<dyn BuilderTask<TYPES>>>, Vec<Url>, Url) {
-        let config = self.launcher.resource_generator.config.clone();
+        let config = self.launcher.metadata.test_config.clone();
         let mut builder_tasks = Vec::new();
         let mut builder_urls = Vec::new();
         for metadata in &self.launcher.metadata.builders {
@@ -398,14 +404,15 @@ where
         restart: &HashSet<u64>,
     ) -> Vec<u64> {
         let mut results = vec![];
-        let config = self.launcher.resource_generator.config.clone();
+        let config = self.launcher.metadata.test_config.clone();
 
         // TODO This is only a workaround. Number of nodes changes from epoch to epoch. Builder should be made epoch-aware.
         let temp_memberships = <TYPES as NodeType>::Membership::new(
             config.known_nodes_with_stake.clone(),
             config.known_da_nodes.clone(),
         );
-        let num_nodes = temp_memberships.total_nodes(TYPES::Epoch::new(0));
+        // #3967 is it enough to check versions now? Or should we also be checking epoch_height?
+        let num_nodes = temp_memberships.total_nodes(genesis_epoch_from_version::<V, TYPES>());
         let (mut builder_tasks, builder_urls, fallback_builder_url) =
             self.init_builders::<B>(num_nodes).await;
 
@@ -436,10 +443,10 @@ where
                 .try_into()
                 .expect("Non-empty by construction");
 
-            let network = (self.launcher.resource_generator.channel_generator)(node_id).await;
-            let storage = (self.launcher.resource_generator.storage)(node_id);
+            let network = (self.launcher.resource_generators.channel_generator)(node_id).await;
+            let storage = (self.launcher.resource_generators.storage)(node_id);
             let mut marketplace_config =
-                (self.launcher.resource_generator.marketplace_config)(node_id);
+                (self.launcher.resource_generators.marketplace_config)(node_id);
             if let Some(solver_server) = &self.solver_server {
                 let mut new_auction_results_provider =
                     marketplace_config.auction_results_provider.as_ref().clone();
@@ -480,6 +487,7 @@ where
                 } else {
                     let initializer = HotShotInitializer::<TYPES>::from_genesis::<V>(
                         TestInstanceState::new(self.launcher.metadata.async_delay_config.clone()),
+                        config.epoch_height,
                     )
                     .await
                     .unwrap();
@@ -657,6 +665,7 @@ where
             internal_channel,
             external_channel,
         )
+        .await
     }
 }
 

@@ -18,7 +18,7 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{EpochNumber, ViewNumber},
+    data::ViewNumber,
     message::UpgradeLock,
     traits::{
         election::Membership,
@@ -46,14 +46,14 @@ async fn test_network_task() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let launcher = builder.gen_launcher(node_id);
+    let launcher = builder.gen_launcher();
 
-    let network = (launcher.resource_generator.channel_generator)(node_id).await;
+    let network = (launcher.resource_generators.channel_generator)(node_id).await;
 
-    let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
+    let storage = Arc::new(RwLock::new((launcher.resource_generators.storage)(node_id)));
     let consensus = OuterConsensus::new(handle.hotshot.consensus());
-    let config = launcher.resource_generator.config.clone();
-    let validator_config = launcher.resource_generator.validator_config.clone();
+    let config = (launcher.resource_generators.hotshot_config)(node_id);
+    let validator_config = (launcher.resource_generators.validator_config)(node_id);
     let public_key = validator_config.public_key;
 
     let all_nodes = config.known_nodes_with_stake.clone();
@@ -66,7 +66,7 @@ async fn test_network_task() {
         NetworkEventTaskState {
             network: network.clone(),
             view: ViewNumber::new(0),
-            epoch: EpochNumber::new(0),
+            epoch: None,
             membership: Arc::clone(&membership),
             upgrade_lock: upgrade_lock.clone(),
             storage,
@@ -79,7 +79,7 @@ async fn test_network_task() {
     let task = Task::new(network_state, tx.clone(), rx);
     task_reg.run_task(task);
 
-    let mut generator = TestViewGenerator::generate(membership);
+    let mut generator = TestViewGenerator::<TestVersions>::generate(membership);
     let view = generator.next().await.unwrap();
 
     let (out_tx_internal, mut out_rx_internal) = async_broadcast::broadcast(10);
@@ -122,11 +122,11 @@ async fn test_network_external_mnessages() {
     let builder: TestDescription<TestTypes, MemoryImpl, TestVersions> =
         TestDescription::default_multiple_rounds();
 
-    let launcher = builder.gen_launcher(0);
+    let launcher = builder.gen_launcher();
 
     let mut handles = vec![];
     let mut event_streams = vec![];
-    for i in 0..launcher.metadata.num_nodes_with_stake {
+    for i in 0..launcher.metadata.test_config.num_nodes_with_stake.into() {
         let handle = build_system_handle_from_launcher::<TestTypes, MemoryImpl, TestVersions>(
             i.try_into().unwrap(),
             &launcher,
@@ -217,15 +217,15 @@ async fn test_network_storage_fail() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let launcher = builder.gen_launcher(node_id);
+    let launcher = builder.gen_launcher();
 
-    let network = (launcher.resource_generator.channel_generator)(node_id).await;
+    let network = (launcher.resource_generators.channel_generator)(node_id).await;
 
     let consensus = OuterConsensus::new(handle.hotshot.consensus());
-    let storage = Arc::new(RwLock::new((launcher.resource_generator.storage)(node_id)));
+    let storage = Arc::new(RwLock::new((launcher.resource_generators.storage)(node_id)));
     storage.write().await.should_return_err = true;
-    let config = launcher.resource_generator.config.clone();
-    let validator_config = launcher.resource_generator.validator_config.clone();
+    let config = (launcher.resource_generators.hotshot_config)(node_id);
+    let validator_config = (launcher.resource_generators.validator_config)(node_id);
     let public_key = validator_config.public_key;
     let all_nodes = config.known_nodes_with_stake.clone();
     let upgrade_lock = UpgradeLock::<TestTypes, TestVersions>::new();
@@ -238,7 +238,7 @@ async fn test_network_storage_fail() {
         NetworkEventTaskState {
             network: network.clone(),
             view: ViewNumber::new(0),
-            epoch: EpochNumber::new(0),
+            epoch: None,
             membership: Arc::clone(&membership),
             upgrade_lock: upgrade_lock.clone(),
             storage,
@@ -251,7 +251,7 @@ async fn test_network_storage_fail() {
     let task = Task::new(network_state, tx.clone(), rx);
     task_reg.run_task(task);
 
-    let mut generator = TestViewGenerator::generate(membership);
+    let mut generator = TestViewGenerator::<TestVersions>::generate(membership);
     let view = generator.next().await.unwrap();
 
     let (out_tx_internal, mut out_rx_internal): (Sender<Arc<HotShotEvent<TestTypes>>>, _) =

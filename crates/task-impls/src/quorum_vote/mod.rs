@@ -17,10 +17,11 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::{ConsensusMetricsValue, OuterConsensus},
-    data::{Leaf2, QuorumProposal2},
+    data::{Leaf2, QuorumProposalWrapper},
     drb::DrbComputation,
     event::Event,
     message::{Proposal, UpgradeLock},
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -28,11 +29,9 @@ use hotshot_types::{
         signature_key::SignatureKey,
         storage::Storage,
     },
-    utils::epoch_from_block_number,
-    vid::vid_scheme,
+    utils::{epoch_from_block_number, option_epoch_from_block_number},
     vote::{Certificate, HasViewNumber},
 };
-use jf_vid::VidScheme;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 use utils::anytrace::*;
@@ -123,7 +122,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                             return;
                         }
                     };
-                    let proposal_payload_comm = proposal.data.block_header.payload_commitment();
+                    let proposal_payload_comm = proposal.data.block_header().payload_commitment();
                     let parent_commitment = parent_leaf.commit();
                     let proposed_leaf = Leaf2::from_quorum_proposal(&proposal.data);
 
@@ -132,7 +131,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                             .consensus
                             .read()
                             .await
-                            .is_leaf_forming_eqc(proposal.data.justify_qc.data.leaf_commit)
+                            .is_leaf_forming_eqc(proposal.data.justify_qc().data.leaf_commit)
                     {
                         tracing::debug!("Do not vote here. Voting for this case is handled in QuorumVoteTaskState");
                         return;
@@ -151,7 +150,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     }
                     // Update our persistent storage of the proposal. If we cannot store the proposal return
                     // and error so we don't vote
-                    if let Err(e) = self.storage.write().await.append_proposal2(proposal).await {
+                    if let Err(e) = self
+                        .storage
+                        .write()
+                        .await
+                        .append_proposal_wrapper(proposal)
+                        .await
+                    {
                         tracing::error!("failed to store proposal, not voting.  error = {e:#}");
                         return;
                     }
@@ -170,13 +175,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
                     }
                 }
                 HotShotEvent::VidShareValidated(share) => {
-                    let vid_payload_commitment = if let Some(ref data_epoch_payload_commitment) =
-                        share.data.data_epoch_payload_commitment
-                    {
-                        data_epoch_payload_commitment
-                    } else {
-                        &share.data.payload_commitment
-                    };
+                    let vid_payload_commitment = &share
+                        .data
+                        .data_epoch_payload_commitment()
+                        .unwrap_or(share.data.payload_commitment());
                     vid_share = Some(share.clone());
                     if let Some(ref comm) = payload_commitment {
                         if vid_payload_commitment != comm {
@@ -230,18 +232,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             return;
         }
 
-        let current_epoch =
-            TYPES::Epoch::new(epoch_from_block_number(leaf.height(), self.epoch_height));
+        let cur_epoch = option_epoch_from_block_number::<TYPES>(
+            leaf.with_epoch,
+            leaf.height(),
+            self.epoch_height,
+        );
         tracing::trace!(
-            "Sending ViewChange for view {} and epoch {}",
+            "Sending ViewChange for view {} and epoch {:?}",
             self.view_number + 1,
-            *current_epoch
+            cur_epoch
         );
         broadcast_event(
-            Arc::new(HotShotEvent::ViewChange(
-                self.view_number + 1,
-                current_epoch,
-            )),
+            Arc::new(HotShotEvent::ViewChange(self.view_number + 1, cur_epoch)),
             &self.sender,
         )
         .await;
@@ -333,7 +335,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 let event_view = match dependency_type {
                     VoteDependency::QuorumProposal => {
                         if let HotShotEvent::QuorumProposalValidated(proposal, _) = event {
-                            proposal.data.view_number
+                            proposal.data.view_number()
                         } else {
                             return false;
                         }
@@ -347,7 +349,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     }
                     VoteDependency::Vid => {
                         if let HotShotEvent::VidShareValidated(disperse) = event {
-                            disperse.data.view_number
+                            disperse.data.view_number()
                         } else {
                             return false;
                         }
@@ -495,7 +497,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     .consensus
                     .read()
                     .await
-                    .is_leaf_forming_eqc(proposal.data.justify_qc.data.leaf_commit);
+                    .is_leaf_forming_eqc(proposal.data.justify_qc().data.leaf_commit);
 
                 if version >= V::Epochs::VERSION && is_justify_qc_forming_eqc {
                     let _ = self
@@ -503,7 +505,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                         .await;
                 } else {
                     self.create_dependency_task_if_new(
-                        proposal.data.view_number,
+                        proposal.data.view_number(),
                         event_receiver,
                         &event_sender,
                         Arc::clone(&event),
@@ -555,8 +557,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                     Arc::clone(&event),
                 );
             }
-            HotShotEvent::VidShareRecv(sender, disperse) => {
-                let view = disperse.data.view_number();
+            HotShotEvent::VidShareRecv(sender, share) => {
+                let view = share.data.view_number();
                 // Do nothing if the VID share is old
                 tracing::trace!("Received VID share for view {}", *view);
                 ensure!(
@@ -565,16 +567,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 );
 
                 // Validate the VID share.
-                let payload_commitment = &disperse.data.payload_commitment;
+                let payload_commitment = share.data.payload_commitment_ref();
 
                 // Check that the signature is valid
                 ensure!(
-                    sender.validate(&disperse.signature, payload_commitment.as_ref()),
+                    sender.validate(&share.signature, payload_commitment.as_ref()),
                     "VID share signature is invalid"
                 );
 
-                let vid_epoch = disperse.data.epoch;
-                let target_epoch = disperse.data.target_epoch;
+                let vid_epoch = share.data.epoch();
+                let target_epoch = share.data.target_epoch();
                 let membership_reader = self.membership.read().await;
                 // ensure that the VID share was sent by a DA member OR the view leader
                 ensure!(
@@ -588,31 +590,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
                 let membership_total_nodes = membership_reader.total_nodes(target_epoch);
                 drop(membership_reader);
 
-                // NOTE: `verify_share` returns a nested `Result`, so we must check both the inner
-                // and outer results
-                match vid_scheme(membership_total_nodes).verify_share(
-                    &disperse.data.share,
-                    &disperse.data.common,
-                    payload_commitment,
-                ) {
-                    Ok(Err(())) | Err(_) => {
-                        bail!("Failed to verify VID share");
-                    }
-                    Ok(Ok(())) => {}
+                if let Err(()) = share.data.verify_share(membership_total_nodes) {
+                    bail!("Failed to verify VID share");
                 }
 
                 self.consensus
                     .write()
                     .await
-                    .update_vid_shares(view, disperse.clone());
+                    .update_vid_shares(view, share.clone());
 
                 ensure!(
-                    disperse.data.recipient_key == self.public_key,
+                    *share.data.recipient_key() == self.public_key,
                     "Got a Valid VID share but it's not for our key"
                 );
 
                 broadcast_event(
-                    Arc::new(HotShotEvent::VidShareValidated(disperse.clone())),
+                    Arc::new(HotShotEvent::VidShareValidated(share.clone())),
                     &event_sender.clone(),
                 )
                 .await;
@@ -653,7 +646,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
     #[allow(clippy::too_many_lines)]
     async fn handle_eqc_voting(
         &self,
-        proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
+        proposal: &Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
         parent_leaf: &Leaf2<TYPES>,
         event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
         event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
@@ -685,8 +678,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         ))?;
 
         let mut updated_vid = vid.clone();
-        updated_vid.data.view_number = proposal.data.view_number;
-        consensus_writer.update_vid_shares(updated_vid.data.view_number, updated_vid.clone());
+        updated_vid
+            .data
+            .set_view_number(proposal.data.view_number());
+        consensus_writer.update_vid_shares(updated_vid.data.view_number(), updated_vid.clone());
 
         drop(consensus_writer);
 
@@ -700,7 +695,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
         self.storage
             .write()
             .await
-            .append_proposal2(proposal)
+            .append_proposal_wrapper(proposal)
             .await
             .wrap()
             .context(|e| error!("failed to store proposal, not voting. error = {}", e))?;
@@ -748,7 +743,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> QuorumVoteTaskS
             broadcast_event(
                 Arc::new(HotShotEvent::ViewChange(
                     proposal.data.view_number() + 1,
-                    current_epoch,
+                    Some(current_epoch),
                 )),
                 &event_sender,
             )

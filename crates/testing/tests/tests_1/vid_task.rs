@@ -21,7 +21,7 @@ use hotshot_testing::{
     serial,
 };
 use hotshot_types::{
-    data::{null_block, DaProposal, EpochNumber, PackedBundle, VidDisperse, ViewNumber},
+    data::{null_block, DaProposal, PackedBundle, VidDisperse, ViewNumber},
     traits::{
         consensus_api::ConsensusApi,
         election::Membership,
@@ -29,8 +29,8 @@ use hotshot_types::{
         BlockPayload,
     },
 };
-use jf_vid::{precomputable::Precomputable, VidScheme};
-use vbs::version::StaticVersionType;
+use jf_vid::VidScheme;
+use vbs::version::{StaticVersionType, Version};
 use vec1::vec1;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -47,10 +47,13 @@ async fn test_vid_task() {
 
     let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut vid = vid_scheme_from_view_number::<TestTypes>(
+    let default_version = Version { major: 0, minor: 0 };
+
+    let mut vid = vid_scheme_from_view_number::<TestTypes, TestVersions>(
         &membership,
         ViewNumber::new(0),
-        EpochNumber::new(0),
+        None,
+        default_version,
     )
     .await;
     let transactions = vec![TestTransaction::new(vec![0])];
@@ -66,7 +69,6 @@ async fn test_vid_task() {
         <TestBlockPayload as BlockPayload<TestTypes>>::builder_commitment(&payload, &metadata);
     let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
     let vid_disperse = vid.disperse(&encoded_transactions).unwrap();
-    let (_, vid_precompute) = vid.commit_only_precompute(&encoded_transactions).unwrap();
     let payload_commitment = vid_disperse.commit;
 
     let signature = <TestTypes as NodeType>::SignatureKey::sign(
@@ -91,8 +93,8 @@ async fn test_vid_task() {
         message.data.view_number,
         vid_disperse,
         &membership,
-        EpochNumber::new(0),
-        EpochNumber::new(0),
+        None,
+        None,
         None,
     )
     .await;
@@ -103,23 +105,22 @@ async fn test_vid_task() {
         _pd: PhantomData,
     };
     let inputs = vec![
-        serial![ViewChange(ViewNumber::new(1), EpochNumber::new(0))],
+        serial![ViewChange(ViewNumber::new(1), None)],
         serial![
-            ViewChange(ViewNumber::new(2), EpochNumber::new(0)),
+            ViewChange(ViewNumber::new(2), None),
             BlockRecv(PackedBundle::new(
                 encoded_transactions.clone(),
                 TestMetadata {
                     num_transactions: transactions.len() as u64
                 },
                 ViewNumber::new(2),
-                EpochNumber::new(0),
+                None,
                 vec1::vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    membership.read().await.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(None),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )
                 .unwrap()],
-                Some(vid_precompute),
                 None,
             )),
         ],
@@ -136,7 +137,7 @@ async fn test_vid_task() {
                 },
                 ViewNumber::new(2),
                 vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                    membership.read().await.total_nodes(EpochNumber::new(0)),
+                    membership.read().await.total_nodes(None),
                     <TestVersions as Versions>::Base::VERSION,
                     *ViewNumber::new(2),
                 )
@@ -147,7 +148,7 @@ async fn test_vid_task() {
         ]),
     ];
 
-    let vid_state = VidTaskState::<TestTypes, MemoryImpl>::create_from(&handle).await;
+    let vid_state = VidTaskState::<TestTypes, MemoryImpl, TestVersions>::create_from(&handle).await;
     let mut script = TaskScript {
         timeout: std::time::Duration::from_millis(35),
         state: vid_state,

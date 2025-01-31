@@ -26,8 +26,9 @@ use vbs::{
 
 use crate::{
     data::{
-        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, UpgradeProposal,
-        VidDisperseShare, VidDisperseShare2,
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
+        QuorumProposalWrapper, UpgradeProposal,
     },
     request_response::ProposalRequestPayload,
     simple_certificate::{
@@ -47,7 +48,7 @@ use crate::{
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
-    utils::{epoch_from_block_number, mnemonic},
+    utils::{mnemonic, option_epoch_from_block_number},
     vote::HasViewNumber,
 };
 
@@ -263,7 +264,7 @@ pub enum DaConsensusMessage<TYPES: NodeType> {
     /// Initiate VID dispersal.
     ///
     /// Like [`DaProposal`]. Use `Msg` suffix to distinguish from `VidDisperse`.
-    VidDisperseMsg(Proposal<TYPES, VidDisperseShare<TYPES>>),
+    VidDisperseMsg(Proposal<TYPES, ADVZDisperseShare<TYPES>>),
 
     /// Proposal for data availability committee
     DaProposal2(Proposal<TYPES, DaProposal2<TYPES>>),
@@ -363,7 +364,6 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     DaConsensusMessage::DaVote(vote_message) => vote_message.view_number(),
                     DaConsensusMessage::DaCertificate(cert) => cert.view_number,
                     DaConsensusMessage::VidDisperseMsg(disperse) => disperse.data.view_number(),
-                    DaConsensusMessage::VidDisperseMsg2(disperse) => disperse.data.view_number(),
                     DaConsensusMessage::DaProposal2(p) => {
                         // view of leader in the leaf when proposal
                         // this should match replica upon receipt
@@ -371,6 +371,7 @@ impl<TYPES: NodeType> SequencingMessage<TYPES> {
                     }
                     DaConsensusMessage::DaVote2(vote_message) => vote_message.view_number(),
                     DaConsensusMessage::DaCertificate2(cert) => cert.view_number,
+                    DaConsensusMessage::VidDisperseMsg2(disperse) => disperse.data.view_number(),
                 }
             }
         }
@@ -433,15 +434,11 @@ where
     pub async fn validate_signature<V: Versions>(
         &self,
         membership: &TYPES::Membership,
-        epoch_height: u64,
+        _epoch_height: u64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
-            self.data.block_header.block_number(),
-            epoch_height,
-        ));
-        let view_leader_key = membership.leader(view_number, proposal_epoch)?;
+        let view_leader_key = membership.leader(view_number, None)?;
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
         ensure!(
@@ -456,7 +453,7 @@ where
     }
 }
 
-impl<TYPES> Proposal<TYPES, QuorumProposal2<TYPES>>
+/*impl<TYPES> Proposal<TYPES, QuorumProposal2<TYPES>>
 where
     TYPES: NodeType,
 {
@@ -469,10 +466,41 @@ where
         epoch_height: u64,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+        let proposal_epoch = option_epoch_from_block_number::<TYPES>(
+            true,
             self.data.block_header.block_number(),
             epoch_height,
-        ));
+        );
+        let view_leader_key = membership.leader(view_number, proposal_epoch)?;
+        let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
+
+        ensure!(
+            view_leader_key.validate(&self.signature, proposed_leaf.commit().as_ref()),
+            "Proposal signature is invalid."
+        );
+
+        Ok(())
+    }
+}*/
+
+impl<TYPES> Proposal<TYPES, QuorumProposalWrapper<TYPES>>
+where
+    TYPES: NodeType,
+{
+    /// Checks that the signature of the quorum proposal is valid.
+    /// # Errors
+    /// Returns an error when the proposal signature is invalid.
+    pub fn validate_signature(
+        &self,
+        membership: &TYPES::Membership,
+        epoch_height: u64,
+    ) -> Result<()> {
+        let view_number = self.data.proposal.view_number();
+        let proposal_epoch = option_epoch_from_block_number::<TYPES>(
+            self.data.with_epoch,
+            self.data.block_header().block_number(),
+            epoch_height,
+        );
         let view_leader_key = membership.leader(view_number, proposal_epoch)?;
         let proposed_leaf = Leaf2::from_quorum_proposal(&self.data);
 
@@ -555,6 +583,11 @@ impl<TYPES: NodeType, V: Versions> UpgradeLock<TYPES, V> {
             }
             None => V::Base::VERSION,
         }
+    }
+
+    /// Return whether epochs are enabled in the given view
+    pub async fn epochs_enabled(&self, view: TYPES::View) -> bool {
+        self.version_infallible(view).await >= V::Epochs::VERSION
     }
 
     /// Serialize a message with a version number, using `message.view_number()` and an optional decided upgrade certificate to determine the message's version.

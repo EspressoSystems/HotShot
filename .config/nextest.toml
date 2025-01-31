@@ -3,3 +3,9 @@ retries = 2
 slow-timeout = { period = "1m", terminate-after = 3 }
 final-status-level = "flaky"
 threads-required = "num-test-threads"
+
+[profile.local]
+retries = 0
+slow-timeout = { period = "1m", terminate-after = 3 }
+final-status-level = "slow"
+threads-required = "num-test-threads"

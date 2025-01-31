@@ -24,6 +24,7 @@ use hotshot_types::{
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
+        BlockPayload, EncodeBytes,
     },
     utils::EpochTransitionIndicator,
     vote::HasViewNumber,
@@ -48,7 +49,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
     pub cur_view: TYPES::View,
 
     /// Epoch number this node is executing in.
-    pub cur_epoch: TYPES::Epoch,
+    pub cur_epoch: Option<TYPES::Epoch>,
 
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: OuterConsensus<TYPES>,
@@ -82,7 +83,7 @@ pub struct DaTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Version
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYPES, I, V> {
     /// main task event handler
-    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = *self.cur_epoch), name = "DA Main Task", level = "error", target = "DaTaskState")]
+    #[instrument(skip_all, fields(id = self.id, view = *self.cur_view, epoch = self.cur_epoch.map(|x| *x)), name = "DA Main Task", level = "error", target = "DaTaskState")]
     pub async fn handle(
         &mut self,
         event: Arc<HotShotEvent<TYPES>>,
@@ -108,7 +109,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 );
 
                 if let Some(payload) = self.consensus.read().await.saved_payloads().get(&view) {
-                    ensure!(*payload == proposal.data.encoded_transactions, error!(
+                    ensure!(payload.encode() == proposal.data.encoded_transactions, error!(
                       "Received DA proposal for view {:?} but we already have a payload for that view and they are not identical.  Throwing it away",
                       view)
                     );
@@ -178,9 +179,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let num_nodes = membership_reader.total_nodes(epoch_number);
                 drop(membership_reader);
 
+                let version = self.upgrade_lock.version_infallible(view_number).await;
+
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let payload_commitment =
-                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
+                    spawn_blocking(move || vid_commitment::<V>(&txns, num_nodes, version)).await;
                 let payload_commitment = payload_commitment.unwrap();
 
                 self.storage
@@ -216,11 +219,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     tracing::trace!("{e:?}");
                 }
 
+                let payload = Arc::new(TYPES::BlockPayload::from_bytes(
+                    proposal.data.encoded_transactions.as_ref(),
+                    &proposal.data.metadata,
+                ));
                 // Record the payload we have promised to make available.
-                if let Err(e) = consensus_writer.update_saved_payloads(
-                    view_number,
-                    Arc::clone(&proposal.data.encoded_transactions),
-                ) {
+                if let Err(e) = consensus_writer.update_saved_payloads(view_number, payload) {
                     tracing::trace!("{e:?}");
                 }
                 // Optimistically calculate and update VID if we know that the primary network is down.
@@ -231,12 +235,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     let pk = self.private_key.clone();
                     let public_key = self.public_key.clone();
                     let chan = event_stream.clone();
+                    let upgrade_lock = self.upgrade_lock.clone();
                     spawn(async move {
-                        Consensus::calculate_and_update_vid(
+                        Consensus::calculate_and_update_vid::<V>(
                             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
                             membership,
                             &pk,
+                            &upgrade_lock,
                         )
                         .await;
                         if let Some(Some(vid_share)) = consensus
@@ -352,12 +358,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     &event_stream,
                 )
                 .await;
+                let payload = Arc::new(TYPES::BlockPayload::from_bytes(
+                    encoded_transactions.as_ref(),
+                    metadata,
+                ));
                 // Save the payload early because we might need it to calculate VID for the next epoch nodes.
                 if let Err(e) = self
                     .consensus
                     .write()
                     .await
-                    .update_saved_payloads(view_number, Arc::clone(encoded_transactions))
+                    .update_saved_payloads(view_number, payload)
                 {
                     tracing::trace!("{e:?}");
                 }

@@ -22,14 +22,14 @@ use hotshot_builder_api::{
 use hotshot_types::{
     constants::{LEGACY_BUILDER_MODULE, MARKETPLACE_BUILDER_MODULE},
     traits::{
-        block_contents::{precompute_vid_commitment, EncodeBytes},
-        node_implementation::NodeType,
+        block_contents::EncodeBytes,
+        node_implementation::{NodeType, Versions},
         signature_key::BuilderSignatureKey,
     },
 };
 use tide_disco::{method::ReadState, App, Url};
 use tokio::spawn;
-use vbs::version::StaticVersionType;
+use vbs::version::{StaticVersionType, Version};
 
 use crate::test_builder::BuilderChange;
 
@@ -167,11 +167,12 @@ pub fn run_builder_source_0_1<TYPES, Source>(
 }
 
 /// Helper function to construct all builder data structures from a list of transactions
-async fn build_block<TYPES: NodeType>(
+async fn build_block<TYPES: NodeType, V: Versions>(
     transactions: Vec<TYPES::Transaction>,
     num_storage_nodes: Arc<RwLock<usize>>,
     pub_key: TYPES::BuilderSignatureKey,
     priv_key: <TYPES::BuilderSignatureKey as BuilderSignatureKey>::BuilderPrivateKey,
+    version: Version,
 ) -> BlockEntry<TYPES>
 where
     <TYPES as NodeType>::InstanceState: Default,
@@ -186,8 +187,11 @@ where
 
     let commitment = block_payload.builder_commitment(&metadata);
 
-    let (vid_commitment, precompute_data) =
-        precompute_vid_commitment(&block_payload.encode(), *num_storage_nodes.read_arc().await);
+    let vid_commitment = hotshot_types::traits::block_contents::vid_commitment::<V>(
+        &block_payload.encode(),
+        *num_storage_nodes.read_arc().await,
+        version,
+    );
 
     // Get block size from the encoded payload
     let block_size = block_payload.encode().len() as u64;
@@ -224,7 +228,6 @@ where
     };
     let header_input = AvailableBlockHeaderInput {
         vid_commitment,
-        vid_precompute_data: precompute_data,
         message_signature: signature_over_vid_commitment.clone(),
         fee_signature: signature_over_fee_info,
         sender: pub_key,

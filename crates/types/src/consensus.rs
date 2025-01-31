@@ -21,22 +21,22 @@ use vec1::Vec1;
 
 pub use crate::utils::{View, ViewInner};
 use crate::{
-    data::{Leaf2, QuorumProposal2, VidDisperse, VidDisperseShare2},
+    data::{Leaf2, QuorumProposalWrapper, VidDisperse, VidDisperseShare},
     drb::DrbSeedsAndResults,
     error::HotShotError,
     event::{HotShotAction, LeafInfo},
-    message::Proposal,
+    message::{Proposal, UpgradeLock},
     simple_certificate::{DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate2},
     traits::{
         block_contents::BuilderFee,
         metrics::{Counter, Gauge, Histogram, Metrics, NoMetrics},
-        node_implementation::{ConsensusTime, NodeType},
+        node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload, ValidatedState,
     },
     utils::{
-        epoch_from_block_number, is_last_block_in_epoch, BuilderCommitment, LeafCommitment,
-        StateAndDelta, Terminator,
+        epoch_from_block_number, is_last_block_in_epoch, option_epoch_from_block_number,
+        BuilderCommitment, LeafCommitment, StateAndDelta, Terminator,
     },
     vid::VidCommitment,
     vote::{Certificate, HasViewNumber},
@@ -48,7 +48,7 @@ pub type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 /// A type alias for `BTreeMap<T::Time, HashMap<T::SignatureKey, Proposal<T, VidDisperseShare<T>>>>`
 pub type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
-    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare2<TYPES>>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
 >;
 
 /// Type alias for consensus state wrapped in a lock.
@@ -289,11 +289,11 @@ pub struct Consensus<TYPES: NodeType> {
     cur_view: TYPES::View,
 
     /// Epoch number that is currently on.
-    cur_epoch: TYPES::Epoch,
+    cur_epoch: Option<TYPES::Epoch>,
 
     /// Last proposals we sent out, None if we haven't proposed yet.
     /// Prevents duplicate proposals, and can be served to those trying to catchup
-    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+    last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
 
     /// last view had a successful decide event
     last_decided_view: TYPES::View,
@@ -314,7 +314,7 @@ pub struct Consensus<TYPES: NodeType> {
     /// Saved payloads.
     ///
     /// Encoded transactions for every view if we got a payload for that view.
-    saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
+    saved_payloads: BTreeMap<TYPES::View, Arc<TYPES::BlockPayload>>,
 
     /// the highqc per spec
     high_qc: QuorumCertificate2<TYPES>,
@@ -411,14 +411,15 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         validated_state_map: BTreeMap<TYPES::View, View<TYPES>>,
+        vid_shares: Option<VidShares<TYPES>>,
         cur_view: TYPES::View,
-        cur_epoch: TYPES::Epoch,
+        cur_epoch: Option<TYPES::Epoch>,
         locked_view: TYPES::View,
         last_decided_view: TYPES::View,
         last_actioned_view: TYPES::View,
-        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>>,
+        last_proposals: BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>>,
         saved_leaves: CommitmentMap<Leaf2<TYPES>>,
-        saved_payloads: BTreeMap<TYPES::View, Arc<[u8]>>,
+        saved_payloads: BTreeMap<TYPES::View, Arc<TYPES::BlockPayload>>,
         high_qc: QuorumCertificate2<TYPES>,
         next_epoch_high_qc: Option<NextEpochQuorumCertificate2<TYPES>>,
         metrics: Arc<ConsensusMetricsValue>,
@@ -426,7 +427,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     ) -> Self {
         Consensus {
             validated_state_map,
-            vid_shares: BTreeMap::new(),
+            vid_shares: vid_shares.unwrap_or_default(),
             saved_da_certs: HashMap::new(),
             cur_view,
             cur_epoch,
@@ -450,7 +451,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the current epoch.
-    pub fn cur_epoch(&self) -> TYPES::Epoch {
+    pub fn cur_epoch(&self) -> Option<TYPES::Epoch> {
         self.cur_epoch
     }
 
@@ -485,7 +486,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     }
 
     /// Get the saved payloads.
-    pub fn saved_payloads(&self) -> &BTreeMap<TYPES::View, Arc<[u8]>> {
+    pub fn saved_payloads(&self) -> &BTreeMap<TYPES::View, Arc<TYPES::BlockPayload>> {
         &self.saved_payloads
     }
 
@@ -502,7 +503,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Get the map of our recent proposals
     pub fn last_proposals(
         &self,
-    ) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposal2<TYPES>>> {
+    ) -> &BTreeMap<TYPES::View, Proposal<TYPES, QuorumProposalWrapper<TYPES>>> {
         &self.last_proposals
     }
 
@@ -535,9 +536,8 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         };
         let parent_vid = self
             .vid_shares()
-            .get(&parent_view_number)?
-            .get(public_key)
-            .cloned()
+            .get(&parent_view_number)
+            .and_then(|inner_map| inner_map.get(public_key).cloned())
             .map(|prop| prop.data);
 
         Some(LeafInfo {
@@ -553,11 +553,15 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Can return an error when the new epoch_number is not higher than the existing epoch number.
     pub fn update_epoch(&mut self, epoch_number: TYPES::Epoch) -> Result<()> {
         ensure!(
-            epoch_number > self.cur_epoch,
+            self.cur_epoch.is_none() || Some(epoch_number) > self.cur_epoch,
             debug!("New epoch isn't newer than the current epoch.")
         );
-        tracing::trace!("Updating epoch from {} to {}", self.cur_epoch, epoch_number);
-        self.cur_epoch = epoch_number;
+        tracing::trace!(
+            "Updating epoch from {:?} to {}",
+            self.cur_epoch,
+            epoch_number
+        );
+        self.cur_epoch = Some(epoch_number);
         Ok(())
     }
 
@@ -599,7 +603,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// Can return an error when the new view_number is not higher than the existing proposed view number.
     pub fn update_proposed_view(
         &mut self,
-        proposal: Proposal<TYPES, QuorumProposal2<TYPES>>,
+        proposal: Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
     ) -> Result<()> {
         ensure!(
             proposal.data.view_number()
@@ -648,7 +652,7 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_da_view(
         &mut self,
         view_number: TYPES::View,
-        epoch: TYPES::Epoch,
+        epoch: Option<TYPES::Epoch>,
         payload_commitment: VidCommitment,
     ) -> Result<()> {
         let view = View {
@@ -672,7 +676,11 @@ impl<TYPES: NodeType> Consensus<TYPES> {
         delta: Option<Arc<<TYPES::ValidatedState as ValidatedState<TYPES>>::Delta>>,
     ) -> Result<()> {
         let view_number = leaf.view_number();
-        let epoch = TYPES::Epoch::new(epoch_from_block_number(leaf.height(), self.epoch_height));
+        let epoch = option_epoch_from_block_number::<TYPES>(
+            leaf.with_epoch,
+            leaf.height(),
+            self.epoch_height,
+        );
         let view = View {
             view_inner: ViewInner::Leaf {
                 leaf: leaf.commit(),
@@ -732,13 +740,13 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_saved_payloads(
         &mut self,
         view_number: TYPES::View,
-        encoded_transaction: Arc<[u8]>,
+        payload: Arc<TYPES::BlockPayload>,
     ) -> Result<()> {
         ensure!(
             !self.saved_payloads.contains_key(&view_number),
             "Payload with the same view already exists."
         );
-        self.saved_payloads.insert(view_number, encoded_transaction);
+        self.saved_payloads.insert(view_number, payload);
         Ok(())
     }
 
@@ -782,12 +790,12 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     pub fn update_vid_shares(
         &mut self,
         view_number: TYPES::View,
-        disperse: Proposal<TYPES, VidDisperseShare2<TYPES>>,
+        disperse: Proposal<TYPES, VidDisperseShare<TYPES>>,
     ) {
         self.vid_shares
             .entry(view_number)
             .or_default()
-            .insert(disperse.data.recipient_key.clone(), disperse);
+            .insert(disperse.data.recipient_key().clone(), disperse);
     }
 
     /// Add a new entry to the da_certs map.
@@ -861,6 +869,10 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// # Panics
     /// On inconsistent stored entries
     pub fn collect_garbage(&mut self, old_anchor_view: TYPES::View, new_anchor_view: TYPES::View) {
+        // Nothing to collect
+        if new_anchor_view <= old_anchor_view {
+            return;
+        }
         let gc_view = TYPES::View::new(new_anchor_view.saturating_sub(1));
         // state check
         let anchor_entry = self
@@ -940,13 +952,14 @@ impl<TYPES: NodeType> Consensus<TYPES> {
     /// and updates `vid_shares` map with the signed `VidDisperseShare` proposals.
     /// Returned `Option` indicates whether the update has actually happened or not.
     #[instrument(skip_all, target = "Consensus", fields(view = *view))]
-    pub async fn calculate_and_update_vid(
+    pub async fn calculate_and_update_vid<V: Versions>(
         consensus: OuterConsensus<TYPES>,
         view: <TYPES as NodeType>::View,
         membership: Arc<RwLock<TYPES::Membership>>,
         private_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Option<()> {
-        let txns = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
+        let payload = Arc::clone(consensus.read().await.saved_payloads().get(&view)?);
         let epoch = consensus
             .read()
             .await
@@ -954,15 +967,26 @@ impl<TYPES: NodeType> Consensus<TYPES> {
             .get(&view)?
             .view_inner
             .epoch()?;
-        let vid =
-            VidDisperse::calculate_vid_disperse(txns, &membership, view, epoch, epoch, None).await;
-        let shares = VidDisperseShare2::from_vid_disperse(vid);
+
+        let vid = VidDisperse::calculate_vid_disperse::<V>(
+            payload.as_ref(),
+            &membership,
+            view,
+            epoch,
+            epoch,
+            upgrade_lock,
+        )
+        .await
+        .ok()?;
+
+        let shares = VidDisperseShare::from_vid_disperse(vid);
         let mut consensus_writer = consensus.write().await;
         for share in shares {
             if let Some(prop) = share.to_proposal(private_key) {
                 consensus_writer.update_vid_shares(view, prop);
             }
         }
+
         Some(())
     }
 

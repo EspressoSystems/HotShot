@@ -52,15 +52,21 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         .0;
 
     let membership = Arc::clone(&handle.hotshot.memberships);
+    let version = handle
+        .hotshot
+        .upgrade_lock
+        .version_infallible(ViewNumber::new(node_id))
+        .await;
 
-    let payload_commitment = build_payload_commitment::<TestTypes>(
+    let payload_commitment = build_payload_commitment::<TestTypes, TestVersions>(
         &membership,
         ViewNumber::new(node_id),
-        EpochNumber::new(1),
+        Some(EpochNumber::new(1)),
+        version,
     )
     .await;
 
-    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
+    let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -88,10 +94,13 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
     }
 
     // We must send the genesis cert here to initialize hotshot successfully.
-    let genesis_cert = proposals[0].data.justify_qc.clone();
+    let genesis_cert = proposals[0].data.justify_qc().clone();
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        membership.read().await.total_nodes(EpochNumber::new(1)),
+        membership
+            .read()
+            .await
+            .total_nodes(Some(EpochNumber::new(1))),
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -148,7 +157,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut generator = TestViewGenerator::generate(membership.clone());
+    let mut generator = TestViewGenerator::<TestVersions>::generate(membership.clone());
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -177,26 +186,37 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
 
     // We need to handle the views where we aren't the leader to ensure that the states are
     // updated properly.
-    let genesis_cert = proposals[0].data.justify_qc.clone();
+    let genesis_cert = proposals[0].data.justify_qc().clone();
 
     drop(consensus_writer);
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        membership.read().await.total_nodes(EpochNumber::new(1)),
+        membership
+            .read()
+            .await
+            .total_nodes(Some(EpochNumber::new(1))),
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
     .unwrap();
 
+    let upgrade_lock = &handle.hotshot.upgrade_lock;
+    let version_1 = upgrade_lock.version_infallible(ViewNumber::new(1)).await;
+    let version_2 = upgrade_lock.version_infallible(ViewNumber::new(2)).await;
+    let version_3 = upgrade_lock.version_infallible(ViewNumber::new(3)).await;
+    let version_4 = upgrade_lock.version_infallible(ViewNumber::new(4)).await;
+    let version_5 = upgrade_lock.version_infallible(ViewNumber::new(5)).await;
+
     let inputs = vec![
         random![
             Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(1),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_1,
                 )
                 .await,
                 builder_commitment.clone(),
@@ -211,16 +231,17 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
-            Qc2Formed(either::Left(proposals[1].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[1].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(2),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_2,
                 )
                 .await,
                 builder_commitment.clone(),
-                proposals[0].data.block_header.metadata,
+                proposals[0].data.block_header().metadata,
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
                 None,
@@ -229,16 +250,17 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
-            Qc2Formed(either::Left(proposals[2].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[2].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(3),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_3,
                 )
                 .await,
                 builder_commitment.clone(),
-                proposals[1].data.block_header.metadata,
+                proposals[1].data.block_header().metadata,
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
                 None,
@@ -247,16 +269,17 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
-            Qc2Formed(either::Left(proposals[3].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[3].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(4),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_4,
                 )
                 .await,
                 builder_commitment.clone(),
-                proposals[2].data.block_header.metadata,
+                proposals[2].data.block_header().metadata,
                 ViewNumber::new(4),
                 vec1![builder_fee.clone()],
                 None,
@@ -265,16 +288,17 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
-            Qc2Formed(either::Left(proposals[4].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[4].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(5),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_5,
                 )
                 .await,
                 builder_commitment,
-                proposals[3].data.block_header.metadata,
+                proposals[3].data.block_header().metadata,
                 ViewNumber::new(5),
                 vec1![builder_fee.clone()],
                 None,
@@ -315,16 +339,22 @@ async fn test_quorum_proposal_task_qc_timeout() {
         .await
         .0;
     let membership = Arc::clone(&handle.hotshot.memberships);
+    let version = handle
+        .hotshot
+        .upgrade_lock
+        .version_infallible(ViewNumber::new(node_id))
+        .await;
 
-    let payload_commitment = build_payload_commitment::<TestTypes>(
+    let payload_commitment = build_payload_commitment::<TestTypes, TestVersions>(
         &membership,
         ViewNumber::new(node_id),
-        EpochNumber::new(1),
+        Some(EpochNumber::new(1)),
+        version,
     )
     .await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
-    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
+    let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -340,7 +370,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     }
     let timeout_data = TimeoutData2 {
         view: ViewNumber::new(1),
-        epoch: EpochNumber::new(0),
+        epoch: None,
     };
     generator.add_timeout(timeout_data);
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
@@ -352,7 +382,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     }
 
     // Get the proposal cert out for the view sync input
-    let cert = match proposals[1].data.view_change_evidence.clone().unwrap() {
+    let cert = match proposals[1].data.view_change_evidence().clone().unwrap() {
         ViewChangeEvidence2::Timeout(tc) => tc,
         _ => panic!("Found a View Sync Cert when there should have been a Timeout cert"),
     };
@@ -367,7 +397,10 @@ async fn test_quorum_proposal_task_qc_timeout() {
             },
             ViewNumber::new(3),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                membership.read().await.total_nodes(EpochNumber::new(1)),
+                membership
+                    .read()
+                    .await
+                    .total_nodes(Some(EpochNumber::new(1))),
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(3),
             )
@@ -405,16 +438,22 @@ async fn test_quorum_proposal_task_view_sync() {
         .0;
 
     let membership = Arc::clone(&handle.hotshot.memberships);
+    let version = handle
+        .hotshot
+        .upgrade_lock
+        .version_infallible(ViewNumber::new(node_id))
+        .await;
 
-    let payload_commitment = build_payload_commitment::<TestTypes>(
+    let payload_commitment = build_payload_commitment::<TestTypes, TestVersions>(
         &membership,
         ViewNumber::new(node_id),
-        EpochNumber::new(1),
+        Some(EpochNumber::new(1)),
+        version,
     )
     .await;
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
 
-    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
+    let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -432,7 +471,7 @@ async fn test_quorum_proposal_task_view_sync() {
     let view_sync_finalize_data = ViewSyncFinalizeData2 {
         relay: 2,
         round: ViewNumber::new(node_id),
-        epoch: EpochNumber::new(0),
+        epoch: None,
     };
     generator.add_view_sync_finalize(view_sync_finalize_data);
     for view in (&mut generator).take(2).collect::<Vec<_>>().await {
@@ -444,7 +483,7 @@ async fn test_quorum_proposal_task_view_sync() {
     }
 
     // Get the proposal cert out for the view sync input
-    let cert = match proposals[1].data.view_change_evidence.clone().unwrap() {
+    let cert = match proposals[1].data.view_change_evidence().clone().unwrap() {
         ViewChangeEvidence2::ViewSync(vsc) => vsc,
         _ => panic!("Found a TC when there should have been a view sync cert"),
     };
@@ -459,7 +498,10 @@ async fn test_quorum_proposal_task_view_sync() {
             },
             ViewNumber::new(2),
             vec1![null_block::builder_fee::<TestTypes, TestVersions>(
-                membership.read().await.total_nodes(EpochNumber::new(1)),
+                membership
+                    .read()
+                    .await
+                    .total_nodes(Some(EpochNumber::new(1))),
                 <TestVersions as Versions>::Base::VERSION,
                 *ViewNumber::new(2),
             )
@@ -496,7 +538,7 @@ async fn test_quorum_proposal_task_liveness_check() {
 
     let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut generator = TestViewGenerator::generate(Arc::clone(&membership));
+    let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();
@@ -526,7 +568,10 @@ async fn test_quorum_proposal_task_liveness_check() {
 
     let builder_commitment = BuilderCommitment::from_raw_digest(sha2::Sha256::new().finalize());
     let builder_fee = null_block::builder_fee::<TestTypes, TestVersions>(
-        membership.read().await.total_nodes(EpochNumber::new(1)),
+        membership
+            .read()
+            .await
+            .total_nodes(Some(EpochNumber::new(1))),
         <TestVersions as Versions>::Base::VERSION,
         *ViewNumber::new(1),
     )
@@ -534,16 +579,24 @@ async fn test_quorum_proposal_task_liveness_check() {
 
     // We need to handle the views where we aren't the leader to ensure that the states are
     // updated properly.
-    let genesis_cert = proposals[0].data.justify_qc.clone();
+    let genesis_cert = proposals[0].data.justify_qc().clone();
+
+    let upgrade_lock = &handle.hotshot.upgrade_lock;
+    let version_1 = upgrade_lock.version_infallible(ViewNumber::new(1)).await;
+    let version_2 = upgrade_lock.version_infallible(ViewNumber::new(2)).await;
+    let version_3 = upgrade_lock.version_infallible(ViewNumber::new(3)).await;
+    let version_4 = upgrade_lock.version_infallible(ViewNumber::new(4)).await;
+    let version_5 = upgrade_lock.version_infallible(ViewNumber::new(5)).await;
 
     let inputs = vec![
         random![
             Qc2Formed(either::Left(genesis_cert.clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(1),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_1,
                 )
                 .await,
                 builder_commitment.clone(),
@@ -558,16 +611,17 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[0].clone()),
-            Qc2Formed(either::Left(proposals[1].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[1].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(2),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_2,
                 )
                 .await,
                 builder_commitment.clone(),
-                proposals[0].data.block_header.metadata,
+                proposals[0].data.block_header().metadata,
                 ViewNumber::new(2),
                 vec1![builder_fee.clone()],
                 None,
@@ -576,16 +630,17 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[1].clone()),
-            Qc2Formed(either::Left(proposals[2].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[2].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(3),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_3,
                 )
                 .await,
                 builder_commitment.clone(),
-                proposals[1].data.block_header.metadata,
+                proposals[1].data.block_header().metadata,
                 ViewNumber::new(3),
                 vec1![builder_fee.clone()],
                 None,
@@ -594,16 +649,17 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[2].clone()),
-            Qc2Formed(either::Left(proposals[3].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[3].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(4),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_4,
                 )
                 .await,
                 builder_commitment.clone(),
-                proposals[2].data.block_header.metadata,
+                proposals[2].data.block_header().metadata,
                 ViewNumber::new(4),
                 vec1![builder_fee.clone()],
                 None,
@@ -612,16 +668,17 @@ async fn test_quorum_proposal_task_liveness_check() {
         ],
         random![
             QuorumProposalPreliminarilyValidated(proposals[3].clone()),
-            Qc2Formed(either::Left(proposals[4].data.justify_qc.clone())),
+            Qc2Formed(either::Left(proposals[4].data.justify_qc().clone())),
             SendPayloadCommitmentAndMetadata(
-                build_payload_commitment::<TestTypes>(
+                build_payload_commitment::<TestTypes, TestVersions>(
                     &membership,
                     ViewNumber::new(5),
-                    EpochNumber::new(1)
+                    Some(EpochNumber::new(1)),
+                    version_5,
                 )
                 .await,
                 builder_commitment,
-                proposals[3].data.block_header.metadata,
+                proposals[3].data.block_header().metadata,
                 ViewNumber::new(5),
                 vec1![builder_fee.clone()],
                 None,
@@ -659,7 +716,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
         .0;
     let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut generator = TestViewGenerator::generate(membership);
+    let mut generator = TestViewGenerator::<TestVersions>::generate(membership);
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();

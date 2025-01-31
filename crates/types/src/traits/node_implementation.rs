@@ -35,10 +35,12 @@ use super::{
     ValidatedState,
 };
 use crate::{
+    constants::DEFAULT_UPGRADE_CONSTANTS,
     data::{Leaf2, TestableLeaf},
     traits::{
         election::Membership, signature_key::SignatureKey, states::InstanceState, BlockPayload,
     },
+    upgrade_config::UpgradeConstants,
 };
 
 /// This trait guarantees that a particular type has urls that can be extracted from it. This trait
@@ -183,8 +185,10 @@ pub trait ConsensusTime:
     fn genesis() -> Self {
         Self::new(0)
     }
+
     /// Create a new instance of this time unit
     fn new(val: u64) -> Self;
+
     /// Get the u64 format of time
     fn u64(&self) -> u64;
 }
@@ -206,6 +210,8 @@ pub trait NodeType:
     + Sync
     + 'static
 {
+    /// Constants used to construct upgrade proposals
+    const UPGRADE_CONSTANTS: UpgradeConstants = DEFAULT_UPGRADE_CONSTANTS;
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `ValidatedState::Time` is using.

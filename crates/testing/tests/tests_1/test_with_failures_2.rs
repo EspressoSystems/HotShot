@@ -41,12 +41,9 @@ cross_tests!(
     Versions: [TestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
-        metadata.epoch_height = 0;
-        metadata.num_bootstrap_nodes = 10;
-        metadata.num_nodes_with_stake = 12;
-        metadata.da_staked_committee_size = 12;
-        metadata.start_nodes = 12;
+        let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12,12);
+        metadata.test_config.epoch_height = 0;
+        metadata.test_config.num_bootstrap = 10;
         // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
         // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
         // following issue.
@@ -75,62 +72,16 @@ cross_tests!(
 );
 
 cross_tests!(
-    TestName: test_with_failures_2_with_epochs,
-    Impls: [Libp2pImpl, PushCdnImpl, CombinedImpl],
-    Types: [TestTwoStakeTablesTypes],
-    Versions: [EpochsTestVersions],
-    Ignore: false,
-    Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
-        metadata.num_nodes_with_stake = 12;
-        metadata.da_staked_committee_size = 12;
-        metadata.start_nodes = 12;
-        metadata.epoch_height = 10;
-        let dead_nodes = vec![
-            ChangeNode {
-                idx: 10,
-                updown: NodeAction::Down,
-            },
-            ChangeNode {
-                idx: 11,
-                updown: NodeAction::Down,
-            },
-        ];
-
-        metadata.spinning_properties = SpinningTaskDescription {
-            node_changes: vec![(5, dead_nodes)]
-        };
-
-        // 2 nodes fail triggering view sync, expect no other timeouts
-        metadata.overall_safety_properties.num_failed_views = 6;
-        // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
-        metadata.overall_safety_properties.num_successful_views = 20;
-        metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
-            (ViewNumber::new(5), false),
-            (ViewNumber::new(11), false),
-            (ViewNumber::new(17), false),
-            (ViewNumber::new(23), false),
-            (ViewNumber::new(29), false),
-            (ViewNumber::new(35), false),
-        ]);
-
-        metadata
-    }
-);
-
-cross_tests!(
     TestName: test_with_double_leader_failures,
     Impls: [MemoryImpl, Libp2pImpl, PushCdnImpl],
     Types: [TestConsecutiveLeaderTypes],
     Versions: [TestVersions],
     Ignore: false,
     Metadata: {
-        let mut metadata = TestDescription::default_more_nodes();
-        metadata.epoch_height = 0;
-        metadata.num_bootstrap_nodes = 10;
-        metadata.num_nodes_with_stake = 12;
-        metadata.da_staked_committee_size = 12;
-        metadata.start_nodes = 12;
+        let mut metadata = TestDescription::default_more_nodes().set_num_nodes(12, 12);
+        metadata.test_config.epoch_height = 0;
+        metadata.test_config.num_bootstrap = 10;
+
         let dead_nodes = vec![
             ChangeNode {
                 idx: 3,
@@ -157,7 +108,7 @@ cross_tests!(
         metadata.overall_safety_properties.num_successful_views = 13;
 
         // only turning off 1 node, so expected should be num_nodes_with_stake - 1
-        let expected_nodes_in_view_sync = metadata.num_nodes_with_stake - 1;
+        let expected_nodes_in_view_sync = 11;
         metadata.view_sync_properties = ViewSyncTaskDescription::Threshold(expected_nodes_in_view_sync, expected_nodes_in_view_sync);
 
         metadata

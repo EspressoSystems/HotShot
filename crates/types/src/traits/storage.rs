@@ -20,8 +20,9 @@ use super::node_implementation::NodeType;
 use crate::{
     consensus::{CommitmentMap, View},
     data::{
-        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2, VidDisperseShare,
-        VidDisperseShare2,
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
+        DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
+        QuorumProposalWrapper,
     },
     event::HotShotAction,
     message::{convert_proposal, Proposal},
@@ -35,8 +36,9 @@ use crate::{
 #[async_trait]
 pub trait Storage<TYPES: NodeType>: Send + Sync + Clone {
     /// Add a proposal to the stored VID proposals.
-    async fn append_vid(&self, proposal: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> Result<()>;
+    async fn append_vid(&self, proposal: &Proposal<TYPES, ADVZDisperseShare<TYPES>>) -> Result<()>;
     /// Add a proposal to the stored VID proposals.
+    /// TODO(Chengyu): change here because in the future disperse share types might not be convertible.
     async fn append_vid2(
         &self,
         proposal: &Proposal<TYPES, VidDisperseShare2<TYPES>>,
@@ -67,6 +69,14 @@ pub trait Storage<TYPES: NodeType>: Send + Sync + Clone {
     async fn append_proposal2(
         &self,
         proposal: &Proposal<TYPES, QuorumProposal2<TYPES>>,
+    ) -> Result<()> {
+        self.append_proposal(&convert_proposal(proposal.clone()))
+            .await
+    }
+    /// Add a proposal we sent to the store
+    async fn append_proposal_wrapper(
+        &self,
+        proposal: &Proposal<TYPES, QuorumProposalWrapper<TYPES>>,
     ) -> Result<()> {
         self.append_proposal(&convert_proposal(proposal.clone()))
             .await
