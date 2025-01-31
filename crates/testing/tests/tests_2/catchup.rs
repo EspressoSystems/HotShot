@@ -340,6 +340,8 @@ cross_tests!(
       metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
           // Make sure we keep committing rounds after the catchup, but not the full 50.
           num_successful_views: 22,
+          expected_view_failures: vec![13],
+          possible_view_failures: vec![12],
           ..Default::default()
       };
 
@@ -392,6 +394,8 @@ cross_tests!(
       metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
           // Make sure we keep committing rounds after the catchup, but not the full 50.
           num_successful_views: 22,
+          expected_view_failures: vec![13],
+          possible_view_failures: vec![12, 14],
           ..Default::default()
       };
 
