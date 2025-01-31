@@ -6,6 +6,7 @@
 
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
+use crate::traits::election::randomized_committee::anytrace::line_info;
 use hotshot_types::{
     traits::{
         election::Membership,
@@ -16,8 +17,7 @@ use hotshot_types::{
 };
 use primitive_types::U256;
 use rand::{rngs::StdRng, Rng};
-use utils::anytrace::Result;
-
+use utils::anytrace::{self, Error, Level, Result};
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
 /// The static committee election
@@ -247,5 +247,16 @@ impl<TYPES: NodeType> Membership<TYPES> for RandomizedCommittee<TYPES> {
             ((self.stake_table.len() as u64 * 2) / 3) + 1,
         ))
         .unwrap()
+    }
+
+    fn has_epoch(&self, _epoch: TYPES::Epoch) -> bool {
+        true
+    }
+
+    async fn get_epoch_root(
+        &self,
+        _block_height: u64,
+    ) -> Result<(TYPES::Epoch, TYPES::BlockHeader)> {
+        Err(anytrace::error!("Not implemented"))
     }
 }

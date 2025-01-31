@@ -32,7 +32,7 @@ impl<TYPES: NodeType> EpochMembershipCoordinator<TYPES> {
     /// Get a Membership for a given Epoch, which is guarenteed to have a stake
     /// table for the given Epoch
     pub async fn membership_for_epoch(&self, epoch: TYPES::Epoch) -> EpochMembership<TYPES> {
-        if self.membership.read().await.has_epoch(epoch).await {
+        if self.membership.read().await.has_epoch(epoch) {
             return EpochMembership {
                 epoch,
                 membership: Arc::clone(&self.membership),
