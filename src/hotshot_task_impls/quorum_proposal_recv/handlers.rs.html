@@ -337,6 +337,11 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -355,6 +360,7 @@
     data::{Leaf2, QuorumProposal, QuorumProposalWrapper},
     message::Proposal,
     simple_certificate::QuorumCertificate,
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -484,6 +490,10 @@
     event_receiver: <span class="kw-2">&amp;</span>Receiver&lt;Arc&lt;HotShotEvent&lt;TYPES&gt;&gt;&gt;,
     validation_info: ValidationInfo&lt;TYPES, I, V&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    proposal
+        .data
+        .validate_epoch(<span class="kw-2">&amp;</span>validation_info.upgrade_lock, validation_info.epoch_height)
+        .<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="kw">let </span>quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
 
     validate_proposal_view_and_certs(proposal, <span class="kw-2">&amp;</span>validation_info)
@@ -497,7 +507,7 @@
 
     <span class="kw">let </span>proposal_block_number = proposal.data.block_header().block_number();
     <span class="kw">let </span>proposal_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
-        proposal.data.with_epoch,
+        proposal.data.epoch().is_some(),
         proposal_block_number,
         validation_info.epoch_height,
     );

@@ -376,6 +376,12 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -631,14 +637,20 @@
     <span class="kw">async fn </span>record_action(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         action: hotshot_types::event::HotShotAction,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span><span class="self">self</span>.should_return_err {
             <span class="macro">bail!</span>(<span class="string">"Failed to append Action to storage"</span>);
         }
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
-        <span class="kw">if </span>view &gt; inner.action &amp;&amp; <span class="macro">matches!</span>(action, HotShotAction::Vote | HotShotAction::Propose) {
-            inner.action = view;
+        <span class="kw">if </span><span class="macro">matches!</span>(action, HotShotAction::Vote | HotShotAction::Propose) {
+            <span class="kw">if </span>view &gt; inner.action {
+                inner.action = view;
+            }
+            <span class="kw">if </span>epoch &gt; inner.epoch {
+                inner.epoch = epoch;
+            }
         }
         <span class="self">Self</span>::run_delay_settings_from_config(<span class="kw-2">&amp;</span><span class="self">self</span>.delay_config).<span class="kw">await</span>;
         <span class="prelude-val">Ok</span>(())

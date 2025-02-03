@@ -140,6 +140,11 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -224,7 +229,12 @@
             .<span class="kw">await
     </span>}
     <span class="doccomment">/// Record a HotShotAction taken.
-    </span><span class="kw">async fn </span>record_action(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::View, action: HotShotAction) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">async fn </span>record_action(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view: TYPES::View,
+        epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+        action: HotShotAction,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the current high QC in storage.
     </span><span class="kw">async fn </span>update_high_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, high_qc: QuorumCertificate&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="doccomment">/// Update the current high QC in storage.

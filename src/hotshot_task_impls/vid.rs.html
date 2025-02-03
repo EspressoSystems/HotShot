@@ -266,6 +266,8 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -282,6 +284,7 @@
     consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare},
     message::{Proposal, UpgradeLock},
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -446,7 +449,8 @@
 
             HotShotEvent::QuorumProposalSend(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>proposed_block_number = proposal.data.block_header().block_number();
-                <span class="kw">if </span>!proposal.data.with_epoch || proposed_block_number % <span class="self">self</span>.epoch_height != <span class="number">0 </span>{
+                <span class="kw">if </span>proposal.data.epoch().is_none() || proposed_block_number % <span class="self">self</span>.epoch_height != <span class="number">0
+                </span>{
                     <span class="comment">// This is not the last block in the epoch, do nothing.
                     </span><span class="kw">return </span><span class="prelude-val">None</span>;
                 }

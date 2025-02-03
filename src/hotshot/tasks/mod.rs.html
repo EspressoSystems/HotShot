@@ -573,6 +573,7 @@
 <a href="#573" id="573">573</a>
 <a href="#574" id="574">574</a>
 <a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -782,6 +783,7 @@
         consensus: OuterConsensus::new(handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
         transmit_tasks: BTreeMap::new(),
+        epoch_height: handle.epoch_height,
     };
     <span class="kw">let </span>task = Task::new(
         network_state,

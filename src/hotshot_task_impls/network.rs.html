@@ -1313,6 +1313,19 @@
 <a href="#1313" id="1313">1313</a>
 <a href="#1314" id="1314">1314</a>
 <a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1806,6 +1819,9 @@
 
     <span class="doccomment">/// map view number to transmit tasks
     </span><span class="kw">pub </span>transmit_tasks: BTreeMap&lt;TYPES::View, Vec&lt;JoinHandle&lt;()&gt;&gt;&gt;,
+
+    <span class="doccomment">/// Number of blocks in an epoch, zero means there are no epochs
+    </span><span class="kw">pub </span>epoch_height: u64,
 }
 
 <span class="attr">#[async_trait]
@@ -1860,6 +1876,7 @@
         sender: <span class="kw-2">&amp;</span>&lt;TYPES <span class="kw">as </span>NodeType&gt;::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;HotShotTaskCompleted&gt; {
         <span class="kw">let </span>view = vid_proposal.data.view_number();
+        <span class="kw">let </span>epoch = vid_proposal.data.epoch();
         <span class="kw">let </span>vid_share_proposals = VidDisperseShare::to_vid_share_proposals(vid_proposal);
         <span class="kw">let </span><span class="kw-2">mut </span>messages = HashMap::new();
 
@@ -1930,6 +1947,7 @@
                 storage,
                 consensus,
                 view,
+                epoch,
             )
             .<span class="kw">await
             </span>.is_err()
@@ -1951,6 +1969,7 @@
         storage: Arc&lt;RwLock&lt;S&gt;&gt;,
         consensus: OuterConsensus&lt;TYPES&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
+        epoch: <span class="prelude-ty">Option</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch&gt;,
     ) -&gt; std::result::Result&lt;(), ()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>action) = maybe_action {
             <span class="kw">if </span>!consensus.write().<span class="kw">await</span>.update_action(action, view) {
@@ -1961,7 +1980,12 @@
             </span><span class="kw">if </span><span class="macro">matches!</span>(action, HotShotAction::ViewSyncVote) {
                 action = HotShotAction::Vote;
             }
-            <span class="kw">match </span>storage.write().<span class="kw">await</span>.record_action(view, action).<span class="kw">await </span>{
+            <span class="kw">match </span>storage
+                .write()
+                .<span class="kw">await
+                </span>.record_action(view, epoch, action)
+                .<span class="kw">await
+            </span>{
                 <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">tracing::warn!</span>(<span class="string">"Not Sending {:?} because of storage error: {:?}"</span>, action, e);
@@ -2437,6 +2461,7 @@
             kind: message_kind,
         };
         <span class="kw">let </span>view_number = message.kind.view_number();
+        <span class="kw">let </span>epoch = message.kind.epoch();
         <span class="kw">let </span>committee_topic = Topic::Global;
         <span class="kw">let </span>da_committee = <span class="self">self
             </span>.membership
@@ -2453,6 +2478,7 @@
                 Arc::clone(<span class="kw-2">&amp;</span>storage),
                 consensus,
                 view_number,
+                epoch,
             )
             .<span class="kw">await
             </span>.is_err()

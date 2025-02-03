@@ -638,6 +638,83 @@
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
 <a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -660,8 +737,10 @@
     event::{Event, EventType, LeafChain},
     simple_certificate::QuorumCertificate2,
     traits::{
+        block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeType, Versions},
+        BlockPayload,
     },
     vid::VidCommitment,
 };
@@ -672,6 +751,7 @@
     test_runner::Node,
     test_task::{TestEvent, TestResult, TestTaskState},
 };
+
 <span class="doccomment">/// convenience type alias for state and block
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
 
@@ -778,73 +858,6 @@
 
     <span class="doccomment">/// Handles an event from one of multiple receivers.
     </span><span class="kw">async fn </span>handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, (message, id): (<span class="self">Self</span>::Event, usize)) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
-            check_leaf,
-            check_block,
-            num_failed_views,
-            num_successful_views,
-            transaction_threshold,
-            ..
-        }: OverallSafetyPropertiesDescription&lt;TYPES&gt; = <span class="self">self</span>.properties.clone();
-        <span class="kw">let </span>Event { view_number, event } = message;
-        <span class="kw">let </span>key = <span class="kw">match </span>event {
-            EventType::Error { error } =&gt; {
-                <span class="self">self</span>.ctx
-                    .insert_error_to_context(view_number, id, error.clone());
-                <span class="prelude-val">None
-            </span>}
-            EventType::Decide {
-                leaf_chain,
-                qc,
-                block_size: maybe_block_size,
-            } =&gt; {
-                <span class="comment">// Skip the genesis leaf.
-                </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.view_number() == TYPES::View::genesis() {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-                }
-                <span class="kw">let </span>paired_up = (leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone());
-                <span class="kw">match </span><span class="self">self</span>.ctx.round_results.entry(view_number) {
-                    Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
-                        <span class="kw">let </span>entry = o.get_mut();
-                        entry.insert_into_result(id, paired_up, maybe_block_size)
-                    }
-                    Entry::Vacant(v) =&gt; {
-                        <span class="kw">let </span><span class="kw-2">mut </span>round_result = RoundResult::default();
-                        <span class="kw">let </span>key = round_result.insert_into_result(id, paired_up, maybe_block_size);
-                        v.insert(round_result);
-                        key
-                    }
-                }
-            }
-            EventType::ReplicaViewTimeout { view_number } =&gt; {
-                <span class="kw">let </span>error = Arc::new(HotShotError::&lt;TYPES&gt;::ViewTimedOut {
-                    view_number,
-                    state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
-                });
-                <span class="self">self</span>.ctx.insert_error_to_context(view_number, id, error);
-                <span class="prelude-val">None
-            </span>}
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
-        };
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>key) = key {
-            <span class="kw">match </span>(
-                key.epoch(<span class="self">self</span>.epoch_height).map(|x| <span class="kw-2">*</span>x),
-                <span class="self">self</span>.ctx.latest_epoch,
-            ) {
-                (<span class="prelude-val">Some</span>(key_epoch), <span class="prelude-val">Some</span>(latest_epoch)) =&gt; {
-                    <span class="kw">if </span>key_epoch &gt; latest_epoch {
-                        <span class="self">self</span>.ctx.latest_epoch = <span class="prelude-val">Some</span>(key_epoch);
-                    }
-                }
-                (<span class="prelude-val">Some</span>(key_epoch), <span class="prelude-val">None</span>) =&gt; {
-                    <span class="self">self</span>.ctx.latest_epoch = <span class="prelude-val">Some</span>(key_epoch);
-                }
-                <span class="kw">_ </span>=&gt; {}
-            }
-        }
-
-        <span class="kw">let </span>epoch = <span class="self">self</span>.ctx.latest_epoch.map(TYPES::Epoch::new);
         <span class="kw">let </span>memberships_arc = Arc::clone(
             <span class="kw-2">&amp;</span><span class="self">self
                 </span>.handles
@@ -855,54 +868,187 @@
                 .handle
                 .memberships,
         );
-        <span class="kw">let </span>memberships_reader = memberships_arc.read().<span class="kw">await</span>;
-        <span class="kw">let </span>len = memberships_reader.total_nodes(epoch);
-
-        <span class="comment">// update view count
-        </span><span class="kw">let </span>threshold = memberships_reader.success_threshold(epoch).get() <span class="kw">as </span>usize;
-        drop(memberships_reader);
-        drop(memberships_arc);
-
-        <span class="kw">let </span>view = <span class="self">self</span>.ctx.round_results.get_mut(<span class="kw-2">&amp;</span>view_number).unwrap();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = key {
-            view.update_status(
-                threshold,
-                len,
-                <span class="kw-2">&amp;</span>key,
-                check_leaf,
-                check_block,
-                transaction_threshold,
-            );
-            <span class="kw">match </span>view.status.clone() {
-                ViewStatus::Ok =&gt; {
-                    <span class="self">self</span>.ctx.successful_views.insert(view_number);
-                    <span class="comment">// if a view succeeds remove it from the failed views
-                    </span><span class="self">self</span>.ctx.failed_views.remove(<span class="kw-2">&amp;</span>view_number);
-                    <span class="kw">if </span><span class="self">self</span>.ctx.successful_views.len() &gt;= num_successful_views {
-                        <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
+        <span class="kw">let </span>public_key = <span class="self">self</span>.handles.read().<span class="kw">await</span>[id].handle.public_key();
+        <span class="kw">let </span>OverallSafetyPropertiesDescription::&lt;TYPES&gt; {
+            check_leaf,
+            check_block,
+            num_failed_views,
+            num_successful_views,
+            transaction_threshold,
+            ..
+        }: OverallSafetyPropertiesDescription&lt;TYPES&gt; = <span class="self">self</span>.properties.clone();
+        <span class="kw">let </span>Event { view_number, event } = message;
+        <span class="kw">let </span>keys: <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt; = <span class="kw">match </span>event {
+            EventType::Error { error } =&gt; {
+                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.handles.read().<span class="kw">await</span>[id]
+                    .handle
+                    .consensus()
+                    .read()
+                    .<span class="kw">await
+                    </span>.cur_epoch();
+                <span class="kw">if </span>!memberships_arc
+                    .read()
+                    .<span class="kw">await
+                    </span>.has_stake(<span class="kw-2">&amp;</span>public_key, cur_epoch)
+                {
+                    <span class="comment">// Return early, this event comes from a node not belonging to the current epoch
+                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
+                <span class="self">self</span>.ctx
+                    .insert_error_to_context(view_number, id, error.clone());
+                <span class="prelude-val">None
+            </span>}
+            EventType::Decide {
+                leaf_chain,
+                qc,
+                block_size: <span class="kw">_</span>,
+            } =&gt; {
+                <span class="comment">// Skip the genesis leaf.
+                </span><span class="kw">if </span>leaf_chain.last().unwrap().leaf.view_number() == TYPES::View::genesis() {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
+                <span class="kw">let </span><span class="kw-2">mut </span>keys = Vec::default();
+                <span class="kw">let </span><span class="kw-2">mut </span>leaf_qc = (<span class="kw-2">*</span>qc).clone();
+                <span class="kw">let </span><span class="kw-2">mut </span>leaf_chain_vec = leaf_chain.to_vec();
+                <span class="kw">while </span>!leaf_chain_vec.is_empty() {
+                    <span class="kw">let </span>paired_up = (leaf_chain_vec.clone(), leaf_qc.clone());
+                    <span class="kw">let </span>leaf_info = leaf_chain_vec.first().unwrap();
+                    <span class="kw">let </span><span class="kw-2">mut </span>txns = HashSet::new();
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payload) = leaf_info.leaf.block_payload() {
+                        <span class="kw">for </span>txn <span class="kw">in </span>payload
+                            .transaction_commitments(leaf_info.leaf.block_header().metadata())
+                        {
+                            txns.insert(txn);
+                        }
                     }
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                    <span class="kw">let </span>maybe_block_size = <span class="kw">if </span>txns.is_empty() {
+                        <span class="prelude-val">None
+                    </span>} <span class="kw">else </span>{
+                        <span class="prelude-val">Some</span>(txns.len().try_into()<span class="question-mark">?</span>)
+                    };
+                    <span class="kw">match </span><span class="self">self</span>.ctx.round_results.entry(leaf_info.leaf.view_number()) {
+                        Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
+                            <span class="kw">let </span>entry = o.get_mut();
+                            <span class="kw">let </span>key = entry
+                                .insert_into_result(
+                                    id,
+                                    paired_up,
+                                    maybe_block_size,
+                                    <span class="kw-2">&amp;</span>memberships_arc,
+                                    <span class="kw-2">&amp;</span>public_key,
+                                    <span class="self">self</span>.epoch_height,
+                                )
+                                .<span class="kw">await</span>;
+                            keys.push(key);
+                        }
+                        Entry::Vacant(v) =&gt; {
+                            <span class="kw">let </span><span class="kw-2">mut </span>round_result = RoundResult::default();
+                            <span class="kw">let </span>key = round_result
+                                .insert_into_result(
+                                    id,
+                                    paired_up,
+                                    maybe_block_size,
+                                    <span class="kw-2">&amp;</span>memberships_arc,
+                                    <span class="kw-2">&amp;</span>public_key,
+                                    <span class="self">self</span>.epoch_height,
+                                )
+                                .<span class="kw">await</span>;
+                            <span class="kw">if </span>key.is_some() {
+                                v.insert(round_result);
+                                keys.push(key);
+                            }
+                        }
+                    }
+                    leaf_qc = leaf_chain_vec.first().unwrap().leaf.justify_qc();
+                    leaf_chain_vec.remove(<span class="number">0</span>);
                 }
-                ViewStatus::Failed =&gt; {
-                    <span class="self">self</span>.handle_view_failure(num_failed_views, view_number)
-                        .<span class="kw">await</span>;
+                <span class="prelude-val">Some</span>(keys.into_iter().flatten().collect())
+            }
+            EventType::ReplicaViewTimeout { view_number } =&gt; {
+                <span class="kw">let </span>cur_epoch = <span class="self">self</span>.handles.read().<span class="kw">await</span>[id]
+                    .handle
+                    .consensus()
+                    .read()
+                    .<span class="kw">await
+                    </span>.cur_epoch();
+                <span class="kw">if </span>!memberships_arc
+                    .read()
+                    .<span class="kw">await
+                    </span>.has_stake(<span class="kw-2">&amp;</span>public_key, cur_epoch)
+                {
+                    <span class="comment">// Return early, this event comes from a node not belonging to the current epoch
+                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
+                <span class="kw">let </span>error = Arc::new(HotShotError::&lt;TYPES&gt;::ViewTimedOut {
+                    view_number,
+                    state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
+                });
+                <span class="self">self</span>.ctx.insert_error_to_context(view_number, id, error);
+                <span class="prelude-val">None
+            </span>}
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+        };
 
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-                }
-                ViewStatus::Err(e) =&gt; {
-                    <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
-                    <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(e));
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-                }
-                ViewStatus::InProgress =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(keys) = keys {
+            <span class="kw">for </span>key <span class="kw">in </span>keys {
+                <span class="kw">let </span>key_epoch = key.epoch(<span class="self">self</span>.epoch_height);
+                <span class="kw">let </span>memberships_reader = memberships_arc.read().<span class="kw">await</span>;
+                <span class="kw">let </span>key_len = memberships_reader.total_nodes(key_epoch);
+                <span class="kw">let </span>key_threshold = memberships_reader.success_threshold(key_epoch).get() <span class="kw">as </span>usize;
+                drop(memberships_reader);
+
+                <span class="kw">let </span>key_view_number = key.view_number();
+                <span class="kw">let </span>key_view = <span class="self">self</span>.ctx.round_results.get_mut(<span class="kw-2">&amp;</span>key_view_number).unwrap();
+                key_view.update_status(
+                    key_threshold,
+                    key_len,
+                    <span class="kw-2">&amp;</span>key,
+                    check_leaf,
+                    check_block,
+                    transaction_threshold,
+                );
+                <span class="kw">match </span>key_view.status.clone() {
+                    ViewStatus::Ok =&gt; {
+                        <span class="self">self</span>.ctx.successful_views.insert(key_view_number);
+                        <span class="comment">// if a view succeeds remove it from the failed views
+                        </span><span class="self">self</span>.ctx.failed_views.remove(<span class="kw-2">&amp;</span>key_view_number);
+                        <span class="kw">if </span><span class="self">self</span>.ctx.successful_views.len() &gt;= num_successful_views {
+                            <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
+                        }
+                    }
+                    ViewStatus::Failed =&gt; {
+                        <span class="self">self</span>.handle_view_failure(num_failed_views, key_view_number)
+                            .<span class="kw">await</span>;
+                    }
+                    ViewStatus::Err(e) =&gt; {
+                        <span class="kw">let _ </span>= <span class="self">self</span>.test_sender.broadcast(TestEvent::Shutdown).<span class="kw">await</span>;
+                        <span class="self">self</span>.error = <span class="prelude-val">Some</span>(Box::new(e));
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                    }
+                    ViewStatus::InProgress =&gt; {}
                 }
             }
-        } <span class="kw">else if </span>view.check_if_failed(threshold, len) {
-            view.status = ViewStatus::Failed;
-            <span class="self">self</span>.handle_view_failure(num_failed_views, view_number)
-                .<span class="kw">await</span>;
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        } <span class="kw">else </span>{
+            <span class="kw">let </span><span class="prelude-val">Some</span>(view) = <span class="self">self</span>.ctx.round_results.get_mut(<span class="kw-2">&amp;</span>view_number) <span class="kw">else </span>{
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            };
+            <span class="kw">let </span>cur_epoch = <span class="self">self</span>.handles.read().<span class="kw">await</span>[id]
+                .handle
+                .consensus()
+                .read()
+                .<span class="kw">await
+                </span>.cur_epoch();
+
+            <span class="kw">let </span>memberships_reader = memberships_arc.read().<span class="kw">await</span>;
+            <span class="kw">let </span>len = memberships_reader.total_nodes(cur_epoch);
+            <span class="kw">let </span>threshold = memberships_reader.success_threshold(cur_epoch).get() <span class="kw">as </span>usize;
+            drop(memberships_reader);
+
+            <span class="kw">if </span>view.check_if_failed(threshold, len) {
+                view.status = ViewStatus::Failed;
+                <span class="self">self</span>.handle_view_failure(num_failed_views, view_number)
+                    .<span class="kw">await</span>;
+            }
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -1027,7 +1173,6 @@
             round_results: HashMap::default(),
             failed_views: HashSet::default(),
             successful_views: HashSet::default(),
-            latest_epoch: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -1045,8 +1190,6 @@
     </span><span class="kw">pub </span>failed_views: HashSet&lt;TYPES::View&gt;,
     <span class="doccomment">/// successful views
     </span><span class="kw">pub </span>successful_views: HashSet&lt;TYPES::View&gt;,
-    <span class="doccomment">/// latest epoch, updated when a leaf with a higher epoch is seen
-    </span><span class="kw">pub </span>latest_epoch: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; RoundCtx&lt;TYPES&gt; {
@@ -1078,17 +1221,28 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; RoundResult&lt;TYPES&gt; {
     <span class="doccomment">/// insert into round result
     </span><span class="attr">#[allow(clippy::unit_arg)]
-    </span><span class="kw">pub fn </span>insert_into_result(
+    </span><span class="kw">pub async fn </span>insert_into_result(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         idx: usize,
         result: (LeafChain&lt;TYPES&gt;, QuorumCertificate2&lt;TYPES&gt;),
         maybe_block_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+        membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
+        public_key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
+        epoch_height: u64,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Leaf2&lt;TYPES&gt;&gt; {
-        <span class="self">self</span>.success_nodes.insert(idx <span class="kw">as </span>u64, result.clone());
-
         <span class="kw">let </span>maybe_leaf = result.<span class="number">0</span>.first();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf_info) = maybe_leaf {
             <span class="kw">let </span>leaf = <span class="kw-2">&amp;</span>leaf_info.leaf;
+            <span class="kw">let </span>epoch = leaf.epoch(epoch_height);
+            <span class="kw">if </span>!membership.read().<span class="kw">await</span>.has_stake(public_key, epoch) {
+                <span class="comment">// The node doesn't belong to the epoch, don't count towards total successes count
+                </span><span class="kw">return </span><span class="prelude-val">None</span>;
+            }
+            <span class="kw">if </span><span class="self">self</span>.success_nodes.contains_key(<span class="kw-2">&amp;</span>(idx <span class="kw">as </span>u64)) {
+                <span class="comment">// The success of this node was previously counted, don't continue
+                </span><span class="kw">return </span><span class="prelude-val">None</span>;
+            }
+            <span class="self">self</span>.success_nodes.insert(idx <span class="kw">as </span>u64, result.clone());
             <span class="kw">match </span><span class="self">self</span>.leaf_map.entry(leaf.clone()) {
                 std::collections::hash_map::Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
                     <span class="kw-2">*</span>o.get_mut() += <span class="number">1</span>;

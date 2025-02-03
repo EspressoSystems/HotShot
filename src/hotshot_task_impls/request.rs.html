@@ -401,6 +401,7 @@
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -425,6 +426,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -448,7 +450,7 @@
 <span class="kw">use crate</span>::{events::HotShotEvent, helpers::broadcast_event};
 
 <span class="doccomment">/// Amount of time to try for a request before timing out.
-</span><span class="kw">pub const </span>REQUEST_TIMEOUT: Duration = Duration::from_millis(<span class="number">500</span>);
+</span><span class="kw">pub const </span>REQUEST_TIMEOUT: Duration = Duration::from_millis(<span class="number">2000</span>);
 
 <span class="doccomment">/// Long running task which will request information after a proposal is received.
 /// The task will wait a it's `delay` and then send a request iteratively to peers
@@ -516,7 +518,7 @@
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>prop_view = proposal.data.view_number();
                 <span class="kw">let </span>prop_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
-                    proposal.data.with_epoch,
+                    proposal.data.epoch().is_some(),
                     proposal.data.block_header().block_number(),
                     <span class="self">self</span>.epoch_height,
                 );

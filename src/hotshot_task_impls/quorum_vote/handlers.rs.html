@@ -663,10 +663,20 @@
 
 </span><span class="kw">use </span>std::{collections::btree_map::Entry, sync::Arc};
 
+<span class="kw">use </span><span class="kw">super</span>::QuorumVoteTaskState;
+<span class="kw">use crate</span>::{
+    events::HotShotEvent,
+    helpers::{
+        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
+        LeafChainTraversalOutcome,
+    },
+    quorum_vote::Versions,
+};
 <span class="kw">use </span>async_broadcast::{InactiveReceiver, Sender};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>chrono::Utc;
 <span class="kw">use </span>committable::Committable;
+<span class="kw">use </span>hotshot_types::simple_vote::HasEpoch;
 <span class="kw">use </span>hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf2, QuorumProposalWrapper, VidDisperseShare},
@@ -692,16 +702,6 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>utils::anytrace::<span class="kw-2">*</span>;
 <span class="kw">use </span>vbs::version::StaticVersionType;
-
-<span class="kw">use </span><span class="kw">super</span>::QuorumVoteTaskState;
-<span class="kw">use crate</span>::{
-    events::HotShotEvent,
-    helpers::{
-        broadcast_event, decide_from_proposal, decide_from_proposal_2, fetch_proposal,
-        LeafChainTraversalOutcome,
-    },
-    quorum_vote::Versions,
-};
 
 <span class="doccomment">/// Store the DRB result from the computation task to the shared `results` table.
 ///
@@ -819,7 +819,7 @@
     task_state: <span class="kw-2">&amp;mut </span>QuorumVoteTaskState&lt;TYPES, I, V&gt;,
 ) {
     <span class="comment">// #3967 REVIEW NOTE: Should we just exit early if we aren't doing epochs?
-    </span><span class="kw">if </span>!proposal.with_epoch {
+    </span><span class="kw">if </span>proposal.epoch().is_none() {
         <span class="kw">return</span>;
     }
 

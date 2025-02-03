@@ -979,13 +979,13 @@
             proposal: QuorumProposal2 {
                 block_header,
                 view_number: <span class="self">self</span>.view_number,
+                epoch,
                 justify_qc: parent_qc,
                 next_epoch_justify_qc: next_epoch_qc,
                 upgrade_certificate,
                 view_change_evidence: proposal_certificate,
                 next_drb_result,
             },
-            with_epoch: version &gt;= V::Epochs::VERSION,
         };
 
         <span class="kw">let </span>proposed_leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);

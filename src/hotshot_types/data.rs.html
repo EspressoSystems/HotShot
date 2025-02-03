@@ -1699,6 +1699,55 @@
 <a href="#1699" id="1699">1699</a>
 <a href="#1700" id="1700">1700</a>
 <a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
+<a href="#1716" id="1716">1716</a>
+<a href="#1717" id="1717">1717</a>
+<a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
+<a href="#1738" id="1738">1738</a>
+<a href="#1739" id="1739">1739</a>
+<a href="#1740" id="1740">1740</a>
+<a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1731,7 +1780,7 @@
 
 <span class="kw">use crate</span>::{
     drb::DrbResult,
-    impl_has_epoch,
+    impl_has_epoch, impl_has_none_epoch,
     message::{convert_proposal, Proposal, UpgradeLock},
     simple_certificate::{
         NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
@@ -2294,6 +2343,9 @@
     <span class="doccomment">/// view number for the proposal
     </span><span class="kw">pub </span>view_number: TYPES::View,
 
+    <span class="doccomment">/// The epoch number corresponding to the block number. Can be `None` for pre-epoch version.
+    </span><span class="kw">pub </span>epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
+
     <span class="doccomment">/// certificate that the proposal is chaining from
     </span><span class="kw">pub </span>justify_qc: QuorumCertificate2&lt;TYPES&gt;,
 
@@ -2320,9 +2372,28 @@
 </span><span class="kw">pub struct </span>QuorumProposalWrapper&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// The wrapped proposal
     </span><span class="kw">pub </span>proposal: QuorumProposal2&lt;TYPES&gt;,
+}
 
-    <span class="doccomment">/// Indicates whether or not epochs were enabled for this proposal. This is checked when building a QuorumProposalWrapper
-    </span><span class="kw">pub </span>with_epoch: bool,
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; QuorumProposal2&lt;TYPES&gt; {
+    <span class="doccomment">/// Validates whether the epoch is consistent with the version and the block number
+    /// # Errors
+    /// Returns an error if the epoch is inconsistent with the version or the block number
+    </span><span class="kw">pub async fn </span>validate_epoch&lt;V: Versions&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        epoch_height: u64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>calculated_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
+            upgrade_lock.epochs_enabled(<span class="self">self</span>.view_number()).<span class="kw">await</span>,
+            <span class="self">self</span>.block_header.block_number(),
+            epoch_height,
+        );
+        <span class="macro">ensure!</span>(
+            calculated_epoch == <span class="self">self</span>.epoch(),
+            <span class="string">"Quorum proposal invalid: inconsistent epoch."
+        </span>);
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; QuorumProposalWrapper&lt;TYPES&gt; {
@@ -2360,13 +2431,25 @@
     </span><span class="kw">pub fn </span>next_drb_result(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;DrbResult&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.proposal.next_drb_result
     }
+
+    <span class="doccomment">/// Validates whether the epoch is consistent with the version and the block number
+    /// # Errors
+    /// Returns an error if the epoch is inconsistent with the version or the block number
+    </span><span class="kw">pub async fn </span>validate_epoch&lt;V: Versions&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
+        epoch_height: u64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.proposal
+            .validate_epoch(upgrade_lock, epoch_height)
+            .<span class="kw">await
+    </span>}
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;QuorumProposal&lt;TYPES&gt;&gt; <span class="kw">for </span>QuorumProposalWrapper&lt;TYPES&gt; {
     <span class="kw">fn </span>from(quorum_proposal: QuorumProposal&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             proposal: quorum_proposal.into(),
-            with_epoch: <span class="bool-val">false</span>,
         }
     }
 }
@@ -2375,7 +2458,6 @@
     <span class="kw">fn </span>from(quorum_proposal2: QuorumProposal2&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             proposal: quorum_proposal2,
-            with_epoch: <span class="bool-val">true</span>,
         }
     }
 }
@@ -2397,6 +2479,7 @@
         <span class="self">Self </span>{
             block_header: quorum_proposal.block_header,
             view_number: quorum_proposal.view_number,
+            epoch: <span class="prelude-val">None</span>,
             justify_qc: quorum_proposal.justify_qc.to_qc2(),
             next_epoch_justify_qc: <span class="prelude-val">None</span>,
             upgrade_certificate: quorum_proposal.upgrade_certificate,
@@ -2477,7 +2560,22 @@
     }
 }
 
-<span class="macro">impl_has_epoch!</span>(DaProposal2&lt;TYPES&gt;);
+<span class="macro">impl_has_epoch!</span>(QuorumProposal2&lt;TYPES&gt;, DaProposal2&lt;TYPES&gt;);
+
+<span class="macro">impl_has_none_epoch!</span>(
+    QuorumProposal&lt;TYPES&gt;,
+    DaProposal&lt;TYPES&gt;,
+    UpgradeProposal&lt;TYPES&gt;,
+    ADVZDisperseShare&lt;TYPES&gt;
+);
+
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; HasEpoch&lt;TYPES&gt; <span class="kw">for </span>QuorumProposalWrapper&lt;TYPES&gt; {
+    <span class="doccomment">/// Return an underlying proposal's epoch
+    </span><span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">fn </span>epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt; {
+        <span class="self">self</span>.proposal.epoch()
+    }
+}
 
 <span class="doccomment">/// The error type for block and its transactions.
 </span><span class="attr">#[derive(Error, Debug, Serialize, Deserialize)]
@@ -3226,6 +3324,7 @@
             proposal:
                 QuorumProposal2 {
                     view_number,
+                    epoch,
                     justify_qc,
                     next_epoch_justify_qc,
                     block_header,
@@ -3233,7 +3332,6 @@
                     view_change_evidence,
                     next_drb_result,
                 },
-            with_epoch,
         } = quorum_proposal;
 
         <span class="self">Self </span>{
@@ -3246,7 +3344,7 @@
             block_payload: <span class="prelude-val">None</span>,
             view_change_evidence: view_change_evidence.clone(),
             next_drb_result: <span class="kw-2">*</span>next_drb_result,
-            with_epoch: <span class="kw-2">*</span>with_epoch,
+            with_epoch: epoch.is_some(),
         }
     }
 }

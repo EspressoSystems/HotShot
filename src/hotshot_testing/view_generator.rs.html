@@ -620,8 +620,6 @@
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -664,10 +662,10 @@
         node_implementation::{ConsensusTime, NodeType, Versions},
         BlockPayload,
     },
+    utils::genesis_epoch_from_version,
 };
 <span class="kw">use </span>rand::{thread_rng, Rng};
 <span class="kw">use </span>sha2::{Digest, Sha256};
-<span class="kw">use </span>vbs::version::StaticVersionType;
 
 <span class="kw">use </span><span class="kw">crate</span>::helpers::{
     build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
@@ -701,7 +699,7 @@
         membership: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>genesis_view = ViewNumber::new(<span class="number">1</span>);
-        <span class="kw">let </span>genesis_epoch = <span class="prelude-val">None</span>;
+        <span class="kw">let </span>genesis_epoch = genesis_epoch_from_version::&lt;V, TestTypes&gt;();
         <span class="kw">let </span>upgrade_lock = UpgradeLock::new();
 
         <span class="kw">let </span>transactions = Vec::new();
@@ -770,6 +768,7 @@
             proposal: QuorumProposal2::&lt;TestTypes&gt; {
                 block_header: block_header.clone(),
                 view_number: genesis_view,
+                epoch: genesis_epoch,
                 justify_qc: QuorumCertificate2::genesis::&lt;TestVersions&gt;(
                     <span class="kw-2">&amp;</span>TestValidatedState::default(),
                     <span class="kw-2">&amp;</span>TestInstanceState::default(),
@@ -780,8 +779,6 @@
                 view_change_evidence: <span class="prelude-val">None</span>,
                 next_drb_result: <span class="prelude-val">None</span>,
             },
-            <span class="comment">// #3967 REVIEW NOTE: Is this right?
-            </span>with_epoch: V::Base::VERSION &gt;= V::Epochs::VERSION,
         };
 
         <span class="kw">let </span>encoded_transactions = Arc::from(TestTransaction::encode(<span class="kw-2">&amp;</span>transactions));
@@ -1016,14 +1013,13 @@
             proposal: QuorumProposal2::&lt;TestTypes&gt; {
                 block_header: block_header.clone(),
                 view_number: next_view,
+                epoch: old_epoch,
                 justify_qc: quorum_certificate.clone(),
                 next_epoch_justify_qc: <span class="prelude-val">None</span>,
                 upgrade_certificate: upgrade_certificate.clone(),
                 view_change_evidence,
                 next_drb_result: <span class="prelude-val">None</span>,
             },
-            <span class="comment">// #3967 REVIEW NOTE: Is this right?
-            </span>with_epoch: <span class="self">self</span>.upgrade_lock.epochs_enabled(next_view).<span class="kw">await</span>,
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>leaf = Leaf2::from_quorum_proposal(<span class="kw-2">&amp;</span>proposal);

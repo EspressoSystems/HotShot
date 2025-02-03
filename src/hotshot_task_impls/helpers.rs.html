@@ -1664,7 +1664,7 @@
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
     </span>{
         <span class="kw">let </span>epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
-            proposal.data.with_epoch,
+            proposal.data.epoch().is_some(),
             proposal.data.block_header().block_number(),
             validation_info.epoch_height,
         );
