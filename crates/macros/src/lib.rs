@@ -201,7 +201,7 @@ impl TestData {
         quote! {
             #[cfg(test)]
             #slow_attribute
-            #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+            #[tokio::test(flavor = "multi_thread")]
             #[tracing::instrument]
             async fn #test_name() {
                 hotshot::helpers::initialize_logging();
