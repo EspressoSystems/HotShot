@@ -74,8 +74,8 @@ libp2p-swarm-derive = { version = "0.35" }
 lru = "0.12"
 multiaddr = { version = "0.18" }
 portpicker = "0.1"
-rand = { version = "0.8", features = ["small_rng"] }
-rand_chacha = { version = "0.3", default-features = false }
+rand = { version = "0.9", features = ["small_rng"] }
+rand_chacha = { version = "0.9", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde-inline-default = "0.2"
 serde_bytes = { version = "0.11" }
