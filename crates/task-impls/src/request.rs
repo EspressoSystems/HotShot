@@ -22,6 +22,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -113,7 +114,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.data.view_number();
                 let prop_epoch = option_epoch_from_block_number::<TYPES>(
-                    proposal.data.with_epoch,
+                    proposal.data.epoch().is_some(),
                     proposal.data.block_header().block_number(),
                     self.epoch_height,
                 );
