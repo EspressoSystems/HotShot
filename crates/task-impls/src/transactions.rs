@@ -185,6 +185,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> TransactionTask
             fee,
         }) = block
         {
+            tracing::error!("lrzasik: sending BlockRecv, view {:?}, epoch {:?}", block_view, block_epoch);
             broadcast_event(
                 Arc::new(HotShotEvent::BlockRecv(PackedBundle::new(
                     block_payload.encode(),
