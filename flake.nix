@@ -167,7 +167,6 @@
         buildDepsSimple = with pkgs;
           [
             curl.out
-            cargo-expand
             cargo-workspaces
             cargo-audit
             cargo-nextest
