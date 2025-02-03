@@ -6,7 +6,6 @@
 
 use std::{collections::HashMap, num::NonZeroUsize, rc::Rc, sync::Arc, time::Duration};
 
-use anyhow::{ensure, Result};
 use async_lock::RwLock;
 use hotshot::{
     tasks::EventTransformerState,
@@ -24,6 +23,7 @@ use hotshot_types::{
     HotShotConfig, PeerConfig, ValidatorConfig,
 };
 use tide_disco::Url;
+use utils::anytrace::*;
 use vec1::Vec1;
 
 use super::{

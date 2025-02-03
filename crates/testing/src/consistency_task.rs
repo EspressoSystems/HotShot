@@ -7,7 +7,6 @@
 #![allow(clippy::unwrap_or_default)]
 use std::{collections::BTreeMap, marker::PhantomData};
 
-use anyhow::{bail, ensure, Context, Result};
 use async_broadcast::Sender;
 use async_trait::async_trait;
 use committable::Committable;
@@ -19,6 +18,7 @@ use hotshot_types::{
     traits::node_implementation::{ConsensusTime, NodeType, Versions},
 };
 use tokio::task::JoinHandle;
+use utils::anytrace::*;
 
 use crate::{
     overall_safety_task::OverallSafetyPropertiesDescription,
@@ -102,7 +102,12 @@ async fn validate_node_map<TYPES: NodeType, V: Versions>(
         child
             .extends_upgrade(parent, &upgrade_lock.decided_upgrade_certificate)
             .await
-            .context("Leaf {child} does not extend its parent {parent}")?;
+            .context(|e| {
+                error!(
+                    "Leaf {child:?} does not extend its parent {parent:?}: {}",
+                    e
+                )
+            })?;
 
         // We want to make sure the commitment matches,
         // but allow for the possibility that we may have skipped views in between.
@@ -140,7 +145,7 @@ fn sanitize_network_map<TYPES: NodeType>(
         result.insert(
             *node,
             sanitize_node_map(node_map)
-                .context(format!("Node {node} produced inconsistent leaves."))?,
+                .context(|e| error!("Node {node} produced inconsistent leaves: {}", e))?,
         );
     }
 
@@ -161,7 +166,7 @@ async fn invert_network_map<TYPES: NodeType, V: Versions>(
     for (node_id, node_map) in network_map.iter() {
         validate_node_map::<TYPES, V>(node_map)
             .await
-            .context(format!("Node {node_id} has an invalid leaf history"))?;
+            .context(|e| error!("Node {node_id} has an invalid leaf history: {}", e))?;
 
         // validate each node's leaf map
         for (view, leaf) in node_map.iter() {
@@ -188,9 +193,13 @@ fn sanitize_view_map<TYPES: NodeType>(
 
         ensure!(
             node_leaves.len() <= 1,
-            leaf_map.iter().fold(
-                format!("The network does not agree on view {view:?}."),
-                |acc, (node, leaf)| { format!("{acc}\n\nNode {node} sent us leaf:\n\n{leaf:?}") }
+            error!(
+                "The network does not agree on the following views: {}",
+                leaf_map
+                    .iter()
+                    .fold(format!("\n\nView {view:?}:"), |acc, (node, leaf)| {
+                        format!("{acc}\n\nNode {node} sent us leaf:\n\n{leaf:?}")
+                    })
             )
         );
 
@@ -230,7 +239,7 @@ pub struct ConsistencyTask<TYPES: NodeType, V: Versions> {
     /// whether we should have seen an upgrade certificate or not
     pub ensure_upgrade: bool,
     /// a list of errors accumulated by the task
-    pub errors: Vec<anyhow::Error>,
+    pub errors: Vec<Error>,
     /// channel used to shutdown the test
     pub test_sender: Sender<TestEvent>,
     /// phantom marker
@@ -281,7 +290,7 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
         self.check_total_successes().await
     }
 
-    fn add_error(&mut self, error: anyhow::Error) {
+    fn add_error(&mut self, error: Error) {
         self.errors.push(error);
     }
 
@@ -316,7 +325,7 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
 
         let (current_view, _) = inverted_map
             .pop_last()
-            .context("Leaf map is empty, which should be impossible")?;
+            .context(error!("Leaf map is empty, which should be impossible"))?;
 
         ensure!(
             !self
@@ -337,7 +346,7 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
 
         let (current_view, _) = inverted_map
             .pop_last()
-            .context("Leaf map is empty, which should be impossible")?;
+            .context(error!("Leaf map is empty, which should be impossible"))?;
         let Some((last_view, _)) = inverted_map.pop_last() else {
             // the view cannot fail if there wasn't a prior view in the map.
             return Ok(());

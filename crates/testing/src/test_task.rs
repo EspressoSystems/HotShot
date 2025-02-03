@@ -6,7 +6,6 @@
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -29,6 +28,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tracing::error;
+use utils::anytrace::*;
 
 use crate::test_runner::Node;
 
