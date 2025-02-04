@@ -740,7 +740,7 @@
                             message
                         }
                         <span class="prelude-val">Err</span>(e) =&gt; {
-                            <span class="macro">tracing::error!</span>(<span class="string">"Failed to receive message: {:?}"</span>, e);
+                            <span class="macro">tracing::trace!</span>(<span class="string">"Failed to receive message: {:?}"</span>, e);
                             <span class="kw">continue</span>;
                         }
                     };
