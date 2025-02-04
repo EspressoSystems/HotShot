@@ -459,7 +459,7 @@ cross_tests!(
     },
 );
 
-// A run where the CDN crashes part-way through
+// A run where the CDN crashes part-way through, epochs enabled.
 cross_tests!(
     TestName: test_combined_network_cdn_crash_with_epochs,
     Impls: [CombinedImpl],
@@ -467,8 +467,6 @@ cross_tests!(
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
-        hotshot::helpers::initialize_logging();
-
         let timing_data = TimingData {
             next_view_timeout: 10_000,
             ..Default::default()
@@ -486,7 +484,7 @@ cross_tests!(
             },
         );
 
-        let mut metadata = TestDescription::default_multiple_rounds().set_num_nodes(20,20);
+        let mut metadata = TestDescription::default_multiple_rounds();
         metadata.timing_data = timing_data;
         metadata.overall_safety_properties = overall_safety_properties;
         metadata.completion_task_description = completion_task_description;

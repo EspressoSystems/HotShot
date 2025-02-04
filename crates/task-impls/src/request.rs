@@ -118,15 +118,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                     self.epoch_height,
                 );
 
+                let consensus_reader = self
+                    .consensus
+                    .read()
+                    .await;
+                let maybe_vid_share = consensus_reader
+                    .vid_shares()
+                    .get(&prop_view)
+                    .and_then(|shares| shares.get(&self.public_key));
                 // If we already have the VID shares for the next view, do nothing.
                 if prop_view >= self.view
-                    && !self
-                        .consensus
-                        .read()
-                        .await
-                        .vid_shares()
-                        .contains_key(&prop_view)
+                    && maybe_vid_share.is_none()
                 {
+                    drop(consensus_reader);
                     self.spawn_requests(prop_view, prop_epoch, sender, receiver)
                         .await;
                 }
@@ -360,15 +364,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
     ) -> bool {
         let consensus_reader = consensus.read().await;
 
+        let maybe_vid_share = consensus_reader
+            .vid_shares()
+            .get(view)
+            .and_then(|shares| shares.get(public_key));
         let cancel = shutdown_flag.load(Ordering::Relaxed)
-            || consensus_reader.vid_shares().contains_key(view)
+            || maybe_vid_share.is_some()
             || consensus_reader.cur_view() > *view;
         if cancel {
-            if let Some(Some(vid_share)) = consensus_reader
-                .vid_shares()
-                .get(view)
-                .map(|shares| shares.get(public_key).cloned())
-            {
+            if let Some(vid_share) = maybe_vid_share {
                 broadcast_event(
                     Arc::new(HotShotEvent::VidShareRecv(
                         public_key.clone(),
