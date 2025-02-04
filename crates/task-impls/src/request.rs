@@ -30,7 +30,7 @@ use hotshot_types::{
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
-    utils::option_epoch_from_block_number,
+    utils::is_last_block_in_epoch,
     vote::HasViewNumber,
 };
 use rand::{seq::SliceRandom, thread_rng};
@@ -113,24 +113,31 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
         match event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, _) => {
                 let prop_view = proposal.data.view_number();
-                let prop_epoch = option_epoch_from_block_number::<TYPES>(
-                    proposal.data.epoch().is_some(),
-                    proposal.data.block_header().block_number(),
-                    self.epoch_height,
-                );
+                let prop_epoch = proposal.data.epoch();
+                let next_epoch = prop_epoch.map(|epoch| epoch + 1);
 
-                let consensus_reader = self
-                    .consensus
-                    .read()
-                    .await;
+                // Request VID share only if:
+                // 1. we are part of the current epoch or
+                // 2. we are part of the next epoch and this is a proposal for the last block.
+                let membership_reader = self.membership.read().await;
+                if !membership_reader.has_stake(&self.public_key, prop_epoch)
+                    && (!membership_reader.has_stake(&self.public_key, next_epoch)
+                        || !is_last_block_in_epoch(
+                            proposal.data.block_header().block_number(),
+                            self.epoch_height,
+                        ))
+                {
+                    return Ok(());
+                }
+                drop(membership_reader);
+
+                let consensus_reader = self.consensus.read().await;
                 let maybe_vid_share = consensus_reader
                     .vid_shares()
                     .get(&prop_view)
                     .and_then(|shares| shares.get(&self.public_key));
                 // If we already have the VID shares for the next view, do nothing.
-                if prop_view >= self.view
-                    && maybe_vid_share.is_none()
-                {
+                if prop_view >= self.view && maybe_vid_share.is_none() {
                     drop(consensus_reader);
                     self.spawn_requests(prop_view, prop_epoch, sender, receiver)
                         .await;
