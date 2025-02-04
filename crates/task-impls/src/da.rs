@@ -16,7 +16,7 @@ use hotshot_types::{
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate2,
-    simple_vote::{DaData2, DaVote2},
+    simple_vote::{DaData2, DaVote2, HasEpoch},
     traits::{
         block_contents::vid_commitment,
         election::Membership,
@@ -236,10 +236,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     let public_key = self.public_key.clone();
                     let chan = event_stream.clone();
                     let upgrade_lock = self.upgrade_lock.clone();
+                    let proposal_epoch = proposal.data.epoch();
+                    let next_epoch = proposal_epoch.map(|epoch| epoch + 1);
+
+                    let membership_reader = membership.read().await;
+                    let target_epoch = if membership_reader.has_stake(&public_key, proposal_epoch) {
+                        proposal_epoch
+                    } else if membership_reader.has_stake(&public_key, next_epoch) {
+                        next_epoch
+                    } else {
+                        bail!("Not calculating VID, the node doesn't belong to the current epoch or the next epoch.");
+                    };
+                    drop(membership_reader);
+
                     spawn(async move {
                         Consensus::calculate_and_update_vid::<V>(
                             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
+                            target_epoch,
                             membership,
                             &pk,
                             &upgrade_lock,
