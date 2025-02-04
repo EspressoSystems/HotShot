@@ -27,6 +27,7 @@ use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::{
     consensus::ConsensusMetricsValue,
     data::{Leaf2, VidDisperse, VidDisperseShare2},
+    epoch_membership::EpochMembership,
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate2,
     simple_vote::{DaData2, DaVote2, SimpleVote, VersionedVoteData},
@@ -215,14 +216,17 @@ pub async fn build_assembled_sig<
     epoch: Option<TYPES::Epoch>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    let membership_reader = membership.read().await;
-    let stake_table = CERT::stake_table(&*membership_reader, epoch);
+    // TODO get actual height
+    let epoch_membership = EpochMembership {
+        epoch,
+        membership: Arc::clone(membership),
+    };
+    let stake_table = CERT::stake_table(&epoch_membership).await;
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table.clone(),
-            U256::from(CERT::threshold(&*membership_reader, epoch)),
+            U256::from(CERT::threshold(&epoch_membership).await),
         );
-    drop(membership_reader);
 
     let total_nodes = stake_table.len();
     let signers = bitvec![1; total_nodes];
