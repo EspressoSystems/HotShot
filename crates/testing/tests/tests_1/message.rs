@@ -79,7 +79,7 @@ async fn test_certificate2_validity() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
 
     let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
 

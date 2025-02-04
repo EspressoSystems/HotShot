@@ -17,7 +17,6 @@ use crate::utils::root_block_in_epoch;
 struct CatchupSignal {}
 
 /// Struct to Coordinate membership catchup
-#[derive(Clone)]
 pub struct EpochMembershipCoordinator<TYPES: NodeType> {
     /// The underlying membhersip
     membership: Arc<RwLock<TYPES::Membership>>,
@@ -29,9 +28,18 @@ pub struct EpochMembershipCoordinator<TYPES: NodeType> {
     catchup_map: Arc<Mutex<HashMap<TYPES::Epoch, InactiveReceiver<CatchupSignal>>>>,
 
     /// Number of blocks in an epoch
-    epoch_height: u64,
+    pub epoch_height: u64,
 }
 
+impl<TYPES: NodeType> Clone for EpochMembershipCoordinator<TYPES> {
+    fn clone(&self) -> Self {
+        Self {
+            membership: Arc::clone(&self.membership),
+            catchup_map: Arc::clone(&self.catchup_map),
+            epoch_height: self.epoch_height,
+        }
+    }
+}
 // async fn catchup_membership(coordinator: EpochMembershipCoordinator<TYPES>) {
 
 // }
@@ -137,7 +145,20 @@ pub struct EpochMembership<TYPES: NodeType> {
     pub membership: Arc<RwLock<TYPES::Membership>>,
 }
 
+impl<TYPES: NodeType> Clone for EpochMembership<TYPES> {
+    fn clone(&self) -> Self {
+        Self {
+            membership: Arc::clone(&self.membership),
+            epoch: self.epoch,
+        }
+    }
+}
+
 impl<TYPES: NodeType> EpochMembership<TYPES> {
+    /// Get the epoch this membership is good for
+    pub fn epoch(&self) -> Option<TYPES::Epoch> {
+        self.epoch
+    }
     /// Wraps the same named Membership trait fn
     async fn get_epoch_root(
         &self,

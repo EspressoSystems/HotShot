@@ -54,7 +54,7 @@ async fn test_transaction_task_leader_two_views_in_a_row() {
             null_block::builder_fee::<TestConsecutiveLeaderTypes, TestVersions>(
                 handle
                     .hotshot
-                    .memberships
+                    .membership_coordinator
                     .read()
                     .await
                     .total_nodes(Some(EpochNumber::new(0))),

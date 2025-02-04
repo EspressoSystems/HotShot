@@ -16,21 +16,13 @@ use hotshot_task::{
     task::TaskState,
 };
 use hotshot_types::{
-    consensus::{ConsensusMetricsValue, OuterConsensus},
-    data::{Leaf2, QuorumProposalWrapper},
-    drb::DrbComputation,
-    event::Event,
-    message::{Proposal, UpgradeLock},
-    simple_vote::HasEpoch,
-    traits::{
+    consensus::{ConsensusMetricsValue, OuterConsensus}, data::{Leaf2, QuorumProposalWrapper}, drb::DrbComputation, epoch_membership::EpochMembershipCoordinator, event::Event, message::{Proposal, UpgradeLock}, simple_vote::HasEpoch, traits::{
         block_contents::BlockHeader,
         election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,
-    },
-    utils::{epoch_from_block_number, option_epoch_from_block_number},
-    vote::{Certificate, HasViewNumber},
+    }, utils::{epoch_from_block_number, option_epoch_from_block_number}, vote::{Certificate, HasViewNumber}
 };
 use tokio::task::JoinHandle;
 use tracing::instrument;
@@ -72,7 +64,7 @@ pub struct VoteDependencyHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     pub instance_state: Arc<TYPES::InstanceState>,
 
     /// Membership for Quorum certs/votes.
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership: EpochMembershipCoordinator<TYPES>,
 
     /// Reference to the storage.
     pub storage: Arc<RwLock<I::Storage>>,
@@ -214,7 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions> Handl
             OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus)),
             self.sender.clone(),
             self.receiver.clone(),
-            Arc::clone(&self.membership),
+            self.membership.clone(),
             self.public_key.clone(),
             self.private_key.clone(),
             self.upgrade_lock.clone(),

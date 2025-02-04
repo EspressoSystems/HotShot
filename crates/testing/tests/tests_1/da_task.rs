@@ -39,7 +39,7 @@ async fn test_da_task() {
         .await
         .0;
 
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
     let default_version = Version { major: 0, minor: 0 };
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
@@ -48,7 +48,12 @@ async fn test_da_task() {
     let encoded_transactions: Arc<[u8]> = Arc::from(TestTransaction::encode(&transactions));
     let payload_commit = hotshot_types::traits::block_contents::vid_commitment::<TestVersions>(
         &encoded_transactions,
-        handle.hotshot.memberships.read().await.total_nodes(None),
+        handle
+            .hotshot
+            .membership_coordinator
+            .read()
+            .await
+            .total_nodes(None),
         default_version,
     );
 
@@ -148,7 +153,7 @@ async fn test_da_task_storage_failure() {
 
     // Set the error flag here for the system handle. This causes it to emit an error on append.
     handle.storage().write().await.should_return_err = true;
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
     let default_version = Version { major: 0, minor: 0 };
 
     // Make some empty encoded transactions, we just care about having a commitment handy for the
@@ -157,7 +162,12 @@ async fn test_da_task_storage_failure() {
     let encoded_transactions: Arc<[u8]> = Arc::from(TestTransaction::encode(&transactions));
     let payload_commit = hotshot_types::traits::block_contents::vid_commitment::<TestVersions>(
         &encoded_transactions,
-        handle.hotshot.memberships.read().await.total_nodes(None),
+        handle
+            .hotshot
+            .membership_coordinator
+            .read()
+            .await
+            .total_nodes(None),
         default_version,
     );
 

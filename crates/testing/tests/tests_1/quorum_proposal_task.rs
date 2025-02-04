@@ -51,7 +51,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_1() {
         .await
         .0;
 
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
     let version = handle
         .hotshot
         .upgrade_lock
@@ -155,7 +155,7 @@ async fn test_quorum_proposal_task_quorum_proposal_view_gt_1() {
         .await
         .0;
 
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
 
     let mut generator = TestViewGenerator::<TestVersions>::generate(membership.clone());
 
@@ -338,7 +338,7 @@ async fn test_quorum_proposal_task_qc_timeout() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
         .0;
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
     let version = handle
         .hotshot
         .upgrade_lock
@@ -437,7 +437,7 @@ async fn test_quorum_proposal_task_view_sync() {
         .await
         .0;
 
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
     let version = handle
         .hotshot
         .upgrade_lock
@@ -536,7 +536,7 @@ async fn test_quorum_proposal_task_liveness_check() {
         .await
         .0;
 
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
 
     let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
 
@@ -714,7 +714,7 @@ async fn test_quorum_proposal_task_with_incomplete_events() {
     let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(2)
         .await
         .0;
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
 
     let mut generator = TestViewGenerator::<TestVersions>::generate(membership);
 

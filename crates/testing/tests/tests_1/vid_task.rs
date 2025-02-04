@@ -45,7 +45,7 @@ async fn test_vid_task() {
         .0;
     let pub_key = handle.public_key();
 
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
 
     let default_version = Version { major: 0, minor: 0 };
 

@@ -235,7 +235,7 @@ where
                                 };
 
                                 let storage = node.handle.storage().clone();
-                                let memberships = Arc::clone(&node.handle.memberships);
+                                let memberships = Arc::clone(&node.handle.membership_coordinator);
                                 let config = node.handle.hotshot.config.clone();
                                 let marketplace_config =
                                     node.handle.hotshot.marketplace_config.clone();

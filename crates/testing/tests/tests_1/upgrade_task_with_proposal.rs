@@ -83,7 +83,7 @@ async fn test_upgrade_task_with_proposal() {
     let consensus = handle.hotshot.consensus();
     let mut consensus_writer = consensus.write().await;
 
-    let membership = Arc::clone(&handle.hotshot.memberships);
+    let membership = Arc::clone(&handle.hotshot.membership_coordinator);
 
     let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
 

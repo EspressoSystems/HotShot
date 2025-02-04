@@ -82,7 +82,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
 ) {
     let state = NetworkResponseState::<TYPES, V>::new(
         handle.hotshot.consensus(),
-        Arc::clone(&handle.memberships),
+        Arc::clone(&handle.membership_coordinator),
         handle.public_key().clone(),
         handle.private_key().clone(),
         handle.hotshot.id,
@@ -363,7 +363,7 @@ where
             hotshot: Arc::clone(&hotshot),
             storage: Arc::clone(&hotshot.storage),
             network: Arc::clone(&hotshot.network),
-            memberships: Arc::clone(&hotshot.memberships),
+            membership_coordinator: Arc::clone(&hotshot.membership_coordinator),
             epoch_height,
         };
 
@@ -523,7 +523,7 @@ where
     /// Adds the `NetworkEventTaskState` tasks possibly modifying them as well.
     fn add_network_event_tasks(&self, handle: &mut SystemContextHandle<TYPES, I, V>) {
         let network = Arc::clone(&handle.network);
-        let memberships = Arc::clone(&handle.memberships);
+        let memberships = Arc::clone(&handle.membership_coordinator);
 
         self.add_network_event_task(handle, network, memberships);
     }
@@ -571,6 +571,6 @@ pub fn add_network_event_tasks<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     add_network_event_task(
         handle,
         Arc::clone(&handle.network),
-        Arc::clone(&handle.memberships),
+        Arc::clone(&handle.membership_coordinator),
     );
 }

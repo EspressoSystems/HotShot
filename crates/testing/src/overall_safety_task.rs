@@ -149,7 +149,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, V: Versions> TestTas
                 .first()
                 .unwrap()
                 .handle
-                .memberships,
+                .membership_coordinator,
         );
         let public_key = self.handles.read().await[id].handle.public_key();
         let OverallSafetyPropertiesDescription::<TYPES> {

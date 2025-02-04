@@ -21,6 +21,7 @@ use hotshot_task_impls::{events::HotShotEvent, helpers::broadcast_event};
 use hotshot_types::{
     consensus::Consensus,
     data::{Leaf2, QuorumProposalWrapper},
+    epoch_membership::EpochMembershipCoordinator,
     error::HotShotError,
     message::{Message, MessageKind, Proposal, RecipientList},
     request_response::ProposalRequestPayload,
@@ -68,7 +69,7 @@ pub struct SystemContextHandle<TYPES: NodeType, I: NodeImplementation<TYPES>, V:
     pub network: Arc<I::Network>,
 
     /// Memberships used by consensus
-    pub memberships: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// Number of blocks in an epoch, zero means there are no epochs
     pub epoch_height: u64,
@@ -155,7 +156,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
             signed_proposal_request.commit().as_ref(),
         )?;
 
-        let mem = Arc::clone(&self.memberships);
+        let mem = self.membership_coordinator.clone();
         let receiver = self.internal_event_stream.1.activate_cloned();
         let sender = self.internal_event_stream.0.clone();
         let epoch_height = self.epoch_height;
@@ -186,13 +187,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
                     // Make sure that the quorum_proposal is valid
-                    let mem_reader = mem.read().await;
-                    if let Err(err) = quorum_proposal.validate_signature(&mem_reader, epoch_height)
-                    {
+                    if let Err(err) = quorum_proposal.validate_signature(&mem) {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }
-                    drop(mem_reader);
                     let proposed_leaf = Leaf2::from_quorum_proposal(&quorum_proposal.data);
                     let commit = proposed_leaf.commit();
                     if commit == leaf_commitment {
@@ -327,7 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
         epoch_number: Option<TYPES::Epoch>,
     ) -> Result<TYPES::SignatureKey> {
         self.hotshot
-            .memberships
+            .membership_coordinator
             .read()
             .await
             .leader(view_number, epoch_number)

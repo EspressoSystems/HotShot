@@ -524,7 +524,7 @@ pub trait RunDa<
         }
         let num_eligible_leaders = context
             .hotshot
-            .memberships
+            .membership_coordinator
             .read()
             .await
             .committee_leaders(
