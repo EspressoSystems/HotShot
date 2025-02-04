@@ -16,6 +16,7 @@ use hotshot_types::{
     data::{Leaf2, QuorumProposal, QuorumProposalWrapper},
     message::Proposal,
     simple_certificate::QuorumCertificate,
+    simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
         election::Membership,
@@ -145,6 +146,10 @@ pub(crate) async fn handle_quorum_proposal_recv<
     event_receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
     validation_info: ValidationInfo<TYPES, I, V>,
 ) -> Result<()> {
+    proposal
+        .data
+        .validate_epoch(&validation_info.upgrade_lock, validation_info.epoch_height)
+        .await?;
     let quorum_proposal_sender_key = quorum_proposal_sender_key.clone();
 
     validate_proposal_view_and_certs(proposal, &validation_info)
@@ -158,7 +163,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
 
     let proposal_block_number = proposal.data.block_header().block_number();
     let proposal_epoch = option_epoch_from_block_number::<TYPES>(
-        proposal.data.with_epoch,
+        proposal.data.epoch().is_some(),
         proposal_block_number,
         validation_info.epoch_height,
     );
@@ -168,17 +173,20 @@ pub(crate) async fn handle_quorum_proposal_recv<
     let membership_success_threshold = membership_reader.success_threshold(justify_qc.data.epoch);
     drop(membership_reader);
 
-    if !justify_qc
-        .is_valid_cert(
-            membership_stake_table,
-            membership_success_threshold,
-            &validation_info.upgrade_lock,
-        )
-        .await
     {
         let consensus_reader = validation_info.consensus.read().await;
-        consensus_reader.metrics.invalid_qc.update(1);
-        bail!("Invalid justify_qc in proposal for view {}", *view_number);
+        justify_qc
+            .is_valid_cert(
+                membership_stake_table,
+                membership_success_threshold,
+                &validation_info.upgrade_lock,
+            )
+            .await
+            .context(|e| {
+                consensus_reader.metrics.invalid_qc.update(1);
+
+                warn!("Invalid certificate for view {}: {}", *view_number, e)
+            })?;
     }
 
     if let Some(ref next_epoch_justify_qc) = maybe_next_epoch_justify_qc {
@@ -198,19 +206,14 @@ pub(crate) async fn handle_quorum_proposal_recv<
         drop(membership_reader);
 
         // Validate the next epoch justify qc as well
-        if !next_epoch_justify_qc
+        next_epoch_justify_qc
             .is_valid_cert(
                 membership_next_stake_table,
                 membership_next_success_threshold,
                 &validation_info.upgrade_lock,
             )
             .await
-        {
-            bail!(
-                "Invalid next_epoch_justify_qc in proposal for view {}",
-                *view_number
-            );
-        }
+            .context(|e| warn!("Invalid certificate for view {}: {}", *view_number, e))?;
     }
 
     broadcast_event(

@@ -143,6 +143,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                         &self.upgrade_lock,
                     )
                     .await
+                    .is_ok()
                 {
                     return Some(qc.clone());
                 }
@@ -343,7 +344,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 builder_commitment,
                 metadata,
                 commitment_and_metadata.fees.first().clone(),
-                vid_share.data.common.clone(),
+                vid_share.data.vid_common_ref().clone(),
                 version,
             )
             .await
@@ -359,7 +360,7 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 commitment_and_metadata.metadata,
                 commitment_and_metadata.fees.to_vec(),
                 *self.view_number,
-                vid_share.data.common.clone(),
+                vid_share.data.vid_common_ref().clone(),
                 commitment_and_metadata.auction_result,
                 version,
             )
@@ -418,13 +419,13 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
             proposal: QuorumProposal2 {
                 block_header,
                 view_number: self.view_number,
+                epoch,
                 justify_qc: parent_qc,
                 next_epoch_justify_qc: next_epoch_qc,
                 upgrade_certificate,
                 view_change_evidence: proposal_certificate,
                 next_drb_result,
             },
-            with_epoch: version >= V::Epochs::VERSION,
         };
 
         let proposed_leaf = Leaf2::from_quorum_proposal(&proposal);

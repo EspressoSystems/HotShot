@@ -26,8 +26,8 @@ use crate::{
     epoch_membership::EpochMembership,
     message::UpgradeLock,
     simple_vote::{
-        DaData, DaData2, NextEpochQuorumData2, QuorumData, QuorumData2, QuorumMarker, TimeoutData,
-        TimeoutData2, UpgradeProposalData, VersionedVoteData, ViewSyncCommitData,
+        DaData, DaData2, HasEpoch, NextEpochQuorumData2, QuorumData, QuorumData2, QuorumMarker,
+        TimeoutData, TimeoutData2, UpgradeProposalData, VersionedVoteData, ViewSyncCommitData,
         ViewSyncCommitData2, ViewSyncFinalizeData, ViewSyncFinalizeData2, ViewSyncPreCommitData,
         ViewSyncPreCommitData2, Voteable,
     },
@@ -159,22 +159,23 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData>
         stake_table: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         threshold: NonZeroU64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) -> bool {
+    ) -> Result<()> {
         if self.view_number == TYPES::View::genesis() {
-            return true;
+            return Ok(());
         }
         let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        let Ok(commit) = self.data_commitment(upgrade_lock).await else {
-            return false;
-        };
+        let commit = self.data_commitment(upgrade_lock).await?;
+
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
             commit.as_ref(),
             self.signatures.as_ref().unwrap(),
         )
+        .wrap()
+        .context(|e| warn!("Signature check failed: {}", e))
     }
     /// Proxy's to `Membership.stake`
     async fn stake_table_entry(
@@ -239,22 +240,23 @@ impl<TYPES: NodeType, THRESHOLD: Threshold<TYPES>> Certificate<TYPES, DaData2<TY
         stake_table: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         threshold: NonZeroU64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) -> bool {
+    ) -> Result<()> {
         if self.view_number == TYPES::View::genesis() {
-            return true;
+            return Ok(());
         }
         let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        let Ok(commit) = self.data_commitment(upgrade_lock).await else {
-            return false;
-        };
+        let commit = self.data_commitment(upgrade_lock).await?;
+
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
             commit.as_ref(),
             self.signatures.as_ref().unwrap(),
         )
+        .wrap()
+        .context(|e| warn!("Signature check failed: {}", e))
     }
     /// Proxy's to `Membership.stake`
     async fn stake_table_entry(
@@ -322,22 +324,23 @@ impl<
         stake_table: Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry>,
         threshold: NonZeroU64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
-    ) -> bool {
+    ) -> Result<()> {
         if self.view_number == TYPES::View::genesis() {
-            return true;
+            return Ok(());
         }
         let real_qc_pp = <TYPES::SignatureKey as SignatureKey>::public_parameter(
             stake_table,
             U256::from(u64::from(threshold)),
         );
-        let Ok(commit) = self.data_commitment(upgrade_lock).await else {
-            return false;
-        };
+        let commit = self.data_commitment(upgrade_lock).await?;
+
         <TYPES::SignatureKey as SignatureKey>::check(
             &real_qc_pp,
             commit.as_ref(),
             self.signatures.as_ref().unwrap(),
         )
+        .wrap()
+        .context(|e| warn!("Signature check failed: {}", e))
     }
     async fn threshold(membership: &EpochMembership<TYPES>) -> u64 {
         THRESHOLD::threshold(membership).await
@@ -383,6 +386,18 @@ impl<TYPES: NodeType, VOTEABLE: Voteable<TYPES> + 'static, THRESHOLD: Threshold<
         self.view_number
     }
 }
+
+impl<
+        TYPES: NodeType,
+        VOTEABLE: Voteable<TYPES> + HasEpoch<TYPES> + 'static,
+        THRESHOLD: Threshold<TYPES>,
+    > HasEpoch<TYPES> for SimpleCertificate<TYPES, VOTEABLE, THRESHOLD>
+{
+    fn epoch(&self) -> Option<TYPES::Epoch> {
+        self.data.epoch()
+    }
+}
+
 impl<TYPES: NodeType> Display for QuorumCertificate<TYPES> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "view: {:?}", self.view_number)
@@ -427,19 +442,16 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
             let membership_upgrade_threshold = membership_reader.upgrade_threshold(epoch);
             drop(membership_reader);
 
-            ensure!(
-                cert.is_valid_cert(
-                    membership_stake_table,
-                    membership_upgrade_threshold,
-                    upgrade_lock
-                )
-                .await,
-                "Invalid upgrade certificate."
-            );
-            Ok(())
-        } else {
-            Ok(())
+            cert.is_valid_cert(
+                membership_stake_table,
+                membership_upgrade_threshold,
+                upgrade_lock,
+            )
+            .await
+            .context(|e| warn!("Invalid upgrade certificate: {}", e))?;
         }
+
+        Ok(())
     }
 
     /// Given an upgrade certificate and a view, tests whether the view is in the period

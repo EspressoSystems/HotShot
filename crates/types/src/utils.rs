@@ -141,7 +141,7 @@ impl<TYPES: NodeType> ViewInner<TYPES> {
         }
     }
 
-    /// return the underlying block paylod commitment if it exists
+    /// return the underlying block payload commitment if it exists
     #[must_use]
     pub fn payload_commitment(&self) -> Option<VidCommitment> {
         if let Self::Da {
@@ -361,6 +361,29 @@ mod test {
 
         let epoch = epoch_from_block_number(21, 10);
         assert_eq!(3, epoch);
+
+        let epoch = epoch_from_block_number(21, 0);
+        assert_eq!(0, epoch);
+    }
+
+    #[test]
+    fn test_is_last_block_in_epoch() {
+        assert!(!is_last_block_in_epoch(8, 10));
+        assert!(!is_last_block_in_epoch(9, 10));
+        assert!(is_last_block_in_epoch(10, 10));
+        assert!(!is_last_block_in_epoch(11, 10));
+
+        assert!(!is_last_block_in_epoch(10, 0));
+    }
+
+    #[test]
+    fn test_is_epoch_root() {
+        assert!(is_epoch_root(8, 10));
+        assert!(!is_epoch_root(9, 10));
+        assert!(!is_epoch_root(10, 10));
+        assert!(!is_epoch_root(11, 10));
+
+        assert!(!is_last_block_in_epoch(10, 0));
     }
 
     #[test]

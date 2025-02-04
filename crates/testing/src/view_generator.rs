@@ -24,7 +24,7 @@ use hotshot_example_types::{
 use hotshot_types::{
     data::{
         DaProposal2, EpochNumber, Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse,
-        VidDisperseShare2, ViewChangeEvidence2, ViewNumber,
+        VidDisperseShare, ViewChangeEvidence2, ViewNumber,
     },
     message::{Proposal, UpgradeLock},
     simple_certificate::{
@@ -40,10 +40,10 @@ use hotshot_types::{
         node_implementation::{ConsensusTime, NodeType, Versions},
         BlockPayload,
     },
+    utils::genesis_epoch_from_version,
 };
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
-use vbs::version::StaticVersionType;
 
 use crate::helpers::{
     build_cert, build_da_certificate, build_vid_proposal, da_payload_commitment, key_pair_for_id,
@@ -59,7 +59,7 @@ pub struct TestView {
     pub membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>,
     pub vid_disperse: Proposal<TestTypes, VidDisperse<TestTypes>>,
     pub vid_proposal: (
-        Vec<Proposal<TestTypes, VidDisperseShare2<TestTypes>>>,
+        Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
         <TestTypes as NodeType>::SignatureKey,
     ),
     pub leader_public_key: <TestTypes as NodeType>::SignatureKey,
@@ -77,7 +77,7 @@ impl TestView {
         membership: &Arc<RwLock<<TestTypes as NodeType>::Membership>>,
     ) -> Self {
         let genesis_view = ViewNumber::new(1);
-        let genesis_epoch = None;
+        let genesis_epoch = genesis_epoch_from_version::<V, TestTypes>();
         let upgrade_lock = UpgradeLock::new();
 
         let transactions = Vec::new();
@@ -100,16 +100,23 @@ impl TestView {
 
         let leader_public_key = public_key;
 
-        let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), genesis_epoch)
-                .await;
+        let genesis_version = upgrade_lock.version_infallible(genesis_view).await;
 
-        let (vid_disperse, vid_proposal) = build_vid_proposal(
+        let payload_commitment = da_payload_commitment::<TestTypes, TestVersions>(
+            membership,
+            transactions.clone(),
+            genesis_epoch,
+            genesis_version,
+        )
+        .await;
+
+        let (vid_disperse, vid_proposal) = build_vid_proposal::<TestTypes, TestVersions>(
             membership,
             genesis_view,
             genesis_epoch,
             transactions.clone(),
             &private_key,
+            genesis_version,
         )
         .await;
 
@@ -139,6 +146,7 @@ impl TestView {
             proposal: QuorumProposal2::<TestTypes> {
                 block_header: block_header.clone(),
                 view_number: genesis_view,
+                epoch: genesis_epoch,
                 justify_qc: QuorumCertificate2::genesis::<TestVersions>(
                     &TestValidatedState::default(),
                     &TestInstanceState::default(),
@@ -149,8 +157,6 @@ impl TestView {
                 view_change_evidence: None,
                 next_drb_result: None,
             },
-            // #3967 REVIEW NOTE: Is this right?
-            with_epoch: V::Base::VERSION >= V::Epochs::VERSION,
         };
 
         let encoded_transactions = Arc::from(TestTransaction::encode(&transactions));
@@ -248,16 +254,22 @@ impl TestView {
             &metadata,
         );
 
-        let payload_commitment =
-            da_payload_commitment::<TestTypes>(membership, transactions.clone(), self.epoch_number)
-                .await;
+        let version = self.upgrade_lock.version_infallible(next_view).await;
+        let payload_commitment = da_payload_commitment::<TestTypes, TestVersions>(
+            membership,
+            transactions.clone(),
+            self.epoch_number,
+            version,
+        )
+        .await;
 
-        let (vid_disperse, vid_proposal) = build_vid_proposal(
+        let (vid_disperse, vid_proposal) = build_vid_proposal::<TestTypes, TestVersions>(
             membership,
             next_view,
             self.epoch_number,
             transactions.clone(),
             &private_key,
+            version,
         )
         .await;
 
@@ -379,14 +391,13 @@ impl TestView {
             proposal: QuorumProposal2::<TestTypes> {
                 block_header: block_header.clone(),
                 view_number: next_view,
+                epoch: old_epoch,
                 justify_qc: quorum_certificate.clone(),
                 next_epoch_justify_qc: None,
                 upgrade_certificate: upgrade_certificate.clone(),
                 view_change_evidence,
                 next_drb_result: None,
             },
-            // #3967 REVIEW NOTE: Is this right?
-            with_epoch: self.upgrade_lock.epochs_enabled(next_view).await,
         };
 
         let mut leaf = Leaf2::from_quorum_proposal(&proposal);

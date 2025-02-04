@@ -36,7 +36,7 @@ use sha2::Sha256;
 
 use crate::{
     constants::SRS_DEGREE,
-    data::{VidDisperse as HotShotVidDisperse, VidDisperseShare2},
+    data::{VidDisperse as HotShotVidDisperse, VidDisperseShare},
     message::Proposal,
 };
 
@@ -58,9 +58,10 @@ use crate::{
 ///
 /// # Panics
 /// When the construction fails for the underlying VID scheme.
+// TODO(Chengyu): move all things below to advz submodule.
 #[must_use]
 #[memoize::memoize(SharedCache, Capacity: 10)]
-pub fn vid_scheme(num_storage_nodes: usize) -> VidSchemeType {
+pub fn advz_scheme(num_storage_nodes: usize) -> VidSchemeType {
     // recovery_threshold is currently num_storage_nodes rounded down to a power of two
     // TODO recovery_threshold should be a function of the desired erasure code rate
     // https://github.com/EspressoSystems/HotShot/issues/2152
@@ -111,7 +112,7 @@ pub type VidShare = <VidSchemeType as VidScheme>::Share;
 /// VID proposal type
 pub type VidProposal<TYPES> = (
     Proposal<TYPES, HotShotVidDisperse<TYPES>>,
-    Vec<Proposal<TYPES, VidDisperseShare2<TYPES>>>,
+    Vec<Proposal<TYPES, VidDisperseShare<TYPES>>>,
 );
 
 #[cfg(not(feature = "gpu-vid"))]

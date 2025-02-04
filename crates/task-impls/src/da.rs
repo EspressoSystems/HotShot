@@ -10,6 +10,7 @@ use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
+use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{DaProposal2, PackedBundle},
@@ -179,9 +180,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 let num_nodes = membership_reader.total_nodes(epoch_number);
                 drop(membership_reader);
 
+                let version = self.upgrade_lock.version_infallible(view_number).await;
+
                 let txns = Arc::clone(&proposal.data.encoded_transactions);
                 let payload_commitment =
-                    spawn_blocking(move || vid_commitment(&txns, num_nodes)).await;
+                    spawn_blocking(move || vid_commitment::<V>(&txns, num_nodes, version)).await;
                 let payload_commitment = payload_commitment.unwrap();
 
                 self.storage
@@ -233,12 +236,28 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     let pk = self.private_key.clone();
                     let public_key = self.public_key.clone();
                     let chan = event_stream.clone();
+                    let upgrade_lock = self.upgrade_lock.clone();
+                    let proposal_epoch = proposal.data.epoch();
+                    let next_epoch = proposal_epoch.map(|epoch| epoch + 1);
+
+                    let membership_reader = membership.read().await;
+                    let target_epoch = if membership_reader.has_stake(&public_key, proposal_epoch) {
+                        proposal_epoch
+                    } else if membership_reader.has_stake(&public_key, next_epoch) {
+                        next_epoch
+                    } else {
+                        bail!("Not calculating VID, the node doesn't belong to the current epoch or the next epoch.");
+                    };
+                    drop(membership_reader);
+
                     spawn(async move {
-                        Consensus::calculate_and_update_vid(
+                        Consensus::calculate_and_update_vid::<V>(
                             OuterConsensus::new(Arc::clone(&consensus.inner_consensus)),
                             view_number,
+                            target_epoch,
                             membership,
                             &pk,
+                            &upgrade_lock,
                         )
                         .await;
                         if let Some(Some(vid_share)) = consensus

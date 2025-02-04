@@ -15,8 +15,9 @@ use async_trait::async_trait;
 use hotshot_types::{
     consensus::CommitmentMap,
     data::{
+        vid_disperse::{ADVZDisperseShare, VidDisperseShare2},
         DaProposal, DaProposal2, Leaf, Leaf2, QuorumProposal, QuorumProposal2,
-        QuorumProposalWrapper, VidDisperseShare, VidDisperseShare2,
+        QuorumProposalWrapper,
     },
     event::HotShotAction,
     message::Proposal,
@@ -35,7 +36,7 @@ use crate::testable_delay::{DelayConfig, SupportedTraitTypesForAsyncDelay, Testa
 
 type VidShares<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
-    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, VidDisperseShare<TYPES>>>,
+    HashMap<<TYPES as NodeType>::SignatureKey, Proposal<TYPES, ADVZDisperseShare<TYPES>>>,
 >;
 type VidShares2<TYPES> = BTreeMap<
     <TYPES as NodeType>::View,
@@ -141,7 +142,7 @@ impl<TYPES: NodeType> TestStorage<TYPES> {
 
 #[async_trait]
 impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
-    async fn append_vid(&self, proposal: &Proposal<TYPES, VidDisperseShare<TYPES>>) -> Result<()> {
+    async fn append_vid(&self, proposal: &Proposal<TYPES, ADVZDisperseShare<TYPES>>) -> Result<()> {
         if self.should_return_err {
             bail!("Failed to append VID proposal to storage");
         }
@@ -252,14 +253,20 @@ impl<TYPES: NodeType> Storage<TYPES> for TestStorage<TYPES> {
     async fn record_action(
         &self,
         view: <TYPES as NodeType>::View,
+        epoch: Option<TYPES::Epoch>,
         action: hotshot_types::event::HotShotAction,
     ) -> Result<()> {
         if self.should_return_err {
             bail!("Failed to append Action to storage");
         }
         let mut inner = self.inner.write().await;
-        if view > inner.action && matches!(action, HotShotAction::Vote | HotShotAction::Propose) {
-            inner.action = view;
+        if matches!(action, HotShotAction::Vote | HotShotAction::Propose) {
+            if view > inner.action {
+                inner.action = view;
+            }
+            if epoch > inner.epoch {
+                inner.epoch = epoch;
+            }
         }
         Self::run_delay_settings_from_config(&self.delay_config).await;
         Ok(())

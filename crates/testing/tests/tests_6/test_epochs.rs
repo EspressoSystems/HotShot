@@ -4,8 +4,6 @@
 // You should have received a copy of the MIT License
 // along with the HotShot repository. If not, see <https://mit-license.org/>.
 
-use std::{collections::HashMap, time::Duration};
-
 use hotshot_example_types::{
     node_types::{
         CombinedImpl, EpochUpgradeTestVersions, EpochsTestVersions, Libp2pImpl, MemoryImpl,
@@ -24,6 +22,7 @@ use hotshot_testing::{
     view_sync_task::ViewSyncTaskDescription,
 };
 use hotshot_types::{data::ViewNumber, traits::node_implementation::ConsensusTime};
+use std::{collections::HashMap, time::Duration};
 
 cross_tests!(
     TestName: test_success_with_epochs,
@@ -272,7 +271,7 @@ cross_tests!(
         };
 
         // 2 nodes fail triggering view sync, expect no other timeouts
-        metadata.overall_safety_properties.num_failed_views = 6;
+        metadata.overall_safety_properties.num_failed_views = 5;
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 20;
         metadata.overall_safety_properties.expected_views_to_fail = HashMap::from([
@@ -281,7 +280,6 @@ cross_tests!(
             (ViewNumber::new(17), false),
             (ViewNumber::new(23), false),
             (ViewNumber::new(29), false),
-            (ViewNumber::new(35), false),
         ]);
 
         metadata
@@ -337,10 +335,6 @@ cross_tests!(
     Ignore: false,
     Metadata: {
         let mut metadata = TestDescription::default_more_nodes();
-        metadata.test_config.epoch_height = 10;
-        // The first 14 (i.e., 20 - f) nodes are in the DA committee and we may shutdown the
-        // remaining 6 (i.e., f) nodes. We could remove this restriction after fixing the
-        // following issue.
         let dead_nodes = vec![
             ChangeNode {
                 idx: 17,
@@ -416,7 +410,7 @@ cross_tests!(
 cross_tests!(
     TestName: test_all_restart_epochs,
     Impls: [CombinedImpl, PushCdnImpl],
-    Types: [TestTypes, TestTypesRandomizedLeader],
+    Types: [TestTypes, TestTypesRandomizedLeader, TestTwoStakeTablesTypes],
     Versions: [EpochsTestVersions],
     Ignore: false,
     Metadata: {
@@ -457,5 +451,154 @@ cross_tests!(
       };
 
       metadata
+    },
+);
+
+cross_tests!(
+    TestName: test_all_restart_one_da_with_epochs,
+    Impls: [CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+      let timing_data = TimingData {
+          next_view_timeout: 2000,
+          ..Default::default()
+      };
+      let mut metadata = TestDescription::default().set_num_nodes(20,2);
+
+      let mut catchup_nodes = vec![];
+      for i in 0..20 {
+          catchup_nodes.push(ChangeNode {
+              idx: i,
+              updown: NodeAction::RestartDown(0),
+          })
+      }
+
+      metadata.timing_data = timing_data;
+
+      metadata.spinning_properties = SpinningTaskDescription {
+          // Restart all the nodes in view 10
+          node_changes: vec![(10, catchup_nodes)],
+      };
+      metadata.view_sync_properties =
+          hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 20);
+
+      metadata.completion_task_description =
+          CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+              TimeBasedCompletionTaskDescription {
+                  duration: Duration::from_secs(60),
+              },
+          );
+      metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
+          // Make sure we keep committing rounds after the catchup, but not the full 50.
+          num_successful_views: 22,
+          num_failed_views: 15,
+          ..Default::default()
+      };
+
+      metadata
+    },
+);
+
+cross_tests!(
+    TestName: test_staggered_restart_with_epochs,
+    Impls: [CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+      let mut metadata = TestDescription::default().set_num_nodes(20,4);
+
+      let mut down_da_nodes = vec![];
+      for i in 2..4 {
+          down_da_nodes.push(ChangeNode {
+              idx: i,
+              updown: NodeAction::RestartDown(20),
+          });
+      }
+
+      let mut down_regular_nodes = vec![];
+      for i in 4..20 {
+          down_regular_nodes.push(ChangeNode {
+              idx: i,
+              updown: NodeAction::RestartDown(0),
+          });
+      }
+      // restart the last da so it gets the new libp2p routing table
+      for i in 0..2 {
+          down_regular_nodes.push(ChangeNode {
+              idx: i,
+              updown: NodeAction::RestartDown(0),
+          });
+      }
+
+      metadata.spinning_properties = SpinningTaskDescription {
+          node_changes: vec![(10, down_da_nodes), (30, down_regular_nodes)],
+      };
+      metadata.view_sync_properties =
+          hotshot_testing::view_sync_task::ViewSyncTaskDescription::Threshold(0, 50);
+
+      // Give the test some extra time because we are purposely timing out views
+      metadata.completion_task_description =
+          CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+              TimeBasedCompletionTaskDescription {
+                  duration: Duration::from_secs(240),
+              },
+          );
+      metadata.overall_safety_properties = OverallSafetyPropertiesDescription {
+          // Make sure we keep committing rounds after the catchup, but not the full 50.
+          num_successful_views: 22,
+          num_failed_views: 30,
+          ..Default::default()
+      };
+
+      metadata
+    },
+);
+
+// A run where the CDN crashes part-way through, epochs enabled.
+cross_tests!(
+    TestName: test_combined_network_cdn_crash_with_epochs,
+    Impls: [CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let timing_data = TimingData {
+            next_view_timeout: 10_000,
+            ..Default::default()
+        };
+
+        let overall_safety_properties = OverallSafetyPropertiesDescription {
+            num_failed_views: 0,
+            num_successful_views: 35,
+            ..Default::default()
+        };
+
+        let completion_task_description = CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+            TimeBasedCompletionTaskDescription {
+                duration: Duration::from_secs(220),
+            },
+        );
+
+        let mut metadata = TestDescription::default_multiple_rounds();
+        metadata.timing_data = timing_data;
+        metadata.overall_safety_properties = overall_safety_properties;
+        metadata.completion_task_description = completion_task_description;
+
+        let mut all_nodes = vec![];
+        for node in 0..metadata.test_config.num_nodes_with_stake.into() {
+            all_nodes.push(ChangeNode {
+                idx: node,
+                updown: NodeAction::NetworkDown,
+            });
+        }
+
+        metadata.spinning_properties = SpinningTaskDescription {
+            node_changes: vec![(5, all_nodes)],
+        };
+
+        metadata
     },
 );
