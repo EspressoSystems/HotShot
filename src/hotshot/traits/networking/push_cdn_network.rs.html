@@ -1163,15 +1163,15 @@
     /// - If we fail to serialize the message
     /// - If we fail to send the direct message
     </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="comment">// If we're paused, don't send the message
-        </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
-        </span><span class="kw">if </span><span class="self">self</span>.is_paused.load(Ordering::Relaxed) {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-        }
-
         <span class="comment">// If the message is to ourselves, just add it to the internal queue
         </span><span class="kw">if </span>recipient == <span class="self">self</span>.public_key {
             <span class="self">self</span>.internal_queue.lock().push_back(message);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
+
+        <span class="comment">// If we're paused, don't send the message
+        </span><span class="attr">#[cfg(feature = <span class="string">"hotshot-testing"</span>)]
+        </span><span class="kw">if </span><span class="self">self</span>.is_paused.load(Ordering::Relaxed) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 

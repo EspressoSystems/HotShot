@@ -224,6 +224,17 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -310,14 +321,22 @@
                     </span><span class="kw">match </span>event.as_ref() {
                         HotShotEvent::VidRequestRecv(request, sender) =&gt; {
                             <span class="kw">let </span>cur_epoch = <span class="self">self</span>.consensus.read().<span class="kw">await</span>.cur_epoch();
+                            <span class="kw">let </span>next_epoch = cur_epoch.map(|epoch| epoch + <span class="number">1</span>);
+                            <span class="kw">let </span>target_epoch = <span class="kw">if </span><span class="self">self</span>.valid_sender(sender, cur_epoch).<span class="kw">await </span>{
+                                cur_epoch
+                            } <span class="kw">else if </span><span class="self">self</span>.valid_sender(sender, next_epoch).<span class="kw">await </span>{
+                                next_epoch
+                            } <span class="kw">else </span>{
+                                <span class="comment">// The sender neither belongs to the current nor to the next epoch.
+                                </span><span class="kw">continue</span>;
+                            };
                             <span class="comment">// Verify request is valid
-                            </span><span class="kw">if </span>!<span class="self">self</span>.valid_sender(sender, cur_epoch).<span class="kw">await
-                                </span>|| !valid_signature::&lt;TYPES&gt;(request, sender)
-                            {
+                            </span><span class="kw">if </span>!valid_signature::&lt;TYPES&gt;(request, sender) {
                                 <span class="kw">continue</span>;
                             }
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) =
-                                <span class="self">self</span>.get_or_calc_vid_share(request.view, sender).<span class="kw">await
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(proposal) = <span class="self">self
+                                </span>.get_or_calc_vid_share(request.view, target_epoch, sender)
+                                .<span class="kw">await
                             </span>{
                                 broadcast_event(
                                     HotShotEvent::VidResponseSend(
@@ -377,6 +396,7 @@
     </span><span class="kw">async fn </span>get_or_calc_vid_share(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view: TYPES::View,
+        target_epoch: <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt;,
         key: <span class="kw-2">&amp;</span>TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Proposal&lt;TYPES, VidDisperseShare&lt;TYPES&gt;&gt;&gt; {
         <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
@@ -391,6 +411,7 @@
         <span class="kw">if </span>Consensus::calculate_and_update_vid::&lt;V&gt;(
             OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)),
             view,
+            target_epoch,
             Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
             <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
             <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,
@@ -403,6 +424,7 @@
             Consensus::calculate_and_update_vid::&lt;V&gt;(
                 OuterConsensus::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.consensus)),
                 view,
+                target_epoch,
                 Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership),
                 <span class="kw-2">&amp;</span><span class="self">self</span>.private_key,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.upgrade_lock,

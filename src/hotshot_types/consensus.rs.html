@@ -1115,6 +1115,7 @@
 <a href="#1115" id="1115">1115</a>
 <a href="#1116" id="1116">1116</a>
 <a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -2072,6 +2073,7 @@
     </span><span class="kw">pub async fn </span>calculate_and_update_vid&lt;V: Versions&gt;(
         consensus: OuterConsensus&lt;TYPES&gt;,
         view: &lt;TYPES <span class="kw">as </span>NodeType&gt;::View,
+        target_epoch: <span class="prelude-ty">Option</span>&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::Epoch&gt;,
         membership: Arc&lt;RwLock&lt;TYPES::Membership&gt;&gt;,
         private_key: <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         upgrade_lock: <span class="kw-2">&amp;</span>UpgradeLock&lt;TYPES, V&gt;,
@@ -2089,7 +2091,7 @@
             payload.as_ref(),
             <span class="kw-2">&amp;</span>membership,
             view,
-            epoch,
+            target_epoch,
             epoch,
             upgrade_lock,
         )

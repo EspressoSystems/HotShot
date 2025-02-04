@@ -402,6 +402,17 @@
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -434,7 +445,7 @@
         node_implementation::{NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
-    utils::option_epoch_from_block_number,
+    utils::is_last_block_in_epoch,
     vote::HasViewNumber,
 };
 <span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
@@ -517,21 +528,32 @@
         <span class="kw">match </span>event.as_ref() {
             HotShotEvent::QuorumProposalValidated(proposal, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>prop_view = proposal.data.view_number();
-                <span class="kw">let </span>prop_epoch = option_epoch_from_block_number::&lt;TYPES&gt;(
-                    proposal.data.epoch().is_some(),
-                    proposal.data.block_header().block_number(),
-                    <span class="self">self</span>.epoch_height,
-                );
+                <span class="kw">let </span>prop_epoch = proposal.data.epoch();
+                <span class="kw">let </span>next_epoch = prop_epoch.map(|epoch| epoch + <span class="number">1</span>);
 
-                <span class="comment">// If we already have the VID shares for the next view, do nothing.
-                </span><span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view
-                    &amp;&amp; !<span class="self">self
-                        </span>.consensus
-                        .read()
-                        .<span class="kw">await
-                        </span>.vid_shares()
-                        .contains_key(<span class="kw-2">&amp;</span>prop_view)
+                <span class="comment">// Request VID share only if:
+                // 1. we are part of the current epoch or
+                // 2. we are part of the next epoch and this is a proposal for the last block.
+                </span><span class="kw">let </span>membership_reader = <span class="self">self</span>.membership.read().<span class="kw">await</span>;
+                <span class="kw">if </span>!membership_reader.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, prop_epoch)
+                    &amp;&amp; (!membership_reader.has_stake(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key, next_epoch)
+                        || !is_last_block_in_epoch(
+                            proposal.data.block_header().block_number(),
+                            <span class="self">self</span>.epoch_height,
+                        ))
                 {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
+                drop(membership_reader);
+
+                <span class="kw">let </span>consensus_reader = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
+                <span class="kw">let </span>maybe_vid_share = consensus_reader
+                    .vid_shares()
+                    .get(<span class="kw-2">&amp;</span>prop_view)
+                    .and_then(|shares| shares.get(<span class="kw-2">&amp;</span><span class="self">self</span>.public_key));
+                <span class="comment">// If we already have the VID shares for the next view, do nothing.
+                </span><span class="kw">if </span>prop_view &gt;= <span class="self">self</span>.view &amp;&amp; maybe_vid_share.is_none() {
+                    drop(consensus_reader);
                     <span class="self">self</span>.spawn_requests(prop_view, prop_epoch, sender, receiver)
                         .<span class="kw">await</span>;
                 }
@@ -765,15 +787,15 @@
     ) -&gt; bool {
         <span class="kw">let </span>consensus_reader = consensus.read().<span class="kw">await</span>;
 
+        <span class="kw">let </span>maybe_vid_share = consensus_reader
+            .vid_shares()
+            .get(view)
+            .and_then(|shares| shares.get(public_key));
         <span class="kw">let </span>cancel = shutdown_flag.load(Ordering::Relaxed)
-            || consensus_reader.vid_shares().contains_key(view)
+            || maybe_vid_share.is_some()
             || consensus_reader.cur_view() &gt; <span class="kw-2">*</span>view;
         <span class="kw">if </span>cancel {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(vid_share)) = consensus_reader
-                .vid_shares()
-                .get(view)
-                .map(|shares| shares.get(public_key).cloned())
-            {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(vid_share) = maybe_vid_share {
                 broadcast_event(
                     Arc::new(HotShotEvent::VidShareRecv(
                         public_key.clone(),
