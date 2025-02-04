@@ -1528,7 +1528,7 @@
 
         <span class="comment">// Set the auth message and stake table
         </span>config_builder
-            .stake_table(<span class="prelude-val">Some</span>(quorum_membership))
+            .membership(<span class="prelude-val">Some</span>(quorum_membership))
             .auth_message(<span class="prelude-val">Some</span>(auth_message));
 
         <span class="comment">// The replication factor is the minimum of [the default and 2/3 the number of nodes]

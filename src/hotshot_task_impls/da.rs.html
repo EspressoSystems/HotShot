@@ -410,7 +410,6 @@
 <a href="#410" id="410">410</a>
 <a href="#411" id="411">411</a>
 <a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -423,14 +422,13 @@
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_task::task::TaskState;
-<span class="kw">use </span>hotshot_types::simple_vote::HasEpoch;
 <span class="kw">use </span>hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{DaProposal2, PackedBundle},
     event::{Event, EventType},
     message::{Proposal, UpgradeLock},
     simple_certificate::DaCertificate2,
-    simple_vote::{DaData2, DaVote2},
+    simple_vote::{DaData2, DaVote2, HasEpoch},
     traits::{
         block_contents::vid_commitment,
         election::Membership,

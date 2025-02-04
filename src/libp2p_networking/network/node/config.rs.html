@@ -257,7 +257,7 @@
     <span class="doccomment">/// The stake table. Used for authenticating other nodes. If not supplied
     /// we will not check other nodes against the stake table
     </span><span class="attr">#[builder(default)]
-    </span><span class="kw">pub </span>stake_table: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;T::Membership&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>membership: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;T::Membership&gt;&gt;&gt;,
 
     <span class="doccomment">/// The path to the file to save the DHT to
     </span><span class="attr">#[builder(default)]
@@ -284,7 +284,7 @@
             to_connect_addrs: <span class="self">self</span>.to_connect_addrs.clone(),
             republication_interval: <span class="self">self</span>.republication_interval,
             ttl: <span class="self">self</span>.ttl,
-            stake_table: <span class="self">self</span>.stake_table.as_ref().map(Arc::clone),
+            membership: <span class="self">self</span>.membership.as_ref().map(Arc::clone),
             dht_file_path: <span class="self">self</span>.dht_file_path.clone(),
             auth_message: <span class="self">self</span>.auth_message.clone(),
             dht_timeout: <span class="self">self</span>.dht_timeout,

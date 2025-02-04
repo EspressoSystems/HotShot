@@ -686,43 +686,6 @@
 <a href="#686" id="686">686</a>
 <a href="#687" id="687">687</a>
 <a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind},
@@ -734,9 +697,7 @@
 <span class="kw">use </span>anyhow::{ensure, Context, <span class="prelude-ty">Result </span><span class="kw">as </span>AnyhowResult};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>futures::{future::poll_fn, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-<span class="kw">use </span>hotshot_types::traits::{
-    election::Membership, node_implementation::NodeType, signature_key::SignatureKey,
-};
+<span class="kw">use </span>hotshot_types::traits::{node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use </span>libp2p::{
     core::{
         muxing::StreamMuxerExt,
@@ -770,7 +731,7 @@
     </span><span class="kw">pub </span>inner: T,
 
     <span class="doccomment">/// The stake table we check against to authenticate connections
-    </span><span class="kw">pub </span>stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>membership: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// A pre-signed message that we send to the remote peer for authentication
     </span><span class="kw">pub </span>auth_message: Arc&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;,
@@ -788,12 +749,12 @@
     /// and authenticates connections against the stake table.
     </span><span class="kw">pub fn </span>new(
         inner: T,
-        stake_table: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;,
+        membership: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;,
         auth_message: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             inner,
-            stake_table: Arc::from(stake_table),
+            membership: Arc::from(membership),
             auth_message: Arc::from(auth_message),
             pd: std::marker::PhantomData,
         }
@@ -833,11 +794,11 @@
     /// - The signature is invalid
     </span><span class="kw">pub async fn </span>verify_peer_authentication&lt;R: AsyncReadExt + Unpin&gt;(
         stream: <span class="kw-2">&amp;mut </span>R,
-        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
+        membership: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
         required_peer_id: <span class="kw-2">&amp;</span>PeerId,
     ) -&gt; AnyhowResult&lt;()&gt; {
-        <span class="comment">// If we have a stake table, check if the remote peer is in it
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(stake_table) = stake_table.as_ref() {
+        <span class="comment">// If we have a membership, read message and validate
+        </span><span class="kw">if </span>membership.is_some() {
             <span class="comment">// Read the length-delimited message from the remote peer
             </span><span class="kw">let </span>message = read_length_delimited(stream, MAX_AUTH_MESSAGE_SIZE).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -846,7 +807,7 @@
                 .with_context(|| <span class="string">"Failed to deserialize auth message"</span>)<span class="question-mark">?</span>;
 
             <span class="comment">// Verify the signature on the public keys
-            </span><span class="kw">let </span>public_key = auth_message
+            </span>auth_message
                 .validate()
                 .with_context(|| <span class="string">"Failed to verify authentication message"</span>)<span class="question-mark">?</span>;
 
@@ -857,11 +818,6 @@
             <span class="comment">// Verify that the peer ID is the same as the remote peer
             </span><span class="kw">if </span>peer_id != <span class="kw-2">*</span>required_peer_id {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"Peer ID mismatch"</span>));
-            }
-
-            <span class="comment">// Check if the public key is in the stake table
-            </span><span class="kw">if </span>!stake_table.read().<span class="kw">await</span>.has_stake(<span class="kw-2">&amp;</span>public_key, <span class="prelude-val">None</span>) {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"Peer not in stake table"</span>));
             }
         }
 
@@ -875,7 +831,7 @@
     </span><span class="kw">fn </span>gen_handshake&lt;F: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T::Output, T::Error&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
         original_future: F,
         outgoing: bool,
-        stake_table: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
+        membership: Arc&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Types::Membership&gt;&gt;&gt;&gt;,
         auth_message: Arc&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;,
     ) -&gt; UpgradeFuture&lt;T&gt;
     <span class="kw">where
@@ -911,7 +867,7 @@
                     <span class="comment">// Verify the remote peer's authentication
                     </span><span class="self">Self</span>::verify_peer_authentication(
                         <span class="kw-2">&amp;mut </span>substream,
-                        stake_table,
+                        membership,
                         stream.as_peer_id(),
                     )
                     .<span class="kw">await
@@ -923,7 +879,7 @@
                     <span class="comment">// If it is incoming, verify the remote peer's authentication first
                     </span><span class="self">Self</span>::verify_peer_authentication(
                         <span class="kw-2">&amp;mut </span>substream,
-                        stake_table,
+                        membership,
                         stream.as_peer_id(),
                     )
                     .<span class="kw">await
@@ -1049,11 +1005,11 @@
 
         <span class="comment">// Clone the necessary fields
         </span><span class="kw">let </span>auth_message = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.auth_message);
-        <span class="kw">let </span>stake_table = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.stake_table);
+        <span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership);
 
         <span class="comment">// If the dial was successful, perform the authentication handshake on top
         </span><span class="kw">match </span>res {
-            <span class="prelude-val">Ok</span>(dial) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::gen_handshake(dial, <span class="bool-val">true</span>, stake_table, auth_message)),
+            <span class="prelude-val">Ok</span>(dial) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::gen_handshake(dial, <span class="bool-val">true</span>, membership, auth_message)),
             <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
         }
     }
@@ -1077,11 +1033,11 @@
                 } =&gt; {
                     <span class="comment">// Clone the necessary fields
                     </span><span class="kw">let </span>auth_message = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.auth_message);
-                    <span class="kw">let </span>stake_table = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.stake_table);
+                    <span class="kw">let </span>membership = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.membership);
 
                     <span class="comment">// Generate the handshake upgrade future (inbound)
                     </span><span class="kw">let </span>auth_upgrade =
-                        <span class="self">Self</span>::gen_handshake(upgrade, <span class="bool-val">false</span>, stake_table, auth_message);
+                        <span class="self">Self</span>::gen_handshake(upgrade, <span class="bool-val">false</span>, membership, auth_message);
 
                     <span class="comment">// Return the new event
                     </span>TransportEvent::Incoming {
@@ -1223,7 +1179,9 @@
 
     <span class="kw">use </span>hotshot_example_types::node_types::TestTypes;
     <span class="kw">use </span>hotshot_types::{
-        light_client::StateVerKey, signature_key::BLSPubKey, traits::signature_key::SignatureKey,
+        light_client::StateVerKey,
+        signature_key::BLSPubKey,
+        traits::{election::Membership, signature_key::SignatureKey},
         PeerConfig,
     };
     <span class="kw">use </span>libp2p::{core::transport::dummy::DummyTransport, quic::Connection};
@@ -1342,13 +1300,13 @@
             stake_table_entry: keypair.<span class="number">0</span>.stake_table_entry(<span class="number">1</span>),
             state_ver_key: StateVerKey::default(),
         };
-        <span class="kw">let </span>stake_table =
+        <span class="kw">let </span>membership =
             &lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(<span class="macro">vec!</span>[peer_config.clone()], <span class="macro">vec!</span>[peer_config]);
 
         <span class="comment">// Verify the authentication message
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
             <span class="kw-2">&amp;mut </span>stream,
-            Arc::new(<span class="prelude-val">Some</span>(Arc::new(RwLock::new(stake_table)))),
+            Arc::new(<span class="prelude-val">Some</span>(Arc::new(RwLock::new(membership)))),
             <span class="kw-2">&amp;</span>peer_id,
         )
         .<span class="kw">await</span>;
@@ -1356,38 +1314,6 @@
         <span class="macro">assert!</span>(
             result.is_ok(),
             <span class="string">"Should have passed authentication but did not"
-        </span>);
-    }
-
-    <span class="attr">#[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
-    </span><span class="kw">async fn </span>key_not_in_stake_table() {
-        <span class="comment">// Create a new identity
-        </span><span class="kw">let </span>(<span class="kw">_</span>, peer_id, auth_message) = <span class="macro">new_identity!</span>();
-
-        <span class="comment">// Create a stream and write the message to it
-        </span><span class="kw">let </span><span class="kw-2">mut </span>stream = <span class="macro">cursor_from!</span>(auth_message);
-
-        <span class="comment">// Create an empty stake table
-        </span><span class="kw">let </span>stake_table = Arc::new(RwLock::new(&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
-            <span class="macro">vec!</span>[],
-            <span class="macro">vec!</span>[],
-        )));
-
-        <span class="comment">// Verify the authentication message
-        </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
-            <span class="kw-2">&amp;mut </span>stream,
-            Arc::new(<span class="prelude-val">Some</span>(stake_table)),
-            <span class="kw-2">&amp;</span>peer_id,
-        )
-        .<span class="kw">await</span>;
-
-        <span class="comment">// Make sure it errored for the right reason
-        </span><span class="macro">assert!</span>(
-            result
-                .expect_err(<span class="string">"Should have failed authentication but did not"</span>)
-                .to_string()
-                .contains(<span class="string">"Peer not in stake table"</span>),
-            <span class="string">"Did not fail with the correct error"
         </span>);
     }
 
@@ -1407,7 +1333,7 @@
             stake_table_entry: keypair.<span class="number">0</span>.stake_table_entry(<span class="number">1</span>),
             state_ver_key: StateVerKey::default(),
         };
-        <span class="kw">let </span>stake_table = Arc::new(RwLock::new(&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
+        <span class="kw">let </span>membership = Arc::new(RwLock::new(&lt;TestTypes <span class="kw">as </span>NodeType&gt;::Membership::new(
             <span class="macro">vec!</span>[peer_config.clone()],
             <span class="macro">vec!</span>[peer_config],
         )));
@@ -1415,7 +1341,7 @@
         <span class="comment">// Check against the malicious peer ID
         </span><span class="kw">let </span>result = MockStakeTableAuth::verify_peer_authentication(
             <span class="kw-2">&amp;mut </span>stream,
-            Arc::new(<span class="prelude-val">Some</span>(stake_table)),
+            Arc::new(<span class="prelude-val">Some</span>(membership)),
             <span class="kw-2">&amp;</span>malicious_peer_id,
         )
         .<span class="kw">await</span>;

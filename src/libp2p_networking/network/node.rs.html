@@ -953,10 +953,10 @@
         <span class="comment">// Get the `PeerId` from the `KeyPair`
         </span><span class="kw">let </span>peer_id = PeerId::from(keypair.public());
 
-        <span class="comment">// Generate the transport from the keypair, stake table, and auth message
+        <span class="comment">// Generate the transport from the keypair, membership, and auth message
         </span><span class="kw">let </span>transport: BoxedTransport = gen_transport::&lt;T&gt;(
             keypair.clone(),
-            config.stake_table.clone(),
+            config.membership.clone(),
             config.auth_message.clone(),
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
