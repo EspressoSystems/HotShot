@@ -557,6 +557,39 @@ cross_tests!(
     },
 );
 
+cross_tests!(
+    TestName: test_combined_network_with_epochs,
+    Impls: [CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let timing_data = TimingData {
+            next_view_timeout: 10_000,
+            ..Default::default()
+        };
+
+        let overall_safety_properties = OverallSafetyPropertiesDescription {
+            num_failed_views: 0,
+            num_successful_views: 25,
+            ..Default::default()
+        };
+
+        let completion_task_description = CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+            TimeBasedCompletionTaskDescription {
+                duration: Duration::from_secs(120),
+            },
+        );
+
+        let mut metadata = TestDescription::default_multiple_rounds();
+        metadata.timing_data = timing_data;
+        metadata.overall_safety_properties = overall_safety_properties;
+        metadata.completion_task_description = completion_task_description;
+
+        metadata
+    },
+);
+
 // A run where the CDN crashes part-way through, epochs enabled.
 cross_tests!(
     TestName: test_combined_network_cdn_crash_with_epochs,
@@ -597,6 +630,101 @@ cross_tests!(
 
         metadata.spinning_properties = SpinningTaskDescription {
             node_changes: vec![(5, all_nodes)],
+        };
+
+        metadata
+    },
+);
+
+cross_tests!(
+    TestName: test_combined_network_reup_with_epochs,
+    Impls: [CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let timing_data = TimingData {
+            next_view_timeout: 10_000,
+            ..Default::default()
+        };
+
+        let overall_safety_properties = OverallSafetyPropertiesDescription {
+            num_failed_views: 0,
+            num_successful_views: 35,
+            ..Default::default()
+        };
+
+        let completion_task_description = CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+            TimeBasedCompletionTaskDescription {
+                duration: Duration::from_secs(220),
+            },
+        );
+
+        let mut metadata = TestDescription::default_multiple_rounds();
+        metadata.timing_data = timing_data;
+        metadata.overall_safety_properties = overall_safety_properties;
+        metadata.completion_task_description = completion_task_description;
+
+        let mut all_down = vec![];
+        let mut all_up = vec![];
+        for node in 0..metadata.test_config.num_nodes_with_stake.into() {
+            all_down.push(ChangeNode {
+                idx: node,
+                updown: NodeAction::NetworkDown,
+            });
+            all_up.push(ChangeNode {
+                idx: node,
+                updown: NodeAction::NetworkUp,
+            });
+        }
+
+        metadata.spinning_properties = SpinningTaskDescription {
+            node_changes: vec![(13, all_up), (5, all_down)],
+        };
+
+        metadata
+    },
+);
+
+cross_tests!(
+    TestName: test_combined_network_half_dc_with_epochs,
+    Impls: [CombinedImpl],
+    Types: [TestTypes, TestTwoStakeTablesTypes],
+    Versions: [EpochsTestVersions],
+    Ignore: false,
+    Metadata: {
+        let timing_data = TimingData {
+            next_view_timeout: 10_000,
+            ..Default::default()
+        };
+
+        let overall_safety_properties = OverallSafetyPropertiesDescription {
+            num_failed_views: 0,
+            num_successful_views: 35,
+            ..Default::default()
+        };
+
+        let completion_task_description = CompletionTaskDescription::TimeBasedCompletionTaskBuilder(
+            TimeBasedCompletionTaskDescription {
+                duration: Duration::from_secs(220),
+            },
+        );
+
+        let mut metadata = TestDescription::default_multiple_rounds();
+        metadata.timing_data = timing_data;
+        metadata.overall_safety_properties = overall_safety_properties;
+        metadata.completion_task_description = completion_task_description;
+
+        let mut half = vec![];
+        for node in 0..usize::from(metadata.test_config.num_nodes_with_stake) / 2 {
+            half.push(ChangeNode {
+                idx: node,
+                updown: NodeAction::NetworkDown,
+            });
+        }
+
+        metadata.spinning_properties = SpinningTaskDescription {
+            node_changes: vec![(5, half)],
         };
 
         metadata
