@@ -794,7 +794,7 @@ where
             private_key.clone(),
             nonce,
             config.clone(),
-            Arc::clone(&memberships),
+            memberships.clone(),
             Arc::clone(&network),
             initializer.clone(),
             metrics.clone(),
@@ -855,7 +855,7 @@ where
             hotshot: Arc::clone(&left_system_context),
             storage: Arc::clone(&left_system_context.storage),
             network: Arc::clone(&left_system_context.network),
-            membership_coordinator: Arc::clone(&left_system_context.membership_coordinator),
+            membership_coordinator: left_system_context.membership_coordinator.clone(),
             epoch_height,
         };
 
@@ -867,7 +867,7 @@ where
             hotshot: Arc::clone(&right_system_context),
             storage: Arc::clone(&right_system_context.storage),
             network: Arc::clone(&right_system_context.network),
-            membership_coordinator: Arc::clone(&right_system_context.membership_coordinator),
+            membership_coordinator: right_system_context.membership_coordinator.clone(),
             epoch_height,
         };
 

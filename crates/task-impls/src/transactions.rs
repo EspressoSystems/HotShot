@@ -92,7 +92,7 @@ pub struct TransactionTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V
     pub consensus: OuterConsensus<TYPES>,
 
     /// Membership for the quorum
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// Builder 0.1 API clients
     pub builder_clients: Vec<BuilderClientBase<TYPES>>,

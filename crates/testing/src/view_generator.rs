@@ -25,22 +25,17 @@ use hotshot_types::{
     data::{
         DaProposal2, EpochNumber, Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse,
         VidDisperseShare, ViewChangeEvidence2, ViewNumber,
-    },
-    message::{Proposal, UpgradeLock},
-    simple_certificate::{
+    }, epoch_membership::EpochMembershipCoordinator, message::{Proposal, UpgradeLock}, simple_certificate::{
         DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
-    },
-    simple_vote::{
+    }, simple_vote::{
         DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData2, TimeoutVote2,
         UpgradeProposalData, UpgradeVote, ViewSyncFinalizeData2, ViewSyncFinalizeVote2,
-    },
-    traits::{
+    }, traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType, Versions},
         BlockPayload,
-    },
-    utils::genesis_epoch_from_version,
+    }, utils::genesis_epoch_from_version
 };
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
@@ -56,7 +51,7 @@ pub struct TestView {
     pub leaf: Leaf2<TestTypes>,
     pub view_number: ViewNumber,
     pub epoch_number: Option<EpochNumber>,
-    pub membership: Arc<RwLock<<TestTypes as NodeType>::Membership>>,
+    pub membership: EpochMembershipCoordinator<TYPES>,
     pub vid_disperse: Proposal<TestTypes, VidDisperse<TestTypes>>,
     pub vid_proposal: (
         Vec<Proposal<TestTypes, VidDisperseShare<TestTypes>>>,
@@ -74,7 +69,7 @@ pub struct TestView {
 
 impl TestView {
     pub async fn genesis<V: Versions>(
-        membership: &Arc<RwLock<<TestTypes as NodeType>::Membership>>,
+        membership: &EpochMembershipCoordinator<<TestTypes as NodeType>::Membership>,
     ) -> Self {
         let genesis_view = ViewNumber::new(1);
         let genesis_epoch = genesis_epoch_from_version::<V, TestTypes>();

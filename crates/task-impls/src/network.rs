@@ -478,7 +478,7 @@ pub struct NetworkEventTaskState<
     pub epoch: Option<TYPES::Epoch>,
 
     /// network memberships
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// Storage to store actionable events
     pub storage: Arc<RwLock<S>>,

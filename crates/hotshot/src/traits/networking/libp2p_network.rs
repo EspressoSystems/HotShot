@@ -992,7 +992,7 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
         &'a self,
         view: u64,
         epoch: Option<u64>,
-        membership: Arc<RwLock<TYPES::Membership>>,
+        membership_coordinator: EpochMembershipCoordinator<TYPES>,
     ) where
         TYPES: NodeType<SignatureKey = T::SignatureKey> + 'a,
     {

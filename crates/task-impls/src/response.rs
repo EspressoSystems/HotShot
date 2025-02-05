@@ -12,6 +12,7 @@ use committable::Committable;
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
     data::VidDisperseShare,
+    epoch_membership::EpochMembershipCoordinator,
     message::{Proposal, UpgradeLock},
     traits::{
         election::Membership,
@@ -36,7 +37,7 @@ pub struct NetworkResponseState<TYPES: NodeType, V: Versions> {
     consensus: LockedConsensusState<TYPES>,
 
     /// Quorum membership for checking if requesters have state
-    membership: Arc<RwLock<TYPES::Membership>>,
+    membership: EpochMembershipCoordinator<TYPES>,
 
     /// This replicas public key
     pub_key: TYPES::SignatureKey,
@@ -55,7 +56,7 @@ impl<TYPES: NodeType, V: Versions> NetworkResponseState<TYPES, V> {
     /// Create the network request state with the info it needs
     pub fn new(
         consensus: LockedConsensusState<TYPES>,
-        membership: Arc<RwLock<TYPES::Membership>>,
+        membership: EpochMembershipCoordinator<TYPES>,
         pub_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         id: u64,
@@ -188,7 +189,7 @@ impl<TYPES: NodeType, V: Versions> NetworkResponseState<TYPES, V> {
                 OuterConsensus::new(Arc::clone(&self.consensus)),
                 view,
                 target_epoch,
-                Arc::clone(&self.membership),
+                self.membership.clone(),
                 &self.private_key,
                 &self.upgrade_lock,
             )

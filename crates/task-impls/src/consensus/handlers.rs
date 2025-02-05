@@ -12,7 +12,6 @@ use hotshot_types::{
     event::{Event, EventType},
     simple_vote::{HasEpoch, QuorumVote2, TimeoutData2, TimeoutVote2},
     traits::{
-        election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType},
     },
     utils::EpochTransitionIndicator,

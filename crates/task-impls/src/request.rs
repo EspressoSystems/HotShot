@@ -68,7 +68,7 @@ pub struct NetworkRequestState<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub delay: Duration,
 
     /// Membership (Used here only for DA)
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// This nodes public key
     pub public_key: TYPES::SignatureKey,

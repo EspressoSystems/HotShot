@@ -32,7 +32,6 @@ use crate::{
         ViewSyncPreCommitData2, Voteable,
     },
     traits::{
-        election::Membership,
         node_implementation::{ConsensusTime, NodeType, Versions},
         signature_key::SignatureKey,
     },
@@ -432,15 +431,14 @@ impl<TYPES: NodeType> UpgradeCertificate<TYPES> {
     /// Returns an error when the upgrade certificate is invalid.
     pub async fn validate<V: Versions>(
         upgrade_certificate: &Option<Self>,
-        membership: &RwLock<TYPES::Membership>,
+        membership: &EpochMembership<TYPES>,
         epoch: Option<TYPES::Epoch>,
         upgrade_lock: &UpgradeLock<TYPES, V>,
     ) -> Result<()> {
+        ensure!(epoch == membership.epoch(), "Epochs don't match!");
         if let Some(ref cert) = upgrade_certificate {
-            let membership_reader = membership.read().await;
-            let membership_stake_table = membership_reader.stake_table(epoch);
-            let membership_upgrade_threshold = membership_reader.upgrade_threshold(epoch);
-            drop(membership_reader);
+            let membership_stake_table = membership.stake_table().await;
+            let membership_upgrade_threshold = membership.upgrade_threshold().await;
 
             cert.is_valid_cert(
                 membership_stake_table,

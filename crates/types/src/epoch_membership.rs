@@ -56,6 +56,13 @@ where
             epoch_height,
         }
     }
+
+    /// Get a reference to the membership
+    #[must_use]
+    pub fn membership(&self) -> &Arc<RwLock<TYPES::Membership>> {
+        &self.membership
+    }
+
     /// Get a Membership for a given Epoch, which is guarenteed to have a stake
     /// table for the given Epoch
     pub async fn membership_for_epoch(
@@ -64,7 +71,7 @@ where
     ) -> EpochMembership<TYPES> {
         let ret_val = EpochMembership {
             epoch: maybe_epoch,
-            membership: Arc::clone(&self.membership),
+            coordinator: self.clone(),
         };
         let Some(epoch) = maybe_epoch else {
             return ret_val;
@@ -142,13 +149,13 @@ pub struct EpochMembership<TYPES: NodeType> {
     /// Epoch the `membership` is guarenteed to have a stake table for
     pub epoch: Option<TYPES::Epoch>,
     /// Underlying membership
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub coordinator: EpochMembershipCoordinator<TYPES>,
 }
 
 impl<TYPES: NodeType> Clone for EpochMembership<TYPES> {
     fn clone(&self) -> Self {
         Self {
-            membership: Arc::clone(&self.membership),
+            coordinator: self.coordinator.clone(),
             epoch: self.epoch,
         }
     }
@@ -159,12 +166,36 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
     pub fn epoch(&self) -> Option<TYPES::Epoch> {
         self.epoch
     }
+
+    /// Get a membership for the next epoch
+    pub async fn next_epoch(&self) -> Self {
+        if self.epoch.is_none() {
+            self.clone()
+        } else {
+            self.coordinator
+                .membership_for_epoch(self.epoch.map(|e| e + 1))
+                .await
+        }
+    }
+
+    /// Get the prior epoch
+    pub async fn prev_epoch(&self) -> Self {
+        let Some(epoch) = self.epoch else {
+            return self.clone();
+        };
+        if *epoch == 0 {
+            return self.clone();
+        }
+        self.coordinator.membership_for_epoch(Some(epoch - 1)).await
+    }
+
     /// Wraps the same named Membership trait fn
     async fn get_epoch_root(
         &self,
         block_height: u64,
     ) -> Result<(TYPES::Epoch, TYPES::BlockHeader)> {
-        self.membership
+        self.coordinator
+            .membership
             .read()
             .await
             .get_epoch_root(block_height)
@@ -173,14 +204,22 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
 
     /// Get all participants in the committee (including their stake) for a specific epoch
     pub async fn stake_table(&self) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
-        self.membership.read().await.stake_table(self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .stake_table(self.epoch)
     }
 
     /// Get all participants in the committee (including their stake) for a specific epoch
     pub async fn da_stake_table(
         &self,
     ) -> Vec<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
-        self.membership.read().await.da_stake_table(self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .da_stake_table(self.epoch)
     }
 
     /// Get all participants in the committee for a specific view for a specific epoch
@@ -188,7 +227,8 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
         &self,
         view_number: TYPES::View,
     ) -> BTreeSet<TYPES::SignatureKey> {
-        self.membership
+        self.coordinator
+            .membership
             .read()
             .await
             .committee_members(view_number, self.epoch)
@@ -199,7 +239,8 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
         &self,
         view_number: TYPES::View,
     ) -> BTreeSet<TYPES::SignatureKey> {
-        self.membership
+        self.coordinator
+            .membership
             .read()
             .await
             .da_committee_members(view_number, self.epoch)
@@ -210,7 +251,8 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
         &self,
         view_number: TYPES::View,
     ) -> BTreeSet<TYPES::SignatureKey> {
-        self.membership
+        self.coordinator
+            .membership
             .read()
             .await
             .committee_leaders(view_number, self.epoch)
@@ -222,7 +264,11 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
         &self,
         pub_key: &TYPES::SignatureKey,
     ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
-        self.membership.read().await.stake(pub_key, self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .stake(pub_key, self.epoch)
     }
 
     /// Get the DA stake table entry for a public key, returns `None` if the
@@ -231,17 +277,26 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
         &self,
         pub_key: &TYPES::SignatureKey,
     ) -> Option<<TYPES::SignatureKey as SignatureKey>::StakeTableEntry> {
-        self.membership.read().await.da_stake(pub_key, self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .da_stake(pub_key, self.epoch)
     }
 
     /// See if a node has stake in the committee in a specific epoch
     pub async fn has_stake(&self, pub_key: &TYPES::SignatureKey) -> bool {
-        self.membership.read().await.has_stake(pub_key, self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .has_stake(pub_key, self.epoch)
     }
 
     /// See if a node has stake in the committee in a specific epoch
     pub async fn has_da_stake(&self, pub_key: &TYPES::SignatureKey) -> bool {
-        self.membership
+        self.coordinator
+            .membership
             .read()
             .await
             .has_da_stake(pub_key, self.epoch)
@@ -255,7 +310,11 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
     /// # Errors
     /// Returns an error if the leader cannot be calculated.
     pub async fn leader(&self, view: TYPES::View) -> Result<TYPES::SignatureKey> {
-        self.membership.read().await.leader(view, self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .leader(view, self.epoch)
     }
 
     /// The leader of the committee for view `view_number` in `epoch`.
@@ -272,27 +331,44 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
         TYPES::SignatureKey,
         <<TYPES as NodeType>::Membership as Membership<TYPES>>::Error,
     > {
-        self.membership.read().await.lookup_leader(view, self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .lookup_leader(view, self.epoch)
     }
 
     /// Returns the number of total nodes in the committee in an epoch `epoch`
     pub async fn total_nodes(&self) -> usize {
-        self.membership.read().await.total_nodes(self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .total_nodes(self.epoch)
     }
 
     /// Returns the number of total DA nodes in the committee in an epoch `epoch`
     pub async fn da_total_nodes(&self) -> usize {
-        self.membership.read().await.da_total_nodes(self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .da_total_nodes(self.epoch)
     }
 
     /// Returns the threshold for a specific `Membership` implementation
     pub async fn success_threshold(&self) -> NonZeroU64 {
-        self.membership.read().await.success_threshold(self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .success_threshold(self.epoch)
     }
 
     /// Returns the DA threshold for a specific `Membership` implementation
     pub async fn da_success_threshold(&self) -> NonZeroU64 {
-        self.membership
+        self.coordinator
+            .membership
             .read()
             .await
             .da_success_threshold(self.epoch)
@@ -300,11 +376,19 @@ impl<TYPES: NodeType> EpochMembership<TYPES> {
 
     /// Returns the threshold for a specific `Membership` implementation
     pub async fn failure_threshold(&self) -> NonZeroU64 {
-        self.membership.read().await.failure_threshold(self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .failure_threshold(self.epoch)
     }
 
     /// Returns the threshold required to upgrade the network protocol
     pub async fn upgrade_threshold(&self) -> NonZeroU64 {
-        self.membership.read().await.upgrade_threshold(self.epoch)
+        self.coordinator
+            .membership
+            .read()
+            .await
+            .upgrade_threshold(self.epoch)
     }
 }

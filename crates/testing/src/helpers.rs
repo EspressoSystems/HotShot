@@ -146,7 +146,7 @@ pub async fn build_cert<
     CERT: Certificate<TYPES, VOTE::Commitment, Voteable = VOTE::Commitment>,
 >(
     data: DATAType,
-    membership: &Arc<RwLock<TYPES::Membership>>,
+    epoch_membership: &EpochMembership<TYPES>,
     view: TYPES::View,
     epoch: Option<TYPES::Epoch>,
     public_key: &TYPES::SignatureKey,
@@ -212,16 +212,11 @@ pub async fn build_assembled_sig<
     DATAType: Committable + Clone + Eq + Hash + Serialize + Debug + 'static,
 >(
     data: &DATAType,
-    membership: &Arc<RwLock<TYPES::Membership>>,
+    epoch_membership: &Arc<RwLock<TYPES::Membership>>,
     view: TYPES::View,
     epoch: Option<TYPES::Epoch>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
 ) -> <TYPES::SignatureKey as SignatureKey>::QcType {
-    // TODO get actual height
-    let epoch_membership = EpochMembership {
-        epoch,
-        membership: Arc::clone(membership),
-    };
     let stake_table = CERT::stake_table(&epoch_membership).await;
     let real_qc_pp: <TYPES::SignatureKey as SignatureKey>::QcParams =
         <TYPES::SignatureKey as SignatureKey>::public_parameter(

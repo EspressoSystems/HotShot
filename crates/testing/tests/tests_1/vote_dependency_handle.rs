@@ -90,7 +90,7 @@ async fn test_vote_dependency_handle() {
                 consensus: OuterConsensus::new(consensus.clone()),
                 consensus_metrics: Arc::clone(&consensus.read().await.metrics),
                 instance_state: handle.hotshot.instance_state(),
-                membership: Arc::clone(&handle.hotshot.membership_coordinator),
+                membership_coordinator: Arc::clone(&handle.hotshot.membership_coordinator),
                 storage: Arc::clone(&handle.storage()),
                 view_number,
                 sender: event_sender.clone(),

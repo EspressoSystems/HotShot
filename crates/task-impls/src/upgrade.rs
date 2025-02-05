@@ -47,7 +47,7 @@ pub struct UpgradeTaskState<TYPES: NodeType, V: Versions> {
     pub cur_epoch: Option<TYPES::Epoch>,
 
     /// Membership for Quorum Certs/votes
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// A map of `UpgradeVote` collector tasks
     pub vote_collectors: VoteCollectorsMap<TYPES, UpgradeVote<TYPES>, UpgradeCertificate<TYPES>, V>,

@@ -82,7 +82,7 @@ pub fn add_response_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versi
 ) {
     let state = NetworkResponseState::<TYPES, V>::new(
         handle.hotshot.consensus(),
-        Arc::clone(&handle.membership_coordinator),
+        handle.membership_coordinator.clone(),
         handle.public_key().clone(),
         handle.private_key().clone(),
         handle.hotshot.id,
@@ -196,13 +196,13 @@ pub fn add_network_event_task<
 >(
     handle: &mut SystemContextHandle<TYPES, I, V>,
     network: Arc<NET>,
-    membership: Arc<RwLock<TYPES::Membership>>,
+    membership_coordinator: EpochMembershipCoordinator<TYPES>,
 ) {
     let network_state: NetworkEventTaskState<_, V, _, _> = NetworkEventTaskState {
         network,
         view: TYPES::View::genesis(),
         epoch: genesis_epoch_from_version::<V, TYPES>(),
-        membership,
+        membership_coordinator,
         storage: Arc::clone(&handle.storage()),
         consensus: OuterConsensus::new(handle.consensus()),
         upgrade_lock: handle.hotshot.upgrade_lock.clone(),
@@ -533,7 +533,7 @@ where
         &self,
         handle: &mut SystemContextHandle<TYPES, I, V>,
         channel: Arc<<I as NodeImplementation<TYPES>>::Network>,
-        membership: Arc<RwLock<TYPES::Membership>>,
+        membership_coordinator: EpochMembershipCoordinator<TYPES>,
     ) {
         add_network_event_task(handle, channel, membership);
     }

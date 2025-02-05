@@ -29,16 +29,11 @@ use vec1::Vec1;
 use vid_disperse::{ADVZDisperse, ADVZDisperseShare, VidDisperseShare2};
 
 use crate::{
-    drb::DrbResult,
-    impl_has_epoch, impl_has_none_epoch,
-    message::{convert_proposal, Proposal, UpgradeLock},
-    simple_certificate::{
+    drb::DrbResult, epoch_membership::EpochMembershipCoordinator, impl_has_epoch, impl_has_none_epoch, message::{convert_proposal, Proposal, UpgradeLock}, simple_certificate::{
         NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         TimeoutCertificate2, UpgradeCertificate, ViewSyncFinalizeCertificate,
         ViewSyncFinalizeCertificate2,
-    },
-    simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData},
-    traits::{
+    }, simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData}, traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
             GENESIS_VID_NUM_STORAGE_NODES,
@@ -47,10 +42,7 @@ use crate::{
         signature_key::SignatureKey,
         states::TestableState,
         BlockPayload,
-    },
-    utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number},
-    vid::{VidCommitment, VidCommon, VidSchemeType},
-    vote::{Certificate, HasViewNumber},
+    }, utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number}, vid::{VidCommitment, VidCommon, VidSchemeType}, vote::{Certificate, HasViewNumber}
 };
 
 /// Implements `ConsensusTime`, `Display`, `Add`, `AddAssign`, `Deref` and `Sub`
@@ -240,7 +232,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     pub async fn from_membership(
         view_number: TYPES::View,
         vid_disperse: JfVidDisperse<VidSchemeType>,
-        membership: &Arc<RwLock<TYPES::Membership>>,
+        membership: &EpochMembershipCoordinator<TYPES>,
         target_epoch: Option<TYPES::Epoch>,
         data_epoch: Option<TYPES::Epoch>,
         data_epoch_payload_commitment: Option<VidCommitment>,
@@ -266,7 +258,7 @@ impl<TYPES: NodeType> VidDisperse<TYPES> {
     #[allow(clippy::panic)]
     pub async fn calculate_vid_disperse<V: Versions>(
         payload: &TYPES::BlockPayload,
-        membership: &Arc<RwLock<TYPES::Membership>>,
+        membership: &EpochMembershipCoordinator<TYPES>,
         view: TYPES::View,
         target_epoch: Option<TYPES::Epoch>,
         data_epoch: Option<TYPES::Epoch>,

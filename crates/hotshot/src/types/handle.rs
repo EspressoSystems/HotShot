@@ -32,6 +32,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
+    utils::{epoch_from_block_number, option_epoch_from_block_number},
 };
 use tracing::instrument;
 
@@ -186,8 +187,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 // Then, if it's `Some`, make sure that the data is correct
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
+                    let maybe_epoch = option_epoch_from_block_number(
+                        quorum_proposal.data.epoch.is_some(),
+                        quorum_proposal.data.block_header().height,
+                        epoch_height,
+                    );
+                    let membership = mem.membership_for_epoch(maybe_epoch).await;
                     // Make sure that the quorum_proposal is valid
-                    if let Err(err) = quorum_proposal.validate_signature(&mem) {
+                    if let Err(err) = quorum_proposal.validate_signature(&membership) {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }
@@ -326,9 +333,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
     ) -> Result<TYPES::SignatureKey> {
         self.hotshot
             .membership_coordinator
-            .read()
+            .membership_for_epoch(epoch_number)
             .await
-            .leader(view_number, epoch_number)
+            .leader(view_number)
+            .await
             .context("Failed to lookup leader")
     }
 

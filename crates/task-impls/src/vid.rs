@@ -47,7 +47,7 @@ pub struct VidTaskState<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
     pub network: Arc<I::Network>,
 
     /// Membership for the quorum
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,

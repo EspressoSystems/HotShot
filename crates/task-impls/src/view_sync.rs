@@ -74,7 +74,7 @@ pub struct ViewSyncTaskState<TYPES: NodeType, V: Versions> {
     pub cur_epoch: Option<TYPES::Epoch>,
 
     /// Membership for the quorum
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -161,7 +161,7 @@ pub struct ViewSyncReplicaTaskState<TYPES: NodeType, V: Versions> {
     pub id: u64,
 
     /// Membership for the quorum
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,

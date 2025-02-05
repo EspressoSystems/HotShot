@@ -51,7 +51,7 @@ pub struct VoteCollectionTaskState<
     pub public_key: TYPES::SignatureKey,
 
     /// Membership for voting
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// accumulator handles aggregating the votes
     pub accumulator: Option<VoteAccumulator<TYPES, VOTE, CERT, V>>,
@@ -178,7 +178,7 @@ pub struct AccumulatorInfo<TYPES: NodeType> {
     pub public_key: TYPES::SignatureKey,
 
     /// Membership we are accumulation votes for
-    pub membership: Arc<RwLock<TYPES::Membership>>,
+    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
 
     /// View of the votes we are collecting
     pub view: TYPES::View,
