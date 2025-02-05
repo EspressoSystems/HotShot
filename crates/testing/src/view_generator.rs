@@ -25,17 +25,23 @@ use hotshot_types::{
     data::{
         DaProposal2, EpochNumber, Leaf2, QuorumProposal2, QuorumProposalWrapper, VidDisperse,
         VidDisperseShare, ViewChangeEvidence2, ViewNumber,
-    }, epoch_membership::EpochMembershipCoordinator, message::{Proposal, UpgradeLock}, simple_certificate::{
+    },
+    epoch_membership::EpochMembershipCoordinator,
+    message::{Proposal, UpgradeLock},
+    simple_certificate::{
         DaCertificate2, QuorumCertificate2, TimeoutCertificate2, UpgradeCertificate,
         ViewSyncFinalizeCertificate2,
-    }, simple_vote::{
+    },
+    simple_vote::{
         DaData2, DaVote2, QuorumData2, QuorumVote2, TimeoutData2, TimeoutVote2,
         UpgradeProposalData, UpgradeVote, ViewSyncFinalizeData2, ViewSyncFinalizeVote2,
-    }, traits::{
+    },
+    traits::{
         consensus_api::ConsensusApi,
         node_implementation::{ConsensusTime, NodeType, Versions},
         BlockPayload,
-    }, utils::genesis_epoch_from_version
+    },
+    utils::genesis_epoch_from_version,
 };
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};

@@ -51,16 +51,13 @@ pub struct VoteCollectionTaskState<
     pub public_key: TYPES::SignatureKey,
 
     /// Membership for voting
-    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
+    pub membership: EpochMembership<TYPES>,
 
     /// accumulator handles aggregating the votes
     pub accumulator: Option<VoteAccumulator<TYPES, VOTE, CERT, V>>,
 
     /// The view which we are collecting votes for
     pub view: TYPES::View,
-
-    /// The epoch which we are collecting votes for
-    pub epoch: Option<TYPES::Epoch>,
 
     /// Node id
     pub id: u64,
@@ -109,13 +106,11 @@ impl<
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<Option<CERT>> {
         // TODO create this only once
-        let coordinator = EpochMembershipCoordinator::new(Arc::clone(&self.membership), 10);
-        let epoch_membership = coordinator.membership_for_epoch(sender_epoch).await;
         ensure!(
             matches!(
                 self.transition_indicator,
                 EpochTransitionIndicator::InTransition
-            ) || vote.leader(&epoch_membership).await? == self.public_key,
+            ) || vote.leader(&self.membership).await? == self.public_key,
             info!("Received vote for a view in which we were not the leader.")
         );
 
@@ -132,7 +127,7 @@ impl<
             "No accumulator to handle vote with. This shouldn't happen."
         ))?;
 
-        match accumulator.accumulate(vote, epoch_membership).await {
+        match accumulator.accumulate(vote, self.membership).await {
             None => Ok(None),
             Some(cert) => {
                 tracing::debug!("Certificate Formed! {:?}", cert);
@@ -178,13 +173,10 @@ pub struct AccumulatorInfo<TYPES: NodeType> {
     pub public_key: TYPES::SignatureKey,
 
     /// Membership we are accumulation votes for
-    pub membership_coordinator: EpochMembershipCoordinator<TYPES>,
+    pub membership: EpochMembership<TYPES>,
 
     /// View of the votes we are collecting
     pub view: TYPES::View,
-
-    /// Epoch of the votes we are collecting
-    pub epoch: Option<TYPES::Epoch>,
 
     /// This nodes id
     pub id: u64,
@@ -227,11 +219,10 @@ where
     };
 
     let mut state = VoteCollectionTaskState::<TYPES, VOTE, CERT, V> {
-        membership: Arc::clone(&info.membership),
+        membership: info.membership.clone(),
         public_key: info.public_key.clone(),
         accumulator: Some(new_accumulator),
         view: info.view,
-        epoch: info.epoch,
         id: info.id,
         transition_indicator,
     };
@@ -259,7 +250,7 @@ pub async fn handle_vote<
     collectors: &mut VoteCollectorsMap<TYPES, VOTE, CERT, V>,
     vote: &VOTE,
     public_key: TYPES::SignatureKey,
-    membership: &Arc<RwLock<TYPES::Membership>>,
+    membership: &EpochMembership<TYPES>,
     epoch: Option<TYPES::Epoch>,
     id: u64,
     event: &Arc<HotShotEvent<TYPES>>,
@@ -275,7 +266,7 @@ where
             tracing::debug!("Starting vote handle for view {:?}", vote.view_number());
             let info = AccumulatorInfo {
                 public_key,
-                membership: Arc::clone(membership),
+                membership: membership.clone(),
                 view: vote.view_number(),
                 epoch,
                 id,

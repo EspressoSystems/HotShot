@@ -29,11 +29,17 @@ use vec1::Vec1;
 use vid_disperse::{ADVZDisperse, ADVZDisperseShare, VidDisperseShare2};
 
 use crate::{
-    drb::DrbResult, epoch_membership::EpochMembershipCoordinator, impl_has_epoch, impl_has_none_epoch, message::{convert_proposal, Proposal, UpgradeLock}, simple_certificate::{
+    drb::DrbResult,
+    epoch_membership::EpochMembershipCoordinator,
+    impl_has_epoch, impl_has_none_epoch,
+    message::{convert_proposal, Proposal, UpgradeLock},
+    simple_certificate::{
         NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2, TimeoutCertificate,
         TimeoutCertificate2, UpgradeCertificate, ViewSyncFinalizeCertificate,
         ViewSyncFinalizeCertificate2,
-    }, simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData}, traits::{
+    },
+    simple_vote::{HasEpoch, QuorumData, QuorumData2, UpgradeProposalData, VersionedVoteData},
+    traits::{
         block_contents::{
             vid_commitment, BlockHeader, BuilderFee, EncodeBytes, TestableBlock,
             GENESIS_VID_NUM_STORAGE_NODES,
@@ -42,7 +48,10 @@ use crate::{
         signature_key::SignatureKey,
         states::TestableState,
         BlockPayload,
-    }, utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number}, vid::{VidCommitment, VidCommon, VidSchemeType}, vote::{Certificate, HasViewNumber}
+    },
+    utils::{bincode_opts, genesis_epoch_from_version, option_epoch_from_block_number},
+    vid::{VidCommitment, VidCommon, VidSchemeType},
+    vote::{Certificate, HasViewNumber},
 };
 
 /// Implements `ConsensusTime`, `Display`, `Add`, `AddAssign`, `Deref` and `Sub`

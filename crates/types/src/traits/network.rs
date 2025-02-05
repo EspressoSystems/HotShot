@@ -30,7 +30,10 @@ use thiserror::Error;
 use tokio::{sync::mpsc::error::TrySendError, time::sleep};
 
 use super::{node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ViewNumber, epoch_membership::EpochMembershipCoordinator, message::SequencingMessage, BoxSyncFuture};
+use crate::{
+    data::ViewNumber, epoch_membership::EpochMembershipCoordinator, message::SequencingMessage,
+    BoxSyncFuture,
+};
 
 /// Centralized server specific errors
 #[derive(Debug, Error, Serialize, Deserialize)]
