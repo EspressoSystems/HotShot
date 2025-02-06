@@ -700,7 +700,7 @@
 <span class="doccomment">/// Returns Some(0) if epochs are enabled by V::Base, otherwise returns None
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>genesis_epoch_from_version&lt;V: Versions, TYPES: NodeType&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::Epoch&gt; {
-    (V::Base::VERSION &gt;= V::Epochs::VERSION).then(|| TYPES::Epoch::new(<span class="number">0</span>))
+    (V::Base::VERSION &gt;= V::Epochs::VERSION).then(|| TYPES::Epoch::new(<span class="number">1</span>))
 }
 
 <span class="doccomment">/// A function for generating a cute little user mnemonic from a hash

@@ -1748,6 +1748,14 @@
 <a href="#1748" id="1748">1748</a>
 <a href="#1749" id="1749">1749</a>
 <a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -1884,6 +1892,14 @@
 }
 
 <span class="macro">impl_u64_wrapper!</span>(EpochNumber);
+
+<span class="kw">impl </span>EpochNumber {
+    <span class="doccomment">/// Create a genesis number (1)
+    </span><span class="attr">#[allow(dead_code)]
+    </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">1</span>)
+    }
+}
 
 <span class="doccomment">/// A proposal to start providing data availability for a block.
 </span><span class="attr">#[derive(derive_more::Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
