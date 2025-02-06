@@ -206,13 +206,6 @@ fn sanitize_view_map<TYPES: NodeType>(
         if let Some(leaf) = node_leaves.first() {
             result.insert(*view, leaf.1.clone());
         }
-
-        for (parent, child) in result.values().zip(result.values().skip(1)) {
-            // We want to make sure the aggregated leafmap has not missed a decide event
-            if child.justify_qc().data.leaf_commit != parent.commit() {
-                bail!("The network has decided:\n\n{child:?}\n\nwhich succeeds:\n\n{parent:?}\n\nbut the commits do not match. Did we miss an intermediate leaf?");
-            }
-        }
     }
 
     for (parent, child) in result.values().zip(result.values().skip(1)) {
@@ -319,22 +312,20 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
         }
     }
     pub async fn check_view_success(&self) -> Result<()> {
-        let sanitized_network_map = sanitize_network_map(&self.consensus_leaves)?;
-
-        let mut inverted_map = invert_network_map::<TYPES, V>(&sanitized_network_map).await?;
-
-        let (current_view, _) = inverted_map
-            .pop_last()
-            .context(error!("Leaf map is empty, which should be impossible"))?;
-
-        ensure!(
-            !self
-                .safety_properties
-                .expected_view_failures
-                .contains(&current_view),
-            "Expected a view failure, but got a decided leaf for view: {:?}",
-            current_view
-        );
+        for (node_id, node_map) in self.consensus_leaves.iter() {
+            for (view, leaf) in node_map {
+                ensure!(
+                    !self
+                        .safety_properties
+                        .expected_view_failures
+                        .contains(&view),
+                    "Expected a view failure, but got a decided leaf for view {:?} from node {:?}.\n\nLeaf:\n\n{:?}",
+                    view,
+                    node_id,
+                    leaf
+                );
+            }
+        }
 
         Ok(())
     }
@@ -378,22 +369,22 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> TestTaskState
 
     /// Handles an event from one of multiple receivers.
     async fn handle_event(&mut self, (message, id): (Self::Event, usize)) -> Result<()> {
-        {
-            let mut timeout_task = spawn_timeout_task(
-                self.test_sender.clone(),
-                self.safety_properties.event_timeout,
-            );
-
-            std::mem::swap(&mut self.timeout_task, &mut timeout_task);
-
-            timeout_task.abort();
-        }
-
         if let Event {
             event: EventType::Decide { leaf_chain, .. },
             ..
         } = message
         {
+            {
+                let mut timeout_task = spawn_timeout_task(
+                    self.test_sender.clone(),
+                    self.safety_properties.event_timeout,
+                );
+
+                std::mem::swap(&mut self.timeout_task, &mut timeout_task);
+
+                timeout_task.abort();
+            }
+
             for leaf_info in leaf_chain.iter().rev() {
                 let map = &mut self.consensus_leaves.entry(id).or_insert(BTreeMap::new());
 
