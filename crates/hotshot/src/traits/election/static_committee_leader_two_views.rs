@@ -15,7 +15,8 @@ use hotshot_types::{
     PeerConfig,
 };
 use primitive_types::U256;
-use utils::anytrace::Result;
+use utils::anytrace::{self, Error, Level, Result};
+use utils::line_info;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 
@@ -234,5 +235,15 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommitteeLeaderForTwoViews<TYP
     /// Get the voting upgrade threshold for the committee
     fn upgrade_threshold(&self, _epoch: Option<<TYPES as NodeType>::Epoch>) -> NonZeroU64 {
         NonZeroU64::new(((self.stake_table.len() as u64 * 9) / 10) + 1).unwrap()
+    }
+    fn has_epoch(&self, _epoch: TYPES::Epoch) -> bool {
+        true
+    }
+
+    async fn get_epoch_root(
+        &self,
+        _block_height: u64,
+    ) -> Result<(TYPES::Epoch, TYPES::BlockHeader)> {
+        Err(anytrace::error!("Not implemented"))
     }
 }
