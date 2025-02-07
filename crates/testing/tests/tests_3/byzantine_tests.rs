@@ -76,6 +76,7 @@ cross_tests!(
         metadata.test_config.epoch_height = 0;
         metadata.overall_safety_properties.num_successful_views = 10;
         metadata.overall_safety_properties.expected_view_failures = vec![3, 4];
+        metadata.overall_safety_properties.decide_timeout = Duration::from_secs(12);
         metadata
     },
 );
@@ -114,6 +115,7 @@ cross_tests!(
 
         metadata.test_config.epoch_height = 0;
         metadata.overall_safety_properties.expected_view_failures = vec![6, 7, 11, 12];
+        metadata.overall_safety_properties.decide_timeout = Duration::from_secs(20);
 
         metadata
     },
@@ -234,6 +236,7 @@ cross_tests!(
 
         metadata.test_config.epoch_height = 0;
         metadata.overall_safety_properties.expected_view_failures = vec![13, 14];
+        metadata.overall_safety_properties.decide_timeout = Duration::from_secs(12);
         metadata
     },
 );
