@@ -256,8 +256,8 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
         ensure!(
             num_successful_views >= self.safety_properties.num_successful_views,
             "Not enough successful views: expected {:?} but got {:?}",
+            self.safety_properties.num_successful_views,
             num_successful_views,
-            self.safety_properties.num_successful_views
         );
 
         let expected_upgrade = self.ensure_upgrade;

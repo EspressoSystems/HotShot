@@ -6,7 +6,7 @@
 
 // TODO: Remove this after integration
 #![allow(unused_imports)]
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use hotshot_example_types::{
     node_types::{
@@ -102,6 +102,7 @@ cross_tests!(
             view_spin_node_down + 1,
             view_spin_node_down + 2
         ];
+        metadata.overall_safety_properties.decide_timeout = Duration::from_secs(24);
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 13;
 
