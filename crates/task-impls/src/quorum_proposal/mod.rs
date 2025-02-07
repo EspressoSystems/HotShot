@@ -21,7 +21,6 @@ use hotshot_types::{
     message::UpgradeLock,
     simple_certificate::{QuorumCertificate2, UpgradeCertificate},
     traits::{
-        election::Membership,
         node_implementation::{ConsensusTime, NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         storage::Storage,

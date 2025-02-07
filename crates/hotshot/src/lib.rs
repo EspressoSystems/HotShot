@@ -57,7 +57,6 @@ use hotshot_types::{
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
         consensus_api::ConsensusApi,
-        election::Membership,
         network::ConnectedNetwork,
         node_implementation::{ConsensusTime, NodeType},
         signature_key::SignatureKey,

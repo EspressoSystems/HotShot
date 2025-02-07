@@ -11,7 +11,6 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::epoch_membership::EpochMembershipCoordinator;
-use hotshot_types::simple_vote::HasEpoch;
 use hotshot_types::{
     consensus::{Consensus, OuterConsensus},
     data::{DaProposal2, PackedBundle},
@@ -21,7 +20,6 @@ use hotshot_types::{
     simple_vote::{DaData2, DaVote2},
     traits::{
         block_contents::vid_commitment,
-        election::Membership,
         network::ConnectedNetwork,
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
@@ -304,7 +302,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                     vote,
                     self.public_key.clone(),
                     &membership,
-                    epoch,
                     self.id,
                     &event,
                     &event_stream,

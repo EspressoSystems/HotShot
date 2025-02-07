@@ -8,7 +8,6 @@
 
 use std::{collections::BTreeMap, fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
 
-use async_lock::RwLock;
 use jf_vid::{VidDisperse as JfVidDisperse, VidScheme};
 use serde::{Deserialize, Serialize};
 use tokio::task::spawn_blocking;
@@ -20,8 +19,7 @@ use crate::{
     message::Proposal,
     simple_vote::HasEpoch,
     traits::{
-        block_contents::EncodeBytes, election::Membership, node_implementation::NodeType,
-        signature_key::SignatureKey,
+        block_contents::EncodeBytes, node_implementation::NodeType, signature_key::SignatureKey,
     },
     vid::{advz_scheme, VidCommitment, VidCommon, VidSchemeType, VidShare},
     vote::HasViewNumber,

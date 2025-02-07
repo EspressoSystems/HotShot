@@ -7,21 +7,7 @@
 //! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
-#[cfg(feature = "hotshot-testing")]
-use std::str::FromStr;
-use std::{
-    cmp::min,
-    collections::{BTreeSet, HashSet},
-    fmt::Debug,
-    net::{IpAddr, ToSocketAddrs},
-    num::NonZeroUsize,
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-
+use crate::EpochMembershipCoordinator;
 use anyhow::{anyhow, Context};
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -37,7 +23,6 @@ use hotshot_types::{
     data::ViewNumber,
     network::NetworkConfig,
     traits::{
-        election::Membership,
         metrics::{Counter, Gauge, Metrics, NoMetrics},
         network::{ConnectedNetwork, NetworkError, Topic},
         node_implementation::{ConsensusTime, NodeType},
@@ -66,6 +51,20 @@ use libp2p_networking::{
 };
 use rand::{rngs::StdRng, seq::IteratorRandom, SeedableRng};
 use serde::Serialize;
+#[cfg(feature = "hotshot-testing")]
+use std::str::FromStr;
+use std::{
+    cmp::min,
+    collections::{BTreeSet, HashSet},
+    fmt::Debug,
+    net::{IpAddr, ToSocketAddrs},
+    num::NonZeroUsize,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio::{
     select, spawn,
     sync::{
@@ -999,7 +998,12 @@ impl<T: NodeType> ConnectedNetwork<T::SignatureKey> for Libp2pNetwork<T> {
         let future_view = <TYPES as NodeType>::View::new(view) + LOOK_AHEAD;
         let epoch = epoch.map(<TYPES as NodeType>::Epoch::new);
 
-        let future_leader = match membership.read().await.leader(future_view, epoch) {
+        let future_leader = match membership_coordinator
+            .membership_for_epoch(epoch)
+            .await
+            .leader(future_view)
+            .await
+        {
             Ok(l) => l,
             Err(e) => {
                 return tracing::info!(

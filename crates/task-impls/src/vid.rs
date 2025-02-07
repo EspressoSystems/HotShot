@@ -7,17 +7,16 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use async_broadcast::{Receiver, Sender};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{PackedBundle, VidDisperse, VidDisperseShare},
+    epoch_membership::EpochMembershipCoordinator,
     message::{Proposal, UpgradeLock},
     simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
-        election::Membership,
         node_implementation::{NodeImplementation, NodeType, Versions},
         signature_key::SignatureKey,
         BlockPayload,
@@ -88,10 +87,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                 let builder_commitment = payload.builder_commitment(metadata);
                 let epoch = self.cur_epoch;
                 if self
-                    .membership
-                    .read()
+                    .membership_coordinator
+                    .membership_for_epoch(epoch)
                     .await
-                    .leader(*view_number, epoch)
+                    .leader(*view_number)
+                    .await
                     .ok()?
                     != self.public_key
                 {
@@ -102,7 +102,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
                 }
                 let vid_disperse = VidDisperse::calculate_vid_disperse::<V>(
                     &payload,
-                    &Arc::clone(&self.membership),
+                    &self.membership_coordinator,
                     *view_number,
                     epoch,
                     epoch,
@@ -208,7 +208,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> VidTaskState<TY
 
                 let next_epoch_vid_disperse = VidDisperse::calculate_vid_disperse::<V>(
                     payload.as_ref(),
-                    &Arc::clone(&self.membership),
+                    &self.membership_coordinator,
                     proposal_view_number,
                     target_epoch,
                     sender_epoch,

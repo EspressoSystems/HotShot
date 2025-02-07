@@ -7,7 +7,6 @@
 use std::{sync::Arc, time::Duration};
 
 use async_broadcast::{Receiver, Sender};
-use async_lock::RwLock;
 use committable::Committable;
 use hotshot_types::{
     consensus::{Consensus, LockedConsensusState, OuterConsensus},
@@ -15,7 +14,6 @@ use hotshot_types::{
     epoch_membership::EpochMembershipCoordinator,
     message::{Proposal, UpgradeLock},
     traits::{
-        election::Membership,
         network::DataRequest,
         node_implementation::{NodeType, Versions},
         signature_key::SignatureKey,
@@ -176,7 +174,7 @@ impl<TYPES: NodeType, V: Versions> NetworkResponseState<TYPES, V> {
             OuterConsensus::new(Arc::clone(&self.consensus)),
             view,
             target_epoch,
-            Arc::clone(&self.membership),
+            self.membership.clone(),
             &self.private_key,
             &self.upgrade_lock,
         )
@@ -211,7 +209,11 @@ impl<TYPES: NodeType, V: Versions> NetworkResponseState<TYPES, V> {
         sender: &TYPES::SignatureKey,
         epoch: Option<TYPES::Epoch>,
     ) -> bool {
-        self.membership.read().await.has_stake(sender, epoch)
+        self.membership
+            .membership_for_epoch(epoch)
+            .await
+            .has_stake(sender)
+            .await
     }
 }
 

@@ -25,7 +25,6 @@ use hotshot_types::{
     },
     simple_vote::HasEpoch,
     traits::{
-        election::Membership,
         network::{
             BroadcastDelay, ConnectedNetwork, RequestKind, ResponseMessage, Topic, TransmitType,
             ViewMessage,
@@ -820,7 +819,6 @@ impl<
             HotShotEvent::DaVoteSend(vote) => {
                 *maybe_action = Some(HotShotAction::DaVote);
                 let view_number = vote.view_number();
-                let epoch = vote.data.epoch;
                 let leader = match self
                     .membership_coordinator
                     .membership_for_epoch(vote.epoch())
@@ -1256,7 +1254,6 @@ pub mod test {
     use std::ops::{Deref, DerefMut};
 
     use async_trait::async_trait;
-    use hotshot_types::epoch_membership::EpochMembershipCoordinator;
 
     use super::{
         Arc, ConnectedNetwork, HotShotEvent, MessageKind, NetworkEventTaskState, NodeType,
@@ -1269,7 +1266,7 @@ pub mod test {
             &mut <TYPES as NodeType>::SignatureKey,
             &mut MessageKind<TYPES>,
             &mut TransmitType<TYPES>,
-            &EpochMembershipCoordinator<TYPES>,
+            &<TYPES as NodeType>::Membership,
         ) + Send
         + Sync;
 
@@ -1305,7 +1302,7 @@ pub mod test {
                     &mut sender,
                     &mut message_kind,
                     &mut transmit,
-                    &self.membership_coordinator,
+                    &*self.membership_coordinator.membership().read().await,
                 );
 
                 self.spawn_transmit_task(message_kind, maybe_action, transmit, sender)

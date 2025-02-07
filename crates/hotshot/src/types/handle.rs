@@ -26,13 +26,13 @@ use hotshot_types::{
     message::{Message, MessageKind, Proposal, RecipientList},
     request_response::ProposalRequestPayload,
     traits::{
+        block_contents::BlockHeader,
         consensus_api::ConsensusApi,
-        election::Membership,
         network::{BroadcastDelay, ConnectedNetwork, Topic},
         node_implementation::NodeType,
         signature_key::SignatureKey,
     },
-    utils::{epoch_from_block_number, option_epoch_from_block_number},
+    utils::option_epoch_from_block_number,
 };
 use tracing::instrument;
 
@@ -187,14 +187,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static, V: Versions>
                 // Then, if it's `Some`, make sure that the data is correct
                 if let HotShotEvent::QuorumProposalResponseRecv(quorum_proposal) = hs_event.as_ref()
                 {
-                    let maybe_epoch = option_epoch_from_block_number(
-                        quorum_proposal.data.epoch.is_some(),
-                        quorum_proposal.data.block_header().height,
+                    let maybe_epoch = option_epoch_from_block_number::<TYPES>(
+                        quorum_proposal.data.proposal.epoch.is_some(),
+                        quorum_proposal.data.block_header().block_number(),
                         epoch_height,
                     );
                     let membership = mem.membership_for_epoch(maybe_epoch).await;
                     // Make sure that the quorum_proposal is valid
-                    if let Err(err) = quorum_proposal.validate_signature(&membership) {
+                    if let Err(err) = quorum_proposal.validate_signature(&membership).await {
                         tracing::warn!("Invalid Proposal Received after Request.  Err {:?}", err);
                         continue;
                     }

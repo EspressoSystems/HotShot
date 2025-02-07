@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use async_broadcast::{Receiver, Sender};
-use async_lock::RwLock;
 use async_trait::async_trait;
 use either::Either;
 use hotshot_task::task::TaskState;

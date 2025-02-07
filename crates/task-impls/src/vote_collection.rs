@@ -13,11 +13,10 @@ use std::{
 };
 
 use async_broadcast::Sender;
-use async_lock::RwLock;
 use async_trait::async_trait;
 use either::Either::{Left, Right};
 use hotshot_types::{
-    epoch_membership::{EpochMembership, EpochMembershipCoordinator},
+    epoch_membership::EpochMembership,
     message::UpgradeLock,
     simple_certificate::{
         DaCertificate2, NextEpochQuorumCertificate2, QuorumCertificate, QuorumCertificate2,
@@ -102,7 +101,6 @@ impl<
     pub async fn accumulate_vote(
         &mut self,
         vote: &VOTE,
-        sender_epoch: Option<TYPES::Epoch>,
         event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<Option<CERT>> {
         // TODO create this only once
@@ -127,7 +125,7 @@ impl<
             "No accumulator to handle vote with. This shouldn't happen."
         ))?;
 
-        match accumulator.accumulate(vote, self.membership).await {
+        match accumulator.accumulate(vote, self.membership.clone()).await {
             None => Ok(None),
             Some(cert) => {
                 tracing::debug!("Certificate Formed! {:?}", cert);
@@ -251,7 +249,6 @@ pub async fn handle_vote<
     vote: &VOTE,
     public_key: TYPES::SignatureKey,
     membership: &EpochMembership<TYPES>,
-    epoch: Option<TYPES::Epoch>,
     id: u64,
     event: &Arc<HotShotEvent<TYPES>>,
     event_stream: &Sender<Arc<HotShotEvent<TYPES>>>,
@@ -268,7 +265,6 @@ where
                 public_key,
                 membership: membership.clone(),
                 view: vote.view_number(),
-                epoch,
                 id,
             };
             let collector = create_vote_accumulator(
@@ -490,9 +486,7 @@ impl<TYPES: NodeType, V: Versions>
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<Option<QuorumCertificate2<TYPES>>> {
         match event.as_ref() {
-            HotShotEvent::QuorumVoteRecv(vote) => {
-                self.accumulate_vote(vote, self.epoch, sender).await
-            }
+            HotShotEvent::QuorumVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => Ok(None),
         }
     }
@@ -515,12 +509,8 @@ impl<TYPES: NodeType, V: Versions>
         match event.as_ref() {
             HotShotEvent::QuorumVoteRecv(vote) => {
                 // #3967 REVIEW NOTE: Should we error if self.epoch is None?
-                let next_epoch = self
-                    .epoch
-                    .map(|x| x + 1)
-                    .ok_or_else(|| error!("epoch should not be none in handle_vote_event"))?;
-                self.accumulate_vote(&vote.clone().into(), Some(next_epoch), sender)
-                    .await
+                self.membership = self.membership.next_epoch().await;
+                self.accumulate_vote(&vote.clone().into(), sender).await
             }
             _ => Ok(None),
         }
@@ -542,9 +532,7 @@ impl<TYPES: NodeType, V: Versions>
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<Option<UpgradeCertificate<TYPES>>> {
         match event.as_ref() {
-            HotShotEvent::UpgradeVoteRecv(vote) => {
-                self.accumulate_vote(vote, self.epoch, sender).await
-            }
+            HotShotEvent::UpgradeVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => Ok(None),
         }
     }
@@ -563,7 +551,7 @@ impl<TYPES: NodeType, V: Versions> HandleVoteEvent<TYPES, DaVote2<TYPES>, DaCert
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<Option<DaCertificate2<TYPES>>> {
         match event.as_ref() {
-            HotShotEvent::DaVoteRecv(vote) => self.accumulate_vote(vote, self.epoch, sender).await,
+            HotShotEvent::DaVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => Ok(None),
         }
     }
@@ -583,9 +571,7 @@ impl<TYPES: NodeType, V: Versions>
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<Option<TimeoutCertificate2<TYPES>>> {
         match event.as_ref() {
-            HotShotEvent::TimeoutVoteRecv(vote) => {
-                self.accumulate_vote(vote, self.epoch, sender).await
-            }
+            HotShotEvent::TimeoutVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => Ok(None),
         }
     }
@@ -606,7 +592,7 @@ impl<TYPES: NodeType, V: Versions>
     ) -> Result<Option<ViewSyncPreCommitCertificate2<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncPreCommitVoteRecv(vote) => {
-                self.accumulate_vote(vote, self.epoch, sender).await
+                self.accumulate_vote(vote, sender).await
             }
             _ => Ok(None),
         }
@@ -627,9 +613,7 @@ impl<TYPES: NodeType, V: Versions>
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     ) -> Result<Option<ViewSyncCommitCertificate2<TYPES>>> {
         match event.as_ref() {
-            HotShotEvent::ViewSyncCommitVoteRecv(vote) => {
-                self.accumulate_vote(vote, self.epoch, sender).await
-            }
+            HotShotEvent::ViewSyncCommitVoteRecv(vote) => self.accumulate_vote(vote, sender).await,
             _ => Ok(None),
         }
     }
@@ -650,7 +634,7 @@ impl<TYPES: NodeType, V: Versions>
     ) -> Result<Option<ViewSyncFinalizeCertificate2<TYPES>>> {
         match event.as_ref() {
             HotShotEvent::ViewSyncFinalizeVoteRecv(vote) => {
-                self.accumulate_vote(vote, self.epoch, sender).await
+                self.accumulate_vote(vote, sender).await
             }
             _ => Ok(None),
         }

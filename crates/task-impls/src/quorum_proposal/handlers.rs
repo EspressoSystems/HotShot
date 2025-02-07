@@ -29,8 +29,7 @@ use hotshot_types::{
     message::Proposal,
     simple_certificate::{NextEpochQuorumCertificate2, QuorumCertificate2, UpgradeCertificate},
     traits::{
-        block_contents::BlockHeader, election::Membership, node_implementation::NodeType,
-        signature_key::SignatureKey,
+        block_contents::BlockHeader, node_implementation::NodeType, signature_key::SignatureKey,
     },
     utils::{is_last_block_in_epoch, option_epoch_from_block_number},
     vote::{Certificate, HasViewNumber},
@@ -139,7 +138,6 @@ impl<TYPES: NodeType, V: Versions> ProposalDependencyHandle<TYPES, V> {
                 };
                 let membership_stake_table = mem.stake_table().await;
                 let membership_success_threshold = mem.success_threshold().await;
-                drop(mem);
 
                 if qc
                     .is_valid_cert(

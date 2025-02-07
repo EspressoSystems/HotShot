@@ -8,7 +8,6 @@ use std::{sync::Arc, time::Duration};
 
 use async_broadcast::Sender;
 use chrono::Utc;
-use futures::task;
 use hotshot_types::{
     event::{Event, EventType},
     simple_vote::{HasEpoch, QuorumVote2, TimeoutData2, TimeoutVote2},
@@ -67,7 +66,6 @@ pub(crate) async fn handle_quorum_vote_recv<
         vote,
         task_state.public_key.clone(),
         &mem,
-        vote.data.epoch,
         task_state.id,
         &event,
         sender,
@@ -76,7 +74,7 @@ pub(crate) async fn handle_quorum_vote_recv<
     )
     .await?;
 
-    if let Some(vote_epoch) = vote.epoch() {
+    if vote.epoch().is_some() {
         // If the vote sender belongs to the next epoch, collect it separately to form the second QC
         let has_stake = mem.next_epoch().await.has_stake(&vote.signing_key()).await;
         if has_stake {
@@ -85,7 +83,6 @@ pub(crate) async fn handle_quorum_vote_recv<
                 &vote.clone().into(),
                 task_state.public_key.clone(),
                 &mem,
-                vote.data.epoch,
                 task_state.id,
                 &event,
                 sender,
@@ -128,7 +125,6 @@ pub(crate) async fn handle_timeout_vote_recv<
         vote,
         task_state.public_key.clone(),
         &mem,
-        vote.data.epoch,
         task_state.id,
         &event,
         sender,
@@ -327,7 +323,8 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
             .membership_coordinator
             .membership_for_epoch(epoch)
             .await
-            .has_stake(&task_state.public_key),
+            .has_stake(&task_state.public_key)
+            .await,
         debug!(
             "We were not chosen for the consensus committee for view {:?}",
             view_number
