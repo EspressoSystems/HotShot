@@ -250,6 +250,15 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
         let inverted_map = invert_network_map::<TYPES, V>(&sanitized_network_map).await?;
 
         let sanitized_view_map = sanitize_view_map(&inverted_map)?;
+        let num_successful_views = sanitized_view_map.iter().len();
+
+        // check that we've succeeded in enough views
+        ensure!(
+            num_successful_views >= self.safety_properties.num_successful_views,
+            "Not enough successful views: expected {:?} but got {:?}",
+            num_successful_views,
+            self.safety_properties.num_successful_views
+        );
 
         let expected_upgrade = self.ensure_upgrade;
         let actual_upgrade = sanitized_view_map.iter().fold(false, |acc, (_view, leaf)| {
@@ -377,7 +386,7 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> TestTaskState
             {
                 let mut timeout_task = spawn_timeout_task(
                     self.test_sender.clone(),
-                    self.safety_properties.event_timeout,
+                    self.safety_properties.decide_timeout,
                 );
 
                 std::mem::swap(&mut self.timeout_task, &mut timeout_task);

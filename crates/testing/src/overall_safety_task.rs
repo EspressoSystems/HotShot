@@ -85,7 +85,7 @@ pub struct OverallSafetyPropertiesDescription {
     /// pass in the views that may or may not fail.
     pub possible_view_failures: Vec<u64>,
     /// how long to wait between external events before timing out the test
-    pub event_timeout: Duration,
+    pub decide_timeout: Duration,
 }
 
 impl Default for OverallSafetyPropertiesDescription {
@@ -97,7 +97,7 @@ impl Default for OverallSafetyPropertiesDescription {
             transaction_threshold: 0,
             expected_view_failures: vec![],
             possible_view_failures: vec![],
-            event_timeout: Duration::from_secs(4),
+            decide_timeout: Duration::from_secs(4),
         }
     }
 }

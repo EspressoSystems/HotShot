@@ -212,7 +212,7 @@ where
             validate_transactions: launcher.metadata.validate_transactions,
             timeout_task: spawn_timeout_task(
                 test_sender.clone(),
-                launcher.metadata.overall_safety_properties.event_timeout,
+                launcher.metadata.overall_safety_properties.decide_timeout,
             ),
             _pd: PhantomData,
         };
