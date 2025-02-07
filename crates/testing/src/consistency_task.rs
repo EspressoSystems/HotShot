@@ -318,7 +318,7 @@ impl<TYPES: NodeType<BlockHeader = TestBlockHeader>, V: Versions> ConsistencyTas
                     !self
                         .safety_properties
                         .expected_view_failures
-                        .contains(&view),
+                        .contains(view),
                     "Expected a view failure, but got a decided leaf for view {:?} from node {:?}.\n\nLeaf:\n\n{:?}",
                     view,
                     node_id,
