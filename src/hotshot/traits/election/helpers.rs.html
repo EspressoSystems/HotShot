@@ -440,6 +440,10 @@
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (c) 2021-2024 Espresso Systems (espressosys.com)
 // This file is part of the HotShot repository.
 
@@ -667,6 +671,10 @@
         <span class="macro">assert!</span>(
             count / <span class="number">2 </span>&gt; overlap_max,
             <span class="string">"Overlap cannot be greater than the entire set size"
+        </span>);
+        <span class="macro">assert!</span>(
+            count / <span class="number">2 </span>&gt;= members_max - overlap_min,
+            <span class="string">"members_max must be greater or equal to half of the count plus overlap_min"
         </span>);
 
         <span class="kw">let </span>(<span class="kw-2">mut </span>prev_rng, <span class="kw-2">mut </span>this_rng) = make_rngs(seed, round);
