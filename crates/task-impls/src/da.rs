@@ -227,6 +227,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versions> DaTaskState<TYP
                 if let Err(e) = consensus_writer.update_saved_payloads(view_number, payload) {
                     tracing::trace!("{e:?}");
                 }
+                drop(consensus_writer);
+
                 // Optimistically calculate and update VID if we know that the primary network is down.
                 if self.network.is_primary_down() {
                     let consensus =
