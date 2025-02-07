@@ -53,7 +53,7 @@ blake3 = "1.5"
 cbor4ii = { version = "1.0", features = ["serde1"] }
 chrono = { version = "0.4", default-features = false, features = ["now"] }
 committable = "0.2"
-derive_more = { version = "1.0" }
+derive_more = { version = "2.0" }
 digest = "0.10"
 either = "1.13"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
@@ -74,8 +74,8 @@ libp2p-swarm-derive = { version = "0.35" }
 lru = "0.12"
 multiaddr = { version = "0.18" }
 portpicker = "0.1"
-rand = { version = "0.8", features = ["small_rng"] }
-rand_chacha = { version = "0.3", default-features = false }
+rand = { version = "0.9", features = ["small_rng"] }
+rand_chacha = { version = "0.9", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde-inline-default = "0.2"
 serde_bytes = { version = "0.11" }
