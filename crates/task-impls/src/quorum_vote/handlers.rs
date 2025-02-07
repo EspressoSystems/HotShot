@@ -10,6 +10,7 @@ use async_broadcast::{InactiveReceiver, Sender};
 use async_lock::RwLock;
 use chrono::Utc;
 use committable::Committable;
+use hotshot_types::epoch_membership::EpochMembership;
 use hotshot_types::{
     consensus::OuterConsensus,
     data::{Leaf2, QuorumProposalWrapper, VidDisperseShare},
@@ -31,7 +32,6 @@ use hotshot_types::{
     },
     vote::HasViewNumber,
 };
-use hotshot_types::{epoch_membership::EpochMembership, simple_vote::HasEpoch};
 use tokio::spawn;
 use tracing::instrument;
 use utils::anytrace::*;
