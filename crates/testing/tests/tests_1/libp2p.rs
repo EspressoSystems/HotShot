@@ -83,6 +83,7 @@ async fn libp2p_network_failures_2() {
         node_changes: vec![(3, dead_nodes)],
     };
     metadata.overall_safety_properties.expected_view_failures = vec![10, 11];
+    metadata.overall_safety_properties.decide_timeout = Duration::from_secs(12);
     // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
     metadata.overall_safety_properties.num_successful_views = 15;
 
