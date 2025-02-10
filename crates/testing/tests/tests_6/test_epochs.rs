@@ -277,6 +277,7 @@ cross_tests!(
         // Make sure we keep committing rounds after the bad leaders, but not the full 50 because of the numerous timeouts
         metadata.overall_safety_properties.num_successful_views = 20;
         metadata.overall_safety_properties.expected_view_failures = vec![4, 5, 10, 11, 17, 22, 23, 28, 29, 34, 35];
+        metadata.overall_safety_properties.decide_timeout = Duration::from_secs(20);
 
         metadata
     }
@@ -527,6 +528,7 @@ cross_tests!(
           num_successful_views: 22,
           expected_view_failures: vec![10],
           possible_view_failures: vec![9, 11],
+          decide_timeout: Duration::from_secs(20),
           ..Default::default()
       };
 
@@ -575,6 +577,7 @@ cross_tests!(
           num_successful_views: 22,
           expected_view_failures: vec![10],
           possible_view_failures: vec![9, 11],
+          decide_timeout: Duration::from_secs(20),
           ..Default::default()
       };
 
@@ -632,6 +635,7 @@ cross_tests!(
           num_successful_views: 22,
           expected_view_failures: vec![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
           possible_view_failures: vec![34],
+          decide_timeout: Duration::from_secs(120),
           ..Default::default()
       };
 
@@ -689,6 +693,7 @@ cross_tests!(
           num_successful_views: 22,
           expected_view_failures: vec![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
           possible_view_failures: vec![32],
+          decide_timeout: Duration::from_secs(120),
           ..Default::default()
       };
 
