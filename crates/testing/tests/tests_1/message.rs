@@ -76,12 +76,12 @@ async fn test_certificate2_validity() {
     hotshot::helpers::initialize_logging();
 
     let node_id = 1;
-    let handle = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
+    let (handle,_,_,node_key_map) = build_system_handle::<TestTypes, MemoryImpl, TestVersions>(node_id)
         .await
-        .0;
+        ;
     let membership = Arc::clone(&handle.hotshot.memberships);
 
-    let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership));
+    let mut generator = TestViewGenerator::<TestVersions>::generate(Arc::clone(&membership), Arc::clone(&node_key_map));
 
     let mut proposals = Vec::new();
     let mut leaders = Vec::new();

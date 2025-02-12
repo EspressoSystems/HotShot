@@ -6,7 +6,9 @@
 
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
+use async_trait::async_trait;
 use hotshot_types::{
+    drb::{self, DrbResult, INITIAL_DRB_RESULT},
     traits::{
         election::Membership,
         node_implementation::NodeType,
@@ -15,7 +17,7 @@ use hotshot_types::{
     PeerConfig,
 };
 use primitive_types::U256;
-use utils::anytrace::Result;
+use utils::anytrace::*;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 /// The static committee election
@@ -38,8 +40,12 @@ pub struct StaticCommittee<T: NodeType> {
     /// The nodes on the committee and their stake, indexed by public key
     indexed_da_stake_table:
         BTreeMap<T::SignatureKey, <T::SignatureKey as SignatureKey>::StakeTableEntry>,
+
+    /// The results of DRB calculations
+    drb_result_table: BTreeMap<T::Epoch, DrbResult>,
 }
 
+#[async_trait]
 impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     type Error = utils::anytrace::Error;
 
@@ -95,6 +101,7 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
             da_stake_table: da_members,
             indexed_stake_table,
             indexed_da_stake_table,
+            drb_result_table: BTreeMap::new(),
         }
     }
 
@@ -196,12 +203,29 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     fn lookup_leader(
         &self,
         view_number: <TYPES as NodeType>::View,
-        _epoch: Option<<TYPES as NodeType>::Epoch>,
+        epoch: Option<<TYPES as NodeType>::Epoch>,
     ) -> Result<TYPES::SignatureKey> {
-        #[allow(clippy::cast_possible_truncation)]
-        let index = *view_number as usize % self.eligible_leaders.len();
-        let res = self.eligible_leaders[index].clone();
-        Ok(TYPES::SignatureKey::public_key(&res))
+        if false{//let Some(epoch) = epoch {
+            /*let drb_result = if *epoch <= 2 {
+                &INITIAL_DRB_RESULT
+            } else {
+                self.drb_result_table
+                    .get(&epoch)
+                    .ok_or_else(|| panic!("DRB result not available for epoch {:?}", epoch))?
+            };*/
+            let drb_result = &INITIAL_DRB_RESULT;
+
+            Ok(drb::leader::<TYPES>(
+                view_number,
+                &self.eligible_leaders,
+                *drb_result,
+            ))
+        } else {
+            #[allow(clippy::cast_possible_truncation)]
+            let index = ((*view_number as usize) + 1) % self.eligible_leaders.len();
+            let res = self.eligible_leaders[index].clone();
+            Ok(TYPES::SignatureKey::public_key(&res))
+        }
     }
 
     /// Get the total number of nodes in the committee
@@ -233,5 +257,15 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     fn upgrade_threshold(&self, _epoch: Option<<TYPES as NodeType>::Epoch>) -> NonZeroU64 {
         let len = self.stake_table.len();
         NonZeroU64::new(max((len as u64 * 9) / 10, ((len as u64 * 2) / 3) + 1)).unwrap()
+    }
+
+    async fn add_drb_result(
+        &self,
+        epoch: TYPES::Epoch,
+        drb_result: DrbResult,
+    ) -> Option<Box<dyn FnOnce(&mut Self) + Send>> {
+        Some(Box::new(move |s: &mut Self| {
+            s.drb_result_table.insert(epoch, drb_result);
+        }))
     }
 }
