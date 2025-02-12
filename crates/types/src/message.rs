@@ -524,15 +524,16 @@ where
     pub async fn validate_signature<V: Versions>(
         &self,
         membership: &TYPES::Membership,
-        _epoch_height: u64,
+        epoch_height: u64,
         upgrade_lock: &UpgradeLock<TYPES, V>,
         drb_result: DrbResult,
     ) -> Result<()> {
         let view_number = self.data.view_number();
-        let proposal_epoch = TYPES::Epoch::new(epoch_from_block_number(
+        let proposal_epoch = option_epoch_from_block_number::<TYPES>(
+            true,
             self.data.block_header.block_number(),
             epoch_height,
-        ));
+        );
         let view_leader_key = membership.leader(view_number, proposal_epoch, drb_result);
         let proposed_leaf = Leaf::from_quorum_proposal(&self.data);
 
