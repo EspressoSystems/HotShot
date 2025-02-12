@@ -16,6 +16,8 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_task::task::TaskState;
 use hotshot_types::{
+    consensus::OuterConsensus,
+    drb::drb_result,
     message::UpgradeLock,
     simple_certificate::{
         ViewSyncCommitCertificate2, ViewSyncFinalizeCertificate2, ViewSyncPreCommitCertificate2,
@@ -75,6 +77,9 @@ pub struct ViewSyncTaskState<TYPES: NodeType, V: Versions> {
 
     /// Membership for the quorum
     pub membership: Arc<RwLock<TYPES::Membership>>,
+
+    /// Shared consensus state
+    pub consensus: OuterConsensus<TYPES>,
 
     /// This Nodes Public Key
     pub public_key: TYPES::SignatureKey,
@@ -310,12 +315,13 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                 }
 
                 // We do not have a relay task already running, so start one
+                let drb_result = drb_result(self.cur_epoch, self.consensus.clone()).await?;
                 ensure!(
-                    self.membership
-                        .read()
-                        .await
-                        .leader(vote_view + relay, self.cur_epoch)?
-                        == self.public_key,
+                    self.membership.read().await.leader(
+                        vote_view + relay,
+                        self.cur_epoch,
+                        drb_result
+                    ) == self.public_key,
                     "View sync vote sent to wrong leader"
                 );
 
@@ -332,6 +338,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     &event_stream,
                     self.upgrade_lock.clone(),
                     EpochTransitionIndicator::NotInTransition,
+                    self.consensus.clone(),
                 )
                 .await?;
 
@@ -359,12 +366,13 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                 }
 
                 // We do not have a relay task already running, so start one
+                let drb_result = drb_result(self.cur_epoch, self.consensus.clone()).await?;
                 ensure!(
-                    self.membership
-                        .read()
-                        .await
-                        .leader(vote_view + relay, self.cur_epoch)?
-                        == self.public_key,
+                    self.membership.read().await.leader(
+                        vote_view + relay,
+                        self.cur_epoch,
+                        drb_result
+                    ) == self.public_key,
                     debug!("View sync vote sent to wrong leader")
                 );
 
@@ -382,6 +390,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     &event_stream,
                     self.upgrade_lock.clone(),
                     EpochTransitionIndicator::NotInTransition,
+                    self.consensus.clone(),
                 )
                 .await?;
                 relay_map.insert(relay, vote_collector);
@@ -408,12 +417,13 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                 }
 
                 // We do not have a relay task already running, so start one
+                let drb_result = drb_result(self.cur_epoch, self.consensus.clone()).await?;
                 ensure!(
-                    self.membership
-                        .read()
-                        .await
-                        .leader(vote_view + relay, self.cur_epoch)?
-                        == self.public_key,
+                    self.membership.read().await.leader(
+                        vote_view + relay,
+                        self.cur_epoch,
+                        drb_result
+                    ) == self.public_key,
                     debug!("View sync vote sent to wrong leader")
                 );
 
@@ -430,6 +440,7 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                     &event_stream,
                     self.upgrade_lock.clone(),
                     EpochTransitionIndicator::NotInTransition,
+                    self.consensus.clone(),
                 )
                 .await;
                 if let Ok(vote_task) = vote_collector {
@@ -486,11 +497,12 @@ impl<TYPES: NodeType, V: Versions> ViewSyncTaskState<TYPES, V> {
                 );
 
                 self.num_timeouts_tracked += 1;
-                let leader = self
-                    .membership
-                    .read()
-                    .await
-                    .leader(view_number, self.cur_epoch)?;
+                let drb_result = drb_result(self.cur_epoch, self.consensus.clone()).await?;
+                let leader =
+                    self.membership
+                        .read()
+                        .await
+                        .leader(view_number, self.cur_epoch, drb_result);
                 tracing::warn!(
                     %leader,
                     leader_mnemonic = hotshot_types::utils::mnemonic(&leader),

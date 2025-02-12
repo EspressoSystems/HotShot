@@ -11,10 +11,14 @@ use std::{
 
 use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
+use utils::anytrace::*;
 
-use crate::traits::{
-    node_implementation::{ConsensusTime, NodeType},
-    signature_key::SignatureKey,
+use crate::{
+    consensus::OuterConsensus,
+    traits::{
+        node_implementation::{ConsensusTime, NodeType},
+        signature_key::SignatureKey,
+    },
 };
 
 // TODO: Add the following consts once we bench the hash time.
@@ -81,20 +85,32 @@ pub fn compute_drb_result<TYPES: NodeType>(drb_seed_input: DrbSeedInput) -> DrbR
 /// The DRB result is the output of a spawned `compute_drb_result` call.
 #[must_use]
 pub fn leader<TYPES: NodeType>(
-    view_number: usize,
+    view_number: TYPES::View,
     stake_table: &[<TYPES::SignatureKey as SignatureKey>::StakeTableEntry],
     drb_result: DrbResult,
 ) -> TYPES::SignatureKey {
     let mut hasher = DefaultHasher::new();
     drb_result.hash(&mut hasher);
     view_number.hash(&mut hasher);
+    let hash = hasher.finish(); // double check that this is right
+
     #[allow(clippy::cast_possible_truncation)]
-    // TODO: Use the total stake rather than `len()` and update the indexing after switching to
-    // a weighted stake table.
-    // <https://github.com/EspressoSystems/HotShot/issues/3898>
-    let index = (hasher.finish() as usize) % stake_table.len();
+    let index = hash as usize % stake_table.len();
     let entry = stake_table[index].clone();
     TYPES::SignatureKey::public_key(&entry)
+}
+
+/// Get the DRB result for the epoch from the stored results.
+pub async fn drb_result<TYPES: NodeType>(
+    epoch_number: TYPES::Epoch,
+    consensus: OuterConsensus<TYPES>,
+) -> Result<DrbResult> {
+    let consensus = consensus.read().await;
+    if let Some(result) = consensus.drb_seeds_and_results.results.get(&epoch_number) {
+        Ok(*result)
+    } else {
+        bail!("DRB result not found for epoch {}", epoch_number);
+    }
 }
 
 /// Alias for in-progress DRB computation task, if there's any.

@@ -7,6 +7,7 @@
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
 use hotshot_types::{
+    drb::{leader, DrbResult},
     traits::{
         election::Membership,
         node_implementation::NodeType,
@@ -15,7 +16,6 @@ use hotshot_types::{
     PeerConfig,
 };
 use primitive_types::U256;
-use utils::anytrace::Result;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 /// The static committee election
@@ -195,13 +195,12 @@ impl<TYPES: NodeType> Membership<TYPES> for StaticCommittee<TYPES> {
     /// Index the vector of public keys with the current view number
     fn lookup_leader(
         &self,
-        view_number: <TYPES as NodeType>::View,
+        view_number: TYPES::View,
         _epoch: Option<<TYPES as NodeType>::Epoch>,
-    ) -> Result<TYPES::SignatureKey> {
-        #[allow(clippy::cast_possible_truncation)]
-        let index = *view_number as usize % self.eligible_leaders.len();
-        let res = self.eligible_leaders[index].clone();
-        Ok(TYPES::SignatureKey::public_key(&res))
+        drb_result: DrbResult,
+    ) -> TYPES::SignatureKey {
+        // was result
+        leader::<TYPES>(view_number, &self.eligible_leaders, drb_result)
     }
 
     /// Get the total number of nodes in the committee

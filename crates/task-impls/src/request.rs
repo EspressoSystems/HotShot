@@ -22,6 +22,7 @@ use hotshot_task::{
 };
 use hotshot_types::{
     consensus::OuterConsensus,
+    drb::drb_result,
     simple_vote::HasEpoch,
     traits::{
         block_contents::BlockHeader,
@@ -140,7 +141,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TaskState for NetworkRequest
                 if prop_view >= self.view && maybe_vid_share.is_none() {
                     drop(consensus_reader);
                     self.spawn_requests(prop_view, prop_epoch, sender, receiver)
-                        .await;
+                        .await?;
                 }
                 Ok(())
             }
@@ -178,7 +179,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         epoch: Option<TYPES::Epoch>,
         sender: &Sender<Arc<HotShotEvent<TYPES>>>,
         receiver: &Receiver<Arc<HotShotEvent<TYPES>>>,
-    ) {
+    ) -> Result<()> {
         let request = RequestKind::Vid(view, self.public_key.clone());
 
         // First sign the request for the VID shares.
@@ -191,8 +192,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
                 view,
                 epoch,
             )
-            .await;
+            .await?;
         }
+        Ok(())
     }
 
     /// Creates a task that will request a VID share from a DA member and wait for the `HotShotEvent::VidResponseRecv`event
@@ -206,6 +208,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         view: TYPES::View,
         epoch: Option<TYPES::Epoch>,
     ) {
+        // was result
         let consensus = OuterConsensus::new(Arc::clone(&self.consensus.inner_consensus));
         let network = Arc::clone(&self.network);
         let shutdown_flag = Arc::clone(&self.shutdown_flag);
@@ -215,9 +218,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
         // Get the committee members for the view and the leader, if applicable
         let membership_reader = self.membership.read().await;
         let mut da_committee_for_view = membership_reader.da_committee_members(view, epoch);
-        if let Ok(leader) = membership_reader.leader(view, epoch) {
-            da_committee_for_view.insert(leader);
-        }
+        let drb_result = drb_result(epoch, self.consensus.clone()).await?;
+        let leader = membership_reader.leader(view, epoch, drb_result);
+        da_committee_for_view.insert(leader);
 
         // Get committee members for view
         let mut recipients: Vec<TYPES::SignatureKey> = membership_reader
@@ -287,6 +290,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkRequestState<TYPES, I
             }
         });
         self.spawned_tasks.entry(view).or_default().push(handle);
+        Ok(())
     }
 
     /// Handles main logic for the Request / Response of a vid share

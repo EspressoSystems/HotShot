@@ -15,7 +15,8 @@ use committable::{Commitment, Committable};
 use hotshot_task::dependency::{Dependency, EventDependency};
 use hotshot_types::{
     consensus::OuterConsensus,
-    data::{Leaf2, QuorumProposalWrapper, ViewChangeEvidence2},
+    data::{Leaf2, QuorumProposal2, QuorumProposalWrapper, ViewChangeEvidence2},
+    drb::drb_result,
     event::{Event, EventType, LeafInfo},
     message::{Proposal, UpgradeLock},
     request_response::ProposalRequestPayload,
@@ -45,6 +46,7 @@ use crate::{events::HotShotEvent, quorum_proposal_recv::ValidationInfo, request:
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     view_number: TYPES::View,
+    epoch_number: Option<TYPES::Epoch>,
     event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     membership: Arc<RwLock<TYPES::Membership>>,
@@ -77,6 +79,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
     .await;
 
     let mem = Arc::clone(&membership);
+    let drb_result = drb_result(epoch_number, consensus.clone()).await;
     // Make a background task to await the arrival of the event data.
     let Ok(Some(proposal)) =
         // We want to explicitly timeout here so we aren't waiting around for the data.
@@ -109,7 +112,7 @@ pub(crate) async fn fetch_proposal<TYPES: NodeType, V: Versions>(
                     {
                         // Make sure that the quorum_proposal is valid
                         let mem_reader = mem.read().await;
-                        if quorum_proposal.validate_signature(&mem_reader, epoch_height).is_ok() {
+                        if quorum_proposal.validate_signature(&mem_reader, epoch_height, drb_result).is_ok() {
                             proposal = Some(quorum_proposal.clone());
                         }
 
@@ -514,6 +517,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     consensus: OuterConsensus<TYPES>,
     upgrade_lock: &UpgradeLock<TYPES, V>,
     parent_view_number: TYPES::View,
+    parent_epoch_number: Option<TYPES::Epoch>,
     epoch_height: u64,
 ) -> Result<(Leaf2<TYPES>, Arc<<TYPES as NodeType>::ValidatedState>)> {
     let consensus_reader = consensus.read().await;
@@ -525,6 +529,7 @@ pub(crate) async fn parent_leaf_and_state<TYPES: NodeType, V: Versions>(
     if !vsm_contains_parent_view {
         let _ = fetch_proposal(
             parent_view_number,
+            parent_epoch_number,
             event_sender.clone(),
             event_receiver.clone(),
             membership,
@@ -741,7 +746,15 @@ pub(crate) async fn validate_proposal_view_and_certs<
 
     // Validate the proposal's signature. This should also catch if the leaf_commitment does not equal our calculated parent commitment
     let membership_reader = validation_info.membership.read().await;
-    proposal.validate_signature(&membership_reader, validation_info.epoch_height)?;
+
+    let epoch_number = option_epoch_from_block_number::<TYPES>(
+        proposal.data.with_epoch,
+        proposal.data.block_header().block_number(),
+        validation_info.epoch_height,
+    );
+    let drb_result = drb_result(epoch_number, validation_info.consensus.clone()).await;
+
+    proposal.validate_signature(&membership_reader, validation_info.epoch_height, drb_result)?;
     drop(membership_reader);
 
     // Verify a timeout certificate OR a view sync certificate exists and is valid.
@@ -812,20 +825,13 @@ pub(crate) async fn validate_proposal_view_and_certs<
 
     // Validate the upgrade certificate -- this is just a signature validation.
     // Note that we don't do anything with the certificate directly if this passes; it eventually gets stored as part of the leaf if nothing goes wrong.
-    {
-        let epoch = option_epoch_from_block_number::<TYPES>(
-            proposal.data.epoch().is_some(),
-            proposal.data.block_header().block_number(),
-            validation_info.epoch_height,
-        );
-        UpgradeCertificate::validate(
-            proposal.data.upgrade_certificate(),
-            &validation_info.membership,
-            epoch,
-            &validation_info.upgrade_lock,
-        )
-        .await?;
-    }
+    UpgradeCertificate::validate(
+        proposal.data.upgrade_certificate(),
+        &validation_info.membership,
+        epoch_number,
+        &validation_info.upgrade_lock,
+    )
+    .await?;
 
     Ok(())
 }

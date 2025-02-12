@@ -99,6 +99,7 @@ async fn validate_proposal_liveness<TYPES: NodeType, I: NodeImplementation<TYPES
 #[allow(clippy::too_many_arguments)]
 fn spawn_fetch_proposal<TYPES: NodeType, V: Versions>(
     view: TYPES::View,
+    epoch_number: Option<TYPES::Epoch>,
     event_sender: Sender<Arc<HotShotEvent<TYPES>>>,
     event_receiver: Receiver<Arc<HotShotEvent<TYPES>>>,
     membership: Arc<RwLock<TYPES::Membership>>,
@@ -113,6 +114,7 @@ fn spawn_fetch_proposal<TYPES: NodeType, V: Versions>(
 
         let _ = fetch_proposal(
             view,
+            epoch_number,
             event_sender,
             event_receiver,
             membership,
@@ -236,6 +238,7 @@ pub(crate) async fn handle_quorum_proposal_recv<
     if parent_leaf.is_none() {
         spawn_fetch_proposal(
             justify_qc.view_number(),
+            justify_qc.data.epoch,
             event_sender.clone(),
             event_receiver.clone(),
             Arc::clone(&validation_info.membership),

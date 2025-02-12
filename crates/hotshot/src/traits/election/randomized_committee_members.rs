@@ -12,6 +12,7 @@ use std::{
 };
 
 use hotshot_types::{
+    drb::DrbResult,
     traits::{
         election::Membership,
         node_implementation::{ConsensusTime, NodeType},
@@ -373,7 +374,8 @@ impl<TYPES: NodeType, CONFIG: QuorumFilterConfig> Membership<TYPES>
         &self,
         view_number: <TYPES as NodeType>::View,
         epoch: Option<<TYPES as NodeType>::Epoch>,
-    ) -> Result<TYPES::SignatureKey> {
+        _drb_result: DrbResult,
+    ) -> TYPES::SignatureKey {
         if let Some(epoch) = epoch {
             let filter = self.make_quorum_filter(epoch);
             let leader_vec: Vec<_> = self
@@ -392,7 +394,7 @@ impl<TYPES: NodeType, CONFIG: QuorumFilterConfig> Membership<TYPES>
 
             let res = leader_vec[index].clone();
 
-            Ok(TYPES::SignatureKey::public_key(&res))
+            TYPES::SignatureKey::public_key(&res)
         } else {
             let mut rng: StdRng = rand::SeedableRng::seed_from_u64(*view_number);
 
@@ -402,7 +404,7 @@ impl<TYPES: NodeType, CONFIG: QuorumFilterConfig> Membership<TYPES>
 
             let res = self.eligible_leaders[index].clone();
 
-            Ok(TYPES::SignatureKey::public_key(&res))
+            TYPES::SignatureKey::public_key(&res)
         }
     }
 

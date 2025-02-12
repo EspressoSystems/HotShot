@@ -9,6 +9,7 @@ use std::{sync::Arc, time::Duration};
 use async_broadcast::Sender;
 use chrono::Utc;
 use hotshot_types::{
+    drb::{drb_result, INITIAL_DRB_RESULT},
     event::{Event, EventType},
     simple_vote::{HasEpoch, QuorumVote2, TimeoutData2, TimeoutVote2},
     traits::{
@@ -40,17 +41,17 @@ pub(crate) async fn handle_quorum_vote_recv<
     sender: &Sender<Arc<HotShotEvent<TYPES>>>,
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
+    let drb_result = drb_result(vote.data.epoch, task_state.consensus.clone()).await?;
     let in_transition = task_state
         .consensus
         .read()
         .await
         .is_high_qc_for_last_block();
-    let we_are_leader = task_state
-        .membership
-        .read()
-        .await
-        .leader(vote.view_number() + 1, vote.data.epoch)?
-        == task_state.public_key;
+    let we_are_leader = task_state.membership.read().await.leader(
+        vote.view_number() + 1,
+        vote.data.epoch,
+        drb_result,
+    ) == task_state.public_key;
     ensure!(
         in_transition || we_are_leader,
         info!(
@@ -69,6 +70,7 @@ pub(crate) async fn handle_quorum_vote_recv<
         vote,
         task_state.public_key.clone(),
         &task_state.membership,
+        task_state.consensus.clone(),
         vote.data.epoch,
         task_state.id,
         &event,
@@ -91,6 +93,7 @@ pub(crate) async fn handle_quorum_vote_recv<
                 &vote.clone().into(),
                 task_state.public_key.clone(),
                 &task_state.membership,
+                task_state.consensus.clone(),
                 vote.data.epoch,
                 task_state.id,
                 &event,
@@ -117,13 +120,13 @@ pub(crate) async fn handle_timeout_vote_recv<
     task_state: &mut ConsensusTaskState<TYPES, I, V>,
 ) -> Result<()> {
     // Are we the leader for this view?
+    let drb_result = drb_result(task_state.cur_epoch, task_state.consensus.clone()).await?;
     ensure!(
-        task_state
-            .membership
-            .read()
-            .await
-            .leader(vote.view_number() + 1, task_state.cur_epoch)?
-            == task_state.public_key,
+        task_state.membership.read().await.leader(
+            vote.view_number() + 1,
+            task_state.cur_epoch,
+            drb_result
+        ) == task_state.public_key,
         info!(
             "We are not the leader for view {:?}",
             vote.view_number() + 1
@@ -135,6 +138,7 @@ pub(crate) async fn handle_timeout_vote_recv<
         vote,
         task_state.public_key.clone(),
         &task_state.membership,
+        task_state.consensus.clone(),
         vote.data.epoch,
         task_state.id,
         &event,
@@ -164,11 +168,11 @@ pub async fn send_high_qc<TYPES: NodeType, V: Versions, I: NodeImplementation<TY
         debug!("HotStuff 2 upgrade not yet in effect")
     );
     let high_qc = task_state.consensus.read().await.high_qc().clone();
-    let leader = task_state
-        .membership
-        .read()
-        .await
-        .leader(new_view_number, task_state.cur_epoch)?;
+    let leader = task_state.membership.read().await.leader(
+        new_view_number,
+        task_state.cur_epoch,
+        INITIAL_DRB_RESULT,
+    );
     broadcast_event(
         Arc::new(HotShotEvent::HighQcSend(
             high_qc,
@@ -266,11 +270,12 @@ pub(crate) async fn handle_view_change<
     // Cancel the old timeout task
     std::mem::replace(&mut task_state.timeout_task, new_timeout_task).abort();
 
-    let old_view_leader_key = task_state
-        .membership
-        .read()
-        .await
-        .leader(old_view_number, task_state.cur_epoch)?;
+    let drb_result = drb_result(task_state.cur_epoch, task_state.consensus.clone()).await?;
+    let old_view_leader_key = task_state.membership.read().await.leader(
+        old_view_number,
+        task_state.cur_epoch,
+        drb_result,
+    );
 
     let consensus_reader = task_state.consensus.read().await;
     consensus_reader
@@ -377,15 +382,17 @@ pub(crate) async fn handle_timeout<TYPES: NodeType, I: NodeImplementation<TYPES>
     )
     .await;
 
-    let leader = task_state
-        .membership
-        .read()
-        .await
-        .leader(view_number, task_state.cur_epoch);
+    let drb_result = drb_result(task_state.cur_epoch, task_state.consensus.clone()).await?;
+    let leader =
+        task_state
+            .membership
+            .read()
+            .await
+            .leader(view_number, task_state.cur_epoch, drb_result);
 
     let consensus_reader = task_state.consensus.read().await;
     consensus_reader.metrics.number_of_timeouts.add(1);
-    if leader? == task_state.public_key {
+    if leader == task_state.public_key {
         consensus_reader.metrics.number_of_timeouts_as_leader.add(1);
     }
 

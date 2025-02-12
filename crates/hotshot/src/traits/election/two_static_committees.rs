@@ -7,6 +7,7 @@
 use std::{cmp::max, collections::BTreeMap, num::NonZeroU64};
 
 use hotshot_types::{
+    drb::{leader, DrbResult},
     traits::{
         election::Membership,
         node_implementation::NodeType,
@@ -15,7 +16,6 @@ use hotshot_types::{
     PeerConfig,
 };
 use primitive_types::U256;
-use utils::anytrace::Result;
 
 /// Tuple type for eligible leaders
 type EligibleLeaders<T> = (
@@ -342,18 +342,14 @@ impl<TYPES: NodeType> Membership<TYPES> for TwoStaticCommittees<TYPES> {
         &self,
         view_number: <TYPES as NodeType>::View,
         epoch: Option<<TYPES as NodeType>::Epoch>,
-    ) -> Result<TYPES::SignatureKey> {
+        drb_result: DrbResult,
+    ) -> TYPES::SignatureKey {
+        // was result
         let epoch = epoch.expect("epochs cannot be disabled with TwoStaticCommittees");
         if *epoch != 0 && *epoch % 2 == 0 {
-            #[allow(clippy::cast_possible_truncation)]
-            let index = *view_number as usize % self.eligible_leaders.0.len();
-            let res = self.eligible_leaders.0[index].clone();
-            Ok(TYPES::SignatureKey::public_key(&res))
+            leader::<TYPES>(view_number, &self.eligible_leaders.0, drb_result)
         } else {
-            #[allow(clippy::cast_possible_truncation)]
-            let index = *view_number as usize % self.eligible_leaders.1.len();
-            let res = self.eligible_leaders.1[index].clone();
-            Ok(TYPES::SignatureKey::public_key(&res))
+            leader::<TYPES>(view_number, &self.eligible_leaders.1, drb_result)
         }
     }
 

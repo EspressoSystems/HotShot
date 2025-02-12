@@ -228,7 +228,6 @@ async fn start_drb_task<TYPES: NodeType, I: NodeImplementation<TYPES>, V: Versio
             let drb_seed_input = *entry.get();
             let new_drb_task = spawn(async move { compute_drb_result::<TYPES>(drb_seed_input) });
             task_state.drb_computation = Some((new_epoch_number, new_drb_task));
-            entry.remove();
         }
     }
 }
@@ -283,9 +282,11 @@ async fn store_drb_seed_and_result<TYPES: NodeType, I: NodeImplementation<TYPES>
         else {
             bail!("Failed to serialize the QC signature.");
         };
-        let Ok(drb_seed_input) = drb_seed_input_vec.try_into() else {
-            bail!("Failed to convert the serialized QC signature into a DRB seed input.");
-        };
+        // TODO: Replace the leader election with a weighted version.
+        // <https://github.com/EspressoSystems/HotShot/issues/3898>
+        let mut drb_seed_input = [0u8; 32];
+        let len = drb_seed_input_vec.len().min(32);
+        drb_seed_input[..len].copy_from_slice(&drb_seed_input_vec[..len]);
         task_state
             .consensus
             .write()
@@ -487,11 +488,18 @@ pub(crate) async fn update_shared_state<
 
     drop(consensus_reader);
 
+    let justify_qc_epoch_number = option_epoch_from_block_number::<TYPES>(
+        proposed_leaf.with_epoch,
+        proposed_leaf.height() - 1,
+        epoch_height,
+    );
+
     maybe_parent = match maybe_parent {
         Some(p) => Some(p),
         None => {
             match fetch_proposal(
                 justify_qc.view_number(),
+                justify_qc_epoch_number,
                 sender.clone(),
                 receiver.activate_cloned(),
                 Arc::clone(&membership),
