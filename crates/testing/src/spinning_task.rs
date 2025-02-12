@@ -9,7 +9,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Result;
 use async_broadcast::broadcast;
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -38,6 +37,7 @@ use hotshot_types::{
     vote::HasViewNumber,
     ValidatorConfig,
 };
+use utils::anytrace::*;
 
 use crate::{
     test_launcher::Network,

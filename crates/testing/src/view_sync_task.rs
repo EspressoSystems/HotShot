@@ -6,11 +6,11 @@
 
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
-use anyhow::Result;
 use async_trait::async_trait;
 use hotshot_task_impls::events::HotShotEvent;
 use hotshot_types::traits::node_implementation::{NodeType, TestableNodeImplementation};
 use thiserror::Error;
+use utils::anytrace::*;
 
 use crate::test_task::{TestResult, TestTaskState};
 

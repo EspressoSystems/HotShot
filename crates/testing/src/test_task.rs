@@ -6,7 +6,6 @@
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use anyhow::Result;
 use async_broadcast::{Receiver, Sender};
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -29,6 +28,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tracing::error;
+use utils::anytrace::*;
 
 use crate::test_runner::Node;
 
@@ -38,6 +38,14 @@ pub enum TestResult {
     Pass,
     /// the test task failed with an error
     Fail(Box<dyn std::fmt::Debug + Send + Sync>),
+}
+
+pub fn spawn_timeout_task(test_sender: Sender<TestEvent>, timeout: Duration) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        sleep(timeout).await;
+
+        let _ = test_sender.broadcast(TestEvent::Shutdown).await;
+    })
 }
 
 #[async_trait]
