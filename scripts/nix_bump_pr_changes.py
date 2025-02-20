@@ -20,8 +20,14 @@ for line in sys.stdin:
         prev = line
     if line.startswith("  → 'github:"):
 
-        [_, repo, start_commit, _] = name_commit_regex.split(prev)
-        [_, _, end_commit, _] = name_commit_regex.split(line)
+        match = name_commit_regex.match(prev)
+        if match:
+            repo, start_commit = match.groups()
+
+        match = name_commit_regex.match(line)
+        if match:
+            _, _, end_commit = match.groups()
+
         print("- [ ] " + repo + ": [repo](https://github.com/" + repo + ") | [commits this PR](https://github.com/" + repo + "/compare/" + start_commit + ".." + end_commit + ")")
 
 
