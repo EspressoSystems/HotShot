@@ -122,7 +122,7 @@ pub struct NetworkConfig<KEY: SignatureKey> {
     /// regardless of the number of nodes connected.
     pub manual_start_password: Option<String>,
     /// number of bootstrap nodes
-    pub num_bootrap: usize,
+    pub num_bootstrap: usize,
     /// timeout before starting the next view
     pub next_view_timeout: u64,
     /// timeout before starting next view sync round
@@ -284,7 +284,7 @@ impl<K: SignatureKey> Default for NetworkConfig<K> {
             combined_network_config: None,
             next_view_timeout: 10,
             view_sync_timeout: Duration::from_secs(2),
-            num_bootrap: 5,
+            num_bootstrap: 5,
             builder_timeout: Duration::from_secs(10),
             data_request_delay: Duration::from_millis(2500),
             commit_sha: String::new(),
@@ -363,7 +363,7 @@ impl<K: SignatureKey> From<NetworkConfigFile<K>> for NetworkConfig<K> {
             indexed_da: val.indexed_da,
             transactions_per_round: val.transactions_per_round,
             node_index: 0,
-            num_bootrap: val.config.num_bootstrap,
+            num_bootstrap: val.config.num_bootstrap,
             manual_start_password: val.manual_start_password,
             next_view_timeout: val.config.next_view_timeout,
             view_sync_timeout: val.config.view_sync_timeout,
