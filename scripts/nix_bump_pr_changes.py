@@ -11,7 +11,7 @@
 import sys
 import re
 
-name_commit_regex = re.compile(r"'github:([^\/]+\/[^\/]+)\/([^']+)")
+name_commit_regex = re.compile(r"'github:([^/]+/[^/]+)/([^']+)")
 prev = ''
 
 for line in sys.stdin:

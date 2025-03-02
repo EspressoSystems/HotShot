@@ -8,8 +8,8 @@ TEST_THREADS=1
 trap "echo; exit" INT
 
 die() {
-    echo "${1}";
-    exit 1;
+    echo "$1";
+    exit 1
 }
 
 # Parse arguments
@@ -17,7 +17,7 @@ while [ $# -gt 0 ]; do
   case $1 in
     -h|--help)
       echo "./flakiness -n [number of iterations] -o [output directory] -j [threads]"
-      exit 0;
+      exit 0
       ;;
     -n)
       N_ITERATIONS="$2"
@@ -35,7 +35,7 @@ while [ $# -gt 0 ]; do
       shift # past value
       ;;
     -*)
-      echo "Unknown option $1"
+      echo "Unknown option: $1"
       exit 1
       ;;
   esac
