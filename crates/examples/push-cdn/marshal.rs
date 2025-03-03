@@ -13,9 +13,8 @@ use clap::Parser;
 use hotshot::traits::implementations::ProductionDef;
 use hotshot_example_types::node_types::TestTypes;
 use hotshot_types::traits::node_implementation::NodeType;
+use tracing::{info, debug, warn};
 use tracing_subscriber::EnvFilter;
-
-// TODO: forall, add logging where we need it
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -56,7 +55,7 @@ struct Args {
 async fn main() -> Result<()> {
     // Parse command-line arguments
     let args = Args::parse();
-
+    
     // Initialize tracing
     if std::env::var("RUST_LOG_FORMAT") == Ok("json".to_string()) {
         tracing_subscriber::fmt()
@@ -68,23 +67,60 @@ async fn main() -> Result<()> {
             .with_env_filter(EnvFilter::from_default_env())
             .init();
     }
+    
+    info!("Starting CDN Marshal service");
+    debug!("Command line arguments: {:?}", args);
 
     // Create a new `Config`
     let config = Config {
-        discovery_endpoint: args.discovery_endpoint,
+        discovery_endpoint: args.discovery_endpoint.clone(),
         bind_endpoint: format!("0.0.0.0:{}", args.bind_port),
-        metrics_bind_endpoint: args.metrics_bind_endpoint,
-        ca_cert_path: args.ca_cert_path,
-        ca_key_path: args.ca_key_path,
+        metrics_bind_endpoint: args.metrics_bind_endpoint.clone(),
+        ca_cert_path: args.ca_cert_path.clone(),
+        ca_key_path: args.ca_key_path.clone(),
         global_memory_pool_size: Some(args.global_memory_pool_size),
     };
+    
+    info!("Connecting to discovery endpoint: {}", args.discovery_endpoint);
+    debug!("Binding to endpoint: 0.0.0.0:{}", args.bind_port);
+    
+    if let Some(metrics_endpoint) = &args.metrics_bind_endpoint {
+        info!("Metrics will be available at: {}", metrics_endpoint);
+    } else {
+        info!("Metrics endpoint not configured");
+    }
+    
+    if args.ca_cert_path.is_some() && args.ca_key_path.is_some() {
+        info!("Using provided CA certificate and key");
+    } else {
+        info!("Using local, pinned CA");
+    }
+    
+    info!("Global memory pool size: {} bytes", args.global_memory_pool_size);
 
     // Create new `Marshal` from the config
-    let marshal =
-        Marshal::<ProductionDef<<TestTypes as NodeType>::SignatureKey>>::new(config).await?;
+    info!("Initializing Marshal instance");
+    let marshal = match Marshal::<ProductionDef<<TestTypes as NodeType>::SignatureKey>>::new(config).await {
+        Ok(m) => {
+            info!("Marshal instance successfully created");
+            m
+        },
+        Err(e) => {
+            warn!("Failed to create Marshal instance: {}", e);
+            return Err(e.into());
+        }
+    };
 
     // Start the main loop, consuming it
-    marshal.start().await?;
-
-    Ok(())
+    info!("Starting Marshal main loop");
+    match marshal.start().await {
+        Ok(_) => {
+            info!("Marshal service completed successfully");
+            Ok(())
+        },
+        Err(e) => {
+            warn!("Marshal service encountered an error: {}", e);
+            Err(e.into())
+        }
+    }
 }
