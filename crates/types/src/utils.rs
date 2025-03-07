@@ -246,14 +246,19 @@ pub fn bincode_opts() -> WithOtherTrailing<
 }
 
 /// Returns an epoch number given a block number and an epoch height
+///
+/// The epoch has the following properties:
+/// - A `blocks_per_epoch` of 0 is always epoch
+/// - `block_number` 0 is always epoch 0
+/// - `block_number` 1 is the first block in epoch 1
+/// - The epoch increases every `blocks_per_epoch`
+/// - Every epoch, other than 0, has `blocks_per_epoch` blocks within it
 #[must_use]
-pub fn epoch_from_block_number(block_number: u64, epoch_height: u64) -> u64 {
-    if epoch_height == 0 {
+pub fn epoch_from_block_number(block_number: u64, blocks_per_epoch: u64) -> u64 {
+    if blocks_per_epoch == 0 {
         0
-    } else if block_number % epoch_height == 0 {
-        block_number / epoch_height
     } else {
-        block_number / epoch_height + 1
+        (block_number + blocks_per_epoch - 1) / blocks_per_epoch
     }
 }
 
